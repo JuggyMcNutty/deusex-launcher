@@ -136,7 +136,8 @@ PageUp/PageDown (or `,`/`.`/Tab), P/F5, Escape/Q (`ui/ui.c`).
 backend exposes the pad as polled state; `GamepadInput` turns it into the UE1
 joystick keys and axes, so what each control does is ordinary `User.ini`
 `[Engine.Input]` bindings — the same table as the keyboard, which the game's
-key menu edits. In the fork that menu cannot start a rebinding yet
+key menu edits: a double click or Enter on a row starts rebinding it, as in
+the original
 ([lists](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lists)).
 
 - Buttons: A=`Joy1` B=`Joy2` X=`Joy3` Y=`Joy4` L1=`Joy5` R1=`Joy6`
@@ -174,13 +175,14 @@ lacks taken from the packaged default, the render resolutions offered and the
 exact scale each is kept as);
 renderer resolution and the PowerVR MSAA rule; layouts, per-button remapping
 and retired-layout detection; argv construction for the exec; the device
-profiles -- the generic one, and each port's checked against its own
-`port-hooks.sh` (every CPU mode it offers is one the hooks handle, and the
-hooks fall back to its default).
+profiles -- the generic one here, and on each device's branch its own,
+checked against its `port-hooks.sh` (every CPU mode it offers is one the
+hooks handle, and the hooks fall back to its default): `scripts/dx.sh test
+<port>` runs a branch's host build.
 
 `dxl-shots` renders every tab and overlay headlessly at the profile's panel
-size (`DXL_WINDOW`) for review; configure a host build with
-`-DDXL_PROFILE=<port>` to see another device's screens.
+size (`DXL_WINDOW`) for review; on a device's branch, a host build configured
+with `-DDXL_PROFILE=<port>` shows that device's screens.
 
 What was checked on real hardware is per port, in each port's README.
 
