@@ -25,8 +25,8 @@ scripts/dx.sh build linux-aarch64       # the launcher
 scripts/dx.sh stage linux-aarch64       # build/linux-aarch64/app: copy it to the device
 
 # natively, on the device
+scripts/dx.sh fetch                     # once: the engine, the launcher's branches, the RE
 scripts/dx.sh deps  linux-aarch64       # checks for SDL2
-scripts/engine.sh fetch
 scripts/dx.sh build linux-aarch64       # launcher and engine
 scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64
 ```
@@ -43,10 +43,11 @@ scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64
 The glibc 2.31 ceiling means the cross-built launcher loads on any distro from
 2020 on. Cross-building the engine needs the C++20 toolchain and a sysroot with
 the engine's libraries (SDL2, OpenAL, zlib, ...): the Smart Pro's `port.sh` and
-`fetch-sysroot.sh` show the shape, with Debian packages in place of the
-device's own.
+`fetch-sysroot.sh`
+([on its branch](https://github.com/JuggyMcNutty/deusex-launcher/tree/trimui-smartpro/ports/trimui-smartpro))
+show the shape, with Debian packages in place of the device's own.
 
 A device whose GPU lacks descriptor indexing or some texture formats is what
 engine patch 0002 exists for (the Smart Pro's PowerVR); a Mali or Adreno under
-Mesa may not need it. The probes in `tools/probes/` answer that before the
+Mesa may not need it. Port Ex Machina's probes, `tools/probes/`, answer that before the
 first engine run -- see [`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes).
