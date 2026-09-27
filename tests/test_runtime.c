@@ -54,7 +54,60 @@ static void teardown(void) {
     rmdir(g_root);
 }
 
-/* --- the CD check ------------------------------------------------------- */
+/* --- install validation ------------------------------------------------ */
+
+static void test_complete_install_passes(void) {
+    dxl_install in;
+    dxl_install_probe(g_root, &in);
+    CHECK_INT(in.ok, 1);
+    CHECK_INT(in.missing_count, 0);
+    CHECK(in.system_dir != NULL);
+    dxl_install_free(&in);
+}
+
+/* The install screen has to say WHAT is missing, not just that something is. */
+static void test_missing_item_is_named(void) {
+    unlink_rel("Textures/Palettes.utx");
+
+    dxl_install in;
+    dxl_install_probe(g_root, &in);
+    CHECK_INT(in.ok, 0);
+    CHECK_INT(in.missing_count, 1);
+
+    int found_the_right_one = 0;
+    for (int i = 0; i < in.item_count; i++)
+        if (!in.items[i].found &&
+            strcmp(in.items[i].relative, "Textures/Palettes.utx") == 0)
+            found_the_right_one = 1;
+    CHECK_INT(found_the_right_one, 1);
+    dxl_install_free(&in);
+
+    touch("Textures/Palettes.utx", "palette");
+}
+
+static void test_empty_directory_reports_everything_missing(void) {
+    char empty[512];
+    snprintf(empty, sizeof empty, "/tmp/dxl-rt-empty-%d", (int)getpid());
+    mkdir(empty, 0755);
+
+    dxl_install in;
+    dxl_install_probe(empty, &in);
+    CHECK_INT(in.ok, 0);
+    CHECK_INT(in.missing_count, in.item_count);
+    dxl_install_free(&in);
+    rmdir(empty);
+}
+
+/* A zero-byte package is not a package. Half-finished copies to an SD card
+ * are common enough to be worth catching here rather than in the engine. */
+static void test_zero_byte_package_is_missing(void) {
+    touch("System/DeusEx.u", "");
+    dxl_install in;
+    dxl_install_probe(g_root, &in);
+    CHECK_INT(in.ok, 0);
+    dxl_install_free(&in);
+    touch("System/DeusEx.u", "package");
+}
 
 /* The shipped CdPath is "..\" -- relative to System/, so it resolves back to
  * the game directory and the check passes. That is why nobody ever saw the
@@ -157,6 +210,10 @@ static void test_handoff_delivers_the_command_line(void) {
 
 TEST_MAIN_BEGIN
     build_install();
+    RUN(test_complete_install_passes);
+    RUN(test_missing_item_is_named);
+    RUN(test_empty_directory_reports_everything_missing);
+    RUN(test_zero_byte_package_is_missing);
     RUN(test_cd_check_with_shipped_path);
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);

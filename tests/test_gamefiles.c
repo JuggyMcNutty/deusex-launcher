@@ -1,11 +1,12 @@
 #include "test.h"
+#include "core/bindings.h"
 #include "core/ini.h"
 
 #include <unistd.h>
 
 /* The checks tests/fixtures can only stand in for, run against a real install
- * in gamefiles/System: the byte-identical round trip, and the values
- * dx-reverse-info/ describes. The game's files are not part of this
+ * in gamefiles/System: the byte-identical round trip, the values dx-reverse-info/
+ * describes, and the classic pad layout. The game's files are not part of this
  * repository, so without an install there this test is skipped (exit 77). */
 
 #ifndef DXL_GAMEFILES
@@ -68,6 +69,20 @@ static void test_default_ini_matches_the_spec(void) {
     dxl_ini_free(ini);
 }
 
+/* The classic preset in src/core/bindings.c is meant to be exactly what
+ * DefUser.ini ships. */
+static void test_defuser_is_classic(void) {
+    char *path = game_file("DefUser.ini");
+    dxl_ini *ini = dxl_ini_load(path, NULL);
+    free(path);
+    CHECK(ini != NULL);
+    if (!ini) return;
+    const dxl_pad_preset *p = dxl_bindings_detect(ini);
+    CHECK(p != NULL);
+    if (p) CHECK_STR(p->id, "classic");
+    dxl_ini_free(ini);
+}
+
 TEST_MAIN_BEGIN
     if (access(DXL_GAMEFILES "/Default.ini", R_OK) != 0) {
         printf("skipped: no Deus Ex install in %s\n", DXL_GAMEFILES);
@@ -75,4 +90,5 @@ TEST_MAIN_BEGIN
     }
     RUN(test_roundtrip);
     RUN(test_default_ini_matches_the_spec);
+    RUN(test_defuser_is_classic);
 TEST_MAIN_END
