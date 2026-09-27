@@ -16,10 +16,17 @@
       "name": "linux-x86_64",
       "inherits": "port",
       "displayName": "Linux x86_64 (native; tests and dxl-shots)"
+    },
+    {
+      "name": "trimui-smartpro",
+      "inherits": "port",
+      "displayName": "TrimUI Smart Pro (spruceOS, cross)",
+      "toolchainFile": "${sourceDir}/ports/trimui-smartpro/toolchain-c.cmake"
     }
   ],
   "buildPresets": [
-    { "name": "linux-x86_64",    "configurePreset": "linux-x86_64" }
+    { "name": "linux-x86_64",    "configurePreset": "linux-x86_64" },
+    { "name": "trimui-smartpro", "configurePreset": "trimui-smartpro" }
   ],
   "testPresets": [
     {

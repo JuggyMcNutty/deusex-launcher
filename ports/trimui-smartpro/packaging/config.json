@@ -1,0 +1,10 @@
+{
+  "label": "Deus Ex",
+  "icon": "deusex.png",
+  "launch": "launch.sh",
+  "description": "Deus Ex launcher (native). Place game files in Roms/PORTS/DeusEx.",
+  "devices": [
+    "TRIMUI_SMART_PRO"
+  ],
+  "hideInSimpleMode": false
+}
