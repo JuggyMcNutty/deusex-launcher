@@ -15,8 +15,8 @@ toward it.
 ## Build and run
 
 ```sh
+scripts/dx.sh fetch                        # once: the engine, the launcher's branches, the RE
 scripts/dx.sh deps   trimui-smartpro       # toolchains + sysroot (the device must be awake)
-scripts/engine.sh fetch                    # once: the engine fork
 scripts/dx.sh deploy trimui-smartpro       # build, stage, send; --no-engine, --run to start it over SSH
 ```
 
@@ -159,8 +159,8 @@ the Video tab's Resolution asks for 960×540 or 853×480 (engine patch 0009).
 
 ## The device, as measured
 
-Probed over SSH on 2026-09-21/22, not assumed. `tools/probes/probe-sdl.c` and
-`dxl-cli --probe` reproduce it.
+Probed over SSH on 2026-09-21/22, not assumed. Port Ex Machina's
+`tools/probes/probe-sdl.c` and `dxl-cli --probe` reproduce it.
 
 | | |
 | --- | --- |
@@ -188,22 +188,23 @@ so that route was not pursued.
 
 ### Probes
 
-The repository's `tools/probes/` holds small single-purpose programs for
+Port Ex Machina's `tools/probes/` holds small single-purpose programs for
 answering questions about a device instead of assuming answers
 ([`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)). They are not part of
 any build -- each is one compile against this port's sysroot, run over SSH:
 
 ```sh
+# from the workspace's root
 TC=deps/toolchains/aarch64--glibc--stable-2020.08-1/bin/aarch64-linux-gcc
 SYS=deps/sysroots/trimui-smartpro
 $TC -O2 -mcpu=cortex-a53 -std=c11 -I $SYS/include -I $SYS/include/SDL2 \
     tools/probes/probe-vulkan-caps.c -o /tmp/probe \
     -L $SYS/lib -lvulkan -Wl,-rpath-link,$SYS/lib
-scripts/check-abi.sh --max 2.33 /tmp/probe
+launcher/trimui-smartpro/scripts/check-abi.sh --max 2.33 /tmp/probe
 # scp to the device, then: LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib ./probe
 ```
 
-What each probe answers is in PORTING.md; pause the spruceOS menu before
+What each probe answers is in the table there; pause the spruceOS menu before
 `probe-sdl.c --pad`. Each exists because a guess about this hardware turned out
 to be wrong at least once: `probe-vulkan-caps.c` found the missing descriptor
 indexing, `probe-texture-formats.c` the BCn, RGB8 and RGBA32F gaps (engine
