@@ -1,0 +1,28 @@
+# The workspace's, linked into each checkout by Port Ex Machina's
+# scripts/launcher.sh: build output, fetched toolchains and sysroots, and your
+# own Deus Ex install (never commit it).
+/build
+/deps
+/gamefiles
+
+# Game data anywhere else -- never commit. The user supplies their own copy.
+*.u
+*.utx
+*.uax
+*.umx
+*.unr
+*.dts
+*.exe
+*.dll
+
+# Loose build products
+*.o
+*.a
+*.so
+*.so.*
+
+# Editor / OS / local tool state
+.cache/
+compile_commands.json
+*.swp
+.DS_Store

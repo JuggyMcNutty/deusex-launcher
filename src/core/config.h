@@ -1,0 +1,59 @@
+/* The game's configuration, as the original launcher reads and writes it.
+ *
+ * Two ini files matter:
+ *
+ *   <Package>.ini   DeusEx.ini. The launcher's contract keys live here
+ *                   ([FirstRun], CdPath, GameRenderDevice) exactly as
+ *                   dx-reverse-info/ini-keys.md says.
+ *   User.ini        The player's settings; the save migration writes its
+ *                   slot names here.
+ *
+ * A missing <Package>.ini is created from Default.ini, and a missing User.ini
+ * from DefUser.ini -- what UE1's Core does at startup before the original
+ * launcher's wizard ever runs. Here no Core runs in-process, so the launcher
+ * does it.
+ */
+#ifndef DXL_CONFIG_H
+#define DXL_CONFIG_H
+
+#include "core/common.h"
+#include "core/ini.h"
+
+/* [FirstRun] FirstRun is an engine-version integer, not a boolean.
+ * dx-reverse-info/wizard.md "The FirstRun version gates". 1100 was confirmed live to
+ * be the engine version itself ("Init: Version: 1100"). */
+#define DXL_FIRSTRUN_MIGRATE_BELOW 220
+#define DXL_FIRSTRUN_WIZARD_BELOW  400
+#define DXL_FIRSTRUN_CURRENT       1100
+
+typedef struct dxl_config dxl_config;
+
+/* Opens <system_dir>/<package>.ini and User.ini. Never fails: with no ini and
+ * no Default.ini the result is an empty, writable config. */
+dxl_config *dxl_config_open(const char *system_dir, const char *package);
+void        dxl_config_free(dxl_config *c);
+
+/* Writes whichever of the files changed. */
+int         dxl_config_save(dxl_config *c, dxl_err *err);
+int         dxl_config_dirty(const dxl_config *c);
+const char *dxl_config_path(const dxl_config *c);
+dxl_ini    *dxl_config_ini(dxl_config *c);
+
+/* How <Package>.ini came to be: 0 loaded as is, 1 created from Default.ini. */
+int         dxl_config_seeded(const dxl_config *c);
+
+/* User.ini. NULL only when it does not exist and there is no DefUser.ini to
+ * create it from. */
+dxl_ini    *dxl_config_user_ini(dxl_config *c);
+const char *dxl_config_user_path(const dxl_config *c);
+
+int  dxl_config_first_run(const dxl_config *c);
+/* Clamps up to DXL_FIRSTRUN_CURRENT, never down -- the original only ever
+ * raises this value (0x1090B997). */
+void dxl_config_clamp_first_run(dxl_config *c);
+
+const char *dxl_config_render_device(const dxl_config *c);
+const char *dxl_config_cd_path(const dxl_config *c);
+const char *dxl_config_game_engine(const dxl_config *c);
+
+#endif
