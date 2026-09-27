@@ -10,5 +10,5 @@ set(ENABLE_SDL2    ON CACHE BOOL "" FORCE)
 set(ENABLE_SDL3    ON CACHE BOOL "" FORCE)
 set(ENABLE_X11     ON CACHE BOOL "" FORCE)
 set(ENABLE_WAYLAND ON CACHE BOOL "" FORCE)
-# For editors: engine/SurrealEngine/compile_commands.json can point here.
+# For editors: VibeEngine/compile_commands.json can point here.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "" FORCE)
