@@ -1,9 +1,9 @@
 #!/bin/sh
 # Frame-time profile of one map, on the handheld.
 #
-# Needs an engine built with scripts/perf-instrumentation.patch
+# Needs an engine built with VibeEngine's vibe/tools/perf/perf-instrumentation.patch
 # applied (the hooks are temporary and never committed -- see the patch header
-# comments). From the repository root:
+# comments). From the Port Ex Machina workspace's root:
 #
 #   engine/SurrealEngine/vibe/tools/perf/perf.sh on
 #   scripts/dx.sh deploy trimui-smartpro      (builds and stages it too)
