@@ -15,11 +15,11 @@
 # libraries, the rest from exact package versions in the Arch Linux archive
 # (the headers the engine was first built against).
 set -euo pipefail
-# Port Ex Machina's helpers, from the workspace this branch is checked out in
-# (scripts/dx.sh deps trimui-smartpro sets DX_ROOT).
-[ -f "${DX_ROOT:-}/scripts/lib/common.sh" ] ||
+# Port Ex Machina's helpers, from the workspace this branch is checked out
+# beside (scripts/dx.sh deps trimui-smartpro sets DX_WORKSPACE).
+[ -f "${DX_WORKSPACE:-}/scripts/lib/common.sh" ] ||
     { echo "error: run through Port Ex Machina: scripts/dx.sh deps trimui-smartpro" >&2; exit 1; }
-. "$DX_ROOT/scripts/lib/common.sh"
+. "$DX_WORKSPACE/scripts/lib/common.sh"
 . "$(dirname "${BASH_SOURCE[0]}")/port.sh"     # the device's address and login
 
 # Bump when anything below changes, so an existing sysroot is rebuilt.

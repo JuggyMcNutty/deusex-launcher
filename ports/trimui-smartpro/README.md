@@ -194,13 +194,13 @@ answering questions about a device instead of assuming answers
 any build -- each is one compile against this port's sysroot, run over SSH:
 
 ```sh
-# from the workspace's root
+# from the parent folder of Port Ex Machina's repositories
 TC=deps/toolchains/aarch64--glibc--stable-2020.08-1/bin/aarch64-linux-gcc
 SYS=deps/sysroots/trimui-smartpro
 $TC -O2 -mcpu=cortex-a53 -std=c11 -I $SYS/include -I $SYS/include/SDL2 \
-    tools/probes/probe-vulkan-caps.c -o /tmp/probe \
+    port-ex-machina/tools/probes/probe-vulkan-caps.c -o /tmp/probe \
     -L $SYS/lib -lvulkan -Wl,-rpath-link,$SYS/lib
-launcher/trimui-smartpro/scripts/check-abi.sh --max 2.33 /tmp/probe
+deusex-launcher/trimui-smartpro/scripts/check-abi.sh --max 2.33 /tmp/probe
 # scp to the device, then: LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib ./probe
 ```
 
@@ -431,9 +431,10 @@ actor class and script functions by self time, at a cost to the frame time.
 beside the log, for [`vibe/tools/perf/sample-report.py`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/tools/perf/sample-report.py):
 
 ```sh
-SAMPLE=1 scripts/dx.sh profile trimui-smartpro 90 mylabel
+# from the parent folder of Port Ex Machina's repositories
+SAMPLE=1 port-ex-machina/scripts/dx.sh profile trimui-smartpro 90 mylabel
 NM=deps/toolchains/aarch64--glibc--bleeding-edge-2021.05-1/bin/aarch64-linux-nm \
-    engine/SurrealEngine/vibe/tools/perf/sample-report.py build/trimui-smartpro/profile/samples-mylabel \
+    VibeEngine/vibe/tools/perf/sample-report.py build/trimui-smartpro/profile/samples-mylabel \
     build/trimui-smartpro/profile/samples-mylabel.engine --sysroot deps/sysroots/trimui-smartpro \
     --root ULevel::Tick
 ```

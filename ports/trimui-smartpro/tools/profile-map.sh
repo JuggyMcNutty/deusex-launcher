@@ -5,10 +5,10 @@
 # applied (the hooks are temporary and never committed -- see the patch header
 # comments). From the Port Ex Machina workspace's root:
 #
-#   engine/SurrealEngine/vibe/tools/perf/perf.sh on
+#   ../VibeEngine/vibe/tools/perf/perf.sh on
 #   scripts/dx.sh deploy trimui-smartpro      (builds and stages it too)
 #   scripts/dx.sh profile trimui-smartpro [seconds] [label] [cpu] [turn] [map]
-#   engine/SurrealEngine/vibe/tools/perf/perf.sh off
+#   ../VibeEngine/vibe/tools/perf/perf.sh off
 #   scripts/dx.sh deploy trimui-smartpro
 #
 # dx.sh profile copies this script to the device's /tmp/dxl-test (a reboot
