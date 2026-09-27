@@ -9,11 +9,11 @@ for its device ([`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-mach
 ## Status
 
 Working. On the development PC (Arch, AMD RX 6700 XT, Mesa RADV) the staged
-app's `run-game.sh` starts the engine on the workspace's `gamefiles/`: Vulkan
-with bindless textures. `dxl-cli --probe` found Vulkan 1.4 and OpenGL, both
-selectable. The staged launcher took the engine straight into Liberty Island
-with `DXL_NO_HOME=1` (2026-09-27), and unattended runs of the engine drove
-saves, loads and hub travel in play (2026-09-25;
+app's `run-game.sh` starts the engine on the `gamefiles/` beside the
+repositories: Vulkan with bindless textures. `dxl-cli --probe` found Vulkan
+1.4 and OpenGL, both selectable. The staged launcher took the engine straight
+into Liberty Island with `DXL_NO_HOME=1` (2026-09-27), and unattended runs of
+the engine drove saves, loads and hub travel in play (2026-09-25;
 [scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 Not yet exercised: the home screen driven by hand into a game, and a pad in
 game on a desktop.
@@ -33,10 +33,10 @@ scripts/dx.sh stage linux-x86_64     # build/linux-x86_64/app
 scripts/dx.sh run   linux-x86_64
 ```
 
-A freshly staged app's `launcher.ini` points `GameDir` at the workspace's
-`gamefiles/`, when there is one; edit it to use another install. The launcher
-and the engine then write their configuration into that game's `System/`, as
-the game would.
+A freshly staged app's `launcher.ini` points `GameDir` at the `gamefiles/`
+beside Port Ex Machina's repositories, when there is one; edit it to use
+another install. The launcher and the engine then write their configuration
+into that game's `System/`, as the game would.
 
 `run-game.sh` pins `HOME` to the app directory for the engine, so its
 `Settings.json` and logs live in `build/linux-x86_64/app/home/.config/SurrealEngine`,
