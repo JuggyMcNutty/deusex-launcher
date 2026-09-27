@@ -9,21 +9,24 @@ for its device ([`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-mach
 ## Status
 
 Working. On the development PC (Arch, AMD RX 6700 XT, Mesa RADV) the staged
-app's `run-game.sh` started the engine on the workspace's `gamefiles/`: Vulkan
-with bindless textures, the intro level loaded and ran until stopped.
-`dxl-cli --probe` found Vulkan 1.4 and OpenGL, both selectable. Not yet
-exercised: the home screen driven by hand into a game, and a pad in game on a
-desktop.
+app's `run-game.sh` starts the engine on the workspace's `gamefiles/`: Vulkan
+with bindless textures. `dxl-cli --probe` found Vulkan 1.4 and OpenGL, both
+selectable. The staged launcher took the engine straight into Liberty Island
+with `DXL_NO_HOME=1` (2026-09-27), and unattended runs of the engine drove
+saves, loads and hub travel in play (2026-09-25;
+[scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
+Not yet exercised: the home screen driven by hand into a game, and a pad in
+game on a desktop.
 
 ## Build and run
 
 Needs a C compiler, CMake 3.21+, pkg-config, and SDL2 + SDL2_ttf development
-packages; the engine adds a C++20 compiler and its own dependencies (see the
-engine's README).
+packages; the engine adds a C++20 compiler and its own dependencies (see
+[the engine's README](https://github.com/JuggyMcNutty/VibeEngine)).
 
 ```sh
+scripts/dx.sh fetch                  # once: the engine, the launcher's branches, the RE
 scripts/dx.sh deps  linux-x86_64     # only checks for SDL2
-scripts/engine.sh fetch              # once
 scripts/dx.sh build linux-x86_64     # launcher, then engine
 scripts/dx.sh test                   # unit tests
 scripts/dx.sh stage linux-x86_64     # build/linux-x86_64/app
