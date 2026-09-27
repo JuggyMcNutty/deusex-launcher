@@ -10,8 +10,8 @@ port_deps() {
     say "SDL2 $(pkg-config --modversion sdl2), SDL2_ttf $(pkg-config --modversion SDL2_ttf)"
 }
 
-# A fresh app directory points at the workspace's own game copy, when there
-# is one, so a developer can stage and run with no editing.
+# A fresh app directory points at the game copy beside the repositories, when
+# there is one, so a developer can stage and run with no editing.
 port_stage() {
     local fresh="$1"
     if [ "$fresh" = 1 ] && [ -d "$DX_ROOT/gamefiles/System" ]; then
