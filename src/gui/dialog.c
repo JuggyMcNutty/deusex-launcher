@@ -397,7 +397,22 @@ static void draw_ctl(dxl_dialog *d, int i) {
         dxl_fill(r, rc, p->face);
         break;
     case DXL_CTL_ICON: {
-        /* The error icon: a red disc, a white cross. */
+        /* The error icon: wine's, over the face as DrawIcon puts it -- each
+         * premultiplied colour plus the face times what the alpha leaves. */
+        const dxl_icon *icon = &d->gui->error_icon;
+        if (icon->argb) {
+            dxl_rgb f = dxl_colors.face;
+            for (int y = 0; y < icon->h; y++)
+                for (int x = 0; x < icon->w; x++) {
+                    Uint32 px = icon->argb[y * icon->w + x], a = px >> 24;
+                    SDL_SetRenderDrawColor(r, (px >> 16 & 0xff) + (f.r * (255 - a) + 127) / 255,
+                                           (px >> 8 & 0xff) + (f.g * (255 - a) + 127) / 255,
+                                           (px & 0xff) + (f.b * (255 - a) + 127) / 255, 255);
+                    SDL_RenderDrawPoint(r, rc.x + x, rc.y + y);
+                }
+            break;
+        }
+        /* Without wine, one drawn: a red disc, a white cross. */
         int cx = rc.x + 16, cy = rc.y + 16;
         for (int y = 0; y < 32; y++)
             for (int x = 0; x < 32; x++) {

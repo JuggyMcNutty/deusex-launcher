@@ -71,17 +71,18 @@ and details the original shows under wine, where it was captured page by
 page
 ([live-verification.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/live-verification.md#the-second-run-every-page-2026-09-27)).
 `tools/pageshots.c` draws each screen with no display, to lay beside those
-captures: 13 of the 15 match to the pixel. The other two: the error box's
-icon, which is drawn here rather than copied from wine; and the splash,
-whose picture wine shows colour-reduced while this shows the bitmap as it
-is -- its frame and place match.
+captures: 14 of the 15 match to the pixel. The other: the splash, whose
+picture wine shows colour-reduced while this shows the bitmap as it is --
+its frame and place match.
 
 The fonts are wine's own, found in a wine or Proton install: MS Sans Serif
 (`sserife.fon`) for the pages, Arial at 12 pixels for the Driver page's
 link, Tahoma 8 pt for the message boxes. Without wine, the nearest common
 fonts stand in (Liberation Sans, DejaVu Sans); `DXL_FONT`, `DXL_FONT_URL`
 and `DXL_FONT_MSG` name others. Text is drawn unsmoothed and unkerned, as
-Windows draws it.
+Windows draws it. The error box's icon is wine's too, its `user32.dll`'s
+`IDI_HAND` read out of the same install and blended as wine blends it
+([`peicon.h`](src/core/peicon.h)); without wine, one is drawn.
 
 ## Where it differs from the original
 

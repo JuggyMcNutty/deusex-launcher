@@ -8,7 +8,8 @@
  * (and at least four lines), two lines high, a third of a button apart,
  * centred under a band 16 pixels taller than the text or the icon, OK the
  * default. OK and Cancel are the system's words, not the game's. The icon
- * is drawn here, not wine's picture.
+ * is wine's own where wine is installed (dxl_gui's error_icon), blended as
+ * wine draws it; without wine, one drawn here.
  */
 #ifndef DXL_MSGBOX_H
 #define DXL_MSGBOX_H

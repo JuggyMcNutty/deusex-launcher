@@ -19,6 +19,7 @@
 #define DXL_GUI_H
 
 #include "core/common.h"
+#include "core/peicon.h"
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -48,6 +49,10 @@ typedef struct {
     TTF_Font *font_msg;  /* a message box's: the system's message font, Tahoma 8 pt */
     char     *font_path;
     int       line_h;    /* the dialog font's height: 13 */
+    /* A message box's error icon: wine's IDI_HAND, its user32.dll's icon
+     * group 32513 at 32x32, premultiplied, where wine is installed; else
+     * none, and the box draws its own. */
+    dxl_icon  error_icon;
     int       ttf_ready, sdl_ready;
     /* Set (by a signal handler): every dialog ends as if its window were
      * closed. May stay NULL. */

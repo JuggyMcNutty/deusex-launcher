@@ -40,6 +40,20 @@ static const char *const wine_fonts[] = {
     NULL,
 };
 
+/* Wine's user32.dll, whose icons are the ones its message boxes show. */
+static const char *const wine_user32[] = {
+    "/usr/lib/wine/i386-windows/user32.dll",
+    "/usr/lib32/wine/i386-windows/user32.dll",
+    "/usr/lib/wine/x86_64-windows/user32.dll",
+    "/usr/lib64/wine/x86_64-windows/user32.dll",
+    "/opt/wine*/lib/wine/i386-windows/user32.dll",
+    "~/.local/share/Steam/compatibilitytools.d/*/files/lib/wine/i386-windows/user32.dll",
+    "~/.steam/steam/compatibilitytools.d/*/files/lib/wine/i386-windows/user32.dll",
+    "~/.local/share/Steam/steamapps/common/Proton*/files/lib/wine/i386-windows/user32.dll",
+    "~/.steam/steam/steamapps/common/Proton*/files/lib/wine/i386-windows/user32.dll",
+    NULL,
+};
+
 /* Else a common sans, drawn unsmoothed at 8 pt. */
 static const char *const sans_fonts[] = {
     "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
@@ -280,6 +294,21 @@ int dxl_gui_init(dxl_gui *g, int video, dxl_err *err) {
         return -1;
     }
     TTF_SetFontStyle(g->font_url, TTF_STYLE_UNDERLINE);
+
+    /* Wine keeps an icon's colours premultiplied by its alpha, each rounded
+     * to the nearest, as it loads it (DrawIcon then adds what shows
+     * through). */
+    for (int i = 0; !g->error_icon.argb && wine_user32[i]; i++) {
+        char *p = first_match(wine_user32[i]);
+        if (p && dxl_pe_icon(p, 32513, 32, &g->error_icon, NULL) == 0) {
+            for (int k = 0; k < g->error_icon.w * g->error_icon.h; k++) {
+                Uint32 c = g->error_icon.argb[k], a = c >> 24;
+                g->error_icon.argb[k] = a << 24 | ((c >> 16 & 0xff) * a + 127) / 255 << 16 |
+                                        ((c >> 8 & 0xff) * a + 127) / 255 << 8 | ((c & 0xff) * a + 127) / 255;
+            }
+        }
+        free(p);
+    }
     return 0;
 }
 
@@ -291,6 +320,7 @@ void dxl_gui_quit(dxl_gui *g) {
             TTF_CloseFont(fonts[i]);
         }
     free(g->font_path);
+    dxl_icon_free(&g->error_icon);
     if (g->ttf_ready) TTF_Quit();
     if (g->sdl_ready) SDL_Quit();
     memset(g, 0, sizeof *g);
