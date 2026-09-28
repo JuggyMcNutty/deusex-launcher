@@ -38,7 +38,7 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
 
     /* Forwarding runs before any engine init and short-circuits everything
      * else: this process becomes a messenger and exits (section 1). */
-    if (!out->skip_handoff && in->other_instance) {
+    if (!out->skip_handoff && in->other_instance && !in->forward_tried) {
         out->action = DXL_ACTION_FORWARD;
         return;
     }
