@@ -40,6 +40,11 @@ typedef struct dxl_config dxl_config;
 /* Opens <system_dir>/<package>.ini and the engine's companions. Never fails:
  * with no ini and no Default.ini the result is an empty, writable config. */
 dxl_config *dxl_config_open(const char *system_dir, const char *package);
+/* The same, with the files the command line's INI= and USERINI= name, as
+ * the original's appInit takes them -- relative to System/, or absolute --
+ * in place of <package>.ini and User.ini (NULL for those). */
+dxl_config *dxl_config_open_files(const char *system_dir, const char *package, const char *ini,
+                                  const char *user_ini);
 void        dxl_config_free(dxl_config *c);
 
 /* Writes whichever of the files changed. */
