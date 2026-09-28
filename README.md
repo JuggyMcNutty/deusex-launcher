@@ -103,7 +103,10 @@ Windows draws it.
 - **No log window.** The original opens one on every run, shown with
   `-log`; here `-log` only keeps the splash away, and the log is the file,
   `<Package>.log`, as the original's is too.
-- **The windows' frames are the desktop's**, with no icon of the game's.
+- **The windows' frames are the desktop's.** The wizard's carries the
+  game's icon, as the original's does, read out of the install's
+  `DeusEx.exe` ([`peicon.h`](src/core/peicon.h)); the message boxes and the
+  splash have none, as the original's have none.
 
 ## The game and the launcher
 

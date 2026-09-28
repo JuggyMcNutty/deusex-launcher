@@ -38,6 +38,7 @@ add_library(dxl_core STATIC
     src/core/safemode.c
     src/core/renderdev.c
     src/core/detail.c
+    src/core/peicon.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)

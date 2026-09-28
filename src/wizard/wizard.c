@@ -423,6 +423,18 @@ dxl_wizard *dxl_wizard_new(dxl_gui *g, dxl_wizard_request *req, int offscreen, d
     w->req = req;
     w->d = dxl_dialog_open(g, req->title, dxl_dlu_x(FRAME_W), dxl_dlu_y(FRAME_H), offscreen, err);
     if (!w->d) { free(w); return NULL; }
+    /* Its icon, DeusEx.exe's group 128 (dx-reverse-info/wizard.md, the
+     * frame), read where the game is: without the game's executable the
+     * window keeps the desktop's. */
+    if (!offscreen) {
+        char *exe = dxl_path_resolve_ci(req->system_dir, "DeusEx.exe");
+        dxl_icon icon;
+        if (exe && dxl_pe_icon(exe, 128, 32, &icon, NULL) == 0) {
+            dxl_dialog_set_icon(w->d, &icon);
+            dxl_icon_free(&icon);
+        }
+        free(exe);
+    }
     w->d->on_command = on_command;
     w->d->ctx = w;
     build_frame(w);

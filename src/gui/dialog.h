@@ -13,6 +13,7 @@
 #define DXL_DIALOG_H
 
 #include "gui/gui.h"
+#include "core/peicon.h"
 
 #define DXL_IDOK     1
 #define DXL_IDCANCEL 2
@@ -80,6 +81,8 @@ dxl_dialog *dxl_dialog_open(dxl_gui *g, const char *title, int w, int h, int off
                             dxl_err *err);
 void        dxl_dialog_close(dxl_dialog *d);
 void        dxl_dialog_set_title(dxl_dialog *d, const char *title);
+/* The window's icon, from dxl_pe_icon; an offscreen dialog has none. */
+void        dxl_dialog_set_icon(dxl_dialog *d, const dxl_icon *icon);
 /* Another font for all the controls: a message box's. */
 void        dxl_dialog_set_font(dxl_dialog *d, TTF_Font *font);
 

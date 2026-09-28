@@ -17,7 +17,8 @@ Needs Xvfb, xdotool and ImageMagick's import. The scenarios, in order:
 
   quick        -consolecommand= and -testrendev=, which end with no game
   make         -make's critical box, OK, exit 1
-  changevideo  the Renderer page, captioned, and its Cancel
+  changevideo  the Renderer page, captioned, with the game's icon, and its
+               Cancel
   firstrun     -firstrun: detection, the pages, Run!; the game up, EXEC=
                run, a second launch forwarded to it and travelled, its clean
                end; Running.ini gone, FirstRun 1100
@@ -105,6 +106,37 @@ def find_window(title, timeout=20):
             return ids[0]
         time.sleep(0.25)
     return None
+
+
+def window_icon(win):
+    """The window's _NET_WM_ICON, read through Xlib: the first image's width,
+    height and top-left pixel (0xAARRGGBB), or None."""
+    import ctypes, ctypes.util
+    x = ctypes.cdll.LoadLibrary(ctypes.util.find_library("X11") or "libX11.so.6")
+    x.XOpenDisplay.restype = ctypes.c_void_p
+    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x.XInternAtom.restype = ctypes.c_ulong
+    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    ul, pul = ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)
+    x.XGetWindowProperty.argtypes = [ctypes.c_void_p, ul, ul, ctypes.c_long, ctypes.c_long, ctypes.c_int, ul,
+                                     pul, ctypes.POINTER(ctypes.c_int), pul, pul, ctypes.POINTER(pul)]
+    x.XFree.argtypes = [ctypes.c_void_p]
+    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    dpy = x.XOpenDisplay(DISPLAY.encode())
+    if not dpy:
+        return None
+    try:
+        actual, fmt, n, after, data = ul(), ctypes.c_int(), ul(), ul(), pul()
+        atom = x.XInternAtom(dpy, b"_NET_WM_ICON", 0)
+        if x.XGetWindowProperty(dpy, int(win), atom, 0, 1 << 20, 0, 0, ctypes.byref(actual), ctypes.byref(fmt),
+                                ctypes.byref(n), ctypes.byref(after), ctypes.byref(data)) != 0 or not data:
+            return None
+        # Format 32 comes as C longs: width, height, then the pixels.
+        values = [data[i] & 0xffffffff for i in range(min(n.value, 3))]
+        x.XFree(data)
+        return tuple(values) if len(values) == 3 else None
+    finally:
+        x.XCloseDisplay(dpy)
 
 
 def click(win, x, y):
@@ -217,6 +249,9 @@ def scenario_changevideo():
     if not w:
         p.kill()
         return
+    # DeusEx.exe's icon group 128, its 32x32 of 256 colours (tests/test_gamefiles.c)
+    icon = window_icon(w)
+    check("changevideo: the game's icon", icon == (32, 32, 0xff040404), repr(icon))
     time.sleep(3)
     shot("changevideo")
     click(w, *CANCEL)
