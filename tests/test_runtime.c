@@ -117,6 +117,10 @@ static void test_cd_check_with_shipped_path(void) {
     CHECK_INT(dxl_install_cd_ok(g_root, ""), 1);      /* unset: nothing to check */
     CHECK_INT(dxl_install_cd_ok(g_root, NULL), 1);
     CHECK_INT(dxl_install_cd_ok(g_root, "Z:\\nope\\"), 0);
+    /* An empty palette file is no disc: the original wants more than 0 bytes. */
+    touch("Textures/Palettes.utx", "");
+    CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 0);
+    touch("Textures/Palettes.utx", "palette");
 }
 
 /* --- the crash sentinel ------------------------------------------------ */
@@ -208,6 +212,21 @@ static void test_handoff_delivers_the_command_line(void) {
     dxl_instance_release(primary);
 }
 
+/* The lock alone: live for the Running.ini question, but nothing to forward
+ * to -- a forward finds no one and fails. */
+static void test_lock_without_channel(void) {
+    dxl_instance *server = dxl_instance_acquire_lock(g_root);
+    CHECK(server != NULL);
+    CHECK_INT(dxl_instance_fd(server), -1);
+    CHECK_INT(dxl_instance_other_running(g_root), 1);
+    dxl_err e;
+    CHECK(dxl_instance_forward(g_root, "map", 1000, &e) != 0);
+    dxl_instance_release(server);
+    dxl_instance *client = dxl_instance_acquire(g_root);
+    CHECK(dxl_instance_fd(client) >= 0);
+    dxl_instance_release(client);
+}
+
 TEST_MAIN_BEGIN
     build_install();
     RUN(test_complete_install_passes);
@@ -220,5 +239,6 @@ TEST_MAIN_BEGIN
     RUN(test_lock_is_exclusive);
     RUN(test_lock_is_per_install);
     RUN(test_handoff_delivers_the_command_line);
+    RUN(test_lock_without_channel);
     teardown();
 TEST_MAIN_END
