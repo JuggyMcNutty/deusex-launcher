@@ -51,7 +51,7 @@ static char *lock_path_for(const char *id) {
     return p;
 }
 
-dxl_instance *dxl_instance_acquire(const char *id) {
+static dxl_instance *acquire(const char *id, int listen) {
     char *path = lock_path_for(id);
     int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
     if (fd < 0) { free(path); return NULL; }
@@ -76,7 +76,7 @@ dxl_instance *dxl_instance_acquire(const char *id) {
 
     /* The handoff channel. Failing to open it is not fatal -- we are still the
      * only instance, we just cannot receive URLs. */
-    int s = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    int s = listen ? socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0) : -1;
     if (s >= 0) {
         struct sockaddr_un sa;
         socklen_t len = abstract_addr(&sa, id);
@@ -85,6 +85,11 @@ dxl_instance *dxl_instance_acquire(const char *id) {
     }
     return inst;
 }
+
+dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
+dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
+
+int dxl_instance_fd(const dxl_instance *inst) { return inst ? inst->sock_fd : -1; }
 
 void dxl_instance_release(dxl_instance *inst) {
     if (!inst) return;
