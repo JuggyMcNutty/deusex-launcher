@@ -47,11 +47,27 @@ static int usable_system_ini(const dxl_ini *ini) {
     return ini && dxl_ini_get(ini, "Core.System", "Paths") != NULL;
 }
 
-dxl_config *dxl_config_open(const char *system_dir, const char *package) {
+/* A file the command line names: as given if absolute, else from System/,
+ * its name found in any case. */
+static char *given_path(const char *system_dir, const char *given) {
+    char *p = dxl_path_from_ini(given);
+    if (p[0] == '/') return p;
+    char *joined = dxl_path_join(system_dir, p);
+    free(p);
+    char *dir = dxl_path_dirname(joined);
+    char *found = dxl_path_resolve_ci(dir, dxl_path_basename(joined));
+    free(dir);
+    if (!found) return joined;
+    free(joined);
+    return found;
+}
+
+dxl_config *dxl_config_open_files(const char *system_dir, const char *package, const char *ini,
+                                  const char *user_ini) {
     dxl_config *c = dxl_xmalloc(sizeof *c);
     memset(c, 0, sizeof *c);
 
-    file_load(&c->base, leaf_path(system_dir, "", package));
+    file_load(&c->base, ini ? given_path(system_dir, ini) : leaf_path(system_dir, "", package));
     if (!usable_system_ini(c->base.ini)) {
         char *def_path = leaf_path(system_dir, "", "Default");
         dxl_ini *def = dxl_ini_load(def_path, NULL);
@@ -72,12 +88,13 @@ dxl_config *dxl_config_open(const char *system_dir, const char *package) {
     if (dxl_path_exists(se_path)) file_load(&c->se, se_path);
     else free(se_path);
 
-    char *user_path = leaf_path(system_dir, "SE-", "User");
-    if (dxl_path_exists(user_path)) {
+    char *user_path = user_ini ? NULL : leaf_path(system_dir, "SE-", "User");
+    if (user_path && dxl_path_exists(user_path)) {
         file_load(&c->user, user_path);
     } else {
         free(user_path);
-        file_load(&c->user, leaf_path(system_dir, "", "User"));
+        file_load(&c->user, user_ini ? given_path(system_dir, user_ini)
+                                     : leaf_path(system_dir, "", "User"));
         if (!c->user.ini) {
             char *def_path = leaf_path(system_dir, "", "DefUser");
             dxl_ini *def = dxl_ini_load(def_path, NULL);
@@ -87,6 +104,10 @@ dxl_config *dxl_config_open(const char *system_dir, const char *package) {
         }
     }
     return c;
+}
+
+dxl_config *dxl_config_open(const char *system_dir, const char *package) {
+    return dxl_config_open_files(system_dir, package, NULL, NULL);
 }
 
 void dxl_config_free(dxl_config *c) {

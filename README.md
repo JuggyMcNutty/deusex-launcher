@@ -34,17 +34,34 @@ sysroots.
 
 ## Where main stands
 
-The recreation is in progress. In, and tested: the original's ini handling
-(byte-identical round trips), its three command-line parsers, the `FirstRun`
-gates and the entry decision tree, the crash sentinel, the single-instance
-handoff, and the CD check; what the pages decide -- the game's own strings
-from its `.int` files, the save migration, safe mode's flags with all eight
-boxes wired, the Renderer page's list and choice, and the Detail page's
-settings; the launch sequence itself (`src/launch/`), from forwarding to the
-game's end, down every road it can end by; and its screens -- the wizard's
-six pages, the splash and the two message boxes -- in the `DeusEx` program.
-Next: `run-game.sh` and the engine's side of the line below (in
-VibeEngine), and installing into the game's `System/`.
+The recreation is whole: the original's ini handling (byte-identical round
+trips), its three command-line parsers, the `FirstRun` gates and the entry
+decision tree, the crash sentinel, the single-instance handoff, and the CD
+check; what the pages decide -- the game's own strings from its `.int`
+files, the save migration, safe mode's flags with all eight boxes wired, the
+Renderer page's list and choice, and the Detail page's settings; the launch
+sequence itself (`src/launch/`), from forwarding to the game's end, down
+every road it can end by; its screens -- the wizard's six pages, the splash
+and the two message boxes -- in the `DeusEx` program; and the game it starts,
+[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine), through
+`run-game.sh`. Unit tests cover each part (`ctest`); `tools/livecheck.py`
+runs the whole of it live -- every road above that the player can take,
+with the real engine -- where nobody sees it ([checking it
+live](#checking-it-live)).
+
+## Installing
+
+`DeusEx` lives in the game's `System/` folder, beside the original's
+`DeusEx.exe`, with `run-game.sh` and the engine -- VibeEngine's
+`SurrealEngine`, `libSurrealVideo.so` and `SurrealEngine.pk3` -- beside it.
+Port Ex Machina's
+[`scripts/recreation.sh`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/scripts/recreation.sh)
+builds this branch and the engine and installs them there (`build`, then
+`install <GameDir>`); by hand, `cmake --install build --prefix
+<GameDir>/System` and the engine's three files copied in. Then start
+`System/DeusEx` with the original's command line, from anywhere: its folder
+and name are where it finds the game and its package, as the original's
+are.
 
 ## The look
 
@@ -110,6 +127,17 @@ per message:
 A forwarded command line that arrives before `ready` is dropped, as the
 original's log window drops one before its main loop runs.
 
+`run-game.sh` starts the engine from `System/` with the game's own
+`DeusEx.ini` and `User.ini` and the command line as one string,
+`--cmdline=` -- which the engine reads as the original's engine does: the
+start URL, `-server`, `INI=`, `USERINI=`, `EXEC=` and safe mode's flags
+([VibeEngine's NATIVES.md](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)).
+`DXL_ENGINE_ARGS` adds engine options of its own, for a scripted run. Asked
+to stop (SIGINT, SIGTERM), the launcher passes SIGTERM on to the game and,
+if it is still running 5 s later, SIGKILL: VibeEngine with a window takes no
+notice of SIGTERM ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)),
+though its dedicated server ends on it.
+
 ## Building
 
 ```sh
@@ -131,6 +159,21 @@ are read and not written:
 ```sh
 build/pageshots gamefiles/System shots/
 ```
+
+### Checking it live
+
+With `DeusEx` installed, `tools/livecheck.py <GameDir> <out dir>` (or
+Port Ex Machina's `scripts/recreation.sh check`) runs it end to end on a copy
+of the install -- the files a run writes copied, the rest linked -- on a
+private X display where `xdotool` clicks, so neither the install nor the
+desktop is touched: `-consolecommand=` and `-testrendev=`; `-make`'s box;
+`-changevideo`; a first run through detection and every page to the game,
+with `EXEC=`, a second launch forwarded to it and travelled, and its clean
+end; safe mode's Run! and the relaunch, the engine silent in a 640×480
+window with no pad; a killed game, then RecoveryMode; the CD prompt's
+Cancel; and `-server`, stopped by a signal. It needs Xvfb, xdotool and
+ImageMagick; its screens and logs are left in the out dir.
+
 
 ## License
 

@@ -32,6 +32,8 @@ typedef struct {
     int  forward_after_ready;       /* pump: forward this once the splash is gone */
     const char *forward_line;
     int  forwarded;
+    int  stop_after_ready;          /* pump: ask the run to stop once the splash is gone */
+    volatile int stop;
 } stub;
 
 static stub S;
@@ -66,6 +68,7 @@ static void s_critical(void *c, const char *title, const char *text) {
 }
 static void s_pump(void *c) {
     (void)c;
+    if (S.stop_after_ready && S.splash_hides > 0) S.stop = 1;
     if (S.forward_after_ready && !S.forwarded && S.splash_hides > 0) {
         dxl_err e;
         S.forwarded = dxl_instance_forward(id, S.forward_line, 1000, &e) == 0;
@@ -89,6 +92,7 @@ static const char *GAME =
     "relay) printf 'hello\\nready\\n' >&$fd\n"
     "       read a <&$fd; read b <&$fd\n"
     "       printf '%s|%s' \"$a\" \"$b\" > \"$here/game-got.txt\" ;;\n"
+    "stubborn) trap '' TERM; printf 'hello\\nready\\n' >&$fd; exec sleep 30 ;;\n"
     "esac\n"
     "exit $(cat \"$here/game-exit.txt\" 2>/dev/null || echo 0)\n";
 
@@ -134,7 +138,7 @@ static void launch(const char **args, dxl_launch_result *res) {
     argv[argc++] = exe;
     for (; args && *args && argc < 15; args++) argv[argc++] = (char *)*args;
     argv[argc] = NULL;
-    dxl_launch_run(argc, argv, exe, &UI, NULL, res);
+    dxl_launch_run(argc, argv, exe, &UI, &S.stop, res);
 }
 
 /* ---- the roads ---------------------------------------------------------- */
@@ -376,7 +380,49 @@ static void test_ready_and_relay(void) {
     scratch_remove(root);
 }
 
+/* INI= and USERINI=, as the original's appInit takes them: the
+ * configuration from those files, which the game is started with too.
+ * INI= first: Parse finds "INI=" anywhere, so after USERINI= it would find
+ * USERINI='s value, in the original as here. */
+static void test_other_inis(void) {
+    install("l-inis", "[FirstRun]\r\nFirstRun=0\r\n");
+    scratch_write(root, "System/Mod.ini",
+                  "[FirstRun]\r\nFirstRun=1100\r\n[Engine.Engine]\r\nCdPath=..\\\r\n");
+    scratch_write(root, "System/ModUser.ini", "[DeusEx.DeusExPlayer]\r\n");
+    const char *args[] = { "INI=Mod.ini", "USERINI=ModUser.ini", NULL };
+    dxl_launch_result r;
+    launch(args, &r);
+    CHECK_INT(S.wizards, 0);                    /* Mod.ini's FirstRun, not DeusEx.ini's */
+    CHECK_STR(r.ended, "the game ran");
+    char *args_got = read_file("System/game-args.txt");
+    CHECK_STR(args_got, "INI=Mod.ini USERINI=ModUser.ini\n");
+    free(args_got);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
+/* Asked to stop, the launcher passes SIGTERM on; a game that takes no
+ * notice of it is killed 5 s later, and Running.ini stays. */
+static void test_stop_kills_a_stubborn_game(void) {
+    install("l-stop", NULL);
+    scratch_write(root, "System/game-mode.txt", "stubborn");
+    S.stop_after_ready = 1;
+    dxl_launch_result r;
+    launch(NULL, &r);
+    CHECK_STR(r.ended, "the game ran");
+    CHECK_INT(r.exit_code, 128 + 9);
+    CHECK(scratch_exists(root, "System/Running.ini"));
+    char *log = read_file("System/DeusEx.log");
+    CHECK(strstr(log, "stopping the game") != NULL);
+    CHECK(strstr(log, "the game did not stop: killing it") != NULL);
+    free(log);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
 TEST_MAIN_BEGIN
+    RUN(test_other_inis);
+    RUN(test_stop_kills_a_stubborn_game);
     RUN(test_settled_install_runs_the_game);
     RUN(test_a_crash_leaves_running_ini);
     RUN(test_first_run_cancelled);
