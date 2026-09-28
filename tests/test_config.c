@@ -1,6 +1,7 @@
 #include "test.h"
 #include "core/config.h"
 #include "core/ini.h"
+#include "scratch.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -315,6 +316,34 @@ static void test_reload_reads_what_another_wrote(void) {
     scrub(dir);
 }
 
+/* The files INI= and USERINI= name: from System/ in any case, or absolute;
+ * one not there starts from Default.ini, as <Package>.ini would. */
+static void test_open_named_files(void) {
+    const char *dir = scratch_dir("cfg-named");
+    char sysdir[300], abs_user[400];
+    snprintf(sysdir, sizeof sysdir, "%s/System", dir);
+    scratch_write(dir, "System/Default.ini", "[FirstRun]\r\nFirstRun=0\r\n");
+    scratch_write(dir, "System/MOD.INI",
+                  "[FirstRun]\r\nFirstRun=1100\r\n[Core.System]\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(dir, "Elsewhere/Me.ini", "[DeusEx.DeusExPlayer]\r\nName=JC\r\n");
+    snprintf(abs_user, sizeof abs_user, "%s/Elsewhere/Me.ini", dir);
+
+    dxl_config *c = dxl_config_open_files(sysdir, "DeusEx", "mod.ini", abs_user);
+    CHECK_INT(dxl_config_first_run(c), 1100);
+    CHECK(!dxl_config_seeded(c));
+    CHECK_STR(dxl_ini_get(dxl_config_user_ini(c), "DeusEx.DeusExPlayer", "Name"), "JC");
+    dxl_config_free(c);
+
+    c = dxl_config_open_files(sysdir, "DeusEx", "..\\New.ini", NULL);
+    CHECK(dxl_config_seeded(c));
+    CHECK_INT(dxl_config_first_run(c), 0);
+    dxl_err e;
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    dxl_config_free(c);
+    CHECK(scratch_exists(dir, "New.ini"));
+    scratch_remove(dir);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_reads_the_gates);
     RUN(test_first_run_clamps_up_only);
@@ -328,4 +357,5 @@ TEST_MAIN_BEGIN
     RUN(test_reset_deletes_and_rebuilds);
     RUN(test_reset_refuses_without_default);
     RUN(test_reload_reads_what_another_wrote);
+    RUN(test_open_named_files);
 TEST_MAIN_END

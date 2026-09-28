@@ -23,6 +23,7 @@
 #define HANDOFF_TIMEOUT_MS 30000   /* the original's SendMessageTimeout */
 #define WAIT_STEP_MS       50      /* how often the windows are kept answering */
 #define HELLO_TIMEOUT_MS   2000    /* an engine silent this long does not speak the line */
+#define KILL_AFTER_MS      5000    /* after SIGTERM, how long a game has to end */
 #define ENGINE_VERSION     1100    /* what FirstRun is raised to */
 
 typedef struct {
@@ -201,7 +202,7 @@ static int play(run *r, volatile int *stop) {
         return 1;                    /* Running.ini stays: the game failed */
     }
 
-    int hello = 0, ready = 0, signalled = 0, waited = 0;
+    int hello = 0, ready = 0, signalled = 0, waited = 0, killed = 0, since_term = 0;
     for (;;) {
         char line[1024];
         int ev = dxl_game_wait(&g, dxl_instance_fd(r->inst), WAIT_STEP_MS, line, sizeof line);
@@ -239,6 +240,11 @@ static int play(run *r, volatile int *stop) {
             dxl_log("stopping the game");
             dxl_game_signal(&g, SIGTERM);
             signalled = 1;
+        } else if (signalled && !killed && (since_term += WAIT_STEP_MS) >= KILL_AFTER_MS) {
+            /* An engine that takes no notice of SIGTERM, as the fork does. */
+            dxl_log("the game did not stop: killing it");
+            dxl_game_signal(&g, SIGKILL);
+            killed = 1;
         }
         if (r->ui->pump) r->ui->pump(r->ui->ctx);
     }
@@ -283,7 +289,12 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     dxl_log_open_new(r.log_path);
     dxl_log("Init: command line: %s", r.cmd);
     dxl_log("Init: base directory: %s", r.base);
-    r.cfg = dxl_config_open(r.base, r.package);
+    /* appInit's INI= and USERINI=: the configuration from other files. */
+    char ini[PATH_MAX], user_ini[PATH_MAX];
+    int has_ini = dxl_cmd_value(r.cmd, "INI", ini, sizeof ini) && *ini;
+    int has_user_ini = dxl_cmd_value(r.cmd, "USERINI", user_ini, sizeof user_ini) && *user_ini;
+    r.cfg = dxl_config_open_files(r.base, r.package, has_ini ? ini : NULL,
+                                  has_user_ini ? user_ini : NULL);
     if (dxl_config_seeded(r.cfg)) {
         dxl_err e;
         dxl_log("%s created from Default.ini", dxl_config_path(r.cfg));
