@@ -1,5 +1,7 @@
 #include "test.h"
 #include "core/ini.h"
+#include "core/localize.h"
+#include "core/renderdev.h"
 
 #include <unistd.h>
 
@@ -68,6 +70,38 @@ static void test_default_ini_matches_the_spec(void) {
     dxl_ini_free(ini);
 }
 
+/* The words the pages show, from the game's own .int files. */
+static void test_strings(void) {
+    dxl_loc *l = dxl_loc_open(DXL_GAMEFILES, NULL);
+    CHECK_STR(dxl_loc_general(l, "Startup", "FirstTime"), "Deus Ex First-Time Configuration");
+    CHECK_STR(dxl_loc_general(l, "Startup", "Run"), "Run!");
+    CHECK_STR(dxl_loc_general(l, "Startup", "WorldHigh"), "High detail textures");   /* unquoted */
+    CHECK_STR(dxl_loc_general(l, "Window", "NextButton"), "&Next >");
+    CHECK_STR(dxl_loc_general(l, "Window", "InsertCdTitle"), "Cd Required At Startup");
+    CHECK_STR(dxl_loc_get(l, "Startup", "IDDIALOG_ConfigPageRenderer", "IDC_RenderNote", 0), "");
+    dxl_loc_free(l);
+}
+
+/* The Renderer page's registry: the five devices the game registers, in the
+ * order the original met them under wine (dx-reverse-info/live-verification.md). */
+static void test_render_devices(void) {
+    dxl_loc *l = dxl_loc_open(DXL_GAMEFILES, NULL);
+    dxl_renderdev_list r;
+    dxl_renderdev_load(&r, DXL_GAMEFILES, l, NULL, NULL);
+    CHECK_INT(r.count, 5);
+    size_t idx[8];
+    int sel;
+    size_t n = dxl_renderdev_shown(&r, 1, idx, 8, &sel);
+    const char *want[] = { "3dfx Glide for Windows", "Direct3D Support", "OpenGL Support",
+                           "S3 MeTaL for Windows", "Software Rendering" };
+    CHECK_INT(n, 5);
+    for (size_t i = 0; i < n && i < 5; i++) CHECK_STR(r.items[idx[i]].caption, want[i]);
+    /* Nothing certified: the software renderer. */
+    CHECK_INT(sel, 4);
+    dxl_renderdev_free(&r);
+    dxl_loc_free(l);
+}
+
 TEST_MAIN_BEGIN
     if (access(DXL_GAMEFILES "/Default.ini", R_OK) != 0) {
         printf("skipped: no Deus Ex install in %s\n", DXL_GAMEFILES);
@@ -75,4 +109,6 @@ TEST_MAIN_BEGIN
     }
     RUN(test_roundtrip);
     RUN(test_default_ini_matches_the_spec);
+    RUN(test_strings);
+    RUN(test_render_devices);
 TEST_MAIN_END

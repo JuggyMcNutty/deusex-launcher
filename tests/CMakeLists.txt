@@ -15,6 +15,11 @@ dxl_test(test_policy)
 dxl_test(test_argv)
 dxl_test(test_config)
 dxl_test(test_runtime)
+dxl_test(test_localize)
+dxl_test(test_migrate)
+dxl_test(test_safemode)
+dxl_test(test_renderdev)
+dxl_test(test_detail)
 
 # The same checks against the real game files, which this repository does not
 # carry: skipped unless gamefiles/ holds an install.

@@ -37,8 +37,11 @@ sysroots.
 The recreation is in progress. In, and tested: the original's ini handling
 (byte-identical round trips), its three command-line parsers, the `FirstRun`
 gates and the entry decision tree, the crash sentinel, the single-instance
-handoff, the CD check, and the hand-over to the game. Next: the launch
-sequence, the splash, and the wizard's six pages.
+handoff, the CD check, and the hand-over to the game; and what the pages
+decide -- the game's own strings from its `.int` files, the save migration,
+safe mode's flags with all eight boxes wired, the Renderer page's list and
+choice, and the Detail page's settings. Next: the launch sequence, the
+splash, and the wizard's six pages on screen.
 
 ## Building
 
