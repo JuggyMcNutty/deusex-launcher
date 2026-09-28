@@ -105,6 +105,20 @@ static int file_save(ini_file *f, dxl_err *err) {
     return 0;
 }
 
+static void file_reload(ini_file *f) {
+    if (!f->path) return;
+    dxl_ini *fresh = dxl_ini_load(f->path, NULL);
+    if (!fresh) return;
+    dxl_ini_free(f->ini);
+    f->ini = fresh;
+    f->existed = 1;
+}
+
+void dxl_config_reload(dxl_config *c) {
+    file_reload(&c->base);
+    file_reload(&c->user);
+}
+
 int dxl_config_save(dxl_config *c, dxl_err *err) {
     if (file_save(&c->base, err) != 0) return -1;
     if (file_save(&c->se, err) != 0) return -1;
