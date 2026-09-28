@@ -262,7 +262,7 @@ static void test_make_is_fatal(void) {
     launch((const char *[]){ "-make", NULL }, &r);
     CHECK_INT(r.exit_code, 1);
     CHECK_INT(S.criticals, 1);
-    CHECK_STR(S.critical_text, "'DeusEx -make' is obsolete, use 'ucc make' now");
+    CHECK_STR(S.critical_text, "'DeusEx -make' is obsolete, use 'ucc make' now\r\n\r\nHistory: ");
     CHECK_INT(S.splash_shows, 0);
     CHECK_INT(scratch_exists(root, "System/game-args.txt"), 0);
     dxl_launch_result_free(&r);

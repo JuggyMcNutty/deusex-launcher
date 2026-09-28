@@ -30,3 +30,11 @@ target_link_libraries(test_launch PRIVATE dxl_launch)
 dxl_test(test_gamefiles)
 target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System")
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
+
+# The wizard clicked through, drawn into surfaces: no display, but a font
+# (skipped without one).
+if(TARGET dxl_gui)
+    dxl_test(test_wizard)
+    target_link_libraries(test_wizard PRIVATE dxl_gui)
+    set_tests_properties(test_wizard PROPERTIES SKIP_RETURN_CODE 77)
+endif()

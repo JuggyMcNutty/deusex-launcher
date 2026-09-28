@@ -60,6 +60,36 @@ add_library(dxl_launch STATIC src/launch/launch.c)
 target_link_libraries(dxl_launch PUBLIC dxl_platform)
 
 # ---------------------------------------------------------------------------
+# DeusEx -- the launcher itself, with the original's screens drawn in SDL2:
+# the look (src/gui), the wizard (src/wizard), and main (src/launch/winmain.c).
+# Installed into the game's System/, beside DeusEx.exe:
+#   cmake --install <build> --prefix <GameDir>/System
+# ---------------------------------------------------------------------------
+option(DXL_SCREENS "Build DeusEx and its screens (needs SDL2 and SDL2_ttf)" ON)
+if(DXL_SCREENS)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2 SDL2_ttf)
+
+    add_library(dxl_gui STATIC
+        src/gui/gui.c
+        src/gui/dialog.c
+        src/gui/msgbox.c
+        src/gui/splash.c
+        src/wizard/wizard.c
+    )
+    target_link_libraries(dxl_gui PUBLIC dxl_platform PkgConfig::SDL2)
+
+    add_executable(DeusEx src/launch/winmain.c)
+    target_link_libraries(DeusEx PRIVATE dxl_launch dxl_gui)
+    install(TARGETS DeusEx RUNTIME DESTINATION .)
+
+    # Every screen drawn into a .bmp with no display, to lay beside the
+    # original's (tools/pageshots.c).
+    add_executable(pageshots tools/pageshots.c)
+    target_link_libraries(pageshots PRIVATE dxl_gui)
+endif()
+
+# ---------------------------------------------------------------------------
 # tests -- native builds only; the core has no graphics dependency, so they
 # need no display.
 # ---------------------------------------------------------------------------
