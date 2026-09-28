@@ -3,8 +3,9 @@
  * The original opens a WLog window on every launch and writes DeusEx.log.
  * Here the window is gone (it is a Win32 widget, and on a 1280x720 handheld
  * it would be in the way), but the file stays: the on-device verification
- * matrix reads it, and it is the only way to see what happened after the
- * launcher has exec'd into something else.
+ * matrix reads it, and it is the only way to see what happened once the
+ * launcher has handed over to the game (on main, the game's own output is
+ * appended to it).
  */
 #ifndef DXL_LOG_H
 #define DXL_LOG_H
