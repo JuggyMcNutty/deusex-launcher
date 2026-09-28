@@ -229,8 +229,8 @@ a PC.
 | Pad in game | moving, looking and firing work (owner, first build); START was swallowed after skipping the intro — fixed since, **not yet re-verified** |
 | The ports framework (2026-09-22) | `dx.sh deploy` put exactly the staged files on the device (checksums); `dxl-cli --dry-run --probe` ran there; the shared `run-game.sh` with this port's hooks started the out-of-tree engine build, the intro rendered at 31 FPS, and the CPU mode was applied and restored |
 | Deploy with checksums (2026-09-22) | `dx.sh deploy` built and staged, sent only the one changed file, kept the device's copy in `.prev-<date-time>` and verified all 13 files; `profile-map.sh` applied `launcher.ini`'s Overclock (four cores, 2.0 GHz) through `port-hooks.sh` and restored power-save after |
-| Engine upgraded to upstream `af860b3` (2026-09-23) | The fight runs and renders as before (framebuffer captures, with and without the profiling hooks); its log is the same as before apart from timings, and Distant AI's tallies match. On the desktop, Liberty Island's log was the same as the build before the upgrade, and synchronization validation was clean on both texture paths |
-| Engine patches 0004–0034 (2026-09-22/24) | The fight runs with each on this device; each one's check -- framebuffer captures against the ones before it, from 0028 the actor-state hash on the desktop, for 0034 an NSF turning on the player there -- is with the patch in [`vibe/docs/ENGINE.md`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#what-the-fork-changes) |
+| Engine upgraded to upstream `af860b3` (2026-09-23) | The level start runs and renders as before (framebuffer captures, with and without the profiling hooks); its log is the same as before apart from timings, and Distant AI's tallies match. On the desktop, Liberty Island's log was the same as the build before the upgrade, and synchronization validation was clean on both texture paths |
+| Engine patches 0004–0034 (2026-09-22/24) | The level start runs with each on this device; each one's check -- framebuffer captures against the ones before it, from 0028 the actor-state hash on the desktop, for 0034 an NSF turning on the player there -- is with the patch in [`vibe/docs/ENGINE.md`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#what-the-fork-changes) |
 
 Verified with the earlier wizard build, on code paths unchanged since: install
 validation naming each missing file; `Running.ini` created at commit and
@@ -247,12 +247,12 @@ crash marker cleared on the System tab. Not yet exercised on hardware:
 
 ## Performance
 
-All figures are Liberty Island's opening firefight (`01_NYC_UNATCOIsland.dx`)
+All figures are Liberty Island's level start (`01_NYC_UNATCOIsland.dx`)
 unless a row says otherwise, in milliseconds a frame averaged over 60 frames.
 
-### The fight, patch by patch
+### The level start, patch by patch
 
-The overclock fight, facing it, from the start of the engine work and then after
+The overclock level start, from the start of the engine work and then after
 each patch in turn, and after each upgrade to a newer upstream; the last row is
 where it stands (what each changed is
 in [`vibe/docs/ENGINE.md`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#what-the-fork-changes)). The 853×480
@@ -312,7 +312,7 @@ The numbers below predate M3's engine work of 2026-09-25 (the stasis tick
 skip, `IsEventEnabled` from one mask, the trace iterators' first-wall stop):
 the game-tick items it touches are to be re-measured on the device.
 
-At native resolution, facing the fight in overclock (~129 ms). The GPU draws
+At native resolution at the level start in overclock (~129 ms). The GPU draws
 the previous frame while the game tick runs (engine patch 0004), and the tick
 is now the shorter of the two, so **a frame is about the GPU's time plus the
 render CPU**: render-CPU savings count in full, and tick savings hardly at all
@@ -400,11 +400,11 @@ to the GPU's time and the render CPU here is for it to measure.
 | Intro, performance | ~30 | 33 | 3 | 7 | 22 |
 | Liberty Island, power-save, turning | ~2 | ~500 | ~330 | ~250 | ~45 |
 | Liberty Island, performance, turning | 3.0–3.3 | ~300–340 | 170–200 | 80–170 | ~45 |
-| Liberty Island, performance, facing the fight | ~2 | 485–535 | 190–245 | 210–295 | ~75 |
+| Liberty Island, performance, level start | ~2 | 485–535 | 190–245 | 210–295 | ~75 |
 | Liberty Island, overclock, turning | 3.7 | ~272 | ~142 | ~81 | ~46 |
 
-The overclock fight facing it is the first row of
-[the fight, patch by patch](#the-fight-patch-by-patch). The performance-mode fight rows
+The overclock level start is the first row of
+[the level start, patch by patch](#the-level-start-patch-by-patch). The performance-mode level start rows
 had the per-class or per-function hooks on, which add their own cost; the
 overclock rows (2026-09-22) had them off. Overclock is the owner's mode from
 then on.
@@ -419,7 +419,7 @@ VibeEngine's `vibe/tools/perf/perf-instrumentation.patch` (`vibe/tools/perf/perf
 The script applies the CPU mode `launcher.ini` names, through the app's own
 `port-hooks.sh`, so a profile measures what playing gets; its header lists the
 arguments. It runs with the engine settings the device has, and the log
-records its Distant AI and render scale: the fight's rows above are Distant AI
+records its Distant AI and render scale: the level start's rows above are Distant AI
 on, at `RenderScale` 1 and 0.6666667 (853×480), set in the device's
 `Settings.json` for the run and put back afterwards when the owner's differ.
 It splits a map's frame time into input, tick, render CPU, GPU
