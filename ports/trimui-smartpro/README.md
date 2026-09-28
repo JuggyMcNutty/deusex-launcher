@@ -154,8 +154,9 @@ and vsync would hold it to 30 or 20). It also turns on
 and 0022): characters out of sight and not close think every third frame,
 every sixth when far. An install
 whose `Settings.json` predates the field gets it from this default.
-`Performance.RenderScale` is 1: the game draws at the panel's 1280×720 unless
-the Video tab's Resolution asks for 960×540 or 853×480 (engine patch 0009).
+`Performance.RenderScale` is 0.6666667 (853×480, since 2026-09-28): the game
+draws there unless the Video tab's Resolution asks for 960×540 or the panel's
+1280×720 (engine patch 0009).
 
 ## The device, as measured
 

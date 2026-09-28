@@ -23,7 +23,7 @@
   },
   "Performance": {
     "AiLevelOfDetail": true,
-    "RenderScale": 1
+    "RenderScale": 0.6666667
   },
   "Games": {
     "SearchList": [],
