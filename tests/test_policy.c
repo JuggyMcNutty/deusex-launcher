@@ -117,6 +117,21 @@ static void test_forwards_to_running_instance(void) {
     CHECK_INT(d.action, DXL_ACTION_FORWARD);
 }
 
+/* A caller that forwarded first and found no one to take it decides on as
+ * if nothing were running for forwarding's sake -- but a surviving
+ * Running.ini still belongs to the live instance, not to a crash. */
+static void test_forward_tried_decides_on(void) {
+    dxl_policy_input in = { .cmdline = "", .first_run = 1100, .other_instance = 1,
+                            .running_ini_exists = 1, .is_client = 1, .forward_tried = 1 };
+    dxl_decision d;
+    dxl_policy_decide(&in, &d);
+    CHECK_INT(d.action, DXL_ACTION_LAUNCH);
+    CHECK_INT(d.screen, DXL_SCREEN_NONE);
+    in.cmdline = "-changevideo";
+    dxl_policy_decide(&in, &d);
+    CHECK_INT(d.screen, DXL_SCREEN_RENDERER_VIDEO);
+}
+
 /* The four bypass tokens must still skip forwarding, or -changevideo aimed at
  * a running game would be swallowed by it instead of opening the screen. */
 static void test_bypass_tokens_skip_forwarding(void) {
@@ -189,6 +204,7 @@ TEST_MAIN_BEGIN
     RUN(test_changevideo_beats_recovery);
     RUN(test_forwards_to_running_instance);
     RUN(test_bypass_tokens_skip_forwarding);
+    RUN(test_forward_tried_decides_on);
     RUN(test_consolecommand_exits);
     RUN(test_testrendev_exits);
     RUN(test_splash_suppression);
