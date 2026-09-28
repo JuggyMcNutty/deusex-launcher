@@ -226,7 +226,8 @@ static void test_open_named_files(void) {
     char sysdir[300], abs_user[400];
     snprintf(sysdir, sizeof sysdir, "%s/System", dir);
     scratch_write(dir, "System/Default.ini", "[FirstRun]\r\nFirstRun=0\r\n");
-    scratch_write(dir, "System/MOD.INI", "[FirstRun]\r\nFirstRun=1100\r\n");
+    scratch_write(dir, "System/MOD.INI",
+                  "[FirstRun]\r\nFirstRun=1100\r\n[Core.System]\r\nPaths=..\\System\\*.u\r\n");
     scratch_write(dir, "Elsewhere/Me.ini", "[DeusEx.DeusExPlayer]\r\nName=JC\r\n");
     snprintf(abs_user, sizeof abs_user, "%s/Elsewhere/Me.ini", dir);
 
