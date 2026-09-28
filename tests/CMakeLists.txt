@@ -21,6 +21,10 @@ dxl_test(test_safemode)
 dxl_test(test_renderdev)
 dxl_test(test_detail)
 
+# The whole run, with stand-ins for the screens and the game.
+dxl_test(test_launch)
+target_link_libraries(test_launch PRIVATE dxl_launch)
+
 # The same checks against the real game files, which this repository does not
 # carry: skipped unless gamefiles/ holds an install.
 dxl_test(test_gamefiles)

@@ -12,9 +12,9 @@ int dxl_install_cd_ok(const char *game_dir, const char *cd_path) {
      * why the shipped check never prompts. */
     char *rel = dxl_path_from_ini(cd_path);
     char *sys = dxl_path_join(game_dir, "System");
-    char *base = dxl_path_join(sys, rel);
+    char *base = rel[0] == '/' ? dxl_xstrdup(rel) : dxl_path_join(sys, rel);
     char *probe = dxl_path_resolve_ci(base, "Textures/Palettes.utx");
-    int ok = probe != NULL;
+    int ok = probe != NULL && dxl_path_size(probe) > 0;
 
     free(probe); free(base); free(sys); free(rel);
     return ok;

@@ -42,11 +42,22 @@ add_library(dxl_core STATIC
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
-# The hand-over to the game: the one step whose mechanism is the platform's
-# (src/platform/launch.h). The original runs the engine in its own process;
-# here the launcher execs the game's command.
-add_library(dxl_platform STATIC src/platform/posix/launch.c)
+# What is the platform's: replacing this process with another
+# (src/platform/launch.h -- safe mode's relaunch, and the port branches'
+# hand-over), the game the launcher starts and stays with, as the original's
+# process stays with its engine (process.h), and the machine the Detail page
+# asks about (machine.h).
+add_library(dxl_platform STATIC
+    src/platform/posix/launch.c
+    src/platform/posix/process.c
+    src/platform/posix/machine.c
+)
 target_link_libraries(dxl_platform PUBLIC dxl_core)
+
+# The original's run, WinMain and InitEngine in their order, with the screens
+# behind a table of functions (src/launch/launch.h).
+add_library(dxl_launch STATIC src/launch/launch.c)
+target_link_libraries(dxl_launch PUBLIC dxl_platform)
 
 # ---------------------------------------------------------------------------
 # tests -- native builds only; the core has no graphics dependency, so they
