@@ -40,10 +40,53 @@ gates and the entry decision tree, the crash sentinel, the single-instance
 handoff, and the CD check; what the pages decide -- the game's own strings
 from its `.int` files, the save migration, safe mode's flags with all eight
 boxes wired, the Renderer page's list and choice, and the Detail page's
-settings; and the launch sequence itself (`src/launch/`), from forwarding
-to the game's end, down every road it can end by, with the screens as
-stand-ins. Next: the screens -- the look, the six pages, the splash, the
-message boxes -- and the `DeusEx` program they make with the sequence.
+settings; the launch sequence itself (`src/launch/`), from forwarding to the
+game's end, down every road it can end by; and its screens -- the wizard's
+six pages, the splash and the two message boxes -- in the `DeusEx` program.
+Next: `run-game.sh` and the engine's side of the line below (in
+VibeEngine), and installing into the game's `System/`.
+
+## The look
+
+The screens are the original's, drawn with SDL2: every control at its place
+in `Window.dll`'s and `DeusEx.exe`'s dialog templates, in the colours, fonts
+and details the original shows under wine, where it was captured page by
+page
+([live-verification.md](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/live-verification.md#the-second-run-every-page-2026-09-27)).
+`tools/pageshots.c` draws each screen with no display, to lay beside those
+captures: 13 of the 15 match to the pixel. The other two: the error box's
+icon, which is drawn here rather than copied from wine; and the splash,
+whose picture wine shows colour-reduced while this shows the bitmap as it
+is -- its frame and place match.
+
+The fonts are wine's own, found in a wine or Proton install: MS Sans Serif
+(`sserife.fon`) for the pages, Arial at 12 pixels for the Driver page's
+link, Tahoma 8 pt for the message boxes. Without wine, the nearest common
+fonts stand in (Liberation Sans, DejaVu Sans); `DXL_FONT`, `DXL_FONT_URL`
+and `DXL_FONT_MSG` name others. Text is drawn unsmoothed and unkerned, as
+Windows draws it.
+
+## Where it differs from the original
+
+- **The game is a program of its own**, which the launcher starts and
+  waits for (below), where the original's process becomes the game.
+- **Detection finds no 3D device.** No Windows driver can start here, so
+  every device the Renderer page tests is left incompatible and the
+  software renderer is chosen, unless the configuration already says
+  otherwise ([`renderdev.h`](src/core/renderdev.h)).
+- **Safe mode's eight boxes are all wired.** In the original three of them
+  do nothing and one does four boxes' work
+  ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead)).
+- **Safe mode's relaunch comes after the run has ended**, as this process
+  becoming the launcher again, where the original starts a second process
+  while it is still ending.
+- **A missing splash bitmap is not fatal**: there is no splash. The
+  original asserts and dies.
+- **Web pages open with the desktop's handler** (`xdg-open`).
+- **No log window.** The original opens one on every run, shown with
+  `-log`; here `-log` only keeps the splash away, and the log is the file,
+  `<Package>.log`, as the original's is too.
+- **The windows' frames are the desktop's**, with no icon of the game's.
 
 ## The game and the launcher
 
@@ -75,8 +118,19 @@ cmake --build build
 ctest --test-dir build
 ```
 
-C11; the tests need no display. `test_gamefiles` runs the same checks against
-a real install when `gamefiles/System` holds one, and is skipped otherwise.
+C11, with SDL2 and SDL2_ttf (through `pkg-config`) for `DeusEx` and its
+screens; `-DDXL_SCREENS=OFF` builds the core and its tests alone. The tests
+need no display. `test_gamefiles` runs the same checks against a real
+install when `gamefiles/System` holds one, and is skipped otherwise;
+`test_wizard` clicks through the pages drawn into memory, and is skipped
+where no font is found.
+
+The screens as pictures, from an install's strings and configuration, which
+are read and not written:
+
+```sh
+build/pageshots gamefiles/System shots/
+```
 
 ## License
 

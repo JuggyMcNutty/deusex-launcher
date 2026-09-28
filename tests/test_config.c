@@ -299,6 +299,22 @@ static void test_reset_refuses_without_default(void) {
     scrub_all(dir);
 }
 
+/* Another process writes the file: a reload sees it. */
+static void test_reload_reads_what_another_wrote(void) {
+    char *dir = scratch_install("reload");
+    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *other = dxl_config_open(dir, "DeusEx");
+    dxl_ini_set_int(dxl_config_ini(other), "D3DDrv.D3DRenderDevice", "DescFlags", 2);
+    dxl_err e;
+    CHECK_INT(dxl_config_save(other, &e), 0);
+    dxl_config_free(other);
+    CHECK_INT(dxl_ini_get_int(dxl_config_ini(c), "D3DDrv.D3DRenderDevice", "DescFlags", 0), 0);
+    dxl_config_reload(c);
+    CHECK_INT(dxl_ini_get_int(dxl_config_ini(c), "D3DDrv.D3DRenderDevice", "DescFlags", 0), 2);
+    dxl_config_free(c);
+    scrub(dir);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_reads_the_gates);
     RUN(test_first_run_clamps_up_only);
@@ -311,4 +327,5 @@ TEST_MAIN_BEGIN
     RUN(test_user_ini_prefers_the_engine_copy);
     RUN(test_reset_deletes_and_rebuilds);
     RUN(test_reset_refuses_without_default);
+    RUN(test_reload_reads_what_another_wrote);
 TEST_MAIN_END
