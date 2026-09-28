@@ -49,20 +49,40 @@ static void seed(ini_file *f, const char *system_dir, const char *default_name) 
     free(def_path);
 }
 
-dxl_config *dxl_config_open(const char *system_dir, const char *package) {
+/* A file the command line names: as given if absolute, else from System/,
+ * its name found in any case. */
+static char *given_path(const char *system_dir, const char *given) {
+    char *p = dxl_path_from_ini(given);
+    if (p[0] == '/') return p;
+    char *joined = dxl_path_join(system_dir, p);
+    free(p);
+    char *dir = dxl_path_dirname(joined);
+    char *found = dxl_path_resolve_ci(dir, dxl_path_basename(joined));
+    free(dir);
+    if (!found) return joined;
+    free(joined);
+    return found;
+}
+
+dxl_config *dxl_config_open_files(const char *system_dir, const char *package, const char *ini,
+                                  const char *user_ini) {
     dxl_config *c = dxl_xmalloc(sizeof *c);
     memset(c, 0, sizeof *c);
 
-    file_load(&c->base, leaf_path(system_dir, "", package));
+    file_load(&c->base, ini ? given_path(system_dir, ini) : leaf_path(system_dir, "", package));
     if (!c->base.ini) {
         seed(&c->base, system_dir, "Default");
         c->seeded = c->base.ini != NULL;
     }
     if (!c->base.ini) c->base.ini = dxl_ini_new();
 
-    file_load(&c->user, leaf_path(system_dir, "", "User"));
+    file_load(&c->user, user_ini ? given_path(system_dir, user_ini) : leaf_path(system_dir, "", "User"));
     if (!c->user.ini) seed(&c->user, system_dir, "DefUser");
     return c;
+}
+
+dxl_config *dxl_config_open(const char *system_dir, const char *package) {
+    return dxl_config_open_files(system_dir, package, NULL, NULL);
 }
 
 void dxl_config_free(dxl_config *c) {

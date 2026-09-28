@@ -82,6 +82,8 @@ if(DXL_SCREENS)
     add_executable(DeusEx src/launch/winmain.c)
     target_link_libraries(DeusEx PRIVATE dxl_launch dxl_gui)
     install(TARGETS DeusEx RUNTIME DESTINATION .)
+    # What DeusEx starts the game with: the engine installed beside it.
+    install(PROGRAMS system/run-game.sh DESTINATION .)
 
     # Every screen drawn into a .bmp with no display, to lay beside the
     # original's (tools/pageshots.c).
