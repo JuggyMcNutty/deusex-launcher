@@ -116,6 +116,18 @@ static int first_token(const char *s, char *out, size_t size) {
     return 1;
 }
 
+/* appErrorf's box, as the original's error handler shows it: the message,
+ * a blank line, and the call history -- empty this early. */
+static void critical(const dxl_launch_ui *ui, dxl_loc *loc, const char *msg) {
+    dxl_log("Critical: %s", msg);
+    if (!ui->critical) return;
+    dxl_buf b;
+    dxl_buf_init(&b);
+    dxl_buf_printf(&b, "%s\r\n\r\nHistory: ", msg);
+    ui->critical(ui->ctx, dxl_loc_get(loc, "Window", "Errors", "Critical", 0), b.data);
+    dxl_buf_free(&b);
+}
+
 static void end(dxl_launch_result *out, int code, const char *where) {
     out->exit_code = code;
     out->ended = where;
@@ -184,11 +196,8 @@ static int play(run *r, volatile int *stop) {
     int started = dxl_game_start(&g, script, r->cmd, r->base, r->log_path, &e);
     free(script);
     if (started != 0) {
-        dxl_log("cannot start the game: %s", dxl_err_msg(&e));
         splash_hide(r);
-        if (r->ui->critical)
-            r->ui->critical(r->ui->ctx, dxl_loc_get(r->loc, "Window", "Errors", "Critical", 0),
-                            dxl_err_msg(&e));
+        critical(r->ui, r->loc, dxl_err_msg(&e));
         return 1;                    /* Running.ini stays: the game failed */
     }
 
@@ -282,10 +291,7 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     }
     r.loc = dxl_loc_open(r.base, dxl_ini_get(dxl_config_ini(r.cfg), "Engine.Engine", "Language"));
     if (dxl_cmd_param(r.cmd, "make")) {
-        const char *msg = "'DeusEx -make' is obsolete, use 'ucc make' now";
-        dxl_log("Critical: %s", msg);
-        if (ui->critical)
-            ui->critical(ui->ctx, dxl_loc_get(r.loc, "Window", "Errors", "Critical", 0), msg);
+        critical(ui, r.loc, "'DeusEx -make' is obsolete, use 'ucc make' now");
         end(out, 1, "-make");
         goto done;
     }

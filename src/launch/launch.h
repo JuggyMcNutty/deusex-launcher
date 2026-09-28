@@ -21,8 +21,8 @@
  * Where the screens come in, the run calls a dxl_launch_ui: the splash, the
  * wizard, two message boxes. Everything else it does itself.
  */
-#ifndef DXL_LAUNCH_H
-#define DXL_LAUNCH_H
+#ifndef DXL_LAUNCH_RUN_H
+#define DXL_LAUNCH_RUN_H
 
 #include "core/config.h"
 #include "core/detail.h"

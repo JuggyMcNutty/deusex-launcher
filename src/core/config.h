@@ -44,6 +44,10 @@ void        dxl_config_free(dxl_config *c);
 
 /* Writes whichever of the files changed. */
 int         dxl_config_save(dxl_config *c, dxl_err *err);
+/* Reads the files again from disk, as UE1's Flush(1) makes the next read
+ * do -- after another process has written them. A file that is not there
+ * keeps what was read before. */
+void        dxl_config_reload(dxl_config *c);
 int         dxl_config_dirty(const dxl_config *c);
 const char *dxl_config_path(const dxl_config *c);
 dxl_ini    *dxl_config_ini(dxl_config *c);
