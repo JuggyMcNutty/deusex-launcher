@@ -14,6 +14,9 @@
 /* path may be NULL for stderr only. Appends; never truncates an existing log
  * mid-session, since a safe-mode relaunch continues the same story. */
 void dxl_log_open(const char *path);
+/* The same, starting the file afresh -- as the original's own log is, each
+ * run. */
+void dxl_log_open_new(const char *path);
 void dxl_log_close(void);
 void dxl_log(const char *fmt, ...);
 /* Mirrors to stderr as well as the file. On by default. */

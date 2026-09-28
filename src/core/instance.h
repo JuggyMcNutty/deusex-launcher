@@ -30,6 +30,10 @@ typedef struct dxl_instance dxl_instance;
  * id should identify the install (the game directory); different installs must
  * not lock each other out. */
 dxl_instance *dxl_instance_acquire(const char *id);
+/* The lock alone, with no channel to forward to: an instance nothing should
+ * hand a command line to -- the original's -server, whose log window is
+ * never marked IsBrowser. */
+dxl_instance *dxl_instance_acquire_lock(const char *id);
 void          dxl_instance_release(dxl_instance *inst);
 
 /* Is another instance live? Answers without taking the lock, for the
@@ -44,5 +48,9 @@ int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
 
 /* Non-blocking. Returns 1 and NUL-terminates buf when a handoff arrived. */
 int dxl_instance_poll(dxl_instance *inst, char *buf, size_t size);
+
+/* The channel's descriptor, for a caller that waits on it with poll(); -1
+ * when the instance has none. */
+int dxl_instance_fd(const dxl_instance *inst);
 
 #endif
