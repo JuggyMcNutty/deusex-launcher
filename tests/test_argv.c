@@ -1,9 +1,9 @@
 #include "test.h"
 #include "core/argv.h"
 
-/* argv construction for the exec into the game. The launcher's command line
- * is kept as one string (dx-reverse-info/cli-flags.md: appStrfind matches anywhere),
- * so it is split exactly once, here. */
+/* argv construction for starting the game (and safe mode's relaunch). The
+ * launcher's command line is kept as one string (dx-reverse-info/cli-flags.md:
+ * appStrfind matches anywhere), so it is split exactly once, here. */
 
 static void test_argv_build(void) {
     char **a = dxl_argv_build("/app/run-game.sh", "-log -firstrun");
