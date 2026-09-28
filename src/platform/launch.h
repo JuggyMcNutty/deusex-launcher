@@ -1,9 +1,10 @@
-/* Handing over to the game: the one step whose mechanism is the platform's.
+/* Replacing this process with another: the one step whose mechanism is the
+ * platform's. The port branches hand over to the game this way, and main's
+ * safe mode starts the launcher again with its flags (launch/winmain.c); on
+ * main the game itself is a child the launcher waits for (process.h).
  *
- * On POSIX (platform/posix/launch.c) the launcher's last act is to exec the
- * configured game command with the command line it was given -- exec rather
- * than fork+wait, as the original ended its own process: nothing of the
- * launcher stays resident while the game runs.
+ * On POSIX (platform/posix/launch.c) it is exec, with the command line it was
+ * given -- rather than fork+wait: nothing of this process stays resident.
  *
  * A platform that cannot start a second program implements this another way.
  * On Android the engine has to run inside the app's own process, so there it
