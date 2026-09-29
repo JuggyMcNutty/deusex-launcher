@@ -290,6 +290,7 @@ columns were measured at some steps only; its GPU wait stayed ~0.2 ms throughout
 | 0029 | 7.3 | ~136 | ~50 | ~82 | ~17 | 9.5 | ~105 | ~42 | ~61 |
 | 0030–0032 | 7.6 | ~131 | ~39 | ~88 | ~26 | 10.3 | ~97 | ~37 | ~58 |
 | **0033–0034** | **7.7** | **~129** | **~39** | **~85** | **~24** | **10.4** | **~96** | **~36** | **~57** |
+| **M3–M7 (2026-09-25/28)** | **8.2** | **~121** | **~30** | **~88** | **~30** | **11.5** | **~87** | **~29** | **~54** |
 
 The upgrade to upstream `af860b3` (2026-09-23) measured the same as 0027 within
 the noise. Patches 0030–0032 were measured together. Besides the collision
@@ -298,95 +299,103 @@ the tick and the render CPU besides its waits (~64.5 → ~62 ms at native, ~61 �
 ~58 at 853×480) got faster with them. From 0034 the NPCs see -- in Surreal
 Engine they never had -- and those of hostile alliances check each other;
 their sight checks take ~0.3 ms of the tick, and the frame moved within the
-noise. After 0009, 960×540 (render scale 0.75) measured 4.7 FPS, ~214 ms, tick ~94,
-render CPU ~118. From patch 0013 on, the hooks build with frame pointers for
+noise. M3–M7 took the tick from ~39 to ~30 at native and ~36 to ~29 at
+853×480 -- the traces stopping at their first wall, the stasis tick skip,
+`IsEventEnabled` from one mask, the script VM's typed paths, the out-of-sight
+scripts and the original's sight natives -- and the frame from ~129 to ~121 at
+native and ~96 to ~87 at 853×480; at native the render grew ~3 with the
+occlusion proxies' walk, and its GPU wait went from ~24 to ~30. After 0009,
+960×540 (render scale 0.75) measured 4.7 FPS, ~214 ms, tick ~94, render CPU
+~118. From patch 0013 on, the hooks build with frame pointers for
 the sampling profiler, which costs ~1%: patch 0012 measured 5.4 FPS without
 them and 5.3 with. From patch 0018 on, native resolution is held back by the
 GPU ([where a frame goes](#where-a-frame-goes)).
 
-Indoors, UNATCO HQ runs at ~20 FPS.
+Indoors, UNATCO HQ runs at ~32 FPS at 853×480, and outdoors Battery Park at
+~16 (both M3–M7, 2026-09-29).
 
 ### Where a frame goes
 
-The numbers below predate M3's engine work of 2026-09-25 (the stasis tick
-skip, `IsEventEnabled` from one mask, the trace iterators' first-wall stop):
-the game-tick items it touches are to be re-measured on the device.
+Re-measured 2026-09-29 with M3–M7 (the stasis tick skip, `IsEventEnabled`
+from one mask, the trace iterators' first-wall stop, the mesh detail, the
+lighting, the original's sight natives and the occlusion proxies).
 
-At native resolution at the level start in overclock (~129 ms). The GPU draws
+At native resolution at the level start in overclock (~121 ms). The GPU draws
 the previous frame while the game tick runs (engine patch 0004), and the tick
 is now the shorter of the two, so **a frame is about the GPU's time plus the
 render CPU**: render-CPU savings count in full, and tick savings hardly at all
 (patch 0022 took ~2.6 ms off the tick and ~0.7 off the frame). At 853×480 the
-frame is the CPU's work, and both count. Reaching ~20 FPS (~50 ms) at native
-resolution therefore also needs the GPU's ~68 ms under ~50, and it needs the
-script VM several times faster.
+frame is the CPU's work, and both count (~87 ms there). Reaching ~20 FPS
+(~50 ms) at native resolution therefore also needs the GPU's ~63 ms under
+~50, and it needs the script VM several times faster.
 
-- **Game tick ~39 ms**, almost all NPCs. The device's CPU samples split it:
-  - ~16 ms under script calls, ~9 of which is the interpreter's own work
-    (the self time of `ExpressionEvaluator`, `Frame` and `ExpressionValue`;
-    ~14 before patches 0028–0029) over ~10,000 VM calls a frame: statements
-    (`Frame::Run` ~2), the expressions the typed and leaf paths do not cover
-    (`ExpressionEvaluator::Value`, `Expr`), calls (`ExpressionEvaluator::Call`,
-    `Frame::Call`, `CallScript`, `CallFastOperator`), the typed evaluators
-    themselves (~2.4). The other ~7 is the natives the scripts call,
-    `FindPathToward` ~2.3 and `TraceTexture` ~1 the largest, the NPCs' sight
-    checks (`AICanSee`) ~0.3: a script VM with no cost of its own would take
-    script time down by a little over half, not more.
+- **Game tick ~30 ms** (~35 with the detail hooks), almost all of it
+  `ULevel::TickActor` over the level's ~2,500 actors. The device's CPU
+  samples split it:
+  - ~15 ms under the script VM (`Frame::Run` inclusive of the natives it
+    calls; ~12 by the frame-time hooks' own count, ~9.5 of the tick), over
+    ~2,000 VM calls a frame (was ~10,000): ~6 of it the interpreter's own
+    work (the self time of `Frame::Run`, `ExpressionEvaluator` and
+    `Frame::Call`), the other ~8.5 the natives the scripts call -- the
+    weapons' and shadows' `Tick`, `CheckEnemyPresence` and
+    `CalculateAccuracy` the largest, `FindPathToward` ~0.5 where it was
+    ~2.3: even a script VM with no cost of its own would take the VM's time
+    down by a little less than half.
     `ScriptedPawn.CheckEnemyPresence` is still the costliest script function.
-    Most of the interpreter's time is now the Cortex-A53 waiting on memory
+    Most of the interpreter's time is still the Cortex-A53 waiting on memory
     for each expression node. Next in the structure: calls without an
     `ExpressionValue` per argument; beyond that, a denser form of the code
     itself.
-  - ~8 ms of physics (`TickPhysics`), mostly walking pawns: the step to the
-    ground (`TryStepToGround` ~4.2) and the move (`TryMove` ~2.6).
-  - ~3 ms of the AI's sight checks, from the pawns' own tick, not from
-    script (`UPawn::Tick` → `CanSee` → `FastTrace`).
-  - Across those three, ~7 ms of collision traces, ~8 a frame in all (~12
-    after patch 0029 by the same count), through `TraceAABBModel` and
-    `TraceRayModel`. Left: the box sweeps' BSP walk (`TraceAABBModel::Trace`
-    ~2.8, ~380 short sweeps a frame, ~20 nodes each), the sight rays' polygon
-    tests (`NodeRayIntersect` ~1.9), and the actor passes (~1.4, over a third
-    of it the `dynamic_cast` asking whether each actor is a mover).
-    `TraceTexture` is ~1 of it:
-    `LaserEmitter.CalcTrace` traces each laser beam 5,000 units for every one
-    of its reflection points every tick, collecting every hit along the way,
-    and the player's floor and wall materials are two more traces a frame.
-  - ~12 ms of per-actor work around the scripts for the level's ~2,500 actors
-    (`ULevel::TickActor`, animation, event lookups). ~1.4 of it is
-    `UObject::IsEventEnabled` asking whether to send each actor `Tick`: little
-    work, but a wait on memory for each actor's state frame, state and class.
+  - ~6 ms of physics (`TickPhysics`), mostly walking pawns: the step to the
+    ground (`TryStepToGround` ~1.9) and the move (`TryMove` ~2.7).
+  - ~12 ms of the pawns' own tick (`UPawn::Tick`), the AI's sight checks
+    (`CanSee`, `FastTrace`) ~0.7 of it, where they took ~3.
+  - ~2 ms of collision traces' own time (`TraceAABBModel::Trace` ~1.8 self,
+    was ~8 a frame in all through the traces): the sight rays' polygon tests
+    (`NodeRayIntersect` ~1) are most of the rest. `TraceTexture` is ~0.2 --
+    the laser tripwires' `CalcTrace` traces each beam 5,000 units for every
+    one of its reflection points every tick, and the player's floor and wall
+    materials are two more traces a frame.
+  - ~9 ms of per-actor work around the scripts (`ULevel::TickActor` ~4 of
+    self, `UActor::Tick` ~2.3, animation ~1.3, `CheckPendingTouch` ~1.1,
+    `PathNode`'s own tick ~4 over 1,000 nodes a frame): `IsEventEnabled`
+    asking whether to send each actor `Tick` is ~0.1 of it, where it took
+    ~1.4.
   - Pawns out of view think every third frame, every sixth beyond 4000 units
-    (Distant AI).
-- **Render CPU ~55 ms** besides waits, lightmaps and uploads:
-  - visibility ~16 ms (~21 before patches 0020–0021; ~19 with the profile's
-    per-part timers): the BSP walk,
-    ~3,800 box tests and ~2,400 surface tests a frame against `BspClipper`'s
-    occlusion grid, portal tests, actor set-up. Spread over the clipper's span
-    lists (`BspClipper::DrawSpan` ~3), triangle set-up and rasterising (~3.5),
-    the BSP walk itself (`ProcessNode`/`ProcessNodeSurface` ~5, cache misses)
-    and box tests (~2);
-  - actor meshes ~11 ms for ~40 in view: the per-vertex work (~8, lighting most
-    of it) and the device's set-up per run of faces;
-  - BSP surfaces ~8 ms for ~580 nodes, mostly each surface's lightmap lookup
-    (`LightSystem::GetLightmap`, ~3 of self time);
-  - translucent 5.1; the sky portal 3.1; BSP set-up (`bsp-info`) 2.8; the end
-    of the frame (`unlock`) 2.2; `PostRenderFlash` (script) 1.6; the rest ~2.
-- **Lightmaps ~4 ms, texture uploads ~2 ms.** One `BarrelFire`, a dynamic light
-  with the fire waver effect, has ~8 lightmaps rebuilt every frame, and each
-  goes back to the GPU whole, converted from float on the CPU (the GE8300
-  cannot filter RGBA32F; engine patch 0002; in NEON since 0024), though only
-  the rows its lights reach changed.
-- **GPU ~68 ms** at native resolution (~72 after patch 0029) -- ~76 when last
-  measured directly, as a wait, before patch 0004; now the input, tick and view
-  plus the render's wait for it. Drawing alongside the tick cost the tick ~20
-  ms: CPU and GPU compete for the SoC's shared memory. With the tick the
+    (Distant AI: the profile's tally shows ~12 a frame skipping at distance).
+- **Render CPU ~52 ms** besides waits, lightmaps and uploads:
+  - visibility ~20 ms: the BSP walk,
+    ~3,900 box tests (~3.9) and ~2,400 surface tests (~7.7) a frame against
+    `BspClipper`'s occlusion grid, portal tests ~1.7, actor set-up ~1.5.
+    Spread over the clipper's span lists (`BspClipper::DrawSpan` ~3.3),
+    triangle set-up and rasterising (`DrawTriangle`/`DrawClippedTriangle`
+    ~3.8), the BSP walk itself (`ProcessNode`/`ProcessNodeSurface` ~4.8,
+    cache misses) and box tests (`IsAABBVisible` ~1.3);
+  - actor meshes ~7.5 ms for ~40 in view (was ~11): the per-vertex work
+    (`DrawLodMeshFaceDX` ~3.7, `GetVertexLight` ~1.1) and the device's set-up
+    per run of faces;
+  - BSP surfaces ~8 ms for ~600 nodes, mostly each surface's lightmap lookup
+    (`LightSystem::GetLightmap`, ~3.7 of self time);
+  - translucent 2.6; the sky portal 3.4; BSP set-up (`bsp-info`) 3.5; the end
+    of the frame (`unlock`) 2.3; `PostRenderFlash` (script) 1.6; the rest
+    ~1.3.
+- **Lightmaps ~3.7 ms, texture uploads ~2 ms.** One `BarrelFire`, a dynamic
+  light with the fire waver effect, has 6 lightmaps rebuilt every frame
+  (~94,000 texels, ~1,800 of them in the light's radius), and each goes back
+  to the GPU whole, converted from float on the CPU (the GE8300 cannot filter
+  RGBA32F; engine patch 0002; in NEON since 0024), though only the rows its
+  lights reach changed.
+- **GPU ~63 ms** at native resolution (~72 after patch 0029, ~76 when last
+  measured directly, as a wait, before patch 0004) -- the input, tick and view
+  (~33) plus the render's wait for it. Drawing alongside the tick cost the tick
+  ~20 ms: CPU and GPU compete for the SoC's shared memory. With the tick the
   shorter of the two, the render waits for the GPU at its start: ~3 ms after
-  patch 0018, ~24 now. Render CPU and `view+audio` grew ~1–1.5 ms each from
-  patch 0015 on. At 853×480 none of that happens, and the tick itself is
-  shorter there, from the GPU's lighter memory traffic: ~8 ms after patch 0029,
-  ~3 now -- 0030–0032's collision work was the part that waited on memory.
+  patch 0018, ~24 at 0034, ~30 now. Render CPU and `view+audio` grew ~1–1.5 ms
+  each from patch 0015 on. At 853×480 the render's wait for the GPU is ~2, and
+  the tick is the same as at native (~29) -- 0030–0032's collision work was the
+  part that waited on the GPU's memory, and it is gone.
   `view+audio` is mostly `USurrealAudioDevice::StartAmbience`, which reads
-  every actor's `AmbientSound` each frame (~2 ms), as the original does
+  every actor's `AmbientSound` each frame (~2.5 ms), as the original does
   ([its update](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)).
 
 A GLES renderer is planned ([renderers](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/agent.md#decided)); what it does
