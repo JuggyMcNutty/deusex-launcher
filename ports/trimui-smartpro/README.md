@@ -292,6 +292,14 @@ columns were measured at some steps only; its GPU wait stayed ~0.2 ms throughout
 | 0030–0032 | 7.6 | ~131 | ~39 | ~88 | ~26 | 10.3 | ~97 | ~37 | ~58 |
 | **0033–0034** | **7.7** | **~129** | **~39** | **~85** | **~24** | **10.4** | **~96** | **~36** | **~57** |
 | **M3–M7 (2026-09-25/28)** | **8.2** | **~121** | **~30** | **~88** | **~30** | **11.5** | **~87** | **~29** | **~54** |
+| GLES (2026-10-01) | 8.6 | ~115 | ~30 | ~84 | – | 10.0 | ~100 | ~23 | ~76 |
+
+The GLES row is the fork's GL renderer on an OpenGL ES 3.2 context (the
+`[GLES]` row of the Video tab), measured 2026-10-01 at the same level start
+and CPU mode against the M3–M7 row's build (see [Where a frame goes](#where-a-frame-goes)
+for what it is and what its remaining gap to the Vulkan device is). Its GPU-wait
+column is a dash: the profiling hooks measure the Vulkan device's wait, and in
+GL the driver's time lands inside the render CPU.
 
 The upgrade to upstream `af860b3` (2026-09-23) measured the same as 0027 within
 the noise. Patches 0030–0032 were measured together. Besides the collision
@@ -399,8 +407,27 @@ frame is the CPU's work, and both count (~87 ms there). Reaching ~20 FPS
   every actor's `AmbientSound` each frame (~2.5 ms), as the original does
   ([its update](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)).
 
-A GLES renderer is planned ([renderers](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/agent.md#decided)); what it does
-to the GPU's time and the render CPU here is for it to measure.
+**The GLES renderer** (the fork's GL device on an OpenGL ES 3.2 context, measured 2026-10-01 at
+the same level start and CPU mode, the engine at the GLES commits):
+
+- **native 1280×720: 8.5–8.8 fps** (frame 113–117 ms: tick ~30, render 82–96, all of it
+  render CPU -- the hooks' GPU wait is a Vulkan measure; in GL the driver's time lands in the
+  draw calls). The Vulkan device's same-build run: 11.4 fps (frame 87: tick 30, render 53).
+- **853×480: 10.0 fps** (frame 100: tick 23, render 76) against the Vulkan's ~11.5/87.
+- The first build measured 2.4 fps (frame ~400): two thirds of it was the stream buffers'
+  per-flush map/unmap cycling through the vendor driver (SetSceneNode flushes per BSP node,
+  ~600 a frame). The buffers are now CPU staging arrays uploaded per flush
+  (glBufferSubData of the range written since the last one), and the frame fell to the
+  numbers above -- the single largest GLES lever, found by the CPU samples.
+- The scene buffers are 8-bit (GL_RGBA8) unless HDR is on, as the original XOpenGLDrv's were,
+  and what the GE8300 cannot sample or filter (BC1 textures, RGBA32F lightmaps) is decoded on
+  the CPU, as the Vulkan renderer decodes for it. The vendor driver also rejects three sampler
+  parameters a desktop GL takes (LOD bias, anisotropy without its extension,
+  MIRROR_CLAMP_TO_EDGE), and its SDL2 deadlocks on the fullscreen switch of a GL window --
+  all handled in the engine (the fork's GLES commits, 2026-09-30/10-01).
+- What remains between it and the Vulkan device here is the GL driver's per-draw-call cost
+  across the frame's ~700 calls (state, program and texture binds included); the engine-side
+  sections around them are the same shape as the Vulkan profile's.
 
 ### Other scenes and CPU modes, before the engine work
 
