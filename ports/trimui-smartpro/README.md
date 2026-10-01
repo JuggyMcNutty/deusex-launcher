@@ -7,8 +7,10 @@ the spruceOS menu starts.
 
 ## Status
 
-The launcher and the engine both run on the device, and the game plays. It is
-not yet as fast as the target set for it: [Performance](#performance) has the
+The launcher and the engine both run on the device, and the game plays -- on
+the Vulkan renderer and, since 2026-10-01, on the GLES one too (the Video
+tab's OpenGL ES row; its numbers are in [Where a frame goes](#where-a-frame-goes)).
+It is not yet as fast as the target set for it: [Performance](#performance) has the
 numbers, and [`agent.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/agent.md#decided) the target and the work
 toward it.
 
