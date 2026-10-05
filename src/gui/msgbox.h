@@ -2,7 +2,7 @@
  * the critical error (OK and an error icon).
  *
  * Laid out as wine lays out the original's (its MessageBox, which the
- * captures in dx-reverse-info/live-verification.md agree with to the pixel):
+ * captures (dx-reverse-info/wizard.md, "Observed under wine") agree with to the pixel):
  * in the message font, Tahoma 8 pt; the text wrapped at 264 pixels, 12 from
  * the left or 56 past the icon; buttons twice as wide as the widest label
  * (and at least four lines), two lines high, a third of a button apart,
