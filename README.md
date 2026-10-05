@@ -21,10 +21,11 @@ are included.
 
 A port branch builds `deusex-launcher`, `dxl-cli` and `dxl-shots`, and the
 core's unit tests. `main`'s program (`DeusEx`, with `system/run-game.sh`),
-its tools and its program's own tests ride along unbuilt. Each device's
-branch is `linux-x86_64` plus its own `ports/<id>/`, and inherits this
-README. `README.md` is branch-specific: a merge from `main` conflicts on it,
-and the merge keeps this one.
+its tools and its program's own tests ride along unbuilt. The Linux device
+branches began from `linux-x86_64`, with this README. Each port branch is its
+own variant of `main` and takes `main`'s changes by merge; `README.md` is
+branch-specific: a merge from `main` conflicts on it and keeps the port
+branch's own.
 
 ## Where to read
 
