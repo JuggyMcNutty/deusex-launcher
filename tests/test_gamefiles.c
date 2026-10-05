@@ -84,7 +84,7 @@ static void test_strings(void) {
 }
 
 /* The Renderer page's registry: the five devices the game registers, in the
- * order the original met them under wine (dx-reverse-info/live-verification.md). */
+ * order the original met them under wine (dx-reverse-info/wizard.md, "Observed under wine"). */
 static void test_render_devices(void) {
     dxl_loc *l = dxl_loc_open(DXL_GAMEFILES, NULL);
     dxl_renderdev_list r;

@@ -6,7 +6,7 @@
  * character width across and an eighth of its height down -- 6 and 13 pixels
  * at 96 DPI -- and Windows rounds MulDiv's way, which puts every control
  * where the original has it, pixel for pixel (checked against the original
- * running under wine: dx-reverse-info/live-verification.md).
+ * running under wine: dx-reverse-info/wizard.md, "Observed under wine").
  *
  * The colours are the system's, as the original shows them there, and the
  * text is drawn without smoothing, as its bitmap font is: wine's own MS Sans
