@@ -17,15 +17,15 @@ are included.
 | Branch | What it is |
 |---|---|
 | `main` | the original, recreated almost 1:1 -- no additions, no ports |
-| `linux-x86_64` | desktop Linux, the base port: `main` plus the launcher the ports run ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)) and the desktop app around it |
+| `linux-x86_64` | desktop Linux, where the project is developed: `main` plus the launcher the ports run ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)) and the desktop app around it |
 | `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): `linux-x86_64` plus the device's profile, CPU modes, cross toolchains and packaging |
 | `linux-aarch64` | aarch64 Linux with an ordinary distro: `linux-x86_64`, cross-built |
 | `android` | Android: the plan |
 | `x360` | the Xbox 360: the plan |
 
-Changes flow one way by merge, `main` into `linux-x86_64` into each device's
-branch; `README.md` is the exception, `linux-x86_64` keeping its own. The
-rules: [`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches).
+`main` is the working base: each port branch is its own variant of it and
+takes `main`'s changes by merge, but for `README.md`, which each port branch
+keeps as its own. The rules: [`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches).
 
 ## Where main stands
 
