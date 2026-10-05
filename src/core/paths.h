@@ -1,9 +1,10 @@
 /* Path handling across the Windows/POSIX seam.
  *
  * The engine's config is full of Windows paths -- "..\Save\", "CdPath=..\",
- * "Textures\Palettes.utx". dx-reverse-info/porting-notes.md section 7 is the rule we
- * follow: normalise for *lookup*, but keep writing whatever the engine
- * expects. So dxl_path_from_ini() converts on the way in, and stored values
+ * "Textures\Palettes.utx" -- hard-coded in the original
+ * (dx-reverse-info/launch-flow.md, "Platform seams"). Our rule: normalise for
+ * *lookup*, but keep writing whatever the engine expects. So
+ * dxl_path_from_ini() converts on the way in, and stored values
  * are never rewritten just because we read them.
  *
  * Case: the device's SD card is exFAT, which is case-insensitive, but a host

@@ -41,7 +41,7 @@ static void test_each_box_alone(void) {
     }
 }
 
-/* The live run's case (dx-reverse-info/live-verification.md): box 2 cleared,
+/* The live run's case (dx-reverse-info/wizard.md, "Observed under wine"): box 2 cleared,
  * boxes 3 to 5 ticked. The original gave none of their flags. */
 static void test_boxes_three_to_five_are_their_own(void) {
     dxl_safe_options o = dxl_safe_defaults();
