@@ -40,8 +40,9 @@ port_deploy() {
     dx_ssh "chmod +x '$d'/deusex-launcher '$d'/dxl-cli '$d'/*.sh && { [ ! -f '$d/SurrealEngine' ] || chmod +x '$d/SurrealEngine'; }"
     dx_ssh "[ -s '$d/launcher.ini' ] || cp '$d/launcher.ini.default' '$d/launcher.ini'"
     # MSAA must be off on the PowerVR GE8300 (speckle). The launcher writes
-    # Settings.json before every launch and run-game.sh seeds it; this is the
-    # last fallback, for an engine run by hand.
+    # Settings.json before a launch when it is missing, incomplete or changed,
+    # and run-game.sh seeds it; this is the last fallback, for an engine run by
+    # hand.
     dx_ssh "[ -s '$d/home/.config/SurrealEngine/Settings.json' ] || { mkdir -p '$d/home/.config/SurrealEngine'; cp '$d/engine-settings.json.default' '$d/home/.config/SurrealEngine/Settings.json'; }"
     say "done"
     if [ "$run" = 1 ]; then

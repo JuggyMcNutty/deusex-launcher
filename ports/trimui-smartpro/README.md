@@ -33,7 +33,9 @@ rollback (newest last; older hand-made ones are `.prev-<date>`).
 On the device the app lives in `/mnt/SDCARD/App/DeusEx` and the game data in
 `/mnt/SDCARD/Roms/PORTS/DeusEx` (all 38 `.u` packages). `launcher.ini`
 belongs to the device's owner: `deploy` installs it only when missing (from
-`launcher.ini.default`), and never touches `home/` or `run-game.log`.
+`launcher.ini.default`), touches `home/` only to seed a missing
+`Settings.json` there (from `engine-settings.json.default`), and never
+touches `run-game.log`.
 `--no-engine` leaves the engine's three files out.
 
 ```ini
@@ -139,14 +141,17 @@ with spruceOS's helpers -- the ones its Ports launcher uses -- just before the
 engine starts, and restores the exact previous state (online cores, governor,
 min/max) when it exits.
 
-The helpers are sourced in subshells only: `helperFunctions.sh` exports its own
-`LD_LIBRARY_PATH`, which hid `libSurrealVideo.so` from the engine the one time
-it was sourced directly.
+In `port-hooks.sh` the helpers are sourced in subshells only:
+`helperFunctions.sh` exports its own `LD_LIBRARY_PATH`, which hid
+`libSurrealVideo.so` from the engine the one time it was sourced directly.
+(`launch.sh` sources them directly, as spruceOS's apps do, and puts its own
+library path in front of theirs; `run-game.sh` puts the app's first.)
 
 ### Engine settings
 
 The launcher writes `home/.config/SurrealEngine/Settings.json` in the app
-directory before every launch (`run-game.sh` pins `HOME` there). The
+directory before a launch whenever it is missing, incomplete or changed
+(`run-game.sh` pins `HOME` there). The
 non-negotiable entry is `Antialias: Off`: the engine defaults to 4x MSAA, and
 the GE8300's resolve turns partially covered pixels into speckle. The launcher
 locks it off on any PowerVR, and this port's `engine-settings.json.default`
@@ -299,7 +304,8 @@ columns were measured at some steps only; its GPU wait stayed ~0.2 ms throughout
 The GLES row is the fork's GL renderer on an OpenGL ES 3.2 context (the
 `[GLES]` row of the Video tab), measured 2026-10-01 at the same level start
 and CPU mode against the M3–M7 row's build (see [Where a frame goes](#where-a-frame-goes)
-for what it is and what its remaining gap to the Vulkan device is). Its GPU-wait
+for what it is): at native it is level with the Vulkan device or a little
+ahead, at 853×480 behind it. Its GPU-wait
 column is a dash: the profiling hooks measure the Vulkan device's wait, and in
 GL the driver's time lands inside the render CPU.
 
@@ -414,8 +420,12 @@ the same level start and CPU mode, the engine at the GLES commits):
 
 - **native 1280×720: 8.5–8.8 fps** (frame 113–117 ms: tick ~30, render 82–96, all of it
   render CPU -- the hooks' GPU wait is a Vulkan measure; in GL the driver's time lands in the
-  draw calls). The Vulkan device's same-build run: 11.4 fps (frame 87: tick 30, render 53).
-- **853×480: 10.0 fps** (frame 100: tick 23, render 76) against the Vulkan's ~11.5/87.
+  draw calls), where the Vulkan device's is the M3–M7 row's 8.2 fps (frame ~121, ~30 of its
+  render a wait on the GPU): level with it, or a little ahead.
+- **853×480: 10.0 fps** (frame 100: tick 23, render 76) against the Vulkan device's 11.4 on
+  the same build (frame 87: tick 30, render 53; the M3–M7 row's ~11.5/87). That run's log,
+  `perf-vk-native`, is named native but ran at `RenderScale` 0.6666667 (its `settings:`
+  line): it is this row's, and the 11.4 once quoted as Vulkan's native figure was 853×480's.
 - The first build measured 2.4 fps (frame ~400): two thirds of it was the stream buffers'
   per-flush map/unmap cycling through the vendor driver (SetSceneNode flushes per BSP node,
   ~600 a frame). The buffers are now CPU staging arrays uploaded per flush
@@ -427,9 +437,11 @@ the same level start and CPU mode, the engine at the GLES commits):
   parameters a desktop GL takes (LOD bias, anisotropy without its extension,
   MIRROR_CLAMP_TO_EDGE), and its SDL2 deadlocks on the fullscreen switch of a GL window --
   all handled in the engine (the fork's GLES commits, 2026-09-30/10-01).
-- What remains between it and the Vulkan device here is the GL driver's per-draw-call cost
-  across the frame's ~700 calls (state, program and texture binds included); the engine-side
-  sections around them are the same shape as the Vulkan profile's.
+- At 853×480, what remains between it and the Vulkan device is the GL driver's per-draw-call
+  cost across the frame's ~700 calls (state, program and texture binds included); the
+  engine-side sections around them are the same shape as the Vulkan profile's. At native the
+  Vulkan frame waits on the GPU, and the GLES frame, its driver's time in the render CPU,
+  comes out no slower.
 
 ### Other scenes and CPU modes, before the engine work
 
@@ -459,8 +471,10 @@ The script applies the CPU mode `launcher.ini` names, through the app's own
 `port-hooks.sh`, so a profile measures what playing gets; its header lists the
 arguments. It runs with the engine settings the device has, and the log
 records its Distant AI and render scale: the level start's rows above are Distant AI
-on, at `RenderScale` 1 and 0.6666667 (853×480), set in the device's
+on, at `RenderScale` 1 and 0.6666667 (853×480), set by hand in the device's
 `Settings.json` for the run and put back afterwards when the owner's differ.
+The script switches nothing: check the log's `settings:` line before taking a
+run as native -- one at 0.6666667 is an 853×480 run whatever its label says.
 It splits a map's frame time into input, tick, render CPU, GPU
 wait, lightmaps and texture uploads; the render CPU by section, and the
 visibility pass by part; the time under script calls. The whole log comes back

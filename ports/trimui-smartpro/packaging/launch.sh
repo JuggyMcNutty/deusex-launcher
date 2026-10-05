@@ -18,8 +18,8 @@ echo 1 > /tmp/stay_awake
 
 chmod +x ./deusex-launcher ./dxl-cli ./run-game.sh 2>/dev/null
 
-# The launcher execs the game (or re-execs itself for safe mode), so this
-# script sees a single exit status for the whole chain.
+# The launcher execs the game, so this script sees a single exit status for
+# the whole chain.
 ./deusex-launcher "$@"
 status=$?
 

@@ -1,8 +1,9 @@
 # Sourced by run-game.sh (ports/common/packaging) on the TrimUI Smart Pro.
 
-# The vendor SDL2 lives in /usr/trimui/lib and carries the "mali" video driver
-# that wires Vulkan surface creation to the PowerVR implementation -- the only
-# display path here, presenting at 1280x720 via VK_KHR_display.
+# The vendor SDL2 lives in /usr/trimui/lib and carries the "mali" video driver,
+# the only display path here: an EGL/fbdev driver, which OpenGL ES draws
+# through, that also wires Vulkan surface creation to the PowerVR
+# implementation, presenting at 1280x720 via VK_KHR_display.
 PORT_LIB_PATH="/usr/trimui/lib:/usr/lib:/lib"
 
 # CPU mode. The spruceOS menu leaves the handheld in power-save -- two cores,
