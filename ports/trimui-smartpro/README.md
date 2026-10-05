@@ -1,55 +1,41 @@
 # Port: TrimUI Smart Pro (spruceOS)
 
-An Allwinner A133 handheld (4× Cortex-A53, PowerVR GE8300) running spruceOS:
-the vendor-firmware port, cross-built from a PC against the device's own
-libraries, and where the performance work is measured. The launcher is the app
-the spruceOS menu starts.
+An Allwinner A133 handheld (4× Cortex-A53, PowerVR GE8300) running spruceOS. The port is
+cross-built from a PC against the device's own libraries, and the performance work is measured
+here. The launcher is the app the spruceOS menu starts.
 
 ## Status
 
-The launcher and the engine both run on the device, and the game plays -- on
-the Vulkan renderer and, since 2026-10-01, on the GLES one too (the Video
-tab's OpenGL ES row; its numbers are in [Where a frame goes](#where-a-frame-goes)).
-It is not yet as fast as the target set for it: [Performance](#performance) has the
-numbers, and [`agent.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/agent.md#decided) the target and the work
-toward it.
+The launcher and the engine run on the device, and the game plays on Vulkan or OpenGL ES (the
+Video tab's choice), at 853×480 by default. It is short of
+[the ~20 FPS target](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided):
+[Performance](#performance) has the numbers, and [where a frame goes](#where-a-frame-goes) the
+work left.
 
 ## Build and run
 
 ```sh
+# from Port Ex Machina
 scripts/dx.sh fetch                        # once: the engine, the launcher's branches, the RE
 scripts/dx.sh deps   trimui-smartpro       # toolchains + sysroot (the device must be awake)
 scripts/dx.sh deploy trimui-smartpro       # build, stage, send; --no-engine, --run to start it over SSH
 ```
 
-`deploy` builds (incrementally) and stages before sending, so what reaches the
-device is always the current tree; it warns when the engine carries
-uncommitted changes, such as the profiling hooks. It sends only the files whose
-checksum differs, keeps the device's previous copies of those in
-`.prev-<date-time>` in the app directory (the device's clock; nothing is ever
-deleted there), and checksums every file on the device afterwards. Copying one back is a
-rollback (newest last; older hand-made ones are `.prev-<date>`).
+`deploy` builds (incrementally) and stages the current tree first, warning when the engine has
+uncommitted changes (the profiling hooks, say). It sends only the files whose checksum differs,
+keeps the device's copies of those in `.prev-<date-time>` (the device's clock) in the app
+directory, and checksums every file there afterwards. Nothing is ever deleted on the device:
+copying a previous copy back is a rollback (newest last; older hand-made ones are `.prev-<date>`). `--no-engine` leaves the engine's three files out.
 
-On the device the app lives in `/mnt/SDCARD/App/DeusEx` and the game data in
-`/mnt/SDCARD/Roms/PORTS/DeusEx` (all 38 `.u` packages). `launcher.ini`
-belongs to the device's owner: `deploy` installs it only when missing (from
-`launcher.ini.default`), touches `home/` only to seed a missing
-`Settings.json` there (from `engine-settings.json.default`), and never
-touches `run-game.log`.
-`--no-engine` leaves the engine's three files out.
+The app lives in `/mnt/SDCARD/App/DeusEx`, the game data in `/mnt/SDCARD/Roms/PORTS/DeusEx`
+(all 38 `.u` packages). `launcher.ini` belongs to the device's owner: `deploy` installs it only
+when missing (from `launcher.ini.default`), touches `home/` only to seed a missing
+`Settings.json` (from `engine-settings.json.default`), and never touches `run-game.log`.
 
-```ini
-[Launcher]
-GameDir=/mnt/SDCARD/Roms/PORTS/DeusEx
-GameCommand=./run-game.sh
-CpuMode=Overclock
-```
-
-**Access.** `spruce@192.168.1.211`, password `happygaming` -- the stock
-firmware password, a default in `port.sh` on purpose; SSH is root. Override
-with `DEVICE`, `DEVICE_USER`, `DEVICE_PASS`, `DEVICE_APPDIR`. The device drops
-off the network when it sleeps (no ping, SSH times out): ask its owner to
-wake it.
+**Access.** `spruce@192.168.1.211`, password `happygaming`: the stock firmware password, a
+default in `port.sh` on purpose; SSH is root. Override with `DEVICE`, `DEVICE_USER`,
+`DEVICE_PASS`, `DEVICE_APPDIR`. Asleep, the device drops off the network (no ping, SSH times
+out): ask its owner to wake it.
 
 ### Diagnosing
 
@@ -59,11 +45,11 @@ wake it.
 ./dxl-cli --probe                # just the GPU: Vulkan device, OpenGL ES version
 ```
 
-(on the device, with `LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib`). The
-launcher logs to `<GameDir>/System/DeusExLauncher.log`, `run-game.sh` to
-`run-game.log` in the app directory (engine output, exit status, CPU mode), and
-the engine writes `home/.config/SurrealEngine/SE-Log-LastRun.txt` there too.
-The System tab shows the engine and script logs on screen.
+Run them in the app directory with `LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib`. The
+launcher logs to `<GameDir>/System/DeusExLauncher.log`, `run-game.sh` to `run-game.log` in the
+app directory (engine output, exit status, CPU mode), and the engine to
+`home/.config/SurrealEngine/SE-Log-LastRun.txt` there. The System tab shows the engine log and
+`run-game.log`'s last run.
 
 ## What differs from linux-x86_64
 
@@ -72,7 +58,7 @@ The System tab shows the engine and script logs on screen.
 | `port.cmake` | links the device's vendor SDL2 from the sysroot; glibc ceiling 2.33 |
 | `toolchain-c.cmake`, `toolchain-cxx.cmake` | Bootlin GCC 9.3 (launcher, C11) and GCC 10.3 (engine, C++20) |
 | `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland |
-| `port.sh` | `deps` (both toolchains + the sysroot), `deploy` over SSH, `profile` on the device, the device's address |
+| `port.sh` | the device's address; `deps`, `deploy` over SSH, `profile` on the device |
 | `fetch-sysroot.sh` | the link sysroot: libraries off the device, pinned headers |
 | `target.c` | the device profile: fonts, spruceOS CPU modes, the pad note |
 | `packaging/` | the spruceOS app (`config.json`, `launch.sh`, icon), `port-hooks.sh` (vendor library path, CPU mode), `launcher.ini`, `renderers.ini`, `engine-settings.json.default` |
@@ -80,126 +66,100 @@ The System tab shows the engine and script logs on screen.
 
 ### The toolchains
 
-The device runs glibc 2.33. glibc 2.34 folded `libpthread`/`libdl` into `libc` and
-re-versioned the startup symbols, so a toolchain built against ≥ 2.34 emits
-`__libc_start_main@GLIBC_2.34` from `crt1.o` — and the binary fails to load, whatever
-our own code calls.
+The device runs glibc 2.33. glibc 2.34 folded `libpthread`/`libdl` into `libc` and re-versioned
+the startup symbols, so any toolchain built against 2.34 or later emits
+`__libc_start_main@GLIBC_2.34` from `crt1.o`: the binary does not load, whatever our code calls.
+Hence two Bootlin toolchains:
 
-Measured:
-
-| Toolchain | gcc | glibc | Result |
+| Toolchain | gcc | glibc | Builds |
 | --- | --- | --- | --- |
-| Arch `aarch64-linux-gnu-gcc` | 16 | 2.44 | rejected |
-| ARM GNU 13.3.rel1 | 13.3 | 2.38 | rejected — emitted `GLIBC_2.34` in a one-line test |
-| **Bootlin `stable-2020.08-1`** | 9.3 | **2.31** | **the launcher** — emits only `GLIBC_2.17`, verified on the device |
-| **Bootlin `bleeding-edge-2021.05-1`** | 10.3 | **2.33** | **the engine** — C++20 capable, exact glibc match |
+| `aarch64--glibc--stable-2020.08-1` | 9.3 | 2.31 | the launcher (C11); emits only `GLIBC_2.17` |
+| `aarch64--glibc--bleeding-edge-2021.05-1` | 10.3 | 2.33 | the engine (C++20, beyond gcc 9.3) |
 
-Two toolchains, because the launcher is C11 and Surreal Engine needs C++20, which
-gcc 9.3 cannot build. The C++20 one links `libstdc++` and `libgcc` statically;
-the device ships `libstdc++.so.6.0.28` (`GLIBCXX_3.4.28`) which gcc 10.3 would
-actually be compatible with — static linking just removes the question, at ~1 MB.
+One modern compiler aimed at the old sysroot does not work: the sysroot's `libc.so` linker
+script hardcodes absolute `/lib/...` paths, which resolve to the host's libraries.
 
-Trying to keep one toolchain by pointing a modern compiler at the old sysroot
-failed: the sysroot's `libc.so` linker script hardcodes absolute `/lib/...`
-paths, which resolve to the host's libraries.
-
-`scripts/check-abi.sh --max 2.33` runs on every build of both, and fails on any
-reference above 2.33: the launcher's build runs it because `port.cmake` sets
-`DXL_PORT_GLIBC_MAX`, and `scripts/engine.sh build` runs it on the engine.
+The engine links `libstdc++` and `libgcc` statically (~1 MB): the device's `libstdc++.so.6.0.28`
+(`GLIBCXX_3.4.28`) would serve, but static linking removes the question.
+`scripts/check-abi.sh --max 2.33` runs on every build of both and fails on any reference above
+2.33: the launcher's build runs it because `port.cmake` sets `DXL_PORT_GLIBC_MAX`, and
+`scripts/engine.sh build` runs it on the engine.
 
 ### The device's own SDL2
 
-The vendor SDL2 carries a `mali` video driver that upstream SDL2 does not have, and the
-device's PowerVR stack ships only `libpvrNULL_WSEGL.so` — so an upstream KMSDRM build
-would have no window system to attach to. [`fetch-sysroot.sh`](fetch-sysroot.sh)
-(run by `scripts/dx.sh deps trimui-smartpro`) pulls the device's `libSDL2`,
-`libSDL2_ttf`, `libSDL2_image`, `libSDL2_mixer` and `libfreetype` into
-`deps/sysroots/trimui-smartpro/lib`; headers come from the matching SDL 2.30.8
-and SDL_ttf 2.0.15 releases.
+The vendor SDL2 in `/usr/trimui/lib` is the only display path: no X11, no Wayland, no desktop
+GL. Its `mali` video driver, absent upstream, is an EGL/fbdev driver: OpenGL ES draws through
+it, and it wires Vulkan surface creation to the PowerVR implementation
+(`SDL_Vulkan_CreateSurface` works, via `VK_KHR_display`). An upstream KMSDRM build would have no
+window system to attach to: the PowerVR stack ships only `libpvrNULL_WSEGL.so`.
 
-The engine needed more of the same treatment, and the device turned out to have
-most of it already: the same script pulls `libEGL`, `libGLESv2`, `libopenal`,
-`libasound`, `libz`, `libstdc++` and the Vulkan loader, so no audio stack had to
-be cross-built. Their headers (Vulkan, EGL/GLES/KHR, OpenAL, ALSA) are pinned
-to exact package versions in the Arch Linux archive -- the headers the engine
-was first built against, which had been copied off a build machine by hand
-until the script was made to reproduce the sysroot byte for byte. Vulkan is not
-linked at all: SurrealGPU loads the loader through volk at run time. The
-launcher's GPU probe does the same: it `dlopen`s the Vulkan loader and EGL
-rather than linking them, so a device without either still starts the
-launcher.
+[`fetch-sysroot.sh`](fetch-sysroot.sh) (run by `deps`) copies the device's own libraries into
+`deps/sysroots/trimui-smartpro/lib` and fetches their headers, pinned (SDL 2.30.8, SDL_ttf
+2.0.15, exact Arch Linux packages). Vulkan is not linked: SurrealGPU loads the loader through
+volk, and the launcher's GPU probe `dlopen`s it and EGL, so a device without either still
+starts the launcher.
 
 ### CPU mode
 
-The spruceOS menu leaves the handheld in power-save -- cores 0 and 3,
-`conservative`, at most 1.49 GHz -- which costs the game about a third of its
-frame rate. The Video tab offers spruceOS's own three modes (`target.c`), kept
-in `launcher.ini` `CpuMode`: Smart, Performance (all four cores at 1.8 GHz)
-and Overclock (2.0 GHz, the default since 2026-09-22: the game is CPU-bound
-and needs every cycle). `packaging/port-hooks.sh` applies the mode
-with spruceOS's helpers -- the ones its Ports launcher uses -- just before the
-engine starts, and restores the exact previous state (online cores, governor,
-min/max) when it exits.
+The spruceOS menu leaves the handheld in power-save ([as measured](#the-device-as-measured)),
+which costs the game about a third of its frame rate. The Video tab offers spruceOS's own modes
+(`target.c`), kept in `launcher.ini` `CpuMode`: Smart, Performance (all four cores at 1.8 GHz)
+and Overclock (2.0 GHz), the default: the game is CPU-bound. `packaging/port-hooks.sh`
+applies the mode with the spruceOS helpers its Ports launcher uses, just before the engine
+starts, and restores the exact previous state (online cores, governor, min/max) when it exits.
 
-In `port-hooks.sh` the helpers are sourced in subshells only:
-`helperFunctions.sh` exports its own `LD_LIBRARY_PATH`, which hid
-`libSurrealVideo.so` from the engine the one time it was sourced directly.
-(`launch.sh` sources them directly, as spruceOS's apps do, and puts its own
-library path in front of theirs; `run-game.sh` puts the app's first.)
+In `port-hooks.sh` the helpers are sourced in subshells only: `helperFunctions.sh` exports its
+own `LD_LIBRARY_PATH`, which hides `libSurrealVideo.so` from the engine. (`launch.sh` sources
+them directly, as spruceOS's apps do, then puts its own library path first; `run-game.sh` puts
+the app's first.)
 
 ### Engine settings
 
-The launcher writes `home/.config/SurrealEngine/Settings.json` in the app
-directory before a launch whenever it is missing, incomplete or changed
-(`run-game.sh` pins `HOME` there). The
-non-negotiable entry is `Antialias: Off`: the engine defaults to 4x MSAA, and
-the GE8300's resolve turns partially covered pixels into speckle. The launcher
-locks it off on any PowerVR, and this port's `engine-settings.json.default`
-says `Off` too (VSync is off as well: the game runs below the panel's 60 Hz,
-and vsync would hold it to 30 or 20). It also turns on
-`Performance.AiLevelOfDetail` (the Video tab's Distant AI, engine patches 0008
-and 0022): characters out of sight and not close think every third frame,
-every sixth when far. An install
-whose `Settings.json` predates the field gets it from this default.
-`Performance.RenderScale` is 0.6666667 (853×480, since 2026-09-28): the game
-draws there unless the Video tab's Resolution asks for 960×540 or the panel's
-1280×720 (engine patch 0009).
+The launcher writes the app directory's `home/.config/SurrealEngine/Settings.json` before a
+launch whenever it is missing, incomplete or changed (`run-game.sh` pins `HOME` there), filling
+missing fields from `engine-settings.json.default`. The non-negotiable entry is
+`Antialias: Off`: the engine defaults to 4x MSAA, and the GE8300's resolve turns partially
+covered pixels into speckle. The launcher locks it off on any PowerVR, and the default says
+`Off` too. VSync is off: below the panel's 60 Hz, vsync would hold the game to 30 or 20.
+Distant AI (`Performance.AiLevelOfDetail`) is on
+([what it does](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-the-launcher-exposes)).
+`Performance.RenderScale` 0.6666667 draws at 853×480 unless the Video tab's Resolution asks for
+960×540 or the panel's 1280×720 (under Vulkan only: a
+[known defect](../../docs/LAUNCHER.md#known-defects)).
 
 ## The device, as measured
 
-Probed over SSH on 2026-09-21/22, not assumed. Port Ex Machina's
-`tools/probes/probe-sdl.c` and `dxl-cli --probe` reproduce it.
+Probed over SSH, not assumed; Port Ex Machina's `tools/probes/probe-sdl.c` and `dxl-cli --probe`
+reproduce it.
 
 | | |
 | --- | --- |
 | Device | TrimUI Smart Pro (`hwserial TG5040`), spruceOS `PLATFORM=SmartPro` |
 | SoC | Allwinner A133 `sun50iw10p1`, 4× Cortex-A53; 3 GB RAM (`free`) |
-| CPU modes | The spruceOS menu runs in **power-save: cores 0 and 3 only, `conservative`, 408 MHz–1.49 GHz**. spruceOS `set_performance` = all four cores, `performance`, 1.8 GHz; `set_overclock` = 2.0 GHz (`spruce/scripts/platform/SmartPro.cfg`) |
+| CPU modes | the spruceOS menu: **power-save, cores 0 and 3 only, `conservative`, 408 MHz–1.49 GHz**. `set_performance`: all four cores, `performance`, 1.8 GHz; `set_overclock`: 2.0 GHz (`spruce/scripts/platform/SmartPro.cfg`) |
 | OS | TinaLinux "Neptune", kernel 4.9.191, **glibc 2.33**, busybox 1.36.1 |
-| SDL | vendor build 2.30.8 in `/usr/trimui/lib` |
-| Video driver | **`mali`** (`SDL_malivideo.c`, an EGL/fbdev driver not in upstream SDL) |
+| SDL | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`** (`SDL_malivideo.c`) |
 | Surface | 1280×720 @60Hz, `SDL_PIXELFORMAT_RGBX8888`, fullscreen |
 | SDL renderer | **`opengles2`**, accelerated + vsync, max texture 8192² |
-| GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s |
-| Pad | enumerates as `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, **recognised by SDL_GameController with a built-in mapping** — no custom mapping needed |
-| Pad controls | A B X Y, L1 R1, SELECT START MENU, d-pad (a hat), two sticks. **L2/R2 are digital**, though the mapping puts them on axes `a2`/`a5`. **No L3/R3**: the mapping lists `leftstick:b9`/`rightstick:b10`, but the sticks do not click. (Controls per the device's owner, 2026-09-22; mapping from `probe-sdl.c --pad`.) MENU belongs to spruceOS |
+| GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s. Vulkan: no `VK_EXT_descriptor_indexing`; BC1–5, RGB8 and RGBA32F not sampled or filtered as the engine needs (`probe-vulkan-caps.c`, `probe-texture-formats.c`). OpenGL ES: no S3TC, float-linear filtering, anisotropy or `glBufferStorage`; `GL_MIRROR_CLAMP_TO_EDGE` rejected (`probe-gles-sampler.c`) |
+| Pad | `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, with SDL_GameController's built-in mapping |
+| Pad controls | A B X Y, L1 R1, SELECT START MENU (MENU is spruceOS's), d-pad (a hat), two sticks. **L2/R2 are digital**, though mapped to axes `a2`/`a5`. **No L3/R3**: the sticks do not click, though the mapping lists `leftstick:b9`/`rightstick:b10` |
 | Fonts | `/usr/trimui/res/regular.ttf`, `full.ttf`; `/mnt/SDCARD/spruce/Font Files/Noto.ttf` |
-| Storage | SD is **exFAT** — case-insensitive, no meaningful permission bits |
-| Profiling | no `perf`: the kernel is built without perf events (`CONFIG_PERF_EVENTS` off). CPU-time timers fire only on the scheduler tick, every 4 ms (2026-09-23) |
+| Storage | SD is **exFAT**: case-insensitive, no meaningful permission bits |
+| Profiling | no `perf` (`CONFIG_PERF_EVENTS` off); CPU-time timers fire only on the scheduler tick, every 4 ms |
 
 ### What is not available
 
-There is still no way to run the original x86 Windows `Core.dll`/`Engine.dll`/
-`DeusEx.dll` on this device — no box64, box86, wine or qemu. box64's own notes
-record Deus Ex under Wine as crashing before the menu on far stronger hardware,
-so that route was not pursued.
+The original x86 Windows `Core.dll`/`Engine.dll`/`DeusEx.dll` cannot run here: the device has
+no box64, box86, wine or qemu, and box64's own notes record Deus Ex under Wine crashing before
+the menu on far stronger hardware.
 
 ### Probes
 
-Port Ex Machina's `tools/probes/` holds small single-purpose programs for
-answering questions about a device instead of assuming answers
-([`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)). They are not part of
-any build -- each is one compile against this port's sysroot, run over SSH:
+Port Ex Machina's `tools/probes/` are small single-purpose programs that answer questions about
+a device
+([what each answers](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)).
+They are not part of any build: each is one compile against this port's sysroot, run over SSH.
 
 ```sh
 # from the parent folder of Port Ex Machina's repositories
@@ -212,277 +172,126 @@ deusex-launcher/trimui-smartpro/scripts/check-abi.sh --max 2.33 /tmp/probe
 # scp to the device, then: LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib ./probe
 ```
 
-What each probe answers is in the table there; pause the spruceOS menu before
-`probe-sdl.c --pad`. Each exists because a guess about this hardware turned out
-to be wrong at least once: `probe-vulkan-caps.c` found the missing descriptor
-indexing, `probe-texture-formats.c` the BCn, RGB8 and RGBA32F gaps (engine
-patch 0002), and `probe-sdl.c --pad` how SDL maps the built-in controls.
-
-`dxl-shots` on a host build configured with `-DDXL_PROFILE=trimui-smartpro`
-renders every launcher screen as this device shows it -- its CPU mode row, its
-PowerVR anti-aliasing lock -- in a desktop font, since the device's are not on
-a PC.
+Pause the spruceOS menu before `probe-sdl.c --pad` ([gotchas](#gotchas)). `dxl-shots` from a
+host build configured with `-DDXL_PROFILE=trimui-smartpro` renders every launcher screen as this
+device shows it, in a desktop font.
 
 ## Verified
 
-| Check | Result |
+| Check on the device | Result |
 | --- | --- |
-| glibc ABI of both launcher binaries | `GLIBC_2.17` only; the engine stays at ≤ 2.33 |
-| GPU probe (`dxl-cli --probe`) | Vulkan GE8300 1.3.225, OpenGL ES 3.2, no desktop GL; 0.5 s |
-| `dxl-cli --dry-run` on the broken install | found the 212-byte stub, reported the rebuild; wrote nothing (checksums unchanged) |
-| Launch after the repair | the game started (it had been failing with `Could not find package Core`); owner-verified |
-| CPU mode | power-save → performance (0-3, 1.8 GHz) while running → power-save restored after |
+| glibc ABI | the launcher's binaries reference `GLIBC_2.17` only; the engine ≤ 2.33 |
+| `dxl-cli --probe`, `--dry-run` | the GPU [as measured](#the-device-as-measured), in 0.5 s; a dry run writes nothing (checksums unchanged) |
+| CPU mode | Performance (cores 0–3, 1.8 GHz) or Overclock (2.0 GHz) while the engine runs; power-save restored after |
 | Home screen on the panel | renders with the device font; detected `X360 Controller`; recognised the retired layout |
-| Pad in game | moving, looking and firing work (owner, first build); START was swallowed after skipping the intro — fixed since, **not yet re-verified** |
-| The ports framework (2026-09-22) | `dx.sh deploy` put exactly the staged files on the device (checksums); `dxl-cli --dry-run --probe` ran there; the shared `run-game.sh` with this port's hooks started the out-of-tree engine build, the intro rendered at 31 FPS, and the CPU mode was applied and restored |
-| Deploy with checksums (2026-09-22) | `dx.sh deploy` built and staged, sent only the one changed file, kept the device's copy in `.prev-<date-time>` and verified all 13 files; `profile-map.sh` applied `launcher.ini`'s Overclock (four cores, 2.0 GHz) through `port-hooks.sh` and restored power-save after |
-| Engine upgraded to upstream `af860b3` (2026-09-23) | The level start runs and renders as before (framebuffer captures, with and without the profiling hooks); its log is the same as before apart from timings, and Distant AI's tallies match. On the desktop, Liberty Island's log was the same as the build before the upgrade, and synchronization validation was clean on both texture paths |
-| Engine patches 0004–0034 (2026-09-22/24) | The level start runs with each on this device; each one's check -- framebuffer captures against the ones before it, from 0028 the actor-state hash on the desktop, for 0034 an NSF turning on the player there -- is with the patch in [`vibe/docs/ENGINE.md`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#what-the-fork-changes) |
-| M3–M7 on the device (2026-09-29) | the deploy sent the 7 changed files and verified all 13 (the previous copies in `.prev-20260929-050348`); the level start, UNATCO HQ and Battery Park ran to the end of their profiles with no engine left and the CPU mode restored, the settings' `RenderScale` switched to native for the run and put back after; the numbers are [Performance](#performance)'s M3–M7 row |
-
-Verified with the earlier wizard build, on code paths unchanged since: install
-validation naming each missing file; `Running.ini` created at commit and
-removed by the game on clean exit; a simulated crash (`DXL_SIMULATE_CRASH=1`)
-surviving to the next launch; the same sentinel with a live instance forwarding
-instead; the `FirstRun=500` clamp rewriting the ini with all 25 sections intact
-and no line losing its CR.
-
-Used on the device since, as its launcher log records, and not yet reported
-on: the Customize buttons screen (seven bindings changed), the retired-layout
-upgrade written out, the CPU mode and Resolution chosen on the Video tab, the
-crash marker cleared on the System tab. Not yet exercised on hardware:
-`DXL_NO_HOME=1`; the messenger half of the single-instance handoff.
+| Pad in game | moving, looking and firing work |
+| `scripts/dx.sh deploy` | sends only the changed files, keeps the previous copies; every file's checksum matches |
 
 ## Performance
 
-All figures are Liberty Island's level start (`01_NYC_UNATCOIsland.dx`)
-unless a row says otherwise, in milliseconds a frame averaged over 60 frames.
+Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
+Overclock, Distant AI on; milliseconds a frame, averaged over 60 frames.
 
-### The level start, patch by patch
+| Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
+| --- | --- | --- | --- | --- | --- |
+| Vulkan, 1280×720 (native) | 8.2 | ~121 | ~30 | ~88 | ~30 |
+| Vulkan, 853×480 | 11.5 | ~87 | ~29 | ~54 | ~2 |
+| OpenGL ES, 1280×720 | 8.6 (8.5–8.8) | ~115 | ~30 | ~84 | – |
+| OpenGL ES, 853×480 | 10.0 | ~100 | ~23 | ~76 | – |
+| UNATCO HQ (indoors), Vulkan, 853×480 | ~32 | | | | |
+| Battery Park (outdoors), Vulkan, 853×480 | ~16 | | | | |
 
-The overclock level start, from the start of the engine work and then after
-each patch in turn, and after each upgrade to a newer upstream; the last row is
-where it stands (what each changed is
-in [`vibe/docs/ENGINE.md`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#what-the-fork-changes)). The 853×480
-columns were measured at some steps only; its GPU wait stayed ~0.2 ms throughout.
-
-| After | FPS | Frame | Tick | Render CPU | GPU wait | 853×480 FPS | Frame | Tick | Render CPU |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| — (the start) | 2.2 | ~450 | 165–177 | ~205 | ~76 | | | | |
-| 0004 | 2.5 | ~400 | ~192 | ~205 | ~0.2 | | | | |
-| 0005 | 3.3 | ~299 | ~180 | ~117 | ~0.2 | | | | |
-| 0006 | 4.0 | ~252 | ~135 | ~115 | ~0.2 | | | | |
-| 0007 | 4.2 | ~240 | ~124 | ~113 | ~0.2 | | | | |
-| 0008 | 4.5 | ~222 | ~104 | ~115 | ~0.2 | | | | |
-| 0009 | | | | | | 4.8 | ~208 | ~90 | ~115 |
-| 0010 | 4.7 | ~213 | ~102 | ~108 | ~0.2 | 5.2 | ~191 | ~87 | ~101 |
-| 0011 | 5.3 | ~190 | ~97 | ~90 | ~0.2 | 6.0 | ~168 | ~80 | ~85 |
-| 0012 | 5.4 | ~187 | ~94 | ~90 | ~0.2 | | | | |
-| 0013 | 5.8 | ~172 | ~78 | ~91 | ~0.2 | | | | |
-| 0014 | 5.9 | ~169 | ~75 | ~91 | ~0.2 | 6.8 | ~147 | ~59 | ~85 |
-| 0015 | 6.0 | ~166 | ~71 | ~91 | ~0.2 | | | | |
-| 0016 | 6.0 | ~166 | ~71 | ~92 | ~0.2 | | | | |
-| 0017 | 6.0 | ~166 | ~69 | ~92 | ~0.2 | 7.0 | ~143 | ~54 | ~85 |
-| 0018 | 6.6 | ~150 | ~66 | ~80 | ~3 | | | | |
-| 0019 | 6.7 | ~149 | ~67 | ~78 | ~3 | 7.9 | ~126 | ~52 | ~71 |
-| 0020 | 6.9 | ~144 | ~66 | ~74 | ~4 | | | | |
-| 0021 | 7.0 | ~143 | ~65 | ~73 | ~4 | | | | |
-| 0022 | 7.0 | ~142 | ~63 | ~75 | ~5 | 8.4 | ~119 | ~51 | ~65 |
-| 0023 | 7.2 | ~139 | ~61 | ~73 | ~7 | | | | |
-| 0024 | 7.3 | ~138 | ~62 | ~72 | ~7 | 8.9 | ~112 | ~48 | ~61 |
-| 0025 | 7.3 | ~138 | ~58 | ~75 | ~10 | | | | |
-| 0026 | 7.4 | ~136 | ~56 | ~75 | ~11 | 9.2 | ~109 | ~46 | ~61 |
-| 0027 | 7.3 | ~136 | ~53 | ~78 | ~14 | 9.3 | ~108 | ~44 | ~61 |
-| upstream `af860b3` | 7.3 | ~137 | ~55 | ~78 | ~13 | 9.2 | ~108 | ~45 | ~61 |
-| 0028 | 7.3 | ~137 | ~51 | ~81 | ~16 | 9.4 | ~106 | ~43 | ~60 |
-| 0029 | 7.3 | ~136 | ~50 | ~82 | ~17 | 9.5 | ~105 | ~42 | ~61 |
-| 0030–0032 | 7.6 | ~131 | ~39 | ~88 | ~26 | 10.3 | ~97 | ~37 | ~58 |
-| **0033–0034** | **7.7** | **~129** | **~39** | **~85** | **~24** | **10.4** | **~96** | **~36** | **~57** |
-| **M3–M7 (2026-09-25/28)** | **8.2** | **~121** | **~30** | **~88** | **~30** | **11.5** | **~87** | **~29** | **~54** |
-| GLES (2026-10-01) | 8.6 | ~115 | ~30 | ~84 | – | 10.0 | ~100 | ~23 | ~76 |
-
-The GLES row is the fork's GL renderer on an OpenGL ES 3.2 context (the
-`[GLES]` row of the Video tab), measured 2026-10-01 at the same level start
-and CPU mode against the M3–M7 row's build (see [Where a frame goes](#where-a-frame-goes)
-for what it is): at native it is level with the Vulkan device or a little
-ahead, at 853×480 behind it. Its GPU-wait
-column is a dash: the profiling hooks measure the Vulkan device's wait, and in
-GL the driver's time lands inside the render CPU.
-
-The upgrade to upstream `af860b3` (2026-09-23) measured the same as 0027 within
-the noise. Patches 0030–0032 were measured together. Besides the collision
-traces' own time (~12 → ~8 ms a frame, about half the tick's drop), the rest of
-the tick and the render CPU besides its waits (~64.5 → ~62 ms at native, ~61 →
-~58 at 853×480) got faster with them. From 0034 the NPCs see -- in Surreal
-Engine they never had -- and those of hostile alliances check each other;
-their sight checks take ~0.3 ms of the tick, and the frame moved within the
-noise. M3–M7 took the tick from ~39 to ~30 at native and ~36 to ~29 at
-853×480 -- the traces stopping at their first wall, the stasis tick skip,
-`IsEventEnabled` from one mask, the script VM's typed paths, the out-of-sight
-scripts and the original's sight natives -- and the frame from ~129 to ~121 at
-native and ~96 to ~87 at 853×480; at native the render grew ~3 with the
-occlusion proxies' walk, and its GPU wait went from ~24 to ~30. After 0009,
-960×540 (render scale 0.75) measured 4.7 FPS, ~214 ms, tick ~94, render CPU
-~118. From patch 0013 on, the hooks build with frame pointers for
-the sampling profiler, which costs ~1%: patch 0012 measured 5.4 FPS without
-them and 5.3 with. From patch 0018 on, native resolution is held back by the
-GPU ([where a frame goes](#where-a-frame-goes)).
-
-Indoors, UNATCO HQ runs at ~32 FPS at 853×480, and outdoors Battery Park at
-~16 (both M3–M7, 2026-09-29).
+The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
+only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU.
+Measured with the profiling hooks at engine `a783f0a` (Vulkan, and the two other maps) and
+`0c8e99b` (OpenGL ES).
 
 ### Where a frame goes
 
-Re-measured 2026-09-29 with M3–M7 (the stasis tick skip, `IsEventEnabled`
-from one mask, the trace iterators' first-wall stop, the mesh detail, the
-lighting, the original's sight natives and the occlusion proxies).
+Vulkan at native 1280×720 at the level start, in ms, by the frame-time hooks and the device's CPU samples, with
+what is left in each area. The GPU draws the previous frame while the tick runs (engine patch
+0004). At native resolution the tick is the shorter, so **a frame is about the GPU's time plus
+the render CPU**: render-CPU savings count in full, and the tick does not move the frame until
+the GPU's time comes down. At 853×480 the frame is the CPU's, and both count. ~20 FPS (~50 ms)
+at native therefore also needs the GPU's ~63 under ~50, and the script VM several times faster.
 
-At native resolution at the level start in overclock (~121 ms). The GPU draws
-the previous frame while the game tick runs (engine patch 0004), and the tick
-is now the shorter of the two, so **a frame is about the GPU's time plus the
-render CPU**: render-CPU savings count in full, and tick savings hardly at all
-(patch 0022 took ~2.6 ms off the tick and ~0.7 off the frame). At 853×480 the
-frame is the CPU's work, and both count (~87 ms there). Reaching ~20 FPS
-(~50 ms) at native resolution therefore also needs the GPU's ~63 ms under
-~50, and it needs the script VM several times faster.
+- **Game tick ~30** (~35 with the detail hooks), almost all `ULevel::TickActor` over ~2,500
+  actors:
+  - **script VM ~15** by the samples (`Frame::Run` with the natives it calls; ~12 by the hooks'
+    count, ~9.5 of it in the tick), ~2,000 calls a frame. The natives take ~8.5: the weapons'
+    and shadows' `Tick`, `CheckEnemyPresence` and `CalculateAccuracy` the largest,
+    `FindPathToward` ~0.5; `ScriptedPawn.CheckEnemyPresence` is the costliest script function.
+    The interpreter's own ~6 (`Frame::Run`, `ExpressionEvaluator`, `Frame::Call` self time) is
+    mostly the Cortex-A53 waiting on memory for each expression node. Left: only a denser,
+    compiled form of each function's code would change that, a rewrite of the evaluator's core;
+    even at no cost of its own, the VM's time would fall by a little under half. Smaller: calls
+    without an `ExpressionValue` per argument. How the original does both:
+    [the script interpreter](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-script-interpreter).
+  - physics ~6 (`TickPhysics`), mostly walking pawns: `TryStepToGround` ~1.9, `TryMove` ~2.7;
+  - the pawns' own tick ~12 (`UPawn::Tick`), sight checks (`CanSee`, `FastTrace`) ~0.7 of it;
+  - collision traces ~2 of own time (`TraceAABBModel::Trace` ~1.8 self; the sight rays'
+    polygon tests, `NodeRayIntersect` ~1, most of the rest). `TraceTexture` ~0.2: the laser
+    tripwires' `CalcTrace` traces each beam 5,000 units per reflection point every tick, and the
+    player's floor and wall materials take two traces a frame;
+  - per-actor work around the scripts ~9: `ULevel::TickActor` ~4 self, `UActor::Tick` ~2.3,
+    animation ~1.3, `CheckPendingTouch` ~1.1, `PathNode`'s tick ~4 over 1,000 nodes;
+    `IsEventEnabled`, asking whether to send each actor `Tick`, ~0.1. Left: all of it but
+    `IsEventEnabled`;
+  - Distant AI: ~12 pawns a frame skip their thinking at distance.
+- **Render CPU ~52** besides waits, lightmaps and uploads:
+  - visibility ~20, the largest render item: ~3,900 box tests (~3.9) and ~2,400 surface tests
+    (~7.7) a frame against `BspClipper`'s occlusion grid, portals ~1.7, actor set-up ~1.5. By
+    function: `BspClipper::DrawSpan` ~3.3, `DrawTriangle`/`DrawClippedTriangle` ~3.8, the BSP
+    walk (`ProcessNode`/`ProcessNodeSurface` ~4.8, cache misses), `IsAABBVisible` ~1.3;
+  - actor meshes ~7.5 for ~40 in view: per-vertex work (`DrawLodMeshFaceDX` ~3.7, the vertex
+    lighting `GetVertexLight` ~1.1) and the device's set-up per run of faces. Left: the
+    per-vertex work itself;
+  - BSP surfaces ~8 for ~600 nodes, mostly each surface's lightmap lookup
+    (`LightSystem::GetLightmap` ~3.7 self);
+  - translucent 2.6, sky portal 3.4, BSP set-up (`bsp-info`) 3.5, end of frame (`unlock`) 2.3,
+    `PostRenderFlash` (script) 1.6, the rest ~1.3.
+- **Lightmaps ~3.7, texture uploads ~2.** The `BarrelFire`, a dynamic light with the fire waver
+  effect, rebuilds 6 lightmaps every frame (~94,000 texels, ~1,800 in its radius). Each goes to
+  the GPU whole, converted from float in NEON (the GE8300 cannot filter RGBA32F). Left:
+  re-uploading only the rows a light changed; byte lightmaps (the fork's are floats, converted
+  on the CPU); each surface's lightmap lookup
+  ([lighting](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lighting)).
+- **GPU ~63** at native: input, tick and view (~33) plus the render's wait (~30). CPU and GPU
+  compete for the SoC's shared memory. At 853×480 the wait is ~2.
+- **`view+audio`** is mostly `USurrealAudioDevice::StartAmbience` reading every actor's
+  `AmbientSound` each frame (~2.5). The original does the same scan every frame
+  ([each frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)):
+  nothing to port.
 
-- **Game tick ~30 ms** (~35 with the detail hooks), almost all of it
-  `ULevel::TickActor` over the level's ~2,500 actors. The device's CPU
-  samples split it:
-  - ~15 ms under the script VM (`Frame::Run` inclusive of the natives it
-    calls; ~12 by the frame-time hooks' own count, ~9.5 of the tick), over
-    ~2,000 VM calls a frame (was ~10,000): ~6 of it the interpreter's own
-    work (the self time of `Frame::Run`, `ExpressionEvaluator` and
-    `Frame::Call`), the other ~8.5 the natives the scripts call -- the
-    weapons' and shadows' `Tick`, `CheckEnemyPresence` and
-    `CalculateAccuracy` the largest, `FindPathToward` ~0.5 where it was
-    ~2.3: even a script VM with no cost of its own would take the VM's time
-    down by a little less than half.
-    `ScriptedPawn.CheckEnemyPresence` is still the costliest script function.
-    Most of the interpreter's time is still the Cortex-A53 waiting on memory
-    for each expression node. Next in the structure: calls without an
-    `ExpressionValue` per argument; beyond that, a denser form of the code
-    itself.
-  - ~6 ms of physics (`TickPhysics`), mostly walking pawns: the step to the
-    ground (`TryStepToGround` ~1.9) and the move (`TryMove` ~2.7).
-  - ~12 ms of the pawns' own tick (`UPawn::Tick`), the AI's sight checks
-    (`CanSee`, `FastTrace`) ~0.7 of it, where they took ~3.
-  - ~2 ms of collision traces' own time (`TraceAABBModel::Trace` ~1.8 self,
-    was ~8 a frame in all through the traces): the sight rays' polygon tests
-    (`NodeRayIntersect` ~1) are most of the rest. `TraceTexture` is ~0.2 --
-    the laser tripwires' `CalcTrace` traces each beam 5,000 units for every
-    one of its reflection points every tick, and the player's floor and wall
-    materials are two more traces a frame.
-  - ~9 ms of per-actor work around the scripts (`ULevel::TickActor` ~4 of
-    self, `UActor::Tick` ~2.3, animation ~1.3, `CheckPendingTouch` ~1.1,
-    `PathNode`'s own tick ~4 over 1,000 nodes a frame): `IsEventEnabled`
-    asking whether to send each actor `Tick` is ~0.1 of it, where it took
-    ~1.4.
-  - Pawns out of view think every third frame, every sixth beyond 4000 units
-    (Distant AI: the profile's tally shows ~12 a frame skipping at distance).
-- **Render CPU ~52 ms** besides waits, lightmaps and uploads:
-  - visibility ~20 ms: the BSP walk,
-    ~3,900 box tests (~3.9) and ~2,400 surface tests (~7.7) a frame against
-    `BspClipper`'s occlusion grid, portal tests ~1.7, actor set-up ~1.5.
-    Spread over the clipper's span lists (`BspClipper::DrawSpan` ~3.3),
-    triangle set-up and rasterising (`DrawTriangle`/`DrawClippedTriangle`
-    ~3.8), the BSP walk itself (`ProcessNode`/`ProcessNodeSurface` ~4.8,
-    cache misses) and box tests (`IsAABBVisible` ~1.3);
-  - actor meshes ~7.5 ms for ~40 in view (was ~11): the per-vertex work
-    (`DrawLodMeshFaceDX` ~3.7, `GetVertexLight` ~1.1) and the device's set-up
-    per run of faces;
-  - BSP surfaces ~8 ms for ~600 nodes, mostly each surface's lightmap lookup
-    (`LightSystem::GetLightmap`, ~3.7 of self time);
-  - translucent 2.6; the sky portal 3.4; BSP set-up (`bsp-info`) 3.5; the end
-    of the frame (`unlock`) 2.3; `PostRenderFlash` (script) 1.6; the rest
-    ~1.3.
-- **Lightmaps ~3.7 ms, texture uploads ~2 ms.** One `BarrelFire`, a dynamic
-  light with the fire waver effect, has 6 lightmaps rebuilt every frame
-  (~94,000 texels, ~1,800 of them in the light's radius), and each goes back
-  to the GPU whole, converted from float on the CPU (the GE8300 cannot filter
-  RGBA32F; engine patch 0002; in NEON since 0024), though only the rows its
-  lights reach changed.
-- **GPU ~63 ms** at native resolution (~72 after patch 0029, ~76 when last
-  measured directly, as a wait, before patch 0004) -- the input, tick and view
-  (~33) plus the render's wait for it. Drawing alongside the tick cost the tick
-  ~20 ms: CPU and GPU compete for the SoC's shared memory. With the tick the
-  shorter of the two, the render waits for the GPU at its start: ~3 ms after
-  patch 0018, ~24 at 0034, ~30 now. Render CPU and `view+audio` grew ~1–1.5 ms
-  each from patch 0015 on. At 853×480 the render's wait for the GPU is ~2, and
-  the tick is the same as at native (~29) -- 0030–0032's collision work was the
-  part that waited on the GPU's memory, and it is gone.
-  `view+audio` is mostly `USurrealAudioDevice::StartAmbience`, which reads
-  every actor's `AmbientSound` each frame (~2.5 ms), as the original does
-  ([its update](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)).
-
-**The GLES renderer** (the fork's GL device on an OpenGL ES 3.2 context, measured 2026-10-01 at
-the same level start and CPU mode, the engine at the GLES commits):
-
-- **native 1280×720: 8.5–8.8 fps** (frame 113–117 ms: tick ~30, render 82–96, all of it
-  render CPU -- the hooks' GPU wait is a Vulkan measure; in GL the driver's time lands in the
-  draw calls), where the Vulkan device's is the M3–M7 row's 8.2 fps (frame ~121, ~30 of its
-  render a wait on the GPU): level with it, or a little ahead.
-- **853×480: 10.0 fps** (frame 100: tick 23, render 76) against the Vulkan device's 11.4 on
-  the same build (frame 87: tick 30, render 53; the M3–M7 row's ~11.5/87). That run's log,
-  `perf-vk-native`, is named native but ran at `RenderScale` 0.6666667 (its `settings:`
-  line): it is this row's, and the 11.4 once quoted as Vulkan's native figure was 853×480's.
-- The first build measured 2.4 fps (frame ~400): two thirds of it was the stream buffers'
-  per-flush map/unmap cycling through the vendor driver (SetSceneNode flushes per BSP node,
-  ~600 a frame). The buffers are now CPU staging arrays uploaded per flush
-  (glBufferSubData of the range written since the last one), and the frame fell to the
-  numbers above -- the single largest GLES lever, found by the CPU samples.
-- The scene buffers are 8-bit (GL_RGBA8) unless HDR is on, as the original XOpenGLDrv's were,
-  and what the GE8300 cannot sample or filter (BC1 textures, RGBA32F lightmaps) is decoded on
-  the CPU, as the Vulkan renderer decodes for it. The vendor driver also rejects three sampler
-  parameters a desktop GL takes (LOD bias, anisotropy without its extension,
-  MIRROR_CLAMP_TO_EDGE), and its SDL2 deadlocks on the fullscreen switch of a GL window --
-  all handled in the engine (the fork's GLES commits, 2026-09-30/10-01).
-- At 853×480, what remains between it and the Vulkan device is the GL driver's per-draw-call
-  cost across the frame's ~700 calls (state, program and texture binds included); the
-  engine-side sections around them are the same shape as the Vulkan profile's. At native the
-  Vulkan frame waits on the GPU, and the GLES frame, its driver's time in the render CPU,
-  comes out no slower.
-
-### Other scenes and CPU modes, before the engine work
-
-| Scene, CPU mode | FPS | Frame | Game tick | Render CPU | GPU wait |
-| --- | --- | --- | --- | --- | --- |
-| Intro, power-save | ~22 | 44 | 6.5 | 16 | 20 |
-| Intro, performance | ~30 | 33 | 3 | 7 | 22 |
-| Liberty Island, power-save, turning | ~2 | ~500 | ~330 | ~250 | ~45 |
-| Liberty Island, performance, turning | 3.0–3.3 | ~300–340 | 170–200 | 80–170 | ~45 |
-| Liberty Island, performance, level start | ~2 | 485–535 | 190–245 | 210–295 | ~75 |
-| Liberty Island, overclock, turning | 3.7 | ~272 | ~142 | ~81 | ~46 |
-
-The overclock level start is the first row of
-[the level start, patch by patch](#the-level-start-patch-by-patch). The performance-mode level start rows
-had the per-class or per-function hooks on, which add their own cost; the
-overclock rows (2026-09-22) had them off. Overclock is the owner's mode from
-then on.
+**OpenGL ES** is level with Vulkan at native, or a little ahead: Vulkan waits on the GPU, and
+the GL driver's time lands in the render CPU. At 853×480 it trails by the GL driver's
+per-draw-call cost over the frame's ~700 calls (state, program and texture binds included); the
+engine's own sections have the same shape as Vulkan's. The GL device's workarounds for this
+driver: ENGINE.md's
+[rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering) and, for
+fullscreen,
+[running on our devices](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices).
 
 ### Measuring
 
-With the frame-time instrumentation in
-VibeEngine's `vibe/tools/perf/perf-instrumentation.patch` (`vibe/tools/perf/perf.sh on`;
-[the profiling hooks](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#the-profiling-hooks)) and
-[`tools/profile-map.sh`](tools/profile-map.sh), run with
-`scripts/dx.sh profile trimui-smartpro [seconds] [label] [cpu] [turn] [map]`.
-The script applies the CPU mode `launcher.ini` names, through the app's own
-`port-hooks.sh`, so a profile measures what playing gets; its header lists the
-arguments. It runs with the engine settings the device has, and the log
-records its Distant AI and render scale: the level start's rows above are Distant AI
-on, at `RenderScale` 1 and 0.6666667 (853×480), set by hand in the device's
-`Settings.json` for the run and put back afterwards when the owner's differ.
-The script switches nothing: check the log's `settings:` line before taking a
-run as native -- one at 0.6666667 is an 853×480 run whatever its label says.
-It splits a map's frame time into input, tick, render CPU, GPU
-wait, lightmaps and texture uploads; the render CPU by section, and the
-visibility pass by part; the time under script calls. The whole log comes back
-to `build/trimui-smartpro/profile/perf-<label>.log`, and `SHOT=<seconds>`
-brings the screen back beside it as a PNG. `SURREAL_PERF_DETAIL=1` adds tick by
-actor class and script functions by self time, at a cost to the frame time.
-`SAMPLE=1` also samples the main thread's CPU and brings the samples back
-beside the log, for [`vibe/tools/perf/sample-report.py`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/tools/perf/sample-report.py):
+Build the engine with the frame-time hooks (`vibe/tools/perf/perf.sh on` applies VibeEngine's
+`vibe/tools/perf/perf-instrumentation.patch`;
+[the profiling hooks](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#the-profiling-hooks)),
+deploy, and run `scripts/dx.sh profile trimui-smartpro [seconds] [label] [cpu] [turn] [map]`.
+That runs [`tools/profile-map.sh`](tools/profile-map.sh) on the device (its header documents the
+arguments, `SHOT`, `SAMPLE` and `SURREAL_PERF_DETAIL`) and brings back
+`build/trimui-smartpro/profile/perf-<label>.log`: the frame split into input, tick, render CPU,
+GPU wait, lightmaps and texture uploads, the render CPU by section, the visibility pass by part,
+and the time under script calls.
+
+The script applies `launcher.ini`'s CPU mode through `port-hooks.sh`, as a launch does. It uses
+the device's own `Settings.json` and switches nothing: check the log's `settings:` line before
+taking a run as native (one at 0.6666667 is an 853×480 run, whatever its label). For another
+resolution, set `RenderScale` there for the run and put the owner's value back after.
+
+`SAMPLE=1` also brings back samples of the main thread's CPU (4 ms apart) and the engine that
+made them, for
+[`vibe/tools/perf/sample-report.py`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/tools/perf/sample-report.py):
 
 ```sh
 # from the parent folder of Port Ex Machina's repositories
@@ -493,39 +302,29 @@ NM=deps/toolchains/aarch64--glibc--bleeding-edge-2021.05-1/bin/aarch64-linux-nm 
     --root ULevel::Tick
 ```
 
-The kernel has no perf events, and CPU-time timers fire only on the scheduler
-tick, so samples are 4 ms apart.
+A profile stops the engine with SIGKILL, which leaves `Running.ini` like any crash
+([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
 
 ## Gotchas
 
-- **The development unit has no battery**: it runs on USB power, and spruceOS
-  reads it as 0% and discharging. Its battery warnings are off: the low power
-  warning is `Off` in `/mnt/SDCARD/Saves/spruce/spruce-config.json`
-  (`Battery Settings` › `lowPowerWarningPercent`; the file as it was is beside
-  it as `.bak-lowpower-20260923`), and `spruce/scripts/low_power_warning.sh`
-  has its forced shutdown at 1% disabled by hand (the original is
-  `low_power_warning.sh.bak-lowbat`). With the warning on, its popup held the
-  screen and a profiling run's engine stalled after setting up Vulkan.
+- **The development unit has no battery**: on USB power, spruceOS reads 0% and discharging, and
+  its low-battery popup takes the screen and stalls the engine. So the warning is `Off` in
+  `/mnt/SDCARD/Saves/spruce/spruce-config.json` (`Battery Settings` › `lowPowerWarningPercent`;
+  the original is beside it, `.bak-lowpower-20260923`), and
+  `spruce/scripts/low_power_warning.sh` has its 1% forced shutdown disabled by hand (the
+  original is `low_power_warning.sh.bak-lowbat`).
 - **Pause the spruceOS menu while running anything that draws over SSH**:
-  `kill -STOP $(pidof MainUI)` and `kill -CONT` afterwards (use a `trap`). Two
-  programs on one framebuffer fight, and pad presses would also drive the menu.
-- **`Running.ini` is present in the game's `System/` here**: profiling runs
-  stop the engine with SIGKILL, which it needs ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)),
-  so the launcher shows a crash banner until the next clean exit or "Clear
-  crash marker".
-- **Killing over SSH**: `ps | grep deusex` matches the SSH command itself; use
-  `pidof`. busybox `killall` rejects `-x`. Always check afterwards:
-  SSH-launched engines survive sloppy kills, and two engines fight over the
-  display.
-- **The screen can only be seen over SSH by dumping the framebuffer**
-  (`SHOT=<seconds> scripts/dx.sh profile ...` does it mid-profile):
-  `cat /dev/fb0 > /tmp/fb.raw` (64 MB), gzip it before copying, decode the
-  first 1280×720 as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
-- **busybox has no `timeout` and no `nohup`.** Use `setsid` with all three fds
-  redirected, or SSH will hang waiting on the pipes.
-- **A missing `Save/` directory is fatal to the engine** (`directory iterator
-  cannot open directory`). It is empty in a fresh install, so it does not
-  survive a `tar` that lists only populated directories.
-- **The vendor SDL2 is the only display path.** Its `mali` driver wires Vulkan
-  surface creation to the PowerVR implementation, so `SDL_Vulkan_CreateSurface`
-  does work, via `VK_KHR_display`. No X11, no Wayland, no desktop GL.
+  `kill -STOP $(pidof MainUI)`, and `kill -CONT` after (use a `trap`). Two programs on one
+  framebuffer fight, and pad presses would drive the menu too.
+- **Killing over SSH**: `ps | grep deusex` and `pkill -f` match the SSH command itself
+  ([why](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time));
+  use `pidof`. busybox `killall` rejects `-x`. Always check afterwards: SSH-launched engines
+  survive sloppy kills, and two engines fight over the display.
+- **busybox has no `timeout` and no `nohup`.** Use `setsid` with all three fds redirected, or
+  SSH hangs waiting on the pipes.
+- **The screen is seen over SSH only by dumping the framebuffer** (`SHOT=<seconds>` does it
+  mid-profile): `cat /dev/fb0 > /tmp/fb.raw` (64 MB), gzip it to copy, and decode the first
+  1280×720 as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
+- **A missing `Save/` directory is fatal to the engine** (`directory iterator cannot open
+  directory`). A fresh install has it empty, so a `tar` that lists only populated directories
+  loses it.

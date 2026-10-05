@@ -8,8 +8,10 @@
 # (/usr/trimui/lib), not a self-built one: that vendor build carries a custom
 # "mali" EGL video driver (SDL_malivideo.c) that upstream SDL2 does not have,
 # and the PowerVR stack ships only libpvrNULL_WSEGL.so -- so an upstream
-# KMSDRM build has nothing to draw on. The engine also links the device's EGL,
-# GLESv2, OpenAL, ALSA, zlib and Vulkan loader.
+# KMSDRM build has nothing to draw on. The engine links the device's SDL2, OpenAL
+# and ALSA, and opens EGL, GLESv2 and the Vulkan loader at run time (through SDL
+# and volk); the sysroot carries those too, and zlib, for the probes and for what
+# the libraries link in turn.
 #
 # Headers are pinned: SDL2 and SDL_ttf from the release matching the device's
 # libraries, the rest from exact package versions in the Arch Linux archive
