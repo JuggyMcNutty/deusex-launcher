@@ -1,13 +1,12 @@
-/* The argument vector the game is started with.
+/* The argument vector a program is started with.
  *
  * The launcher keeps its command line as one string, as the original did
- * (dx-reverse-info/cli-flags.md: appStrfind matches anywhere), and splits it exactly
- * once, here, when handing over to the game. The hand-over itself is the
- * platform's: platform/launch.h.
- *
- * The original also re-executed itself for safe mode with a flag string built
- * from eight checkboxes. Surreal Engine honours none of those flags, so that
- * path is gone; dx-reverse-info/README.md records why.
+ * (dx-reverse-info/cli-flags.md: appStrfind matches anywhere), and splits it
+ * only here, when it starts a program: the game (platform/process.h on main,
+ * the port branches' hand-over in platform/launch.h), the Renderer page's
+ * detection run, and safe mode's relaunch with the flag string its eight
+ * boxes build (platform/launch.h). Quotes group words and are dropped, as a
+ * shell's are.
  */
 #ifndef DXL_ARGV_H
 #define DXL_ARGV_H

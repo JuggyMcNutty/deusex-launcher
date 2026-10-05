@@ -96,9 +96,11 @@ static void test_join(void) {
     free(j);
 }
 
-/* argv[0] is excluded from the joined command line. If it were not, a launcher
- * living in a directory called ".../Server/" would permanently skip the
- * single-instance handoff. */
+/* argv[0] is excluded from the joined command line, the one the ports' policy
+ * reads (core/policy.c): a launcher living in a directory called
+ * ".../Server/" still hands over to a running one. main's launch sequence
+ * checks the bypass words on the raw line instead, the program's path
+ * included, as the original does (dx-reverse-info/launch-flow.md). */
 static void test_join_excludes_argv0(void) {
     char *argv[] = { "/mnt/SDCARD/Roms/Server/deusex-launcher", "-log" };
     char *j = dxl_cmdline_join(2, argv);

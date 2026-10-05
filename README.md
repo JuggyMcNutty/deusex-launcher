@@ -30,7 +30,10 @@ each device's branch. A fix to the original's behaviour is made on `main` and
 merged up; a port branch adds files rather than editing `main`'s where it can,
 and resolves a merge's conflicts itself. The device branches build through
 Port Ex Machina (`scripts/dx.sh`), which fetches their toolchains and
-sysroots.
+sysroots. On a port's branch, `main`'s program -- `DeusEx`, its tools and
+its tests -- rides along unbuilt: the branch builds the launcher the ports
+run, `deusex-launcher`, `dxl-cli` and `dxl-shots` (its `LAUNCHER.md`), so
+what this README says of `DeusEx` is `main`'s.
 
 ## Where main stands
 
@@ -44,9 +47,10 @@ sequence itself (`src/launch/`), from forwarding to the game's end, down
 every road it can end by; its screens -- the wizard's six pages, the splash
 and the two message boxes -- in the `DeusEx` program; and the game it starts,
 [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine), through
-`run-game.sh`. Unit tests cover each part (`ctest`); `tools/livecheck.py`
-runs the whole of it live -- every road above that the player can take,
-with the real engine -- where nobody sees it ([checking it
+`run-game.sh`. Unit tests cover the core, the launch sequence and the
+wizard's pages (`ctest`); `tools/livecheck.py` runs the whole of it live,
+the splash and the message boxes too -- every road above that the player
+can take, with the real engine -- where nobody sees it ([checking it
 live](#checking-it-live)).
 
 ## Installing
@@ -62,6 +66,12 @@ builds this branch and the engine and installs them there (`build`, then
 `System/DeusEx` with the original's command line, from anywhere: its folder
 and name are where it finds the game and its package, as the original's
 are.
+
+While `DeusEx` is there, the original game does not start under Wine or
+Proton: it takes a file of that name in its `System` folder for its
+`DeusEx` package, and stops at its start
+([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
+`scripts/recreation.sh uninstall` takes the five files out again.
 
 ## The look
 
@@ -81,8 +91,9 @@ link, Tahoma 8 pt for the message boxes. Without wine, the nearest common
 fonts stand in (Liberation Sans, DejaVu Sans); `DXL_FONT`, `DXL_FONT_URL`
 and `DXL_FONT_MSG` name others. Text is drawn unsmoothed and unkerned, as
 Windows draws it. The error box's icon is wine's too, its `user32.dll`'s
-`IDI_HAND` read out of the same install and blended as wine blends it
-([`peicon.h`](src/core/peicon.h)); without wine, one is drawn.
+`IDI_HAND` read out of the same install ([`peicon.h`](src/core/peicon.h))
+and blended as wine blends it ([`dialog.c`](src/gui/dialog.c)); without
+wine, one is drawn.
 
 ## Where it differs from the original
 
@@ -108,6 +119,25 @@ Windows draws it. The error box's icon is wine's too, its `user32.dll`'s
   game's icon, as the original's does, read out of the install's
   `DeusEx.exe` ([`peicon.h`](src/core/peicon.h)); the message boxes and the
   splash have none, as the original's have none.
+
+## Known defects
+
+Found 2026-10-04 and not fixed yet:
+
+- **The command line's quotes are lost on the way to the engine.**
+  `src/launch/launch.c` starts `run-game.sh` through `dxl_game_start`, which
+  splits the line as a shell would (`src/core/argv.c`: quotes group words and
+  are dropped), and `run-game.sh` joins the words again with `$*` for
+  `--cmdline=`. `INI="My Mod.ini"` reaches the engine as `INI=My Mod.ini`,
+  which it -- reading a quoted value whole, as the original does -- takes as
+  `INI=My`; `EXEC=` and `USERINI=` alike. Handing `run-game.sh` the line as one
+  argument (`--cmdline="$1"`) keeps it as given.
+- **`ParseParam` is stricter than the original's.** `src/core/cmdline.c` wants
+  the name to end at a space or the line's end; the original's (`Core.dll`
+  `0x10146d00`) checks nothing after it, so `-safemode` counts as `-safe` there
+  and `-log` is found in `-LOG=<file>`
+  ([the parsers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
+  `tests/test_cmdline.c` asserts the launcher's way.
 
 ## The game and the launcher
 
@@ -137,17 +167,20 @@ original's log window drops one before its main loop runs.
 start URL, `-server`, `INI=`, `USERINI=`, `EXEC=` and safe mode's flags
 ([VibeEngine's NATIVES.md](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)).
 `DXL_ENGINE_ARGS` adds engine options of its own, for a scripted run. Asked
-to stop (SIGINT, SIGTERM), the launcher passes SIGTERM on to the game and,
-if it is still running 5 s later, SIGKILL: VibeEngine with a window takes no
-notice of SIGTERM ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)),
-though its dedicated server ends on it.
+to stop (SIGINT, SIGTERM, SIGHUP), the launcher passes SIGTERM on to the
+game and, if it is still running 5 s later, SIGKILL: VibeEngine with a
+window takes no notice of SIGTERM ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)),
+though its dedicated server ends on it. A game stopped so has not ended
+cleanly: `Running.ini` stays, and the next launch opens RecoveryMode, as
+after a crash -- the usual end of a `-server` run, which has no window to
+quit.
 
 ## Building
 
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build
+ctest --test-dir build      # CMake 3.20 on; before it, cd build && ctest
 ```
 
 C11, with SDL2 and SDL2_ttf (through `pkg-config`) for `DeusEx` and its
@@ -175,8 +208,9 @@ desktop is touched: `-consolecommand=` and `-testrendev=`; `-make`'s box;
 with `EXEC=`, a second launch forwarded to it and travelled, and its clean
 end; safe mode's Run! and the relaunch, the engine silent in a 640×480
 window with no pad; a killed game, then RecoveryMode; the CD prompt's
-Cancel; and `-server`, stopped by a signal. It needs Xvfb, xdotool and
-ImageMagick; its screens and logs are left in the out dir.
+Cancel; and `-server`, stopped by a signal. It needs Xvfb, xdotool,
+ImageMagick's `import`, libX11 and `pgrep`; its screens and logs are left in
+the out dir.
 
 
 ## License

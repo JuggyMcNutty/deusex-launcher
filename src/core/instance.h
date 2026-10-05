@@ -11,9 +11,10 @@
  *      instead of starting a second copy.
  *
  * Both survive here; only the transport changes. The lock is flock on a
- * pidfile, and the channel is a Linux abstract unix socket, so nothing is left
- * behind on the filesystem if the process dies -- which matters on exFAT,
- * where a stale lock file would be indistinguishable from a live one.
+ * pidfile in $XDG_RUNTIME_DIR (else /tmp), held on the descriptor, not the
+ * name: the file stays after the process, holding the last pid, and a stale
+ * one never reads as live -- nothing is written to the install. The channel
+ * is a Linux abstract unix socket, which leaves nothing behind.
  *
  * The protocol is unchanged: one message, the command line.
  */

@@ -46,8 +46,8 @@ static void test_reads_the_gates(void) {
     scrub(dir);
 }
 
-/* FirstRun only ever rises. A user who has an install newer than this build
- * must not be dragged backwards into the first-run wizard. */
+/* The clamp only raises FirstRun: an install newer than this build keeps its
+ * value and is not dragged backwards into the first-run wizard. */
 static void test_first_run_clamps_up_only(void) {
     char *dir = scratch_install("clamp");
     dxl_config *c = dxl_config_open(dir, "DeusEx");
