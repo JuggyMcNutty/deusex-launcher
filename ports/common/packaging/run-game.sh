@@ -32,9 +32,10 @@ export LD_LIBRARY_PATH="$APPDIR${PORT_LIB_PATH:+:$PORT_LIB_PATH}${LD_LIBRARY_PAT
 export HOME="$APPDIR/home"
 mkdir -p "$HOME/.config/SurrealEngine"
 
-# The launcher writes Settings.json before every launch; this seed only
-# matters when something runs the script without it. Without the file the
-# engine falls back to its own defaults, 4x MSAA included.
+# The launcher writes Settings.json before a launch when it is missing,
+# incomplete or changed; this seed only matters when something runs the
+# script without it. Without the file the engine falls back to its own
+# defaults, 4x MSAA included.
 if [ ! -s "$HOME/.config/SurrealEngine/Settings.json" ]; then
     cp "$APPDIR/engine-settings.json.default" "$HOME/.config/SurrealEngine/Settings.json"
 fi
