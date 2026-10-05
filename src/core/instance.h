@@ -4,7 +4,7 @@
  *
  *   1. CreateMutex("DeusExIsRunning") + ERROR_ALREADY_EXISTS, used ONLY to
  *      decide whether a surviving Running.ini means a crash or a concurrent
- *      instance (dx-reverse-info/porting-notes.md section 3).
+ *      instance (dx-reverse-info/launch-flow.md, "Platform seams").
  *   2. FindWindowEx for a WLog window carrying the "IsBrowser" property, then
  *      WM_COPYDATA with the tail of the command line and a 30s timeout
  *      (section 2) -- so a second launch opens a URL in the running game

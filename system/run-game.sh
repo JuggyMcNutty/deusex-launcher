@@ -5,7 +5,7 @@
 #
 # DeusEx runs this from System/, with its command line's words as the
 # arguments, and waits for it: the engine's output goes into DeusEx's log,
-# and DXL_LAUNCHER_FD, when set, is the line between the two (README.md,
+# and DXL_LAUNCHER_FD, when set, is the line between the two (main's README.md,
 # "The game and the launcher"). The engine reads and writes the game's own
 # DeusEx.ini and User.ini, unless the command line's INI= and USERINI= name
 # others. Running.ini is the launcher's business.
