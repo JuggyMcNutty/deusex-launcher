@@ -100,7 +100,7 @@ static const char *items(dxl_ctl *list, char *buf, size_t n) {
 }
 
 /* Where the templates put things, in pixels: as the original's show under
- * wine (dx-reverse-info/live-verification.md). */
+ * wine (dx-reverse-info/wizard.md, "Observed under wine"). */
 static void test_layout(void) {
     fixture_t f;
     open_wizard(&f, DXL_PAGE_RENDERER);
