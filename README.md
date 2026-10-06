@@ -21,8 +21,8 @@ are included.
 
 A port branch builds `deusex-launcher`, `dxl-cli` and `dxl-shots`, and the
 core's unit tests. `main`'s program (`DeusEx`, with `system/run-game.sh`),
-its tools and its program's own tests ride along unbuilt. The Linux device
-branches began from `linux-x86_64`, with this README. Each port branch is its
+its tools and its program's own tests ride along unbuilt. Every device
+branch began from `linux-x86_64`, with this README. Each port branch is its
 own variant of `main` and takes `main`'s changes by merge; `README.md` is
 branch-specific: a merge from `main` conflicts on it and keeps the port
 branch's own.
@@ -38,7 +38,7 @@ branch's own.
   [android](https://github.com/JuggyMcNutty/deusex-launcher/tree/android/ports/android),
   [x360](https://github.com/JuggyMcNutty/deusex-launcher/tree/x360/ports/x360).
 - Building and running:
-  [Port Ex Machina's quick start](https://github.com/JuggyMcNutty/port-ex-machina#quick-start).
+  [Port Ex Machina's quick start](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#quick-start).
 - How ports work:
   [`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md).
 - The recreation, `main`'s program:

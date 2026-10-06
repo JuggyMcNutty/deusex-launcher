@@ -26,7 +26,7 @@ scripts/dx.sh stage linux-aarch64       # build/linux-aarch64/app: copy it to th
 
 # natively, on the device
 scripts/dx.sh fetch                     # once: the engine, the launcher's branches, the RE
-scripts/dx.sh deps  linux-aarch64       # checks for SDL2
+scripts/dx.sh deps  linux-aarch64       # checks for SDL2 and SDL2_ttf
 scripts/dx.sh build linux-aarch64       # launcher and engine
 scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64
 ```
