@@ -117,11 +117,10 @@ PageUp/PageDown (or `,`/`.`/Tab), P/F5, Escape/Q.
 
 **In the game**
 ([engine patch 0003](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices)):
-the engine's SDL2 backend reads the pad (with SDL3 installed, the desktop
-build has no SDL2 backend: [no pad in game](../ports/linux-x86_64/README.md#no-pad-in-game)),
-and `GamepadInput` turns it into UE1's joystick keys and axes. Each control
-is then an ordinary `User.ini` `[Engine.Input]` binding in the keyboard's
-table, which the game's key menu edits
+the engine's SDL2 backend reads the pad, and `GamepadInput` turns it into
+UE1's joystick keys and axes. Each control is then an ordinary `User.ini`
+`[Engine.Input]` binding in the keyboard's table, which the game's key menu
+edits
 ([lists](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lists)).
 
 - Buttons: A=`Joy1` B=`Joy2` X=`Joy3` Y=`Joy4` L1=`Joy5` R1=`Joy6`
@@ -216,5 +215,3 @@ single-instance handoff's protocol (its gaps are
 - **`test_target_<port>` passes a CPU mode named anywhere in
   `port-hooks.sh`** (`tests/test_target_port.c`, a `strstr` over the file,
   comments included), so it does not prove a `case` handles it.
-- **No pad in game on the desktop build**:
-  [its gotcha](../ports/linux-x86_64/README.md#no-pad-in-game).
