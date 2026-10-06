@@ -9,7 +9,6 @@ one plus what differs for its device
 ## Status
 
 The staged app's launcher and engine run the game ([verified](#verified)).
-With SDL3 installed the game gets no pad ([no pad in game](#no-pad-in-game)).
 
 ## Build and run
 
@@ -44,7 +43,7 @@ The engine also starts on its own, straight into a map
 | File | What it is |
 |---|---|
 | `port.cmake` | system SDL2 through pkg-config |
-| `engine.cmake` | the engine with every display backend the system has -- with SDL3 installed that is SDL3 and not SDL2 ([no pad in game](#no-pad-in-game)); `run-game.sh` asks for SDL2, the one with gamepad support, at run time |
+| `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the gamepad support; `run-game.sh` asks for SDL2 at run time |
 | `port.sh` | `deps` checks for SDL2 and SDL2_ttf; `stage` points a fresh app at `gamefiles/`; `run` starts the staged launcher |
 
 The generic device profile (`src/platform/target_default.c`) and
@@ -57,18 +56,6 @@ The generic device profile (`src/platform/target_default.c`) and
 - `DXL_NO_HOME=1` takes the staged launcher straight into Liberty Island; unattended engine runs drive saves, loads and hub travel ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas
-
-### No pad in game
-
-A defect. With SDL3 installed, as on most current desktop distros,
-SurrealWidgets builds its SDL3 window backend instead of its SDL2 one
-(VibeEngine's `SurrealWidgets/CMakeLists.txt`). The fork's pad support,
-`GetGamepadState`, is the SDL2 backend's alone, so `run-game.sh`'s
-`SURREALWIDGETS_DISPLAY_BACKEND=SDL2` finds nothing and the engine falls
-back to Wayland or X11, its log not saying which: the launcher answers the
-pad, the game does not. The fix: `ENABLE_SDL3` off in `engine.cmake`, which
-leaves SurrealWidgets the SDL2 backend (the Smart Pro's SDL2-only build has
-the pad in game), or the pad in the SDL3 backend too.
 
 ### Audio
 
