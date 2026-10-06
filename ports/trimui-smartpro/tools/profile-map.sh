@@ -32,7 +32,8 @@
 #
 # SURREAL_PERF_DETAIL=1 in the environment adds tick by actor class and script
 # functions by self time; those hooks slow what they measure. SAMPLE=1 samples
-# the main thread's CPU every millisecond into /tmp/dxl-test/samples-<label>
+# the main thread's CPU (asked for every millisecond; the device's
+# tick gives one every 4 ms) into /tmp/dxl-test/samples-<label>
 # (and .maps), for vibe/tools/perf/sample-report.py on the PC. SHOT=<seconds>
 # (a multiple of 5) saves the screen at that point to
 # /tmp/dxl-test/fb-<label>.gz -- the raw framebuffer, gzipped; its first

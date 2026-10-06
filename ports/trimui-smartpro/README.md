@@ -208,7 +208,7 @@ Measured with the profiling hooks at engine `a783f0a` (Vulkan, and the two other
 
 ### Where a frame goes
 
-Vulkan at native 1280×720 at the level start, in ms, by the frame-time hooks and the device's CPU samples, with
+Vulkan at native 1280×720 at the level start, at engine `a783f0a`, in ms, by the frame-time hooks and the device's CPU samples, with
 what is left in each area. The GPU draws the previous frame while the tick runs (engine patch
 0004). At native resolution the tick is the shorter, so **a frame is about the GPU's time plus
 the render CPU**: render-CPU savings count in full, and the tick does not move the frame until
