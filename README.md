@@ -96,6 +96,15 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 - **The window frames are the desktop's.** The wizard's carries the game's
   icon from the install's `DeusEx.exe` ([`peicon.h`](src/core/peicon.h));
   the message boxes and the splash have none, as in the original.
+- **A flag's name ends at a space or the line's end** (`ParseParam`,
+  `src/core/cmdline.c`); the original's (`Core.dll` `0x10146d00`) checks
+  nothing after it, so there `-safemode` counts as `-safe` and `-log` is
+  found in `-LOG=<file>`
+  ([the parsers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
+  Both take `/` as a switch, and a Linux path is full of them: the
+  original's rule would find `-server` in `INI=/srv/server/x.ini`. A path
+  that ends in a flag's name still counts. `tests/test_cmdline.c` asserts
+  the launcher's way.
 
 ## Known defects
 
@@ -107,12 +116,6 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   engine, reading a quoted value whole as the original does, takes as
   `INI=My`; `EXEC=` and `USERINI=` alike. Handing `run-game.sh` the line as
   one argument (`--cmdline="$1"`) would keep it as given.
-- **`ParseParam` is stricter than the original's.** `src/core/cmdline.c`
-  wants the name to end at a space or the line's end; the original's
-  (`Core.dll` `0x10146d00`) checks nothing after it, so `-safemode` counts
-  as `-safe` there and `-log` is found in `-LOG=<file>`
-  ([the parsers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
-  `tests/test_cmdline.c` asserts the launcher's way.
 
 ## The game and the launcher
 

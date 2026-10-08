@@ -1,9 +1,11 @@
-/* Command-line parsing, reproducing UE1's three helpers exactly.
+/* Command-line parsing: UE1's three helpers, ParseParam stricter by choice.
  *
  * dx-reverse-info/cli-flags.md is emphatic that these are NOT equivalent, and that the
  * difference is observable:
  *
  *   dxl_cmd_param   ParseParam(s,"X")  -- "-X" or "/X", must end at whitespace
+ *                                         (the original's checks nothing after
+ *                                         the name: below)
  *   dxl_cmd_value   Parse(s,"X=",v)    -- case-insensitive substring "X=",
  *                                         value runs to whitespace, quotable
  *   dxl_cmd_find    appStrfind(s,"X")  -- raw case-insensitive substring,
@@ -26,7 +28,11 @@
 char *dxl_cmdline_join(int argc, char *const *argv);
 
 /* ParseParam: token preceded by '-' or '/' and followed by end-of-string or
- * whitespace. Case-insensitive. */
+ * whitespace. Case-insensitive. The original's (Core.dll 0x10146d00) checks
+ * nothing after the name, so there "-safemode" counts as -safe and -log is
+ * found in "-LOG=<file>". Stricter here by choice: both take '/' as a switch,
+ * and a Linux path is full of them -- the original's rule would find -server
+ * in "INI=/srv/server/x.ini". A path that ends in a flag's name still counts. */
 int dxl_cmd_param(const char *cmdline, const char *name);
 
 /* Parse: finds "<name>=" anywhere, case-insensitively, and copies the value
