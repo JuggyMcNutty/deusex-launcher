@@ -194,80 +194,81 @@ Overclock, Distant AI on; milliseconds a frame, averaged over 60 frames.
 
 | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 | --- | --- | --- | --- | --- | --- |
-| Vulkan, 1280×720 (native) | 8.2 | ~121 | ~30 | ~88 | ~30 |
-| Vulkan, 853×480 | 11.5 | ~87 | ~29 | ~54 | ~2 |
-| OpenGL ES, 1280×720 | 8.6 (8.5–8.8) | ~115 | ~30 | ~84 | – |
-| OpenGL ES, 853×480 | 10.0 | ~100 | ~23 | ~76 | – |
+| Vulkan, 1280×720 (native) | 10.4 | ~96 | ~19 | ~73 | ~31 |
+| Vulkan, 853×480 | 15.0 | ~67 | ~19 | ~44 | ~6 |
+| OpenGL ES, 1280×720 | 12.1 | ~83 | ~19 | ~61 | – |
+| OpenGL ES, 853×480 | 14.0 | ~72 | ~16 | ~53 | – |
 | UNATCO HQ (indoors), Vulkan, 853×480 | ~32 | | | | |
-| Battery Park (outdoors), Vulkan, 853×480 | ~16 | | | | |
+| Battery Park (outdoors), Vulkan, 853×480 | ~22 | | | | |
 
 The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
 only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU.
-Measured with the profiling hooks at engine `a783f0a` (Vulkan, and the two other maps) and
-`0c8e99b` (OpenGL ES).
+Measured with the profiling hooks at engine `15392c0`; the hooks' own timers take ~3.5 of the
+render CPU (`steady_clock::now`: each box and surface test is timed).
 
 ### Where a frame goes
 
-Vulkan at native 1280×720 at the level start, at engine `a783f0a`, in ms, by the frame-time hooks and the device's CPU samples, with
-what is left in each area. The GPU draws the previous frame while the tick runs (engine patch
-0004). At native resolution the tick is the shorter, so **a frame is about the GPU's time plus
-the render CPU**: render-CPU savings count in full, and the tick does not move the frame until
-the GPU's time comes down. At 853×480 the frame is the CPU's, and both count. ~20 FPS (~50 ms)
-at native therefore also needs the GPU's ~63 under ~50, and the script VM several times faster.
+Vulkan at native 1280×720 at the level start, at engine `15392c0`, in ms, by the frame-time
+hooks and the device's CPU samples, with what is left in each area. The GPU draws the previous
+frame while the input, tick and view run (engine patch 0004), and its time is now the longer at
+both resolutions: ~54 at native and ~29 at 853×480, against their ~23. So **a frame is about
+the render CPU plus the GPU's time**: render-CPU and GPU savings count in full, and the tick's
+not until the GPU's time comes under it. ~20 FPS (~50 ms) at 853×480 therefore needs some 17
+off the render CPU and the GPU's time together, and at native the GPU's ~54 well under ~50.
 
-- **Game tick ~30** (~35 with the detail hooks), almost all `ULevel::TickActor` over ~2,500
-  actors:
-  - **script VM ~15** by the samples (`Frame::Run` with the natives it calls; ~12 by the hooks'
-    count, ~9.5 of it in the tick), ~2,000 calls a frame. The natives take ~8.5: the weapons'
-    and shadows' `Tick`, `CheckEnemyPresence` and `CalculateAccuracy` the largest,
-    `FindPathToward` ~0.5; `ScriptedPawn.CheckEnemyPresence` is the costliest script function.
-    The interpreter's own ~6 (`Frame::Run`, `ExpressionEvaluator`, `Frame::Call` self time) is
-    mostly the Cortex-A53 waiting on memory for each expression node. Left: only a denser,
-    compiled form of each function's code would change that, a rewrite of the evaluator's core;
-    even at no cost of its own, the VM's time would fall by a little under half. Smaller: calls
-    without an `ExpressionValue` per argument. How the original does both:
+- **Game tick ~19** over the ~770 dynamic actors (the level ticks no static actor, as the
+  original's):
+  - **script VM ~10** by the hooks (~7.4 of it in the tick; `CallEvent` ~7.9 under the tick by
+    the samples). The interpreter's own (`Frame::Run`, `ExpressionEvaluator`, `Frame::Call` self
+    time) ~4 is mostly the Cortex-A53 waiting on memory for each expression node. Left: only a
+    denser, compiled form of each function's code would change that, a rewrite of the
+    evaluator's core. How the original does it:
     [the script interpreter](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-script-interpreter).
-  - physics ~6 (`TickPhysics`), mostly walking pawns: `TryStepToGround` ~1.9, `TryMove` ~2.7;
-  - the pawns' own tick ~12 (`UPawn::Tick`), sight checks (`CanSee`, `FastTrace`) ~0.7 of it;
-  - collision traces ~2 of own time (`TraceAABBModel::Trace` ~1.8 self; the sight rays'
-    polygon tests, `NodeRayIntersect` ~1, most of the rest). `TraceTexture` ~0.2: the laser
-    tripwires' `CalcTrace` traces each beam 5,000 units per reflection point every tick, and the
-    player's floor and wall materials take two traces a frame;
-  - per-actor work around the scripts ~9: `ULevel::TickActor` ~4 self, `UActor::Tick` ~2.3,
-    animation ~1.3, `CheckPendingTouch` ~1.1, `PathNode`'s tick ~4 over 1,000 nodes;
-    `IsEventEnabled`, asking whether to send each actor `Tick`, ~0.1. Left: all of it but
-    `IsEventEnabled`;
-  - Distant AI: ~12 pawns a frame skip their thinking at distance.
-- **Render CPU ~52** besides waits, lightmaps and uploads:
-  - visibility ~20, the largest render item: ~3,900 box tests (~3.9) and ~2,400 surface tests
-    (~7.7) a frame against `BspClipper`'s occlusion grid, portals ~1.7, actor set-up ~1.5. By
-    function: `BspClipper::DrawSpan` ~3.3, `DrawTriangle`/`DrawClippedTriangle` ~3.8, the BSP
-    walk (`ProcessNode`/`ProcessNodeSurface` ~4.8, cache misses), `IsAABBVisible` ~1.3;
-  - actor meshes ~7.5 for ~40 in view: per-vertex work (`DrawLodMeshFaceDX` ~3.7, the vertex
-    lighting `GetVertexLight` ~1.1) and the device's set-up per run of faces. Left: the
-    per-vertex work itself;
-  - BSP surfaces ~8 for ~600 nodes, mostly each surface's lightmap lookup
-    (`LightSystem::GetLightmap` ~3.7 self);
-  - translucent 2.6, sky portal 3.4, BSP set-up (`bsp-info`) 3.5, end of frame (`unlock`) 2.3,
-    `PostRenderFlash` (script) 1.6, the rest ~1.3.
-- **Lightmaps ~3.7, texture uploads ~2.** The `BarrelFire`, a dynamic light with the fire waver
-  effect, rebuilds 6 lightmaps every frame (~94,000 texels, ~1,800 in its radius). Each goes to
-  the GPU whole, converted from float in NEON (the GE8300 cannot filter RGBA32F). Left:
-  re-uploading only the rows a light changed; byte lightmaps (the fork's are floats, converted
-  on the CPU); each surface's lightmap lookup
+  - physics ~5.4 (`TickPhysics`), mostly walking pawns: `TryMove` ~2.0, `TryStepToGround`
+    ~1.5. Left: one physics call a tick, as the original's; the fork moves in 0.02 s steps, 3 to
+    5 a tick at these frame rates;
+  - collision traces ~3.7 (`TraceTester::Trace`; `TraceAABBModel::Trace` ~1.4 and the sight
+    rays' `NodeRayIntersect` ~0.9 of own time);
+  - the player's own tick ~2.9: the ladder probe (`DeusExLadder`) ~1.4 and its floor and wall
+    materials (`DeusExLineTexture`) ~1.3, each tick, as the original's;
+  - per-actor work around the scripts ~3: `ULevel::TickDeusEx` ~1.2 and `TickActorDeusEx`
+    ~0.7 self, stasis ~0.4, `FindRegion` ~0.4, `dynamic_cast` ~1.3 (`TryCast`);
+  - Distant AI: ~13 pawns a frame skip their thinking at distance.
+- **Render CPU ~41** besides waits, lightmaps and uploads, the hooks' timers ~3.5 of it. By
+  section: visibility 16.5, actors 7.0, BSP surfaces 4.2, BSP set-up (`bsp-info`) 3.2, portals
+  2.5, end of frame (`unlock`) 2.2, translucent 1.9, `PostRenderFlash` (script) 1.7, the rest
+  1.6:
+  - visibility: ~4,200 box tests (~3.6) and ~2,600 surface tests (~4.1) a frame against
+    `BspClipper`'s occlusion grid, portals ~1.0, actor set-up ~1.6. By function: the BSP walk
+    (`ProcessNodeSurface` ~3.3, `ProcessNode` ~2.3, cache misses), `DrawPolygon` ~1.8,
+    `DrawSpan` ~1.5, `IsAABBVisible` ~1.4, the frustum test ~0.7. Left: the walk's memory; the
+    occlusion grid's rows in one block, no gain on the desktop
+    ([against the original](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#against-the-original)),
+    is untried here;
+  - actor meshes ~6.4 for ~44 in view: `DrawLodMeshFaceDX` ~3.2 and the vertex lighting
+    `GetVertexLight` ~0.9 of own time;
+  - the Vulkan driver (`libVK_IMG`, `libsrv_um`) ~6.8, per draw call and submit;
+  - `UActor::UpdateBspInfo` ~2.4, every actor's BSP set-up each frame (~0.1 on the desktop).
+    Left: only an actor that moved or changed;
+  - `LightSystem::BeginFrame` ~1.0, every actor looked at for a light each frame; the fractal
+    textures (`FireEngine`) ~1.3.
+- **Lightmaps ~0.4, texture uploads ~0.3.** The `BarrelFire`, a dynamic light with the fire
+  waver effect, rebuilds its 6 lightmaps every frame, built, converted and sent only where its
+  light reaches
   ([lighting](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lighting)).
-- **GPU ~63** at native: input, tick and view (~33) plus the render's wait (~30). CPU and GPU
-  compete for the SoC's shared memory. At 853×480 the wait is ~2.
-- **`view+audio`** is mostly `USurrealAudioDevice::StartAmbience` reading every actor's
+  In Battery Park, its one volumetric light rebuilds some 60 fog maps a frame (~72,000 texels),
+  each sent whole: texture uploads ~1.7 there. Left: the fog maps only where a fog light reaches.
+- **GPU ~54** at native, ~29 at 853×480: the render's wait plus the input, tick and view it
+  overlaps. CPU and GPU compete for the SoC's shared memory.
+- **`view+audio` ~3** is mostly `USurrealAudioDevice::StartAmbience` reading every actor's
   `AmbientSound` each frame (~2.5). The original does the same scan every frame
   ([each frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)):
   nothing to port.
 
-**OpenGL ES** is level with Vulkan at native, or a little ahead: Vulkan waits on the GPU, and
-the GL driver's time lands in the render CPU. At 853×480 it trails by the GL driver's
-per-draw-call cost over the frame's ~700 calls (state, program and texture binds included); the
-engine's own sections have the same shape as Vulkan's. The GL device's workarounds for this
-driver: ENGINE.md's
+**OpenGL ES** leads Vulkan at native (12.1 FPS against 10.4), where Vulkan waits on the GPU, and
+trails it at 853×480 (14.0 against 15.0): the GL driver's time lands in its render CPU, ~53
+against Vulkan's ~37 there, and is not overlapped by the tick. The GL device's workarounds for
+this driver: ENGINE.md's
 [rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering) and, for
 fullscreen,
 [running on our devices](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices).
