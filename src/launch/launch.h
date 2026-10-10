@@ -63,8 +63,9 @@ typedef struct {
 
 typedef struct {
     int   exit_code;
-    /* Safe mode's relaunch, after everything else: the flags, or NULL. The
-     * caller starts the launcher again with them (platform/launch.h). */
+    /* Safe mode's relaunch, or the engine's RELAUNCH, after everything
+     * else: the command line, or NULL. The caller starts the launcher again
+     * with it (platform/launch.h). */
     char *relaunch_flags;
     /* Where the run stopped, for tests and the log. */
     const char *ended;

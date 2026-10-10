@@ -23,7 +23,7 @@ int dxl_cmd_param(const char *cmdline, const char *name) {
         char before = p[-1];
         if (before != '-' && before != '/') continue;
         char after = p[n];
-        if (after == '\0' || isspace((unsigned char)after)) return 1;
+        if (after == '\0' || isspace((unsigned char)after) || after == '?') return 1;
     }
     return 0;
 }

@@ -40,6 +40,7 @@ typedef struct {
     dxl_sentinel sentinel;
     dxl_instance *inst;
     int          splash;       /* shown now */
+    char        *relaunch;     /* the engine's RELAUNCH: the command line to start again with */
 } run;
 
 static void splash_show(run *r, const char *path) {
@@ -187,7 +188,10 @@ static int cd_check(run *r) {
 
 /* The game, and the launcher staying with it as the original's process
  * stays: the splash closes when the engine is up, a forwarded command line
- * is handed on, and Running.ini goes once the game has ended cleanly. */
+ * is handed on, and Running.ini goes once the game has ended cleanly. A
+ * RELAUNCH the engine passes on ("relaunch <line>") is kept for once the
+ * game has ended cleanly: the original's starts DeusEx.exe with the line
+ * and exits. */
 static int play(run *r, volatile int *stop) {
     char *script = dxl_path_join(r->base, GAME_SCRIPT);
     dxl_err e;
@@ -213,6 +217,10 @@ static int play(run *r, volatile int *stop) {
                 ready = 1;
                 dxl_log("the engine is up");
                 splash_hide(r);
+            } else if (strncmp(line, "relaunch ", 9) == 0 || strcmp(line, "relaunch") == 0) {
+                free(r->relaunch);
+                r->relaunch = dxl_xstrdup(line[8] ? line + 9 : "");
+                dxl_log("Relaunch: %s", r->relaunch);
             }
         }
         if (ev & DXL_GAME_EXTRA) {
@@ -250,8 +258,13 @@ static int play(run *r, volatile int *stop) {
     }
     splash_hide(r);
     dxl_log("the game ended: %d", g.status);
-    if (dxl_game_clean(&g)) dxl_sentinel_remove(&r->sentinel);
-    else dxl_log("not a clean end: Running.ini stays for the next launch");
+    if (dxl_game_clean(&g)) {
+        dxl_sentinel_remove(&r->sentinel);
+    } else {
+        dxl_log("not a clean end: Running.ini stays for the next launch");
+        free(r->relaunch);
+        r->relaunch = NULL;
+    }
     return g.status;
 }
 
@@ -381,6 +394,8 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     if (dxl_config_save(r.cfg, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     int status = play(&r, stop);
     end(out, status, "the game ran");
+    out->relaunch_flags = r.relaunch;   /* the engine's RELAUNCH, or NULL */
+    r.relaunch = NULL;
 
 done:
     dxl_log("Exit");
@@ -390,7 +405,7 @@ done:
     dxl_config_free(r.cfg);
     dxl_sentinel_free(&r.sentinel);
     free(r.raw); free(r.cmd); free(r.exe); free(r.base); free(r.package);
-    free(r.id); free(r.log_path);
+    free(r.id); free(r.log_path); free(r.relaunch);
 }
 
 void dxl_launch_result_free(dxl_launch_result *r) {

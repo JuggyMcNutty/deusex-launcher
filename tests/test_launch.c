@@ -93,6 +93,7 @@ static const char *GAME =
     "       read a <&$fd; read b <&$fd\n"
     "       printf '%s|%s' \"$a\" \"$b\" > \"$here/game-got.txt\" ;;\n"
     "stubborn) trap '' TERM; printf 'hello\\nready\\n' >&$fd; exec sleep 30 ;;\n"
+    "relaunch) printf 'hello\\nready\\nrelaunch -changevideo\\n' >&$fd ;;\n"
     "esac\n"
     "exit $(cat \"$here/game-exit.txt\" 2>/dev/null || echo 0)\n";
 
@@ -380,6 +381,28 @@ static void test_ready_and_relay(void) {
     scratch_remove(root);
 }
 
+/* The engine's RELAUNCH: once the game has ended cleanly, the launcher is
+ * started again with the line; after a crash, not. */
+static void test_engine_relaunch(void) {
+    install("l-relaunch", NULL);
+    scratch_write(root, "System/game-mode.txt", "relaunch");
+    dxl_launch_result r;
+    launch(NULL, &r);
+    CHECK_STR(r.ended, "the game ran");
+    CHECK_STR(r.relaunch_flags, "-changevideo");
+    CHECK_INT(scratch_exists(root, "System/Running.ini"), 0);
+    char *log = read_file("System/DeusEx.log");
+    CHECK(strstr(log, "Relaunch: -changevideo") != NULL);
+    free(log);
+    dxl_launch_result_free(&r);
+
+    scratch_write(root, "System/game-exit.txt", "1");
+    launch(NULL, &r);
+    CHECK(r.relaunch_flags == NULL);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
 /* INI= and USERINI=, as the original's appInit takes them: the
  * configuration from those files, which the game is started with too.
  * INI= first: Parse finds "INI=" anywhere, so after USERINI= it would find
@@ -435,4 +458,5 @@ TEST_MAIN_BEGIN
     RUN(test_server);
     RUN(test_splash_bitmaps);
     RUN(test_ready_and_relay);
+    RUN(test_engine_relaunch);
 TEST_MAIN_END

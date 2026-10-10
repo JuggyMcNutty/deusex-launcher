@@ -11,6 +11,8 @@ static void test_param_requires_a_dash(void) {
     CHECK_INT(dxl_cmd_param("DX.dx -safe", "safe"), 1);
     CHECK_INT(dxl_cmd_param("-safe -log", "safe"), 1);
     CHECK_INT(dxl_cmd_param("-log -safe", "safe"), 1);
+    CHECK_INT(dxl_cmd_param("DXMP_Silo?game=DeusEx.DeathMatchGame?-server?log=server.log", "server"), 1);
+    CHECK_INT(dxl_cmd_param("DXMP_Silo?game=DeusEx.DeathMatchGame?-serverx", "server"), 0);
 
     /* No leading dash: not a param. This is the difference from appStrfind. */
     CHECK_INT(dxl_cmd_param("safe", "safe"), 0);

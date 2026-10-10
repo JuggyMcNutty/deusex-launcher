@@ -141,8 +141,8 @@ int main(int argc, char **argv) {
     if (s.up) dxl_gui_quit(&s.gui);
 
     if (r.relaunch_flags && !stop) {
-        /* Safe mode's Run!: the launcher again, with those flags alone, in
-         * its own folder. */
+        /* Safe mode's Run!, or the engine's RELAUNCH: the launcher again,
+         * with that command line alone, in its own folder. */
         char *base = dxl_path_dirname(exe);
         dxl_err e;
         dxl_platform_launch(exe, r.relaunch_flags, base, &e);

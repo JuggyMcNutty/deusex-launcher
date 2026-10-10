@@ -84,9 +84,9 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 - **Safe mode's eight boxes are all wired**; in the original three do
   nothing and one does four boxes' work
   ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead)).
-- **Safe mode relaunches after the run has ended**, this process becoming
-  the launcher again; the original starts a second process while it is
-  still ending.
+- **Safe mode and the game's `RELAUNCH` relaunch after the run has ended**,
+  this process becoming the launcher again; the original starts a second
+  process while it is still ending.
 - **A missing splash bitmap is not fatal**: no splash shows. The original
   asserts and dies.
 - **Web pages open with the desktop's handler** (`xdg-open`).
@@ -96,15 +96,16 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 - **The window frames are the desktop's.** The wizard's carries the game's
   icon from the install's `DeusEx.exe` ([`peicon.h`](src/core/peicon.h));
   the message boxes and the splash have none, as in the original.
-- **A flag's name ends at a space or the line's end** (`ParseParam`,
+- **A flag's name ends at a space, a `?` or the line's end** (`ParseParam`,
   `src/core/cmdline.c`); the original's (`Core.dll` `0x10146d00`) checks
   nothing after it, so there `-safemode` counts as `-safe` and `-log` is
   found in `-LOG=<file>`
   ([the parsers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
   Both take `/` as a switch, and a Linux path is full of them: the
   original's rule would find `-server` in `INI=/srv/server/x.ini`. A path
-  that ends in a flag's name still counts. `tests/test_cmdline.c` asserts
-  the launcher's way.
+  that ends in a flag's name still counts. The `?` is for a URL's options:
+  the game's dedicated-server `RELAUNCH` puts `-server` among them.
+  `tests/test_cmdline.c` asserts the launcher's way.
 
 ## Known defects
 
@@ -125,8 +126,9 @@ the splash when the engine is up, hands on what a second launch forwards,
 and deletes `Running.ini` when the game ends cleanly. Here the engine is a
 program of its own, `run-game.sh` started beside the launcher with the
 command line as given, its output in the launcher's log. The launcher stays
-as its parent and does the same, over a socket whose descriptor the engine
-finds in `DXL_LAUNCHER_FD`, one text line per message:
+as its parent and does the same -- and, for the game's `RELAUNCH`, starts
+DeusEx again, which the original's engine does itself -- over a socket whose
+descriptor the engine finds in `DXL_LAUNCHER_FD`, one text line per message:
 
 | From | Line | Meaning |
 |---|---|---|
@@ -134,6 +136,7 @@ finds in `DXL_LAUNCHER_FD`, one text line per message:
 | the engine | `ready` | it is up, its first map in: the splash closes, as the original's does when the engine exists |
 | the launcher | `TakeFocus` | a second launch forwarded its command line: the game's window to the front |
 | the launcher | `Open <url>` | then the command line's first word, unless it starts with `-`: travel there |
+| the engine | `relaunch <line>` | the game's `RELAUNCH`: once the game has ended cleanly, the launcher starts again with that command line alone, as the original's starts `DeusEx.exe` with it ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)); after a crash, not |
 
 A forwarded command line that arrives before `ready` is dropped, as the
 original's log window drops one before its main loop runs.
