@@ -205,7 +205,11 @@ single-instance handoff's protocol (its gaps are
   `dxl_app_launch`), so a launch during a game finds no instance and reads
   the surviving `Running.ini` as a crash. The fix: hold the lock across the
   run, its descriptor inherited by the game or a waiter as `main`'s
-  launcher is.
+  launcher is. Nor does a `RELAUNCH` reach it: the ports' launcher gives the
+  engine no line (`DXL_LAUNCHER_FD`), so the Display screen's Rendering
+  Device does nothing, and a dedicated server from the Host screen is
+  started again by the engine itself
+  ([the menus' settings](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-menus-settings)).
 - **The Resolution row is Vulkan's only** (`src/ui/tab_video.c`,
   `render_enabled`), though the fork's GL device (OpenGL and OpenGL ES)
   honours `Performance.RenderScale`
