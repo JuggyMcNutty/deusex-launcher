@@ -225,11 +225,10 @@ off the render CPU and the GPU's time together, and at native the GPU's ~54 well
     evaluator's core. How the original does it:
     [the script interpreter](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-script-interpreter).
   - physics ~5.4 (`TickPhysics`), mostly walking pawns, in 0.02 s steps, 3 to 5 a tick at these
-    frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: measuring engine `d4d0a3f` here,
-    whose walking, swimming and flying pawns take the tick at once, as the original's, without
-    `TryStepToGround`
+    frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: measuring engine `e642243` here,
+    whose walking, swimming and flying pawns and anything falling take the tick at once, as the
+    original's, without `TryStepToGround`
     ([game tick](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#game-tick));
-    a fall still goes in 0.02 s steps;
   - collision traces ~3.7 (`TraceTester::Trace`; `TraceAABBModel::Trace` ~1.4 and the sight
     rays' `NodeRayIntersect` ~0.9 of own time);
   - the player's own tick ~2.9: the ladder probe (`DeusExLadder`) ~1.4 and its floor and wall
