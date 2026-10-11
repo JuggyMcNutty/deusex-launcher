@@ -249,7 +249,12 @@ off the render CPU and the GPU's time together, and at native the GPU's ~54 well
     is untried here;
   - actor meshes ~6.4 for ~44 in view: `DrawLodMeshFaceDX` ~3.2 and the vertex lighting
     `GetVertexLight` ~0.9 of own time;
-  - the Vulkan driver (`libVK_IMG`, `libsrv_um`) ~6.8, per draw call and submit;
+  - the Vulkan driver (`libVK_IMG`, `libsrv_um`) ~6.8, per draw call and submit. Without
+    descriptor indexing each lit surface is a draw of its own, its light map a texture of its
+    own, and so it is under the GL device. Left: the light maps in shared pages, each with a
+    border of its edge texels (4 in DXD3D9 2.0, a third-party Direct3D 9 renderer), and the
+    solid surfaces sorted by texture, so that a run of one texture is one draw; the GPU's
+    hidden-surface removal makes their order free;
   - `UActor::UpdateBspInfo` ~2.4, every actor's BSP set-up each frame (~0.1 on the desktop).
     Left: only an actor that moved or changed;
   - `LightSystem::BeginFrame` ~1.0, every actor looked at for a light each frame; the fractal
