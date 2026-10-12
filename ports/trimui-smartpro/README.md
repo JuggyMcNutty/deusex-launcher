@@ -7,7 +7,7 @@ here. The launcher is the app the spruceOS menu starts.
 ## Status
 
 The launcher and the engine run on the device, and the game plays on Vulkan or OpenGL ES (the
-Video tab's choice), at 853×480 by default. It is short of
+Video tab's choice), at 853x480 by default. It is short of
 [the ~20 FPS target](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided):
 [Performance](#performance) has the numbers, and [where a frame goes](#where-a-frame-goes) the
 work left.
@@ -25,7 +25,8 @@ scripts/dx.sh deploy trimui-smartpro       # build, stage, send; --no-engine, --
 uncommitted changes (the profiling hooks, say). It sends only the files whose checksum differs,
 keeps the device's copies of those in `.prev-<date-time>` (the device's clock) in the app
 directory, and checksums every file there afterwards. Nothing is ever deleted on the device:
-copying a previous copy back is a rollback (newest last; older hand-made ones are `.prev-<date>`). `--no-engine` leaves the engine's three files out.
+copying a previous copy back is a rollback (newest last; older hand-made ones are
+`.prev-<date>`). `--no-engine` leaves the engine's three files out.
 
 The app lives in `/mnt/SDCARD/App/DeusEx`, the game data in `/mnt/SDCARD/Roms/PORTS/DeusEx`
 (all 38 `.u` packages). `launcher.ini` belongs to the device's owner: `deploy` installs it only
@@ -45,11 +46,9 @@ out): ask its owner to wake it.
 ./dxl-cli --probe                # just the GPU: Vulkan device, OpenGL ES version
 ```
 
-Run them in the app directory with `LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib`. The
-launcher logs to `<GameDir>/System/DeusExLauncher.log`, `run-game.sh` to `run-game.log` in the
-app directory (engine output, exit status, CPU mode), and the engine to
-`home/.config/SurrealEngine/SE-Log-LastRun.txt` there. The System tab shows the engine log and
-`run-game.log`'s last run.
+Run them in the app directory with `LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib`. Where the
+launcher, `run-game.sh` and the engine log: [the logs](../../docs/LAUNCHER.md#the-screens); the
+System tab shows the engine log and `run-game.log`'s last run.
 
 ## What differs from linux-x86_64
 
@@ -66,13 +65,12 @@ app directory (engine output, exit status, CPU mode), and the engine to
 
 ### The toolchains
 
-The device runs glibc 2.33. glibc 2.34 folded `libpthread`/`libdl` into `libc` and re-versioned
-the startup symbols, so any toolchain built against 2.34 or later emits
-`__libc_start_main@GLIBC_2.34` from `crt1.o`: the binary does not load, whatever our code calls.
-Hence two Bootlin toolchains:
+The device runs glibc 2.33, so every toolchain is built against 2.33 or older
+([the glibc ceiling](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time)).
+Two Bootlin toolchains:
 
 | Toolchain | gcc | glibc | Builds |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | `aarch64--glibc--stable-2020.08-1` | 9.3 | 2.31 | the launcher (C11); emits only `GLIBC_2.17` |
 | `aarch64--glibc--bleeding-edge-2021.05-1` | 10.3 | 2.33 | the engine (C++20, beyond gcc 9.3) |
 
@@ -116,15 +114,14 @@ the app's first.)
 ### Engine settings
 
 The launcher writes the app directory's `home/.config/SurrealEngine/Settings.json` before a
-launch whenever it is missing, incomplete or changed (`run-game.sh` pins `HOME` there), filling
-missing fields from `engine-settings.json.default`. The non-negotiable entry is
-`Antialias: Off`: the engine defaults to 4x MSAA, and the GE8300's resolve turns partially
-covered pixels into speckle. The launcher locks it off on any PowerVR, and the default says
-`Off` too. VSync is off: below the panel's 60 Hz, vsync would hold the game to 30 or 20.
-Distant AI (`Performance.AiLevelOfDetail`) is on
-([what it does](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-the-launcher-exposes)).
-`Performance.RenderScale` 0.6666667 draws at 853×480 unless the Video tab's Resolution asks for
-960×540 or the panel's 1280×720 (under Vulkan only: a
+launch ([where the settings live](../../docs/LAUNCHER.md#where-the-settings-actually-live)),
+filling missing fields from `engine-settings.json.default`. This port's values:
+`Antialias: Off`, non-negotiable, as the GE8300's resolve turns partially covered pixels into
+speckle (the launcher locks it off on any PowerVR); VSync off, as below the panel's 60 Hz vsync
+would hold the game to 30 or 20; Distant AI (`Performance.AiLevelOfDetail`) on
+([what it does](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-the-launcher-exposes));
+`Performance.RenderScale` 0.6666667, 853x480, unless the Video tab's Resolution asks for 960x540
+or the panel's 1280x720 (under Vulkan only: a
 [known defect](../../docs/LAUNCHER.md#known-defects)).
 
 ## The device, as measured
@@ -132,14 +129,14 @@ Distant AI (`Performance.AiLevelOfDetail`) is on
 Probed over SSH, not assumed; Port Ex Machina's `tools/probes/probe-sdl.c` and `dxl-cli --probe`
 reproduce it.
 
-| | |
-| --- | --- |
+| Fact | As measured |
+|---|---|
 | Device | TrimUI Smart Pro (`hwserial TG5040`), spruceOS `PLATFORM=SmartPro` |
 | SoC | Allwinner A133 `sun50iw10p1`, 4× Cortex-A53; 3 GB RAM (`free`) |
 | CPU modes | the spruceOS menu: **power-save, cores 0 and 3 only, `conservative`, 408 MHz–1.49 GHz**. `set_performance`: all four cores, `performance`, 1.8 GHz; `set_overclock`: 2.0 GHz (`spruce/scripts/platform/SmartPro.cfg`) |
 | OS | TinaLinux "Neptune", kernel 4.9.191, **glibc 2.33**, busybox 1.36.1 |
 | SDL | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`** (`SDL_malivideo.c`) |
-| Surface | 1280×720 @60Hz, `SDL_PIXELFORMAT_RGBX8888`, fullscreen |
+| Surface | 1280x720 @60Hz, `SDL_PIXELFORMAT_RGBX8888`, fullscreen |
 | SDL renderer | **`opengles2`**, accelerated + vsync, max texture 8192² |
 | GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s. Vulkan: no `VK_EXT_descriptor_indexing`; BC1–5, RGB8 and RGBA32F not sampled or filtered as the engine needs (`probe-vulkan-caps.c`, `probe-texture-formats.c`). OpenGL ES: no S3TC, float-linear filtering, anisotropy or `glBufferStorage`; `GL_MIRROR_CLAMP_TO_EDGE` rejected (`probe-gles-sampler.c`) |
 | Pad | `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, with SDL_GameController's built-in mapping |
@@ -156,10 +153,9 @@ the menu on far stronger hardware.
 
 ### Probes
 
-Port Ex Machina's `tools/probes/` are small single-purpose programs that answer questions about
-a device
-([what each answers](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)).
-They are not part of any build: each is one compile against this port's sysroot, run over SSH.
+Port Ex Machina's
+[device probes](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes),
+each one compile against this port's sysroot, run over SSH:
 
 ```sh
 # from the parent folder of Port Ex Machina's repositories
@@ -179,11 +175,11 @@ device shows it, in a desktop font.
 ## Verified
 
 | Check on the device | Result |
-| --- | --- |
+|---|---|
 | glibc ABI | the launcher's binaries reference `GLIBC_2.17` only; the engine ≤ 2.33 |
 | `dxl-cli --probe`, `--dry-run` | the GPU [as measured](#the-device-as-measured), in 0.5 s; a dry run writes nothing (checksums unchanged) |
 | CPU mode | Performance (cores 0–3, 1.8 GHz) or Overclock (2.0 GHz) while the engine runs; power-save restored after |
-| Home screen on the panel | renders with the device font; detected `X360 Controller`; recognised the retired layout |
+| Home screen on the panel | renders with the device font; detected `X360 Controller`; upgrades a retired layout preset |
 | Pad in game | moving, looking and firing work |
 | `scripts/dx.sh deploy` | sends only the changed files, keeps the previous copies; every file's checksum matches |
 
@@ -193,13 +189,13 @@ Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names anoth
 Overclock, Distant AI on; milliseconds a frame, averaged over 60 frames.
 
 | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
-| --- | --- | --- | --- | --- | --- |
-| Vulkan, 1280×720 (native) | 10.4 | ~96 | ~19 | ~73 | ~31 |
-| Vulkan, 853×480 | 15.0 | ~67 | ~19 | ~44 | ~6 |
-| OpenGL ES, 1280×720 | 12.1 | ~83 | ~19 | ~61 | – |
-| OpenGL ES, 853×480 | 14.0 | ~72 | ~16 | ~53 | – |
-| UNATCO HQ (indoors), Vulkan, 853×480 | ~32 | | | | |
-| Battery Park (outdoors), Vulkan, 853×480 | ~22 | | | | |
+|---|---|---|---|---|---|
+| Vulkan, 1280x720 (native) | 10.4 | ~96 | ~19 | ~73 | ~31 |
+| Vulkan, 853x480 | 15.0 | ~67 | ~19 | ~44 | ~6 |
+| OpenGL ES, 1280x720 | 12.1 | ~83 | ~19 | ~61 | |
+| OpenGL ES, 853x480 | 14.0 | ~72 | ~16 | ~53 | |
+| UNATCO HQ (indoors), Vulkan, 853x480 | ~32 | | | | |
+| Battery Park (outdoors), Vulkan, 853x480 | ~22 | | | | |
 
 The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
 only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU.
@@ -208,13 +204,15 @@ render CPU (`steady_clock::now`: each box and surface test is timed).
 
 ### Where a frame goes
 
-Vulkan at native 1280×720 at the level start, at engine `15392c0`, in ms, by the frame-time
-hooks and the device's CPU samples, with what is left in each area. The GPU draws the previous
-frame while the input, tick and view run (engine patch 0004), and its time is now the longer at
-both resolutions: ~54 at native and ~29 at 853×480, against their ~23. So **a frame is about
-the render CPU plus the GPU's time**: render-CPU and GPU savings count in full, and the tick's
-not until the GPU's time comes under it. ~20 FPS (~50 ms) at 853×480 therefore needs some 17
-off the render CPU and the GPU's time together, and at native the GPU's ~54 well under ~50.
+Vulkan at native 1280x720 at the level start, from the same runs, in ms, by the frame-time hooks
+and the device's CPU samples, with what is left in each area. The GPU draws the previous frame
+while the input, tick and view run
+([the Vulkan device](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)),
+and its time is the longer at both resolutions: ~54 at native and ~29 at 853x480, against their
+~23. So **a frame is about the render CPU plus the GPU's time**: render-CPU and GPU savings
+count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (~50 ms) at
+853x480 therefore needs some 17 off the render CPU and the GPU's time together, and at native
+the GPU's ~54 well under ~50.
 
 - **Game tick ~19** over the ~770 dynamic actors (the level ticks no static actor, as the
   original's):
@@ -225,9 +223,9 @@ off the render CPU and the GPU's time together, and at native the GPU's ~54 well
     evaluator's core. How the original does it:
     [the script interpreter](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-script-interpreter).
   - physics ~5.4 (`TickPhysics`), mostly walking pawns, in 0.02 s steps, 3 to 5 a tick at these
-    frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: measuring engine `e642243` here,
-    whose walking, swimming and flying pawns and anything falling take the tick at once, as the
-    original's, without `TryStepToGround`
+    frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: a measurement on the current
+    engine, whose walking, swimming and flying pawns and anything falling take the tick at once,
+    as the original's, without `TryStepToGround`
     ([game tick](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#game-tick));
   - collision traces ~3.7 (`TraceTester::Trace`; `TraceAABBModel::Trace` ~1.4 and the sight
     rays' `NodeRayIntersect` ~0.9 of own time);
@@ -236,10 +234,9 @@ off the render CPU and the GPU's time together, and at native the GPU's ~54 well
   - per-actor work around the scripts ~3: `ULevel::TickDeusEx` ~1.2 and `TickActorDeusEx`
     ~0.7 self, stasis ~0.4, `FindRegion` ~0.4, `dynamic_cast` ~1.3 (`TryCast`);
   - Distant AI: ~13 pawns a frame skip their thinking at distance.
-- **Render CPU ~41** besides waits, lightmaps and uploads, the hooks' timers ~3.5 of it. By
-  section: visibility 16.5, actors 7.0, BSP surfaces 4.2, BSP set-up (`bsp-info`) 3.2, portals
-  2.5, end of frame (`unlock`) 2.2, translucent 1.9, `PostRenderFlash` (script) 1.7, the rest
-  1.6:
+- **Render CPU ~41** besides waits, lightmaps and uploads. By section: visibility 16.5, actors
+  7.0, BSP surfaces 4.2, BSP set-up (`bsp-info`) 3.2, portals 2.5, end of frame (`unlock`) 2.2,
+  translucent 1.9, `PostRenderFlash` (script) 1.7, the rest 1.6:
   - visibility: ~4,200 box tests (~3.6) and ~2,600 surface tests (~4.1) a frame against
     `BspClipper`'s occlusion grid, portals ~1.0, actor set-up ~1.6. By function: the BSP walk
     (`ProcessNodeSurface` ~3.3, `ProcessNode` ~2.3, cache misses), `DrawPolygon` ~1.8,
@@ -264,20 +261,20 @@ off the render CPU and the GPU's time together, and at native the GPU's ~54 well
   light reaches
   ([lighting](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lighting)).
   In Battery Park, its one volumetric light rebuilds some 60 fog maps a frame (~72,000 texels),
-  each sent whole: texture uploads ~1.7 there. Left: the fog maps only where a fog light reaches.
-- **GPU ~54** at native, ~29 at 853×480: the render's wait plus the input, tick and view it
-  overlaps. CPU and GPU compete for the SoC's shared memory.
+  each sent whole: texture uploads ~1.7 there. Left: the fog maps only where a fog light
+  reaches.
+- **GPU**, the time above: the render's wait plus the input, tick and view it overlaps. CPU and
+  GPU compete for the SoC's shared memory.
 - **`view+audio` ~3** is mostly `USurrealAudioDevice::StartAmbience` reading every actor's
   `AmbientSound` each frame (~2.5). The original does the same scan every frame
   ([each frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)):
   nothing to port.
 
-**OpenGL ES** leads Vulkan at native (12.1 FPS against 10.4), where Vulkan waits on the GPU, and
-trails it at 853×480 (14.0 against 15.0): the GL driver's time lands in its render CPU, ~53
-against Vulkan's ~37 there, and is not overlapped by the tick. The GL device's workarounds for
-this driver: ENGINE.md's
-[rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering) and, for
-fullscreen,
+**OpenGL ES** leads Vulkan at native, where Vulkan waits on the GPU, and trails it at 853x480
+(the table above): the GL driver's time lands in its render CPU, ~53 against Vulkan's ~37 there,
+and is not overlapped by the tick. The GL device's workarounds for this driver: ENGINE.md's
+[rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)
+and, for fullscreen,
 [running on our devices](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices).
 
 ### Measuring
@@ -294,7 +291,7 @@ and the time under script calls.
 
 The script applies `launcher.ini`'s CPU mode through `port-hooks.sh`, as a launch does. It uses
 the device's own `Settings.json` and switches nothing: check the log's `settings:` line before
-taking a run as native (one at 0.6666667 is an 853×480 run, whatever its label). For another
+taking a run as native (one at 0.6666667 is an 853x480 run, whatever its label). For another
 resolution, set `RenderScale` there for the run and put the owner's value back after.
 
 `SAMPLE=1` also brings back samples of the main thread's CPU (4 ms apart) and the engine that
@@ -332,7 +329,7 @@ A profile stops the engine with SIGKILL, which leaves `Running.ini` like any cra
   SSH hangs waiting on the pipes.
 - **The screen is seen over SSH only by dumping the framebuffer** (`SHOT=<seconds>` does it
   mid-profile): `cat /dev/fb0 > /tmp/fb.raw` (64 MB), gzip it to copy, and decode the first
-  1280×720 as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
-- **A missing `Save/` directory is fatal to the engine** (`directory iterator cannot open
-  directory`). A fresh install has it empty, so a `tar` that lists only populated directories
-  loses it.
+  1280x720 as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
+- **A missing `Save/` directory is fatal to the engine**
+  (`directory iterator cannot open directory`). A fresh install has it empty, so a `tar` that
+  lists only populated directories loses it.
