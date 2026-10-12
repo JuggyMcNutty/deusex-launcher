@@ -7,7 +7,11 @@ sequence, its first-run wizard and safe mode, its command line, its crash
 detection and its single-instance handoff. It is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina), which puts
 it together with [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) into
-ports of the game. Made with AI assistance.
+ports of the game. Made with AI assistance. The recreation is whole: the
+core (`src/core/`), the launch sequence (`src/launch/`) down every road it
+can end by, the wizard's six pages, the splash and the two message boxes,
+with unit tests for each and a live check of every road a player can take
+([checking it live](#checking-it-live)).
 
 You need your own copy of Deus Ex (version 1112fm); none of the game's files
 are included.
@@ -24,17 +28,9 @@ are included.
 | `x360` | the Xbox 360: the plan |
 
 `main` is the working base: each port branch is its own variant of it and
-takes `main`'s changes by merge, but for `README.md`, which each port branch
-keeps as its own. The rules: [`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches).
-
-## Where main stands
-
-The recreation is whole:
-
-- **Core**: ini handling (byte-identical round trips), the three command-line parsers, the `FirstRun` gates and entry decision tree, the crash sentinel, the single-instance handoff, the CD check.
-- **The pages' decisions**: the game's `.int` strings, the save migration, safe mode's flags (all eight boxes wired), the Renderer page's list and choice, the Detail page's settings.
-- **`DeusEx`**: the launch sequence (`src/launch/`) down every road it can end by; the wizard's six pages, the splash, the two message boxes; [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) started through `run-game.sh`.
-- **Tests**: `ctest` for the core, the launch sequence and the pages; `tools/livecheck.py` runs every road a player can take live, with the real engine ([checking it live](#checking-it-live)).
+takes `main`'s changes by merge. The port branches share the ports' README,
+which never takes this one
+([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 
 ## Installing
 
@@ -42,7 +38,7 @@ The recreation is whole:
 `DeusEx.exe`, with `run-game.sh` and VibeEngine's `SurrealEngine`,
 `libSurrealVideo.so` and `SurrealEngine.pk3`. Port Ex Machina's
 [`scripts/recreation.sh`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/scripts/recreation.sh)
-puts them there (`build`, then `install <GameDir>`); by hand,
+puts them there (`build`, then `install [<GameDir>]`); by hand,
 `cmake --install build --prefix <GameDir>/System` and copy in the engine's
 three files. Start `System/DeusEx` with the original's command line, from
 anywhere: like the original, it finds the game and its package by its own
@@ -59,9 +55,9 @@ The screens are the original's, drawn with SDL2: each control where
 `Window.dll`'s and `DeusEx.exe`'s dialog templates put it
 ([page layouts](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#page-layouts)),
 in the colours, fonts and details the original shows under wine.
-`tools/pageshots.c` draws each screen with no display. Beside captures of
-the original, 14 of the 15 match to the pixel; the splash differs only in
-its picture, which wine shows colour-reduced.
+`tools/pageshots.c` draws each screen with no display. Beside captures of the
+original, 14 of the 15 match to the pixel; the splash differs only in its
+picture, which wine shows colour-reduced.
 
 Fonts come from a wine or Proton install: MS Sans Serif (`sserife.fon`) for
 the pages, Arial at 12 pixels for the Driver page's link, Tahoma 8 pt for
@@ -81,8 +77,8 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   Renderer page leaves every device incompatible and picks the software
   renderer, unless the configuration says otherwise
   ([`renderdev.h`](src/core/renderdev.h)).
-- **Safe mode's eight boxes are all wired**; in the original three do
-  nothing and one does four boxes' work
+- **Safe mode's eight boxes are all wired**; in the original three do nothing
+  and one does four boxes' work
   ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead)).
 - **Safe mode and the game's `RELAUNCH` relaunch after the run has ended**,
   this process becoming the launcher again; the original starts a second
@@ -98,13 +94,13 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   the message boxes and the splash have none, as in the original.
 - **A flag's name ends at a space, a `?` or the line's end** (`ParseParam`,
   `src/core/cmdline.c`); the original's (`Core.dll` `0x10146d00`) checks
-  nothing after it, so there `-safemode` counts as `-safe` and `-log` is
-  found in `-LOG=<file>`
+  nothing after it, so there `-safemode` counts as `-safe` and `-log` is found
+  in `-LOG=<file>`
   ([the parsers](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/cli-flags.md)).
-  Both take `/` as a switch, and a Linux path is full of them: the
-  original's rule would find `-server` in `INI=/srv/server/x.ini`. A path
-  that ends in a flag's name still counts. The `?` is for a URL's options:
-  the game's dedicated-server `RELAUNCH` puts `-server` among them.
+  Both take `/` as a switch, and a Linux path is full of them: the original's
+  rule would find `-server` in `INI=/srv/server/x.ini`. A path that ends in a
+  flag's name still counts. The `?` is for a URL's options: the game's
+  dedicated-server `RELAUNCH` puts `-server` among them.
   `tests/test_cmdline.c` asserts the launcher's way.
 
 ## Known defects
@@ -117,6 +113,11 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   engine, reading a quoted value whole as the original does, takes as
   `INI=My`; `EXEC=` and `USERINI=` alike. Handing `run-game.sh` the line as
   one argument (`--cmdline="$1"`) would keep it as given.
+- **`src/launch/launch.c` keeps its own copies of `policy.c`'s bypass and
+  splash rules** (`bypass[]`, its splash step) beside its call to
+  `dxl_policy_decide`; of the decision's two fields, `skip_handoff` is read
+  by the ports' launcher alone and `show_splash` by nothing. The fix:
+  `launch.c` takes both from the decision, and the copies go.
 
 ## The game and the launcher
 
@@ -142,12 +143,11 @@ A forwarded command line that arrives before `ready` is dropped, as the
 original's log window drops one before its main loop runs.
 
 `run-game.sh` starts the engine from `System/` with the game's own
-`DeusEx.ini` and `User.ini` and the command line as one string,
-`--cmdline=`
+`DeusEx.ini` and `User.ini` and the command line as one string, `--cmdline=`
 ([what the engine reads of it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line));
-`DXL_ENGINE_ARGS` adds engine options of its own, for a scripted run. Asked
-to stop (SIGINT, SIGTERM, SIGHUP), the launcher sends the game SIGTERM,
-and SIGKILL if it still runs 5 s later
+`DXL_ENGINE_ARGS` adds engine options of its own, for a scripted run. Asked to
+stop (SIGINT, SIGTERM, SIGHUP), the launcher sends the game SIGTERM, and
+SIGKILL if it still runs 5 s later
 ([how the engine takes them](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
 A game stopped so has not ended cleanly: `Running.ini` stays, and the next
 launch opens RecoveryMode, as after a crash -- the usual end of a `-server`
@@ -158,7 +158,7 @@ run, which has no window to quit.
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build      # CMake 3.20 on; before it, cd build && ctest
+ctest --test-dir build      # CMake 3.20 or later; else cd build && ctest
 ```
 
 C11, with SDL2 and SDL2_ttf (through `pkg-config`) for `DeusEx` and its
