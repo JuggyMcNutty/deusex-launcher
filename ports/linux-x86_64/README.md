@@ -31,9 +31,9 @@ launcher and the engine write their configuration into that game's
 `System/`, as the game would.
 
 `run-game.sh` pins `HOME` to the app's `home/`, so the engine's
-`Settings.json` and logs are in `build/linux-x86_64/app/home/.config/SurrealEngine`,
-where the launcher reads and writes them, and your own
-`~/.config/SurrealEngine` is left alone.
+`Settings.json` and logs are in
+`build/linux-x86_64/app/home/.config/SurrealEngine`, where the launcher reads
+and writes them, and your own `~/.config/SurrealEngine` is left alone.
 
 The engine also starts on its own, straight into a map
 ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
@@ -52,8 +52,12 @@ The generic device profile (`src/platform/target_default.c`) and
 
 ## Verified
 
-- Arch Linux, AMD GPU (Mesa's RADV and radeonsi): `dxl-cli --probe` finds Vulkan 1.4 and OpenGL, both selectable; the staged app's `run-game.sh` runs the engine on `gamefiles/`, Vulkan with bindless textures.
-- `DXL_NO_HOME=1` takes the staged launcher straight into Liberty Island; unattended engine runs drive saves, loads and hub travel ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
+- Arch Linux, AMD GPU (Mesa's RADV and radeonsi): `dxl-cli --probe` finds
+  Vulkan 1.4 and OpenGL, both selectable; the staged app's `run-game.sh` runs
+  the engine on `gamefiles/`, Vulkan with bindless textures.
+- `DXL_NO_HOME=1` takes the staged launcher straight into Liberty Island;
+  unattended engine runs drive saves, loads and hub travel
+  ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas
 

@@ -15,7 +15,7 @@ It keeps part of the original, which `main` recreates
 Surreal Engine does not read the keys the original launcher writes. It reads:
 
 | File | What the engine takes from it | Who writes it |
-| --- | --- | --- |
+|---|---|---|
 | `<AppDir>/home/.config/SurrealEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; the fork's `Gamepad` and `Performance` blocks | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine saves it only from its own launcher window (`LauncherWindow.cpp`), which `--no-launcher` skips |
 | `System/DeusEx.ini` | Everything else (`[Core.System]` etc.); client settings (`[WinDrv.WindowsClient]` `Brightness`, `Decals`, viewport) **only while there is no** `SE-DeusEx.ini` | The launcher, from `Default.ini` when missing; the game's options |
 | `System/SE-DeusEx.ini` | Written by the engine on its **first clean exit** (`PackageManager::SaveAllIniFiles`), then the **only** one it reads; client settings under `[Engine.SurrealClient]` | The engine; the launcher's client settings when it exists |
@@ -50,7 +50,7 @@ whether `System`, its `DeusEx.u`, `Engine.u` and `Core.u`,
 which opens the home screen when the files are in.
 
 | Tab | Contents |
-| --- | --- |
+|---|---|
 | Play | Play / Quit; what will happen (renderer and GPU, controller and layout, game folder); a crash banner quoting the engine's last error when `Running.ini` survived; notes when the launcher repaired `DeusEx.ini` or changed the pad layout |
 | Video | Renderer (the `renderers.ini` list, with why each can or cannot run), **CPU mode** (where the device has modes), Resolution (`Performance.RenderScale`, down to 480 lines; Vulkan only, a [known defect](#known-defects)), Distant AI (`Performance.AiLevelOfDetail`), VSync, Brightness, Lighting, Gamma curve, Bloom and its strength, Anti-aliasing (locked off on a PowerVR GPU, saying why), Decals |
 | Controls | Controller detected, in-game pad support on/off, layout preset, **Customize buttons**, look speed X/Y, invert, dead zone, menu pointer speed |
@@ -71,12 +71,12 @@ own `renderers.ini` (the base's is `ports/common/packaging/renderers.ini`).
 A launch swaps a renderer that cannot run here for one that can, and logs
 it.
 
-**CPU mode** (`launcher.ini` `CpuMode`). Offered only where the device
-profile lists modes
+**CPU mode** (`launcher.ini` `CpuMode`). Offered only where the device profile
+lists modes
 ([the Smart Pro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md#cpu-mode));
 the port's `port-hooks.sh` applies it just before the engine starts
-(`port_before_game`) and restores the previous state after. Elsewhere the
-row is hidden and `CpuMode` is never written.
+(`port_before_game`) and restores the previous state after. Elsewhere the row
+is hidden and `CpuMode` is never written.
 
 **Launch flow** (`app.c`, shared by `main.c` and `cli_main.c`). The home
 screen opens every time, on the tab the entry decision picks
@@ -105,8 +105,8 @@ to stderr. In the app directory, `run-game.sh` appends each run to
 without one a port gets `platform/target_default.c`, a generic desktop. GPU
 facts are keyed on the probe instead: `dxl_gpu_msaa_broken`
 (`core/renderers.h`) locks anti-aliasing on any PowerVR the probe finds
-through Vulkan, by the Vulkan device's name, so one seen only through
-OpenGL ES is not locked.
+through Vulkan, by the Vulkan device's name, so one seen only through OpenGL
+ES is not locked.
 
 ## Controller support
 
@@ -116,7 +116,7 @@ quit. Keyboard (`ui/ui.c`): arrows/WASD, Enter/Space/Z, Backspace/X, R,
 PageUp/PageDown (or `,`/`.`/Tab), P/F5, Escape/Q.
 
 **In the game**
-([engine patch 0003](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices)):
+([the engine's gamepad support](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices)):
 the engine's SDL2 backend reads the pad, and `GamepadInput` turns it into
 UE1's joystick keys and axes. Each control is then an ordinary `User.ini`
 `[Engine.Input]` binding in the keyboard's table, which the game's key menu
@@ -124,9 +124,9 @@ edits
 ([lists](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lists)).
 
 - Buttons: A=`Joy1` B=`Joy2` X=`Joy3` Y=`Joy4` L1=`Joy5` R1=`Joy6`
-  SELECT=`Joy7` START=`Joy8` L2=`Joy11` R2=`Joy12` (past half travel),
-  d-pad `JoyPov*`. The stick clicks, `Joy9`/`Joy10`, are in no preset and
-  not offered: the layouts are made for a pad without them
+  SELECT=`Joy7` START=`Joy8` L2=`Joy11` R2=`Joy12` (past half travel), d-pad
+  `JoyPov*`. The stick clicks, `Joy9`/`Joy10`, are in no preset and not
+  offered: the layouts are made for a pad without them
   ([the Smart Pro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md)).
 - Sticks: `JoyX`/`JoyY` left, `JoyU`/`JoyV` right, up positive, ±100 at full
   deflection after a radial dead zone; the look stick has a response curve.
@@ -153,12 +153,14 @@ build) runs the host tests, with no display. The ini round-trip is checked
 byte for byte on stand-ins for the shipped files (`tests/fixtures`), and by
 `test_gamefiles` on a real install when there is one. Each device profile is
 checked against its `port-hooks.sh`: every CPU mode it offers is named in
-the hooks (not proven handled: known defects), and the hooks fall back to
-its default.
+the hooks (a loose check: [known defects](#known-defects)), and the hooks
+fall back to its default.
 
 `dxl-shots` renders every tab and overlay headlessly at the profile's panel
 size (`DXL_WINDOW`); a host build with `-DDXL_PROFILE=<port>` shows a
-device's screens.
+device's screens. `DXL_SIMULATE_CRASH=1` in a launch's environment makes
+`run-game.sh` leave `Running.ini` behind whatever the engine did, so the
+crash banner and Troubleshoot can be tried without a crash.
 
 ## What it changes from the original
 
@@ -171,8 +173,8 @@ single-instance handoff's protocol (its gaps are
 [known defects](#known-defects)). Changed or dropped:
 
 | # | Original | The launcher | Why |
-| --- | --- | --- | --- |
-| 1 | Safe mode: eight checkboxes become flags (`-nosound`, `-nohard -noddraw`, `-defaultres`, ...) on a re-exec; three are dead in the shipped binary | Dropped; the System tab (engine log, clear crash marker, resets) replaces it | The engine reads four of them (`-nosound`, `-defaultres`, `-nohard -noddraw`, `-nojoy`) only through `--cmdline=` ([the command line](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)), which the ports' `run-game.sh` does not pass ([known defects](#known-defects)); `main` keeps the page |
+|---|---|---|---|
+| 1 | Safe mode: eight checkboxes become flags (`-nosound`, `-nohard -noddraw`, `-defaultres`, ...) on a re-exec; three are dead in the shipped binary | Dropped; the System tab (engine log, clear crash marker, resets) replaces it | The engine takes four of them only through `--cmdline=` ([the command line](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)), which the ports' `run-game.sh` does not pass ([known defects](#known-defects)); `main` keeps the page |
 | 2 | Missing splash bitmap → assert → process dies before the wizard | No splash | Nothing to be missing (`0x109090A4`, [`launch-flow.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md)) |
 | 3 | `MPLAYER` / `HEAT` console commands, one `HKLM\software\mpath` read | Dropped | Dead services; `GotoHEAT.exe` is not shipped ([`launch-flow.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md)) |
 | 4 | `.ICD`→`.EXE` rewrite in `InitPathnames` | Dropped | SafeDisc artifact; the GOG build is not wrapped |
@@ -195,20 +197,19 @@ single-instance handoff's protocol (its gaps are
   a game folder and a dashed one as its own flag. The original's syntax
   reaches the engine only through `--cmdline=`, as `main`'s `run-game.sh`
   passes it, so a map, `-server`, `INI=` or a safe-mode flag is lost.
-- **The single-instance handoff works only in part.** The original's
-  protocol (one string, the command line without the program's path) runs
-  over a `flock` pidfile and an abstract unix socket, in place of
-  `CreateMutex` and `FindWindowEx`/`WM_COPYDATA`; the four `appStrfind`
-  bypass tokens skip it, matched on that line. But nothing reads the line:
-  a second launch while the home screen is up forwards it and exits, and it
-  is dropped. And the lock is let go at the hand-over (`src/app.c`,
-  `dxl_app_launch`), so a launch during a game finds no instance and reads
-  the surviving `Running.ini` as a crash. The fix: hold the lock across the
-  run, its descriptor inherited by the game or a waiter as `main`'s
-  launcher is. Nor does a `RELAUNCH` reach it: the ports' launcher gives the
-  engine no line (`DXL_LAUNCHER_FD`), so the Display screen's Rendering
-  Device does nothing, and a dedicated server from the Host screen is
-  started again by the engine itself
+- **The single-instance handoff works only in part.** The original's protocol
+  (one string, the command line without the program's path) runs over a
+  `flock` pidfile and an abstract unix socket, in place of `CreateMutex` and
+  `FindWindowEx`/`WM_COPYDATA`; the four `appStrfind` bypass tokens skip it,
+  matched on that line. But nothing reads the line: a second launch while the
+  home screen is up forwards it and exits, and it is dropped. And the lock is
+  let go at the hand-over (`src/app.c`, `dxl_app_launch`), so a launch during
+  a game finds no instance and reads the surviving `Running.ini` as a crash.
+  The fix: hold the lock across the run, its descriptor inherited by the game
+  or a waiter as `main`'s launcher is. Nor does a `RELAUNCH` reach it: the
+  ports' launcher gives the engine no line (`DXL_LAUNCHER_FD`), so the Display
+  screen's Rendering Device does nothing, and a dedicated server from the Host
+  screen is started again by the engine itself
   ([the menus' settings](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-menus-settings)).
 - **The Resolution row is Vulkan's only** (`src/ui/tab_video.c`,
   `render_enabled`), though the fork's GL device (OpenGL and OpenGL ES)
