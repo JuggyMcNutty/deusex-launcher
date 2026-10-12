@@ -2,7 +2,8 @@
 
 linux-x86_64 for aarch64 devices running an ordinary distro: Raspberry Pi OS,
 Debian, Ubuntu, and handheld images with a normal glibc userland, Mesa and a
-desktop-style SDL2. The same generic device profile and `ports/common/packaging`.
+desktop-style SDL2. The same generic device profile and
+`ports/common/packaging`.
 
 ## Status
 
@@ -15,8 +16,8 @@ Two ways:
 
 - **Natively, on the device.** The preset's toolchain file steps aside on an
   aarch64 host, so the launcher *and* the engine build against the device's own
-  libraries, exactly as on linux-x86_64.
-- **Cross, from a PC** -- the launcher only, for now.
+  libraries, as on linux-x86_64; untried on a device.
+- **Cross, from a PC** -- the launcher only.
 
 ```sh
 # cross, from a PC
@@ -47,7 +48,10 @@ the engine's libraries (SDL2, OpenAL, zlib, ...): the Smart Pro's `port.sh` and
 ([on its branch](https://github.com/JuggyMcNutty/deusex-launcher/tree/trimui-smartpro/ports/trimui-smartpro))
 show the shape, with Debian packages in place of the device's own.
 
-A device whose GPU lacks descriptor indexing or some texture formats is what
-engine patch 0002 exists for (the Smart Pro's PowerVR); a Mali or Adreno under
-Mesa may not need it. Port Ex Machina's probes, `tools/probes/`, answer that before the
-first engine run -- see [`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes).
+A GPU without descriptor indexing or some texture formats takes the Vulkan
+device's other paths
+([rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)),
+as the Smart Pro's PowerVR does; a Mali or Adreno under Mesa may not need them.
+Port Ex Machina's
+[device probes](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)
+answer that before the first engine run.
