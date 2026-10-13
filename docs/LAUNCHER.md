@@ -168,9 +168,10 @@ The original's behaviour is recorded in
 [`launcher.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launcher.md).
 Kept as the original does it: the `FirstRun` gates (220/400/1100) and the
 up-only clamp, the `Running.ini` sentinel lifecycle and its create-after-UI
-ordering, the three non-equivalent command-line parsers, and the
-single-instance handoff's protocol (its gaps are
-[known defects](#known-defects)). Changed or dropped:
+ordering, two of the three non-equivalent command-line parsers (the third,
+`ParseParam`, ends a flag's name at a space or the line's end, where the
+original's checks nothing after it), and the single-instance handoff's
+protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
 
 | # | Original | The launcher | Why |
 |---|---|---|---|
