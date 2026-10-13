@@ -25,7 +25,7 @@ are included.
 | `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): `linux-x86_64` plus the device's profile, CPU modes, cross toolchains and packaging |
 | `linux-aarch64` | aarch64 Linux with an ordinary distro: `linux-x86_64`, cross-built |
 | `android` | Android: the plan |
-| `x360` | the Xbox 360: the plan |
+| `x360` | the Xbox 360: planned, not worked out |
 
 `main` is the working base: each port branch is its own variant of it and
 takes `main`'s changes by merge. The port branches share the ports' README,
