@@ -143,27 +143,28 @@ static void test_reset_uses_packaged_default(void) {
 }
 
 /* A Settings.json written before a field existed takes the port's packaged
- * default for it -- an install upgraded on the handheld gets AI level of
- * detail on -- and a save writes the new section. */
+ * default for it -- an install upgraded on the handheld gets its render
+ * scale -- and a save writes the new section. */
 static void test_new_field_takes_the_packaged_default(void) {
     setup("newfield");
-    put("default.json", "{\"Performance\": {\"AiLevelOfDetail\": true}}");
+    put("default.json", "{\"Performance\": {\"RenderScale\": 0.5}}");
     put("Settings.json", device_default);
     dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
-    CHECK_INT(dxl_es_was_present(s, DXL_ES_AI_LOD), 0);
-    CHECK_INT(dxl_es_bool(s, DXL_ES_AI_LOD), 1);
+    CHECK_INT(dxl_es_was_present(s, DXL_ES_RENDER_SCALE), 0);
+    CHECK(dxl_es_number(s, DXL_ES_RENDER_SCALE) == 0.5);
     dxl_err e;
     CHECK_INT(dxl_es_save(s, &e), 0);
     dxl_es_free(s);
 
     s = dxl_es_open(in_dir("Settings.json"), NULL);
-    CHECK_INT(dxl_es_was_present(s, DXL_ES_AI_LOD), 1);
-    CHECK_INT(dxl_es_bool(s, DXL_ES_AI_LOD), 1);
+    CHECK_INT(dxl_es_was_present(s, DXL_ES_RENDER_SCALE), 1);
+    CHECK(dxl_es_number(s, DXL_ES_RENDER_SCALE) == 0.5);
     dxl_es_free(s);
 
-    /* Without a packaged default it is off: the table's built-in value. */
+    /* Without a packaged default it is the whole window: the table's
+     * built-in value. */
     s = dxl_es_open(in_dir("missing.json"), NULL);
-    CHECK_INT(dxl_es_bool(s, DXL_ES_AI_LOD), 0);
+    CHECK(dxl_es_number(s, DXL_ES_RENDER_SCALE) == 1.0);
     dxl_es_free(s);
     teardown();
 }

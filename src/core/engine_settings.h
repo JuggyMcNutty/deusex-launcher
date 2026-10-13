@@ -45,7 +45,6 @@ typedef enum {
     DXL_ES_PAD_CURSOR_SPEED,
     DXL_ES_PAD_LAYOUT,          /* which preset the launcher last applied */
     /* Performance -- the fork's speed-for-fidelity choices */
-    DXL_ES_AI_LOD,              /* pawns out of sight think every third frame (sixth when far) */
     DXL_ES_RENDER_SCALE,        /* the scene's size as a fraction of the window's */
     DXL_ES_FIELD_COUNT
 } dxl_es_field;
