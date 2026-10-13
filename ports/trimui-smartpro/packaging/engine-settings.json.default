@@ -22,7 +22,6 @@
     "Layout": "modern"
   },
   "Performance": {
-    "AiLevelOfDetail": true,
     "RenderScale": 0.6666667
   },
   "Games": {

@@ -28,7 +28,7 @@
 #            takes --url=<map>; "-u <map>" silently loads the default map.
 #
 # The engine runs with the device's own Settings.json, and the log's settings:
-# line records its Distant AI and render scale.
+# line records its render scale.
 #
 # SURREAL_PERF_DETAIL=1 in the environment adds tick by actor class and script
 # functions by self time; those hooks slow what they measure. SAMPLE=1 samples
@@ -61,7 +61,7 @@ fi
 C=/sys/devices/system/cpu
 echo "cpu: online=$(cat $C/online) gov=$(cat $C/cpu0/cpufreq/scaling_governor) max=$(cat $C/cpu0/cpufreq/scaling_max_freq) map=$MAP" >> $OUT
 # The engine runs with the device's own Settings.json: record what changes the frame.
-echo "settings: $(grep -E '"(AiLevelOfDetail|RenderScale)"' $APPDIR/home/.config/SurrealEngine/Settings.json | tr -d ' ",' | tr '\n' ' ')" >> $OUT
+echo "settings: $(grep -E '"RenderScale"' $APPDIR/home/.config/SurrealEngine/Settings.json | tr -d ' ",' | tr '\n' ' ')" >> $OUT
 cd /mnt/SDCARD/Roms/PORTS/DeusEx || exit 1
 export HOME=$APPDIR/home
 export LD_LIBRARY_PATH=$APPDIR:/usr/trimui/lib:/usr/lib:/lib

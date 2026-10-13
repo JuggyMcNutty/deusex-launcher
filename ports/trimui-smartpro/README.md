@@ -118,10 +118,8 @@ launch ([where the settings live](../../docs/LAUNCHER.md#where-the-settings-actu
 filling missing fields from `engine-settings.json.default`. This port's values:
 `Antialias: Off`, non-negotiable, as the GE8300's resolve turns partially covered pixels into
 speckle (the launcher locks it off on any PowerVR); VSync off, as below the panel's 60 Hz vsync
-would hold the game to 30 or 20; Distant AI (`Performance.AiLevelOfDetail`) on
-([what it does](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-the-launcher-exposes));
-`Performance.RenderScale` 0.6666667, 853x480, unless the Video tab's Resolution asks for 960x540
-or the panel's 1280x720 (under Vulkan only: a
+would hold the game to 30 or 20; `Performance.RenderScale` 0.6666667, 853x480, unless the Video
+tab's Resolution asks for 960x540 or the panel's 1280x720 (under Vulkan only: a
 [known defect](../../docs/LAUNCHER.md#known-defects)).
 
 ## The device, as measured
@@ -186,7 +184,9 @@ device shows it, in a desktop font.
 ## Performance
 
 Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
-Overclock, Distant AI on; milliseconds a frame, averaged over 60 frames.
+Overclock; milliseconds a frame, averaged over 60 frames. The engine the table is measured at
+has Distant AI, on, which skips the thinking of ~13 far pawns a frame; the current engine has
+none, every pawn thinking every frame, so its tick is the longer by theirs.
 
 | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 |---|---|---|---|---|---|
@@ -232,8 +232,7 @@ the GPU's ~54 well under ~50.
   - the player's own tick ~2.9: the ladder probe (`DeusExLadder`) ~1.4 and its floor and wall
     materials (`DeusExLineTexture`) ~1.3, each tick, as the original's;
   - per-actor work around the scripts ~3: `ULevel::TickDeusEx` ~1.2 and `TickActorDeusEx`
-    ~0.7 self, stasis ~0.4, `FindRegion` ~0.4, `dynamic_cast` ~1.3 (`TryCast`);
-  - Distant AI: ~13 pawns a frame skip their thinking at distance.
+    ~0.7 self, stasis ~0.4, `FindRegion` ~0.4, `dynamic_cast` ~1.3 (`TryCast`).
 - **Render CPU ~41** besides waits, lightmaps and uploads. By section: visibility 16.5, actors
   7.0, BSP surfaces 4.2, BSP set-up (`bsp-info`) 3.2, portals 2.5, end of frame (`unlock`) 2.2,
   translucent 1.9, `PostRenderFlash` (script) 1.7, the rest 1.6:
