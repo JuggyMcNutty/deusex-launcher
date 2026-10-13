@@ -40,8 +40,8 @@ if [ ! -s "$HOME/.config/SurrealEngine/Settings.json" ]; then
     cp "$APPDIR/engine-settings.json.default" "$HOME/.config/SurrealEngine/Settings.json"
 fi
 
-# SDL2 is the display backend with the fork's gamepad support
-# (the fork's gamepad support); the others report no pad.
+# SDL2 is the display backend with the fork's gamepad support; the others
+# report no pad.
 export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL2}"
 
 port_env
