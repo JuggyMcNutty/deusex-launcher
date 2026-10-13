@@ -261,8 +261,9 @@ the GPU's ~54 well under ~50.
   light reaches
   ([lighting](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lighting)).
   In Battery Park, its one volumetric light rebuilds some 60 fog maps a frame (~72,000 texels),
-  each sent whole: texture uploads ~1.7 there. Left: the fog maps only where a fog light
-  reaches.
+  each sent whole: texture uploads ~1.7 there. Left: a measurement on the current engine, whose
+  fog maps are the original's, only with the viewer's zone and the surface's both fog zones;
+  then the fog maps only where a fog light reaches.
 - **GPU**, the time above: the render's wait plus the input, tick and view it overlaps. CPU and
   GPU compete for the SoC's shared memory.
 - **`view+audio` ~3** is mostly `USurrealAudioDevice::StartAmbience` reading every actor's
