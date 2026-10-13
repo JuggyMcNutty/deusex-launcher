@@ -78,7 +78,7 @@ static void clear_marker(dxl_session *s, const dxl_row *r) {
 
 static void do_reset_video(dxl_session *s) {
     dxl_es_reset_section(s->app->es, "RenderDevice");
-    dxl_es_reset_section(s->app->es, "Performance");   /* Distant AI is a Video tab row */
+    dxl_es_reset_section(s->app->es, "Performance");   /* Resolution is a Video tab row */
     const dxl_cpu_mode_info *cpu = dxl_target_cpu_mode(dxl_target_get(), NULL);
     if (cpu) dxl_app_set_cpu_mode(s->app, cpu->name);
     dxl_config_set_brightness(s->app->cfg, 0.5);

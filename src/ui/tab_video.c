@@ -147,18 +147,6 @@ static void gamma_describe(dxl_session *s, const dxl_row *r, char *out, size_t n
                  "applied to red, green and blue separately.");
 }
 
-/* Engine patches 0008 and 0022: every third frame out of sight, every sixth
- * beyond 4000 units; nearby and visible characters are never slowed. */
-static void ai_lod_describe(dxl_session *s, const dxl_row *r, char *out, size_t n) {
-    if (dxl_es_bool(s->app->es, DXL_ES_AI_LOD))
-        snprintf(out, n, "On: characters out of sight and not nearby decide what to do "
-                 "less often, so the game runs faster. They still move normally, but "
-                 "may react a moment later.");
-    else
-        snprintf(out, n, "Off: every character decides what to do every frame, seen or "
-                 "not. Slower.");
-}
-
 /* ---- anti-aliasing: a device limit, not a preference -------------------- */
 
 /* A GPU whose multisample resolve is broken (core/renderers.h). */
@@ -223,8 +211,6 @@ static const dxl_row rows[] = {
               "lines, the least the game's menus fit in.",
       .enabled = render_enabled, .value = render_value, .step = render_step,
       .reset = es_reset, .arg = DXL_ES_RENDER_SCALE },
-    { .label = "Distant AI", .value = es_value, .step = es_step, .reset = es_reset,
-      .describe = ai_lod_describe, .arg = DXL_ES_AI_LOD },
     { .label = "Vertical sync",
       .help = "Waits for the display's refresh before showing a frame. Removes tearing, "
               "but when the game runs below the refresh rate it then holds frames to a "

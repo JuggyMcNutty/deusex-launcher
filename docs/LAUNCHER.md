@@ -52,13 +52,13 @@ which opens the home screen when the files are in.
 | Tab | Contents |
 |---|---|
 | Play | Play / Quit; what will happen (renderer and GPU, controller and layout, game folder); a crash banner quoting the engine's last error when `Running.ini` survived; notes when the launcher repaired `DeusEx.ini` or changed the pad layout |
-| Video | Renderer (the `renderers.ini` list, with why each can or cannot run), **CPU mode** (where the device has modes), Resolution (`Performance.RenderScale`, down to 480 lines; Vulkan only, a [known defect](#known-defects)), Distant AI (`Performance.AiLevelOfDetail`), VSync, Brightness, Lighting, Gamma curve, Bloom and its strength, Anti-aliasing (locked off on a PowerVR GPU, saying why), Decals |
+| Video | Renderer (the `renderers.ini` list, with why each can or cannot run), **CPU mode** (where the device has modes), Resolution (`Performance.RenderScale`, down to 480 lines; Vulkan only, a [known defect](#known-defects)), VSync, Brightness, Lighting, Gamma curve, Bloom and its strength, Anti-aliasing (locked off on a PowerVR GPU, saying why), Decals |
 | Controls | Controller detected, in-game pad support on/off, layout preset, **Customize buttons**, look speed X/Y, invert, dead zone, menu pointer speed |
 | System | Last run (from `run-game.log`), the engine log, clear crash marker, reset video / controls / game configuration (each confirmed first), game files, version |
 
 A row's help line says what it changes in the engine, not its name again; a
-row whose choices differ in kind (CPU mode, Distant AI, Lighting, Gamma
-curve) describes the current one. Rows are data (`ui/screens_internal.h`
+row whose choices differ in kind (CPU mode, Lighting, Gamma curve) describes
+the current one. Rows are data (`ui/screens_internal.h`
 `dxl_row`), drawn by `ui/screens.c` with the help pane and button hints.
 
 **Renderers** (`core/renderers.c`, `platform/posix/gpu_probe.c`). One can be
