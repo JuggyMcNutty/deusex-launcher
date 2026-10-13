@@ -16,9 +16,8 @@ are included.
 ports' launcher ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)), the base app every
 port ships (`ports/common/packaging`) and the desktop port
 (`ports/linux-x86_64`). A port branch builds `deusex-launcher`, `dxl-cli`,
-`dxl-shots` and the core's unit tests; `main`'s program (`DeusEx`, with
-`system/run-game.sh`), its tools and its program's own tests ride along
-unbuilt. Every device branch is this branch plus its device, with this README,
+`dxl-shots` and the core's unit tests. Every device branch is this branch plus
+its device, with this README,
 which never takes `main`'s on a merge
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 

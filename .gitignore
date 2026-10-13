@@ -16,7 +16,6 @@
 *.dll
 
 # Loose build products
-__pycache__/
 *.o
 *.a
 *.so
