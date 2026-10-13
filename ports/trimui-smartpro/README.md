@@ -100,7 +100,7 @@ starts the launcher.
 ### CPU mode
 
 The spruceOS menu leaves the handheld in power-save ([as measured](#the-device-as-measured)),
-which costs the game about a third of its frame rate. The Video tab offers spruceOS's own modes
+far too slow for the game. The Video tab offers spruceOS's own modes
 (`target.c`), kept in `launcher.ini` `CpuMode`: Smart, Performance (all four cores at 1.8 GHz)
 and Overclock (2.0 GHz), the default: the game is CPU-bound. `packaging/port-hooks.sh`
 applies the mode with the spruceOS helpers its Ports launcher uses, just before the engine
@@ -184,9 +184,9 @@ device shows it, in a desktop font.
 ## Performance
 
 Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
-Overclock; milliseconds a frame, averaged over 60 frames. The engine the table is measured at
-has Distant AI, on, which skips the thinking of ~13 far pawns a frame; the current engine has
-none, every pawn thinking every frame, so its tick is the longer by theirs.
+Overclock; milliseconds a frame, averaged over 60 frames, measured with the profiling hooks at
+engine `15392c0`. That engine runs with Distant AI on, far pawns skipping their thinking; the
+current engine has no Distant AI, so its tick is the longer by their thinking.
 
 | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 |---|---|---|---|---|---|
@@ -198,9 +198,9 @@ none, every pawn thinking every frame, so its tick is the longer by theirs.
 | Battery Park (outdoors), Vulkan, 853x480 | ~22 | | | | |
 
 The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
-only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU.
-Measured with the profiling hooks at engine `15392c0`; the hooks' own timers take ~3.5 of the
-render CPU (`steady_clock::now`: each box and surface test is timed).
+only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU. The
+hooks' own timers take ~3.5 of the render CPU (`steady_clock::now`: each box and surface test
+is timed).
 
 ### Where a frame goes
 
@@ -240,7 +240,7 @@ the GPU's ~54 well under ~50.
     `BspClipper`'s occlusion grid, portals ~1.0, actor set-up ~1.6. By function: the BSP walk
     (`ProcessNodeSurface` ~3.3, `ProcessNode` ~2.3, cache misses), `DrawPolygon` ~1.8,
     `DrawSpan` ~1.5, `IsAABBVisible` ~1.4, the frustum test ~0.7. Left: the walk's memory; the
-    occlusion grid's rows in one block, no gain on the desktop
+    occlusion grid's rows a cache line each, no gain on the desktop
     ([against the original](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#against-the-original)),
     is untried here;
   - actor meshes ~6.4 for ~44 in view: `DrawLodMeshFaceDX` ~3.2 and the vertex lighting
@@ -271,8 +271,9 @@ the GPU's ~54 well under ~50.
   nothing to port.
 
 **OpenGL ES** leads Vulkan at native, where Vulkan waits on the GPU, and trails it at 853x480
-(the table above): the GL driver's time lands in its render CPU, ~53 against Vulkan's ~37 there,
-and is not overlapped by the tick. The GL device's workarounds for this driver: ENGINE.md's
+(the table above): the GL driver's time lands in its render CPU, ~53 against Vulkan's ~38 there
+less its GPU wait, and is not overlapped by the tick. The GL device's workarounds for this
+driver: ENGINE.md's
 [rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)
 and, for fullscreen,
 [running on our devices](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices).
@@ -325,6 +326,8 @@ A profile stops the engine with SIGKILL, which leaves `Running.ini` like any cra
   ([why](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time));
   use `pidof`. busybox `killall` rejects `-x`. Always check afterwards: SSH-launched engines
   survive sloppy kills, and two engines fight over the display.
+- **Several files off the device**: one `scp` with several sources on the device brings only the
+  first. Use tar over SSH: `ssh spruce@<device> 'cd <dir> && tar cf - <files>' | tar xf -`.
 - **busybox has no `timeout` and no `nohup`.** Use `setsid` with all three fds redirected, or
   SSH hangs waiting on the pipes.
 - **The screen is seen over SSH only by dumping the framebuffer** (`SHOT=<seconds>` does it
