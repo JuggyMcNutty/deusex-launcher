@@ -1,34 +1,21 @@
 #!/bin/sh
-# Hands off from the launcher to the engine. Shared by every port.
+# Hands off from the launcher to the engine.
 #
 # The launcher has already settled configuration (Settings.json, the game's
 # ini files, FirstRun) and created the crash sentinel, and it chdir's to
 # GameDir before exec'ing this script. Everything here is about starting
 # Surreal Engine and honouring the sentinel contract on the way out.
-#
-# A port adjusts this through port-hooks.sh beside it (see Port Ex Machina's docs/PORTING.md):
-#   PORT_LIB_PATH       extra library directories, searched after the app dir
-#   port_env            runs once the environment below is set up
-#   port_before_game    runs just before the engine starts (e.g. CPU mode)
-#   port_after_game     runs after it exits, with its status in $status
 
 APPDIR="$(cd "$(dirname "$0")" && pwd)"
 GAMEDIR="$(pwd)"
 LOG="$APPDIR/run-game.log"
 
-PORT_LIB_PATH=""
-port_env()         { :; }
-port_before_game() { :; }
-port_after_game()  { :; }
-[ -f "$APPDIR/port-hooks.sh" ] && . "$APPDIR/port-hooks.sh"
-
 # APPDIR first: the engine links libSurrealVideo.so, which ships beside it.
-export LD_LIBRARY_PATH="$APPDIR${PORT_LIB_PATH:+:$PORT_LIB_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="$APPDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # The engine reads Settings.json and writes SE-Log-LastRun.txt under
 # $HOME/.config/SurrealEngine. Pin HOME to the app directory so both live
-# where the launcher looks for them (and are readable over SSH on a device),
-# instead of wherever HOME points.
+# where the launcher looks for them, instead of wherever HOME points.
 export HOME="$APPDIR/home"
 mkdir -p "$HOME/.config/SurrealEngine"
 
@@ -44,8 +31,6 @@ fi
 # report no pad.
 export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL2}"
 
-port_env
-
 {
     echo "--- $(date '+%Y-%m-%d %H:%M:%S') ---"
     echo "gamedir: $GAMEDIR"
@@ -57,13 +42,9 @@ if [ ! -x "$APPDIR/SurrealEngine" ]; then
     exit 127
 fi
 
-port_before_game
-
 "$APPDIR/SurrealEngine" --no-launcher "$GAMEDIR" "$@" >> "$LOG" 2>&1
 status=$?
 echo "engine exit: $status" >> "$LOG"
-
-port_after_game
 
 # Set DXL_SIMULATE_CRASH=1 to leave the sentinel behind whatever the engine did,
 # so the recovery path can be exercised without actually crashing anything.

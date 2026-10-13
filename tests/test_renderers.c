@@ -142,19 +142,6 @@ static void test_missing_file_is_empty(void) {
     dxl_renderers_free(&l);
 }
 
-/* The MSAA lock follows the GPU, not the device, and needs evidence. */
-static void test_msaa_broken_on_powervr_only(void) {
-    dxl_gpu_probe p = smart_pro();
-    CHECK_INT(dxl_gpu_msaa_broken(&p), 1);
-    p.probed = 0;
-    CHECK_INT(dxl_gpu_msaa_broken(&p), 0);
-    memset(&p, 0, sizeof p);
-    p.probed = 1;
-    p.vulkan = 1;
-    snprintf(p.vulkan_device, sizeof p.vulkan_device, "AMD Radeon RX 6800");
-    CHECK_INT(dxl_gpu_msaa_broken(&p), 0);
-}
-
 TEST_MAIN_BEGIN
     RUN(test_loads_in_order);
     RUN(test_resolve_on_the_handheld);
@@ -163,5 +150,4 @@ TEST_MAIN_BEGIN
     RUN(test_gles_selectable_once_engine_has_it);
     RUN(test_find_is_case_insensitive_and_skips_empty);
     RUN(test_missing_file_is_empty);
-    RUN(test_msaa_broken_on_powervr_only);
 TEST_MAIN_END

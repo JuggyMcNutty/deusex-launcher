@@ -4,9 +4,9 @@
 `System/DeusEx.exe`: a tabbed home screen, for a pad or the keyboard, that
 writes the configuration the engine reads and hands over to it. `dxl-cli`
 prints, with no display and writing nothing, what it would decide and write
-(`--dry-run`) and the GPU it finds (`--probe`). It is C11 and SDL2, the same
-on every port's branch; what differs per device is in
-[`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md).
+(`--dry-run`) and the GPU it finds (`--probe`). It is C11 and SDL2, this
+branch's own: each port branch has a launcher of its own
+([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
@@ -29,14 +29,13 @@ Surreal Engine does not read the keys the original launcher writes. It reads:
   with no `[Core.System] Paths` (keeping its values), and creates `User.ini`
   from `DefUser.ini`.
 - **`Settings.json` is parsed inside a catch-all**: one malformed byte
-  reverts every setting to the engine's defaults, 4x MSAA included (speckle
-  on a PowerVR). A missing `RenderDevice` flag or number reads as false or 0
-  (`HdrScale` 0); its choices and the fork's blocks fall back to the
-  engine's defaults. So the launcher always writes every member of every
-  block it knows (`RenderDevice`, `Gamepad`, `Performance`) and replaces a
-  file it cannot parse. A member the file lacks takes the port's
-  `engine-settings.json.default`, so a new setting reaches an existing
-  install with the port's value.
+  reverts every setting to the engine's defaults. A missing `RenderDevice`
+  flag or number reads as false or 0 (`HdrScale` 0); its choices and the
+  fork's blocks fall back to the engine's defaults. So the launcher always
+  writes every member of every block it knows (`RenderDevice`, `Gamepad`,
+  `Performance`) and replaces a file it cannot parse. A member the file
+  lacks takes the port's `engine-settings.json.default`, so a new setting
+  reaches an existing install with the port's value.
 - **Texture and skin detail, sound quality and `MinDesiredFrameRate` are
   read by neither the engine's renderer nor its mixer**, so the original
   Detail page's choices are left out.
@@ -52,13 +51,13 @@ which opens the home screen when the files are in.
 | Tab | Contents |
 |---|---|
 | Play | Play / Quit; what will happen (renderer and GPU, controller and layout, game folder); a crash banner quoting the engine's last error when `Running.ini` survived; notes when the launcher repaired `DeusEx.ini` or changed the pad layout |
-| Video | Renderer (the `renderers.ini` list, with why each can or cannot run), **CPU mode** (where the device has modes), Resolution (`Performance.RenderScale`, down to 480 lines; Vulkan only, a [known defect](#known-defects)), VSync, Brightness, Lighting, Gamma curve, Bloom and its strength, Anti-aliasing (locked off on a PowerVR GPU, saying why), Decals |
+| Video | Renderer (the `renderers.ini` list, with why each can or cannot run), Resolution (`Performance.RenderScale`, down to 480 lines; Vulkan only, a [known defect](#known-defects)), VSync, Brightness, Lighting, Gamma curve, Bloom and its strength, Anti-aliasing, Decals |
 | Controls | Controller detected, in-game pad support on/off, layout preset, **Customize buttons**, look speed X/Y, invert, dead zone, menu pointer speed |
 | System | Last run (from `run-game.log`), the engine log, clear crash marker, reset video / controls / game configuration (each confirmed first), game files, version |
 
 A row's help line says what it changes in the engine, not its name again; a
-row whose choices differ in kind (CPU mode, Lighting, Gamma curve) describes
-the current one. Rows are data (`ui/screens_internal.h`
+row whose choices differ in kind (Lighting, Gamma curve) describes the
+current one. Rows are data (`ui/screens_internal.h`
 `dxl_row`), drawn by `ui/screens.c` with the help pane and button hints.
 
 **Renderers** (`core/renderers.c`, `platform/posix/gpu_probe.c`). One can be
@@ -71,13 +70,6 @@ own `renderers.ini` (the base's is `ports/common/packaging/renderers.ini`).
 A launch swaps a renderer that cannot run here for one that can, and logs
 it.
 
-**CPU mode** (`launcher.ini` `CpuMode`). Offered only where the device profile
-lists modes
-([the Smart Pro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md#cpu-mode));
-the port's `port-hooks.sh` applies it just before the engine starts
-(`port_before_game`) and restores the previous state after. Elsewhere the row
-is hidden and `CpuMode` is never written.
-
 **Launch flow** (`app.c`, shared by `main.c` and `cli_main.c`). The home
 screen opens every time, on the tab the entry decision picks
 (`core/policy.c`, the original's `FirstRun` gates and flags): Video on a
@@ -88,8 +80,7 @@ settings and creates no sentinel.
 
 **The hand-over** (`platform/launch.h`). On POSIX the launcher execs
 `launcher.ini` `GameCommand` (default `./run-game.sh`) with the command line
-as given. `run-game.sh` (`ports/common/packaging/run-game.sh`, adjusted by a
-port's `port-hooks.sh`) starts
+as given. `run-game.sh` (`ports/common/packaging/run-game.sh`) starts
 [the engine](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md)
 and clears `Running.ini` only on a clean exit, so a crash shows on the next
 launch.
@@ -100,18 +91,15 @@ to stderr. In the app directory, `run-game.sh` appends each run to
 `run-game.log`, and the engine writes
 `home/.config/SurrealEngine/SE-Log-LastRun.txt`; the System tab shows both.
 
-**The device profile** (`platform/target.h`) is a port's `target.c`
-([what it holds](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#what-a-port-is));
-without one a port gets `platform/target_default.c`, a generic desktop. GPU
-facts are keyed on the probe instead: `dxl_gpu_msaa_broken`
-(`core/renderers.h`) locks anti-aliasing on any PowerVR the probe finds
-through Vulkan, by the Vulkan device's name, so one seen only through OpenGL
-ES is not locked.
+**The device profile** (`platform/target.h`) is a desktop's,
+`platform/target_default.c`: the window's size, 1280x720 unless
+`DXL_WINDOW=<w>x<h>` asks for another; the About line; and the GPU
+`dxl-shots` pretends to find.
 
 ## Controller support
 
 **In the launcher**: d-pad/left stick move, A select, B back (on Play:
-quit), X reset the focused setting, L1/R1 tabs, START play, SELECT/MENU
+quit), X reset the focused setting, L1/R1 tabs, START play, SELECT/GUIDE
 quit. Keyboard (`ui/ui.c`): arrows/WASD, Enter/Space/Z, Backspace/X, R,
 PageUp/PageDown (or `,`/`.`/Tab), P/F5, Escape/Q.
 
@@ -124,10 +112,9 @@ edits
 ([lists](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lists)).
 
 - Buttons: A=`Joy1` B=`Joy2` X=`Joy3` Y=`Joy4` L1=`Joy5` R1=`Joy6`
-  SELECT=`Joy7` START=`Joy8` L2=`Joy11` R2=`Joy12` (past half travel), d-pad
-  `JoyPov*`. The stick clicks, `Joy9`/`Joy10`, are in no preset and not
-  offered: the layouts are made for a pad without them
-  ([the Smart Pro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md)).
+  SELECT=`Joy7` START=`Joy8` L3=`Joy9` R3=`Joy10` L2=`Joy11` R2=`Joy12`
+  (past half travel), d-pad `JoyPov*`. No preset binds the stick clicks, so
+  a pad without them loses nothing; Customize buttons offers them.
 - Sticks: `JoyX`/`JoyY` left, `JoyU`/`JoyV` right, up positive, ±100 at full
   deflection after a radial dead zone; the look stick has a response curve.
   The engine multiplies axis input by 16 and the binding's `Speed`, so
@@ -141,26 +128,21 @@ sticks swapped, and the bindings Deus Ex shipped (three buttons). They and
 the Customize screen bind only what the game's key menu offers
 (`MenuScreenCustomizeKeys`, read out of `DeusEx.u`), plus `ShowMainMenu`,
 the belt slots and the F3–F12 augmentation hotkeys. A launch that finds the
-shipped bindings and no `Gamepad.Layout` switches to Modern; a revised
-preset is recognised and upgraded (`retired[]`), with a note on Play saying
-what changed. `Gamepad.Layout` in `Settings.json` records the preset last
-applied, which X restores a single button to.
+shipped bindings and no `Gamepad.Layout` switches to Modern.
+`Gamepad.Layout` in `Settings.json` records the preset last applied, which X
+restores a single button to.
 
 ## How it is tested
 
-`scripts/dx.sh test` (`scripts/dx.sh test <port>` for a device branch's host
-build) runs the host tests, with no display. The ini round-trip is checked
-byte for byte on stand-ins for the shipped files (`tests/fixtures`), and by
-`test_gamefiles` on a real install when there is one. Each device profile is
-checked against its `port-hooks.sh`: every CPU mode it offers is named in
-the hooks (a loose check: [known defects](#known-defects)), and the hooks
-fall back to its default.
+`scripts/dx.sh test` runs the host tests, with no display. The ini
+round-trip is checked byte for byte on stand-ins for the shipped files
+(`tests/fixtures`), and by `test_gamefiles` on a real install when there is
+one.
 
-`dxl-shots` renders every tab and overlay headlessly at the profile's panel
-size (`DXL_WINDOW`); a host build with `-DDXL_PROFILE=<port>` shows a
-device's screens. `DXL_SIMULATE_CRASH=1` in a launch's environment makes
-`run-game.sh` leave `Running.ini` behind whatever the engine did, so the
-crash banner and Troubleshoot can be tried without a crash.
+`dxl-shots` renders every tab and overlay headlessly at the window's size.
+`DXL_SIMULATE_CRASH=1` in a launch's environment makes `run-game.sh` leave
+`Running.ini` behind whatever the engine did, so the crash banner and
+Troubleshoot can be tried without a crash.
 
 ## What it changes from the original
 
@@ -218,6 +200,3 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
   ([rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)):
   under either, the game draws at the stored scale, which the row cannot
   change.
-- **`test_target_<port>` passes a CPU mode named anywhere in
-  `port-hooks.sh`** (`tests/test_target_port.c`, a `strstr` over the file,
-  comments included), so it does not prove a `case` handles it.

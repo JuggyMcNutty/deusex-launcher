@@ -99,8 +99,7 @@ void dxl_session_act(dxl_session *s, dxl_act a);
 
 /* Where the row with this label sits among the tab's rows as currently
  * shown, for a cursor; -1 if it is not shown. For tools such as dxl-shots,
- * which must not hardcode row positions: which rows show depends on the
- * device profile. */
+ * which must not hardcode row positions. */
 int  dxl_session_row_index(dxl_session *s, dxl_tab tab, const char *label);
 
 #endif

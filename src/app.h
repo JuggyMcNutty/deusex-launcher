@@ -37,9 +37,6 @@ typedef struct {
 
     char *cmdline;        /* argv[1..] joined */
 
-    dxl_ini *launcher_ini;      /* the launcher's own settings (launcher.ini) */
-    char    *launcher_ini_path;
-
     dxl_config          *cfg;       /* DeusEx.ini and the engine's companions */
     dxl_engine_settings *es;        /* Settings.json */
     dxl_renderer_list    renderers;
@@ -52,9 +49,6 @@ typedef struct {
     /* The first time this launcher saw the install, the pad layout was
      * switched from the shipped bindings to the default preset. */
     int pad_layout_applied;
-    /* A layout from an earlier launcher was replaced by its revision; this
-     * says what changed, for the player. NULL otherwise. */
-    const char *pad_layout_update;
 } dxl_app;
 
 /* Resolves paths, reads launcher.ini, loads config, probes the install,
@@ -88,13 +82,6 @@ const dxl_pad_preset *dxl_app_current_layout(dxl_app *app);
 const dxl_pad_preset *dxl_app_base_layout(dxl_app *app);
 /* Binds one pad button (a Joy key) to a command. */
 void dxl_app_bind(dxl_app *app, const char *joy_key, const char *command);
-
-/* CPU mode for the game: one of the device profile's modes
- * (platform/target.h), kept in launcher.ini as CpuMode and applied by the
- * port's run-game hooks just before the engine starts. NULL when the device
- * offers none. */
-const char *dxl_app_cpu_mode(const dxl_app *app);
-void        dxl_app_set_cpu_mode(dxl_app *app, const char *mode);
 
 /* Deletes and rebuilds DeusEx.ini/User.ini (and the engine's SE- copies)
  * from Default.ini/DefUser.ini, keeping FirstRun. */

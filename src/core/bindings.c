@@ -36,9 +36,9 @@ const char *dxl_joy_key_label(const char *key) {
 
 /* ---- presets --------------------------------------------------------- */
 
-/* The Smart Pro has digital L2/R2 and no stick clicks (no L3/R3), so the
- * layout uses A/B/X/Y, L1/R1, L2/R2, SELECT, START and the d-pad. Every
- * command is one the game's own key menu offers (MenuScreenCustomizeKeys in
+/* A/B/X/Y, L1/R1, L2/R2, SELECT, START and the d-pad: the stick clicks
+ * (L3/R3) are left free, so a pad without them loses nothing. Every command
+ * is one the game's own key menu offers (MenuScreenCustomizeKeys in
  * DeusEx.u). Walk/run is left out: a half-pushed stick already walks. */
 static const dxl_binding modern[] = {
     { "Joy1",  "Jump" },
@@ -81,32 +81,6 @@ static const dxl_binding southpaw[] = {
     { "JoyPovDown",  "SwitchAmmo" },
     { "JoyPovLeft",  "LeanLeft" },
     { "JoyPovRight", "LeanRight" },
-};
-
-/* Retired layouts: what earlier launchers applied, so players who have one
- * are moved to its replacement rather than stranded on "custom".
- *
- * v2 (2026-09-22): SELECT opened the augmentations screen, which Y's
- * inventory already reaches as a tab; SELECT became the pause menu. */
-static const dxl_binding modern_v2[] = {
-    { "Joy1", "Jump" }, { "Joy2", "Duck" }, { "Joy3", "ReloadWeapon" },
-    { "Joy4", "ShowInventoryWindow" }, { "Joy5", "PrevBeltItem" }, { "Joy6", "NextBeltItem" },
-    { "Joy7", "ShowAugmentationsWindow" }, { "Joy8", "ShowMainMenu" },
-    { "Joy11", "ParseRightClick" }, { "Joy12", "ParseLeftClick|Fire" },
-    { "JoyX", "Axis aStrafe Speed=3.75" }, { "JoyY", "Axis aBaseY Speed=3.75" },
-    { "JoyU", "Axis aBaseX Speed=3.75" }, { "JoyV", "Axis aLookUp Speed=2.25" },
-    { "JoyPovUp", "ToggleScope" }, { "JoyPovDown", "SwitchAmmo" },
-    { "JoyPovLeft", "LeanLeft" }, { "JoyPovRight", "LeanRight" },
-};
-static const dxl_binding southpaw_v2[] = {
-    { "Joy1", "Jump" }, { "Joy2", "Duck" }, { "Joy3", "ReloadWeapon" },
-    { "Joy4", "ShowInventoryWindow" }, { "Joy5", "PrevBeltItem" }, { "Joy6", "NextBeltItem" },
-    { "Joy7", "ShowAugmentationsWindow" }, { "Joy8", "ShowMainMenu" },
-    { "Joy11", "ParseRightClick" }, { "Joy12", "ParseLeftClick|Fire" },
-    { "JoyX", "Axis aBaseX Speed=3.75" }, { "JoyY", "Axis aLookUp Speed=2.25" },
-    { "JoyU", "Axis aStrafe Speed=3.75" }, { "JoyV", "Axis aBaseY Speed=3.75" },
-    { "JoyPovUp", "ToggleScope" }, { "JoyPovDown", "SwitchAmmo" },
-    { "JoyPovLeft", "LeanLeft" }, { "JoyPovRight", "LeanRight" },
 };
 
 /* Exactly what DefUser.ini ships. Kept so an untouched install is recognised
@@ -197,34 +171,6 @@ const dxl_pad_preset *dxl_bindings_detect(const dxl_ini *ini) {
     return NULL;
 }
 
-static const char *const v2_change =
-    "SELECT now opens the pause menu (save, load). The augmentations screen is a "
-    "tab of the inventory (Y).";
-
-static const struct {
-    dxl_pad_preset old;
-    size_t replaced_by;          /* index into presets[] */
-    const char *what_changed;    /* shown to the player once */
-} retired[] = {
-    { { "modern-v2", "Modern (2026-09-22)", "", modern_v2, N(modern_v2) }, 0, v2_change },
-    { { "southpaw-v2", "Modern, sticks swapped (2026-09-22)", "", southpaw_v2, N(southpaw_v2) }, 1, v2_change },
-};
-
-const dxl_pad_preset *dxl_bindings_detect_retired(const dxl_ini *ini, const char **what_changed) {
-    for (size_t i = 0; i < N(retired); i++) {
-        int match = 1;
-        for (size_t k = 0; k < DXL_JOY_KEY_COUNT && match; k++) {
-            const char *have = dxl_ini_get(ini, DXL_INPUT_SECTION, dxl_joy_keys[k]);
-            match = same_binding(have, preset_value(&retired[i].old, dxl_joy_keys[k]));
-        }
-        if (match) {
-            if (what_changed) *what_changed = retired[i].what_changed;
-            return &presets[retired[i].replaced_by];
-        }
-    }
-    return NULL;
-}
-
 const char *dxl_pad_preset_binding(const dxl_pad_preset *p, const char *joy_key) {
     return preset_value(p, joy_key);
 }
@@ -237,10 +183,9 @@ void dxl_bindings_set(dxl_ini *ini, const char *joy_key, const char *command) {
 
 /* ---- remapping --------------------------------------------------------- */
 
-/* The Smart Pro's buttons (ports/trimui-smartpro/README.md, "Pad controls"): no L3/R3, so Joy9
- * and Joy10 are never produced and are not offered. */
+/* Every button the fork's SDL2 backend produces (physical[] above). */
 static const char *const remappable[] = {
-    "Joy1", "Joy2", "Joy3", "Joy4", "Joy5", "Joy6", "Joy11", "Joy12",
+    "Joy1", "Joy2", "Joy3", "Joy4", "Joy5", "Joy6", "Joy11", "Joy12", "Joy9", "Joy10",
     "Joy7", "Joy8", "JoyPovUp", "JoyPovDown", "JoyPovLeft", "JoyPovRight",
 };
 

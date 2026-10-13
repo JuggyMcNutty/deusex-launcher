@@ -94,8 +94,6 @@ void tab_play_draw(dxl_session *s, int top, int bottom) {
                    "First run on this install.",
                    "The defaults suit this device. Adjust them on the Video and Controls "
                    "tabs, or just press START.");
-    if (app->pad_layout_update)
-        y = banner(s, y, DXL_PAL.ok, "Controller layout updated.", app->pad_layout_update);
     if (app->pad_layout_applied)
         y = banner(s, y, DXL_PAL.ok, "Controller layout set to Modern.",
                    "The bindings Deus Ex ships with only use three buttons. Change it on "

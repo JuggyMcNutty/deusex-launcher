@@ -20,13 +20,11 @@ static const char *const pad_layouts[]  = { "modern", "southpaw", "classic", "cu
 #define GP "Gamepad"
 #define PF "Performance"
 
-/* Defaults are the port's, not the engine's: Antialias is Off because the
- * PowerVR GE8300 resolves MSAA to speckle, and VSync is off because the game
- * runs below the panel's 60 Hz and vsync would quantise it to 30 or 20. */
+/* The built-in defaults are the engine's own (LauncherSettings.h). */
 static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_RENDER_TYPE]       = { RD, "Type",                    DXL_ES_CHOICE, render_types, "Vulkan", 0, 0, 0, 0 },
-    [DXL_ES_VSYNC]             = { RD, "UseVSync",                DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
-    [DXL_ES_ANTIALIAS]         = { RD, "Antialias",               DXL_ES_CHOICE, aa_modes, "Off", 0, 0, 0, 0 },
+    [DXL_ES_VSYNC]             = { RD, "UseVSync",                DXL_ES_BOOL,   NULL, NULL, 1, 0, 1, 1 },
+    [DXL_ES_ANTIALIAS]         = { RD, "Antialias",               DXL_ES_CHOICE, aa_modes, "MSAA4x", 0, 0, 0, 0 },
     [DXL_ES_LIGHT]             = { RD, "Light",                   DXL_ES_CHOICE, light_modes, "Normal", 0, 0, 0, 0 },
     [DXL_ES_GAMMA]             = { RD, "Gamma",                   DXL_ES_CHOICE, gamma_modes, "D3D9", 0, 0, 0, 0 },
     [DXL_ES_BLOOM]             = { RD, "Bloom",                   DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },

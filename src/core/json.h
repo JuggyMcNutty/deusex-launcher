@@ -3,9 +3,8 @@
  * The engine keeps its own settings -- renderer backend, VSync, lighting,
  * gamma, and (in our fork) the gamepad -- in a JSON file rather than in the
  * game's ini. It parses that file inside a catch-all: one malformed byte and
- * every setting silently reverts to the engine default, including the 4x MSAA
- * that turns the PowerVR's output to speckle. So this module is strict on
- * output and keeps whatever it does not understand.
+ * every setting silently reverts to the engine default. So this module is
+ * strict on output and keeps whatever it does not understand.
  *
  * Objects keep their members in file order, and members this launcher does
  * not know about are carried through untouched. Numbers remember their

@@ -106,23 +106,6 @@ static void test_descriptions(void) {
     CHECK_STR(dxl_joy_key_label("joypovleft"), "D-pad left");
 }
 
-
-/* A player who got the previous Modern layout is recognised and moved to its
- * replacement, rather than being shown a "custom" layout they never made. */
-static void test_retired_layout_is_recognised(void) {
-    dxl_ini *ini = user_ini();
-    dxl_bindings_apply(ini, dxl_pad_preset_default());
-    dxl_ini_set(ini, DXL_INPUT_SECTION, "Joy7", "ShowAugmentationsWindow");
-    CHECK(dxl_bindings_detect(ini) == NULL);
-    const char *why = NULL;
-    CHECK(dxl_bindings_detect_retired(ini, &why) == dxl_pad_preset_default());
-    CHECK(why != NULL && strstr(why, "SELECT") != NULL);
-    /* A genuinely custom layout is not mistaken for a retired one. */
-    dxl_ini_set(ini, DXL_INPUT_SECTION, "Joy1", "QuickSave");
-    CHECK(dxl_bindings_detect_retired(ini, NULL) == NULL);
-    dxl_ini_free(ini);
-}
-
 /* Every preset binding is either in the catalogue or a stick axis: a preset
  * that binds a command the picker cannot show would be un-editable. */
 static void test_presets_use_catalogue_commands(void) {
@@ -154,12 +137,17 @@ static void test_remap_one_button(void) {
     dxl_ini_free(ini);
 }
 
-/* This device has no L3/R3: they are not offered for remapping. */
-static void test_no_stick_clicks_offered(void) {
+/* The stick clicks are offered for remapping, though no preset binds them. */
+static void test_stick_clicks_offered(void) {
+    int l3 = 0, r3 = 0;
     for (size_t b = 0; b < dxl_pad_button_count(); b++) {
-        CHECK(strcmp(dxl_pad_button_at(b), "Joy9") != 0);
-        CHECK(strcmp(dxl_pad_button_at(b), "Joy10") != 0);
+        l3 += strcmp(dxl_pad_button_at(b), "Joy9") == 0;
+        r3 += strcmp(dxl_pad_button_at(b), "Joy10") == 0;
     }
+    CHECK_INT(l3, 1);
+    CHECK_INT(r3, 1);
+    CHECK_STR(dxl_joy_key_label("Joy9"), "L3");
+    CHECK_STR(dxl_pad_preset_binding(dxl_pad_preset_default(), "Joy9"), "");
     CHECK(dxl_pad_action_find("") == 0);
     CHECK(dxl_pad_action_find("NoSuchThing") == -1);
 }
@@ -171,8 +159,7 @@ TEST_MAIN_BEGIN
     RUN(test_reapply_is_a_no_op);
     RUN(test_detect_ignores_case_and_spacing);
     RUN(test_descriptions);
-    RUN(test_retired_layout_is_recognised);
     RUN(test_presets_use_catalogue_commands);
     RUN(test_remap_one_button);
-    RUN(test_no_stick_clicks_offered);
+    RUN(test_stick_clicks_offered);
 TEST_MAIN_END

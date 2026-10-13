@@ -7,7 +7,6 @@
 #include "core/paths.h"
 #include "platform/gpu_probe.h"
 #include "platform/launch.h"
-#include "platform/target.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,8 +25,8 @@
 #define DEFAULT_ENGINE_LOG      "home/.config/SurrealEngine/SE-Log-LastRun.txt"
 #define DEFAULT_RUN_LOG         "run-game.log"
 
-/* The GPU probe gets this long. vkCreateInstance on the PowerVR stack takes
- * well under a second; anything past this is a hang, not a slow driver. */
+/* The GPU probe gets this long. vkCreateInstance takes well under a second;
+ * anything past this is a hang, not a slow driver. */
 #define GPU_PROBE_TIMEOUT_MS 4000
 
 static char *dup_or(const char *v, const char *fallback) {
@@ -47,27 +46,14 @@ static char *app_path(const dxl_app *app, const dxl_ini *l, const char *key,
 
 /* The first time the launcher meets an install whose pad bindings are still
  * the ones Deus Ex shipped, switch to the default layout: the shipped set
- * binds three buttons and nothing else. A layout an earlier launcher applied
- * and a later one revised is moved to the revision. A layout chosen on
- * purpose -- the Gamepad.Layout member exists -- is otherwise left alone. */
+ * binds three buttons and nothing else. A layout chosen on purpose -- the
+ * Gamepad.Layout member exists -- is left alone. */
 static void apply_first_contact_layout(dxl_app *app) {
     dxl_ini *user = dxl_config_user_ini(app->cfg);
     if (!user) return;
-
-    const dxl_pad_preset *now = dxl_bindings_detect(user);
-    if (!now) {
-        /* A preset from an earlier launcher that has since been revised. */
-        const char *what = NULL;
-        const dxl_pad_preset *next = dxl_bindings_detect_retired(user, &what);
-        if (next) {
-            dxl_app_choose_layout(app, next);
-            app->pad_layout_update = what;
-            dxl_log("pad layout: earlier '%s' layout found; updated it", next->id);
-            return;
-        }
-    }
     if (dxl_es_was_present(app->es, DXL_ES_PAD_LAYOUT)) return;
 
+    const dxl_pad_preset *now = dxl_bindings_detect(user);
     if (now && strcmp(now->id, "classic") == 0) {
         dxl_app_choose_layout(app, dxl_pad_preset_default());
         app->pad_layout_applied = 1;
@@ -88,8 +74,9 @@ int dxl_app_init(dxl_app *app, int argc, char **argv, dxl_err *err) {
     app->cmdline  = dxl_cmdline_join(argc, argv);
 
     /* --- launcher.ini ------------------------------------------------- */
-    app->launcher_ini_path = dxl_path_join(app->app_dir, LAUNCHER_INI);
-    dxl_ini *l = dxl_ini_load(app->launcher_ini_path, NULL);
+    char *lpath = dxl_path_join(app->app_dir, LAUNCHER_INI);
+    dxl_ini *l = dxl_ini_load(lpath, NULL);
+    free(lpath);
 
     app->package      = dup_or(l ? dxl_ini_get(l, "Launcher", "Package") : NULL, "DeusEx");
     app->game_command = dup_or(l ? dxl_ini_get(l, "Launcher", "GameCommand") : NULL,
@@ -105,8 +92,7 @@ int dxl_app_init(dxl_app *app, int argc, char **argv, dxl_err *err) {
     char *es_def   = app_path(app, l, "EngineSettingsDefault", DEFAULT_ENGINE_DEFAULTS);
     app->engine_log = app_path(app, l, "EngineLog", DEFAULT_ENGINE_LOG);
     app->run_log    = app_path(app, l, "RunLog", DEFAULT_RUN_LOG);
-    /* Kept: the launcher writes its own settings (CpuMode) back to it. */
-    app->launcher_ini = l;
+    dxl_ini_free(l);
 
     /* --- install ------------------------------------------------------ */
     dxl_install_probe(app->game_dir, &app->install);
@@ -180,8 +166,6 @@ void dxl_app_shutdown(dxl_app *app) {
     dxl_sentinel_free(&app->sentinel);
     dxl_es_free(app->es);
     dxl_config_free(app->cfg);
-    dxl_ini_free(app->launcher_ini);
-    free(app->launcher_ini_path);
     free(app->app_dir); free(app->exe_path); free(app->game_dir);
     free(app->system_dir); free(app->package); free(app->game_command);
     free(app->engine_log); free(app->run_log);
@@ -261,21 +245,6 @@ void dxl_app_bind(dxl_app *app, const char *joy_key, const char *command) {
     dxl_log("pad: %s -> %s", joy_key, command && *command ? command : "(nothing)");
 }
 
-const char *dxl_app_cpu_mode(const dxl_app *app) {
-    const char *v = app->launcher_ini ? dxl_ini_get(app->launcher_ini, "Launcher", "CpuMode") : NULL;
-    const dxl_cpu_mode_info *m = dxl_target_cpu_mode(dxl_target_get(), v);
-    return m ? m->name : NULL;
-}
-
-void dxl_app_set_cpu_mode(dxl_app *app, const char *mode) {
-    if (!dxl_app_cpu_mode(app)) return;   /* the device offers none */
-    if (!app->launcher_ini) app->launcher_ini = dxl_ini_new();
-    if (strcmp(dxl_app_cpu_mode(app), mode) == 0 &&
-        dxl_ini_get(app->launcher_ini, "Launcher", "CpuMode")) return;
-    dxl_ini_set(app->launcher_ini, "Launcher", "CpuMode", mode);
-    dxl_log("cpu mode: %s", mode);
-}
-
 int dxl_app_reset_game_config(dxl_app *app, dxl_err *err) {
     int first_run = dxl_config_first_run(app->cfg);
     if (dxl_config_reset_files(app->system_dir, app->package, err) != 0) return -1;
@@ -308,30 +277,13 @@ static void settle_renderer(dxl_app *app) {
     dxl_app_choose_renderer(app, alt);
 }
 
-/* A GPU whose multisample resolve is broken (dxl_gpu_msaa_broken): the Video
- * tab locks the row, and this catches a file edited by hand or carried over
- * from another device. */
-static void settle_device_limits(dxl_app *app) {
-    if (!dxl_gpu_msaa_broken(&app->gpu)) return;
-    if (strcmp(dxl_es_choice(app->es, DXL_ES_ANTIALIAS), "Off") == 0) return;
-    dxl_log("anti-aliasing %s turned off: not usable on %s",
-            dxl_es_choice(app->es, DXL_ES_ANTIALIAS), app->gpu.vulkan_device);
-    dxl_es_set_choice(app->es, DXL_ES_ANTIALIAS, "Off");
-}
-
 int dxl_app_save_settings(dxl_app *app, dxl_err *err) {
     settle_renderer(app);
-    settle_device_limits(app);
     if (dxl_config_dirty(app->cfg) && dxl_config_save(app->cfg, err) != 0) {
         dxl_log("error: %s", dxl_err_msg(err));
         return -1;
     }
     if (dxl_es_dirty(app->es) && dxl_es_save(app->es, err) != 0) {
-        dxl_log("error: %s", dxl_err_msg(err));
-        return -1;
-    }
-    if (app->launcher_ini && dxl_ini_dirty(app->launcher_ini) &&
-        dxl_ini_save(app->launcher_ini, app->launcher_ini_path, err) != 0) {
         dxl_log("error: %s", dxl_err_msg(err));
         return -1;
     }
@@ -425,7 +377,6 @@ void dxl_app_dry_run(dxl_app *app) {
     const dxl_pad_preset *pp = dxl_app_current_layout(app);
     printf("  %-18s %s%s\n", "pad layout", pp ? pp->label : "custom",
            app->pad_layout_applied ? " (applied now; shipped bindings were in place)" : "");
-    if (dxl_app_cpu_mode(app)) printf("  %-18s %s\n", "CPU mode", dxl_app_cpu_mode(app));
     printf("  %-18s %s\n", "Running.ini",
            dxl_sentinel_exists(&app->sentinel) ? "present (crash pending)" : "absent");
 

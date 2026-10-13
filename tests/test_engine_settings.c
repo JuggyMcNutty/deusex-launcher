@@ -35,7 +35,7 @@ static void teardown(void) {
     rmdir(dir);
 }
 
-/* The packaged default for the handheld. */
+/* A port's packaged default, not the built-in one: no MSAA, no VSync. */
 static const char *device_default =
     "{\"RenderDevice\": {\"Type\": \"Vulkan\", \"Antialias\": \"Off\", \"Light\": \"Normal\","
     " \"Gamma\": \"D3D9\", \"GammaCorrectScreenshots\": false, \"UseVSync\": false, \"Hdr\": false,"
@@ -57,8 +57,8 @@ static void test_missing_file_seeds_from_default(void) {
     teardown();
 }
 
-/* A file the engine cannot parse costs every setting -- MSAA4x included,
- * which is speckle on the PowerVR. It must be replaced, not trusted. */
+/* A file the engine cannot parse costs every setting: it must be replaced,
+ * not trusted. */
 static void test_corrupt_file_is_replaced(void) {
     setup("corrupt");
     put("default.json", device_default);
@@ -132,19 +132,19 @@ static void test_reset_uses_packaged_default(void) {
     dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
     dxl_es_set_bool(s, DXL_ES_VSYNC, 0);
     dxl_es_set_choice(s, DXL_ES_LIGHT, "Normal");
-    dxl_es_set_choice(s, DXL_ES_ANTIALIAS, "MSAA4x");
+    dxl_es_set_choice(s, DXL_ES_ANTIALIAS, "MSAA2x");
     dxl_es_reset_section(s, "RenderDevice");
     CHECK_INT(dxl_es_bool(s, DXL_ES_VSYNC), 1);
     CHECK_STR(dxl_es_choice(s, DXL_ES_LIGHT), "BrighterActors");
-    /* Absent from the packaged file: the built-in default, which is Off. */
-    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "Off");
+    /* Absent from the packaged file: the built-in default, the engine's. */
+    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "MSAA4x");
     dxl_es_free(s);
     teardown();
 }
 
 /* A Settings.json written before a field existed takes the port's packaged
- * default for it -- an install upgraded on the handheld gets its render
- * scale -- and a save writes the new section. */
+ * default for it -- an upgraded install gets the port's render scale -- and
+ * a save writes the new section. */
 static void test_new_field_takes_the_packaged_default(void) {
     setup("newfield");
     put("default.json", "{\"Performance\": {\"RenderScale\": 0.5}}");
@@ -192,8 +192,8 @@ static void test_render_heights(void) {
     CHECK(dxl_es_number(s, DXL_ES_RENDER_SCALE) == 0.25);
 
     /* Each offered height is kept as a scale the Video tab recognises again
-     * (within 0.002) and the engine turns back into that size (engine patch
-     * 0009: the native size times the scale as a float, rounded). A step grid
+     * (within 0.002) and the engine turns back into that size (the native
+     * size times the scale as a float, rounded). A step grid
      * would break both: 480 of 720 lines once became 0.65, 832x468. */
     static const int panels[][2] = { { 1280, 720 }, { 1920, 1080 }, { 1366, 768 }, { 1280, 800 } };
     for (size_t p = 0; p < sizeof panels / sizeof *panels; p++) {

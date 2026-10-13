@@ -156,7 +156,3 @@ int dxl_renderers_first_selectable(const dxl_renderer_list *l) {
         if (l->items[i].selectable) return (int)i;
     return -1;
 }
-
-int dxl_gpu_msaa_broken(const dxl_gpu_probe *g) {
-    return g->probed && strstr(g->vulkan_device, "PowerVR") != NULL;
-}

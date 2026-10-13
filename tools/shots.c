@@ -1,8 +1,7 @@
-/* Renders every screen to a .bmp, so layout can be reviewed without a
- * handheld in reach. Uses SDL's offscreen/dummy driver, so it runs headless.
+/* Renders every screen to a .bmp, so layout can be reviewed without running
+ * the launcher. Uses SDL's offscreen/dummy driver, so it runs headless.
  *
- * It draws the device profile compiled in (platform/target.h): configure a
- * host build with -DDXL_PROFILE=<port> to see that device's screens.
+ * It draws at the profile's size, with the GPU it names (platform/target.h).
  *
  * This is a development tool, not part of the launcher: it fabricates the
  * session state each screen needs and drives the same draw code the real
@@ -56,8 +55,7 @@ static void save(SDL_Renderer *r, const char *dir, const char *name) {
     SDL_FreeSurface(s);
 }
 
-/* The device's GPU as its profile records it, so the shots show its
- * renderer list and any GPU-specific rows. */
+/* The GPU the profile names, so the shots show a renderer list. */
 static void fake_gpu(dxl_app *app) {
     app->gpu = dxl_target_get()->preview_gpu;
     dxl_renderers_resolve(&app->renderers, &app->gpu);
@@ -77,14 +75,6 @@ int main(int argc, char **argv) {
     /* Offscreen first; dummy cannot read pixels back but is a useful
      * smoke test if offscreen is missing. */
     if (!SDL_getenv("SDL_VIDEODRIVER")) SDL_setenv("SDL_VIDEODRIVER", "offscreen", 1);
-    /* The device's panel, not whatever the offscreen driver calls a desktop. */
-    const dxl_target *t = dxl_target_get();
-    if (!SDL_getenv("DXL_WINDOW")) {
-        char size[32];
-        snprintf(size, sizeof size, "%dx%d", t->panel_w, t->panel_h);
-        SDL_setenv("DXL_WINDOW", size, 1);
-    }
-
 
     dxl_log_set_echo(0);
     dxl_log_set_to_file(0);
@@ -127,9 +117,9 @@ int main(int argc, char **argv) {
     s.tab = DXL_TAB_VIDEO;
     s.cursor[DXL_TAB_VIDEO] = 0;
     shoot(&s, r, outdir, "04-video");
-    /* Rows by name: which rows show depends on the device profile. */
+    /* Rows by name, not by position. */
     s.cursor[DXL_TAB_VIDEO] = dxl_session_row_index(&s, DXL_TAB_VIDEO, "Anti-aliasing");
-    shoot(&s, r, outdir, "05-video-aa");          /* locked on a PowerVR */
+    shoot(&s, r, outdir, "05-video-aa");
     s.cursor[DXL_TAB_VIDEO] = dxl_session_row_index(&s, DXL_TAB_VIDEO, "Brightness");
     shoot(&s, r, outdir, "06-video-brightness");
 
@@ -144,7 +134,7 @@ int main(int argc, char **argv) {
     shoot(&s, r, outdir, "08-controls");
     s.cursor[DXL_TAB_CONTROLS] = dxl_session_row_index(&s, DXL_TAB_CONTROLS, "Customize buttons");
     dxl_session_act(&s, DXL_ACT_CONFIRM);
-    s.ovl_cursor = 8;                        /* SELECT */
+    s.ovl_cursor = 10;                       /* SELECT */
     shoot(&s, r, outdir, "09-customize");
     dxl_session_act(&s, DXL_ACT_CONFIRM);   /* its action picker */
     shoot(&s, r, outdir, "09b-actions");

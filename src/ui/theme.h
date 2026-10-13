@@ -2,11 +2,11 @@
  *
  * The look follows the game's own UI: near-black ground with amber/gold text.
  * That is not decoration -- the launcher is the first thing someone sees, and
- * having it match means the handheld build does not feel bolted on.
+ * having it match means it does not feel bolted on.
  *
- * Every metric is expressed for the 1280x720 panel this targeted first but
- * derived from the actual surface size, so a different device is a
- * configuration change rather than a rewrite.
+ * Every metric is expressed for a 1280x720 window but derived from the actual
+ * surface size, so another size is a configuration change rather than a
+ * rewrite.
  */
 #ifndef DXL_THEME_H
 #define DXL_THEME_H
@@ -35,11 +35,9 @@ extern const dxl_palette DXL_PAL;
 /* Scales the metrics from the surface height; 720 is the reference. */
 void dxl_metrics_for(dxl_metrics *m, int height);
 
-/* First readable font found: DXL_FONT, then the device profile's fonts
- * (platform/target.h), then the usual desktop locations -- which also lets
- * the UI be iterated on without the device in reach. Returns NULL if
- * nothing is found, which the caller must survive -- a launcher that cannot
- * find a font should still be able to say so. */
+/* First readable font found: DXL_FONT, then the usual desktop locations.
+ * Returns NULL if nothing is found, which the caller must survive -- a
+ * launcher that cannot find a font should still be able to say so. */
 const char *dxl_theme_find_font(void);
 
 #endif
