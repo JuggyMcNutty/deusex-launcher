@@ -132,8 +132,6 @@ int main(int argc, char **argv) {
     shoot(&s, r, outdir, "05-video-aa");          /* locked on a PowerVR */
     s.cursor[DXL_TAB_VIDEO] = dxl_session_row_index(&s, DXL_TAB_VIDEO, "Brightness");
     shoot(&s, r, outdir, "06-video-brightness");
-    s.cursor[DXL_TAB_VIDEO] = dxl_session_row_index(&s, DXL_TAB_VIDEO, "Distant AI");
-    shoot(&s, r, outdir, "06b-video-distant-ai");
 
     s.cursor[DXL_TAB_VIDEO] = 0;
     dxl_session_act(&s, DXL_ACT_CONFIRM);   /* opens the picker */
