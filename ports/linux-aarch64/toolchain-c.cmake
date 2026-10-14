@@ -3,9 +3,8 @@
 # On an aarch64 machine this file does nothing and the build is native, so
 # the same preset works both ways.
 #
-# Bootlin stable-2020.08-1 (GCC 9.3, glibc 2.31) -- shared with the TrimUI
-# port. Its glibc is the floor the binary needs, so an old one reaches the
-# most distros. SDL2 comes from deps/sysroots/linux-aarch64 (port.sh).
+# Bootlin stable-2020.08-1 (GCC 9.3, glibc 2.31). Its glibc is the floor the
+# binary needs, so an old one reaches the most distros. SDL2 comes from deps/sysroots/linux-aarch64 (port.sh).
 if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
     return()
 endif()

@@ -9,6 +9,8 @@ if(CMAKE_CROSSCOMPILING)
     set(DXL_PORT_SDL       sysroot)
     set(DXL_PORT_SYSROOT   "${DXL_ROOT}/deps/sysroots/linux-aarch64")
     set(DXL_PORT_GLIBC_MAX 2.31)
+    # The sysroot has SDL2 and SDL2_ttf but not the libraries they link,
+    # which the device has: those stay unresolved at link time.
     set(DXL_PORT_LINK_OPTIONS
         -Wl,--unresolved-symbols=ignore-in-shared-libs
         -Wl,-rpath-link,${DXL_PORT_SYSROOT}/lib)
