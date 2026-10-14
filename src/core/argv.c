@@ -12,7 +12,7 @@ char **dxl_argv_build(const char *exe, const char *flags) {
     if (flags && *flags) {
         /* Shell-like word splitting: unquoted whitespace separates, and a
          * quote may open anywhere inside a word, so -map="Deus Ex.dx" stays
-         * one argument. Paths with spaces are normal on an SD card. */
+         * one argument. Paths with spaces are common. */
         dxl_buf word;
         dxl_buf_init(&word);
         char quote = 0;

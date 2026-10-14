@@ -2,13 +2,13 @@
  *
  * The original's equivalent is the CD check: loop on
  * <CdPath>Textures\Palettes.utx, showing a modal box until the disc appears
- * (dx-reverse-info/launch-flow.md section 8). On a handheld the real first-run failure
- * is not a missing disc, it is that the user has not copied their game files
- * across yet -- so this generalises to "is there an install here, and if not,
- * which pieces are missing".
+ * (dx-reverse-info/launch-flow.md section 8). Here the real first-run failure
+ * is not a missing disc, it is that the game files are not there yet -- so
+ * this generalises to "is there an install here, and if not, which pieces
+ * are missing".
  *
- * Lookups are case-insensitive: the SD card is exFAT, but an install copied
- * via a Linux host may have any case, and the 2000-era names are mixed.
+ * Lookups are case-insensitive: an install copied from Windows may have any
+ * case, and the 2000-era names are mixed.
  */
 #ifndef DXL_INSTALL_H
 #define DXL_INSTALL_H

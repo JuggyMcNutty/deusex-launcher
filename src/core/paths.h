@@ -7,9 +7,8 @@
  * dxl_path_from_ini() converts on the way in, and stored values
  * are never rewritten just because we read them.
  *
- * Case: the device's SD card is exFAT, which is case-insensitive, but a host
- * build on ext4 is not, and the ini files name files in whatever case the
- * 2000-era tools used. dxl_path_resolve_ci() bridges that.
+ * Case: the ini files name files in whatever case the 2000-era tools used,
+ * and an ext4 install is case-sensitive. dxl_path_resolve_ci() bridges that.
  */
 #ifndef DXL_PATHS_H
 #define DXL_PATHS_H
