@@ -18,7 +18,7 @@ Surreal Engine does not read the keys the original launcher writes. It reads:
 
 | File | What the engine takes from it | Who writes it |
 |---|---|---|
-| `<AppDir>/home/.config/SurrealEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; the fork's `Gamepad` and `Performance` blocks | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine only reads it |
+| `<AppDir>/home/.config/SurrealEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; the fork's `Gamepad` block (all but `Layout`) and its `Performance` block | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine only reads it |
 | `System/DeusEx.ini` | Everything else (`[Core.System]` etc.); client settings (`[WinDrv.WindowsClient]` `Brightness`, `Decals`, viewport) **only while there is no** `SE-DeusEx.ini` | The launcher, from `Default.ini` when missing; the game's options |
 | `System/SE-DeusEx.ini` | Written by the engine on its **first clean exit** (`PackageManager::SaveAllIniFiles`), then the **only** one it reads; client settings under `[Engine.SurrealClient]` | The engine; the launcher's client settings when it exists |
 | `System/User.ini`, then `System/SE-User.ini` | Key and pad bindings (`[Engine.Input]`), the same way round | The launcher's pad layouts; the game's key menu |
@@ -68,9 +68,9 @@ chosen when the engine build has a backend for it (`renderers.ini`
 `EngineType`, the `Settings.json` value; empty means none) and the device
 has the API it needs (the GPU probe); the picker shows both. The probe runs
 in a forked child with a timeout, before the display comes up, so a driver
-that crashes or hangs costs the child, not the launcher. Each port has its
-own `renderers.ini` (the base's is `ports/common/packaging/renderers.ini`).
-A launch swaps a renderer that cannot run here for one that can, and logs
+that crashes or hangs costs the child, not the launcher. The port's
+`packaging/renderers.ini` is laid over the base's
+(`ports/common/packaging/renderers.ini`). A launch swaps a renderer that cannot run here for one that can, and logs
 it.
 
 **CPU mode** (`launcher.ini` `CpuMode`). The device profile's modes
@@ -90,8 +90,8 @@ settings and creates no sentinel.
 
 **The hand-over** (`platform/launch.h`). On POSIX the launcher execs
 `launcher.ini` `GameCommand` (default `./run-game.sh`) with the command line
-as given. `run-game.sh` (`ports/common/packaging/run-game.sh`, adjusted by a
-port's `port-hooks.sh`) starts
+as given. `run-game.sh` (`ports/common/packaging/run-game.sh`, adjusted by
+the port's `packaging/port-hooks.sh`) starts
 [the engine](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md)
 and clears `Running.ini` only on a clean exit, so a crash shows on the next
 launch.
@@ -145,8 +145,9 @@ the Customize screen bind only what the game's key menu offers
 the belt slots and the F3–F12 augmentation hotkeys. A launch that finds the
 shipped bindings and no `Gamepad.Layout` switches to Modern; a revised
 preset is recognised and upgraded (`retired[]`), with a note on Play saying
-what changed. `Gamepad.Layout` in `Settings.json` records the preset last
-applied, which X restores a single button to.
+what changed. `Gamepad.Layout` in `Settings.json`, the launcher's own record
+(the engine ignores it), names the preset last applied, which X restores a
+single button to.
 
 ## How it is tested
 
@@ -178,7 +179,7 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
 
 | # | Original | The launcher | Why |
 |---|---|---|---|
-| 1 | Safe mode: eight checkboxes become flags (`-nosound`, `-nohard -noddraw`, `-defaultres`, ...) on a re-exec; three are dead in the shipped binary | Dropped; the System tab (engine log, clear crash marker, resets) replaces it | The engine takes four of them only through `--cmdline=` ([the command line](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)), which the ports' `run-game.sh` does not pass ([known defects](#known-defects)); `main` keeps the page |
+| 1 | Safe mode: eight checkboxes become flags (`-nosound`, `-nohard -noddraw`, `-defaultres`, ...) on a re-exec; three are dead in the shipped binary | Dropped; the System tab (engine log, clear crash marker, resets) replaces it | The engine takes four of them only through `--cmdline=` ([the command line](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)), which this port's `run-game.sh` does not pass ([known defects](#known-defects)); `main` keeps the page |
 | 2 | Missing splash bitmap → assert → process dies before the wizard | No splash | Nothing to be missing (`0x109090A4`, [`launch-flow.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md)) |
 | 3 | `MPLAYER` / `HEAT` console commands, one `HKLM\software\mpath` read | Dropped | Dead services; `GotoHEAT.exe` is not shipped ([`launch-flow.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md)) |
 | 4 | `.ICD`→`.EXE` rewrite in `InitPathnames` | Dropped | SafeDisc artifact; the GOG build is not wrapped |
@@ -210,8 +211,8 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
   let go at the hand-over (`src/app.c`, `dxl_app_launch`), so a launch during
   a game finds no instance and reads the surviving `Running.ini` as a crash.
   The fix: hold the lock across the run, its descriptor inherited by the game
-  or a waiter as `main`'s launcher is. Nor does a `RELAUNCH` reach it: the
-  ports' launcher gives the engine no line (`DXL_LAUNCHER_FD`), so the Display
+  or a waiter as `main`'s launcher is. Nor does a `RELAUNCH` reach it: this
+  launcher gives the engine no line (`DXL_LAUNCHER_FD`), so the Display
   screen's Rendering Device does nothing, and a dedicated server from the Host
   screen is started again by the engine itself
   ([the menus' settings](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-menus-settings)).
@@ -221,6 +222,6 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
   ([rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)):
   under either, the game draws at the stored scale, which the row cannot
   change.
-- **`test_target_<port>` passes a CPU mode named anywhere in
+- **`test_target_trimui_smartpro` passes a CPU mode named anywhere in
   `port-hooks.sh`** (`tests/test_target_port.c`, a `strstr` over the file,
   comments included), so it does not prove a `case` handles it.

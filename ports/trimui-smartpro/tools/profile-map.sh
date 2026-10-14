@@ -24,8 +24,8 @@
 #            leaves the CPU as the menu has it (power-save).
 #   turn     aBaseX to turn the player on the spot (3000 = keyboard turn speed),
 #            so an unattended run still brings new surfaces into view
-#   map      default 01_NYC_UNATCOIsland.dx (Liberty Island). The engine only
-#            takes --url=<map>; "-u <map>" silently loads the default map.
+#   map      default 01_NYC_UNATCOIsland.dx (Liberty Island). The engine takes
+#            --url=<map> (or -u=<map>); "-u <map>" silently loads the default map.
 #
 # The engine runs with the device's own Settings.json, and the log's settings:
 # line records its render scale.
@@ -41,7 +41,8 @@
 #
 # The spruceOS menu is paused while the engine runs (two programs drawing to
 # one framebuffer fight) and resumed on exit. The engine ignores SIGTERM, so
-# it is stopped with SIGKILL; that leaves Running.ini like any crash.
+# it is stopped with SIGKILL; started without the launcher, it leaves no
+# Running.ini.
 SECS=${1:-60}; LABEL=${2:-run}; MODE=${3:-launcher}; TURN=${4:-0}; MAP=${5:-01_NYC_UNATCOIsland.dx}
 APPDIR=/mnt/SDCARD/App/DeusEx
 OUT=/tmp/dxl-test/perf-$LABEL.log

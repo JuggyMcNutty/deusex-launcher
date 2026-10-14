@@ -14,8 +14,8 @@
 # and for what the libraries link in turn.
 #
 # Headers are pinned: SDL2 and SDL_ttf from the release matching the device's
-# libraries, the rest from exact package versions in the Arch Linux archive
-# (the headers the engine was first built against).
+# libraries; Vulkan, EGL/GLES/KHR and OpenAL from exact Arch Linux packages;
+# Mesa's two EGL extension headers from its $MESA_TAG tag.
 set -euo pipefail
 # Port Ex Machina's helpers, from the workspace this branch is checked out
 # beside (scripts/dx.sh deps trimui-smartpro sets DX_WORKSPACE).

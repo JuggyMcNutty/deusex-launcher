@@ -6,9 +6,9 @@
 #
 #   Bootlin bleeding-edge 2021.05-1 -- GCC 10.3, glibc 2.33 (exact match)
 #
-# GCC 10.3 was verified to compile the C++20 the engine uses (concepts,
-# <filesystem>, designated initialisers, operator<=>) and to emit only
-# GLIBC_2.17 symbol references.
+# GCC 10.3 compiles the C++20 the engine uses (concepts, <filesystem>,
+# designated initialisers, operator<=>), its glibc references at or below
+# 2.33 (scripts/check-abi.sh).
 #
 # libstdc++ and libgcc are linked statically. The device ships
 # libstdc++.so.6.0.28 (GLIBCXX_3.4.28), which GCC 10.3 would actually be

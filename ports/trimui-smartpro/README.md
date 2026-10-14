@@ -72,7 +72,7 @@ The launcher's own code differs from linux-x86_64's for this device too:
 | `run-game.sh` | sources `packaging/port-hooks.sh`: the vendor library path, the CPU mode | no hooks |
 | Anti-aliasing | locked off on any PowerVR the GPU probe finds ([engine settings](#engine-settings)) | offered |
 | `Settings.json`'s built-in defaults | MSAA off, VSync off | the engine's: 4x MSAA, VSync on |
-| The pad | L3/R3 not offered, as the pad has none; a layout from before SELECT paused (`retired[]`) is upgraded | L3/R3 offered |
+| The pad | L3/R3 not offered, as the pad has none; a retired preset (`retired[]`) is upgraded | L3/R3 offered |
 
 ### The toolchains
 
@@ -103,8 +103,9 @@ it, and it wires Vulkan surface creation to the PowerVR implementation
 window system to attach to: the PowerVR stack ships only `libpvrNULL_WSEGL.so`.
 
 [`fetch-sysroot.sh`](fetch-sysroot.sh) (run by `deps`) copies the device's own libraries into
-`deps/sysroots/trimui-smartpro/lib` and fetches their headers, pinned (SDL 2.30.8, SDL_ttf
-2.0.15, exact Arch Linux packages). Vulkan is not linked: SurrealGPU loads the loader through
+`deps/sysroots/trimui-smartpro/lib` and fetches the headers to build against, pinned (SDL
+2.30.8, SDL_ttf 2.0.15; Vulkan, EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's
+two EGL extension headers). Vulkan is not linked: SurrealGPU loads the loader through
 volk, and the launcher's GPU probe `dlopen`s it and EGL, so a device without either still
 starts the launcher.
 
@@ -195,8 +196,9 @@ device shows it, in a desktop font.
 
 Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
 Overclock; milliseconds a frame, averaged over 60 frames, measured with the profiling hooks at
-engine `15392c0`. That engine runs with Distant AI on, far pawns skipping their thinking; the
-current engine has no Distant AI, so its tick is the longer by their thinking.
+engine `15392c0`, with Distant AI on: far pawns skipping their thinking. Engine
+`503e90d`, every pawn thinking, measures 16.8 FPS at the level start under Vulkan at 853x480: a
+frame ~60, the tick ~14, the render CPU ~42 with a GPU wait of ~10.5.
 
 | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 |---|---|---|---|---|---|
@@ -318,7 +320,8 @@ NM=deps/toolchains/aarch64--glibc--bleeding-edge-2021.05-1/bin/aarch64-linux-nm 
     --root ULevel::Tick
 ```
 
-A profile stops the engine with SIGKILL, which leaves `Running.ini` like any crash
+A profile stops the engine with SIGKILL; started without the launcher, it leaves no
+`Running.ini`
 ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
 
 ## Gotchas
