@@ -26,23 +26,8 @@ dxl_test(test_gamefiles)
 target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System")
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
 
-# Device profiles: the generic one and the lookup rules, then each port's own
-# target.c checked against its port (its id, and CPU modes its run-game hooks
-# handle).
-add_executable(test_target test_target.c
-    "${DXL_ROOT}/src/platform/target.c" "${DXL_ROOT}/src/platform/target_default.c")
+# The device profile.
+add_executable(test_target test_target.c "${DXL_ROOT}/src/platform/target_default.c")
 target_link_libraries(test_target PRIVATE dxl_core)
 target_include_directories(test_target PRIVATE "${DXL_ROOT}/src" "${CMAKE_CURRENT_SOURCE_DIR}")
 add_test(NAME test_target COMMAND test_target)
-
-file(GLOB DXL_PORT_TARGETS "${DXL_ROOT}/ports/*/target.c")
-foreach(src ${DXL_PORT_TARGETS})
-    get_filename_component(dir "${src}" DIRECTORY)
-    get_filename_component(id "${dir}" NAME)
-    string(MAKE_C_IDENTIFIER "test_target_${id}" name)
-    add_executable(${name} test_target_port.c "${src}" "${DXL_ROOT}/src/platform/target.c")
-    target_link_libraries(${name} PRIVATE dxl_core)
-    target_include_directories(${name} PRIVATE "${DXL_ROOT}/src" "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_compile_definitions(${name} PRIVATE DXL_PORT_ID="${id}" DXL_PORT_DIR="${dir}")
-    add_test(NAME ${name} COMMAND ${name})
-endforeach()

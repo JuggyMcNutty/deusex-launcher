@@ -2,7 +2,7 @@
  *
  * The layout is User.ini's Joy* bindings (core/bindings.c); the feel -- dead
  * zone, look speed, invert, menu cursor speed -- is Settings.json's Gamepad
- * block, read by the fork's controller support (engine patch 0003).
+ * block, read by the fork's controller support.
  */
 #include "screens_internal.h"
 
@@ -16,9 +16,8 @@ static void pad_value(dxl_session *s, const dxl_row *r, char *out, size_t n) {
 }
 
 static void pad_describe(dxl_session *s, const dxl_row *r, char *out, size_t n) {
-    const char *note = dxl_target_get()->pad_note;
     if (dxl_ui_pad_name(s->ui))
-        snprintf(out, n, "The controller SDL sees.%s%s", note ? " " : "", note ? note : "");
+        snprintf(out, n, "The controller SDL sees.");
     else
         snprintf(out, n, "No controller is connected. The launcher also works from a "
                  "keyboard: arrows, Enter, Backspace, R to reset, P to play.");

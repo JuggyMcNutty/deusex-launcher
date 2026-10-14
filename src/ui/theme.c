@@ -1,6 +1,5 @@
 #include "theme.h"
 
-#include "platform/target.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -40,7 +39,7 @@ static int is_font(const char *path) {
 }
 
 const char *dxl_theme_find_font(void) {
-    /* What desktop distros put where; the device profile's own come first. */
+    /* What desktop distros put where. */
     static const char *generic[] = {
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/usr/share/fonts/dejavu/DejaVuSans.ttf",
@@ -53,9 +52,6 @@ const char *dxl_theme_find_font(void) {
         struct stat st;
         if (stat(env, &st) == 0) return env;
     }
-    const char *const *own = dxl_target_get()->fonts;
-    for (int i = 0; own && own[i]; i++)
-        if (is_font(own[i])) return own[i];
     for (int i = 0; generic[i]; i++)
         if (is_font(generic[i])) return generic[i];
     return NULL;

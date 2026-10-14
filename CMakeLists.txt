@@ -30,18 +30,7 @@ set(DXL_PORT_GLIBC_MAX "")      # e.g. 2.33: fail the build on any newer symbol
 set(DXL_PORT_LINK_OPTIONS "")   # extra link options for the SDL frontend
 include("${DXL_PORT_DIR}/port.cmake")
 
-# The device profile compiled in (src/platform/target.h): the port's own
-# target.c, or the generic desktop one. Set DXL_PROFILE to another port on a
-# host build to see that device's screens (dxl-shots).
-set(DXL_PROFILE "${DXL_PORT}" CACHE STRING "Whose device profile to compile in: a directory under ports/")
-if(EXISTS "${DXL_ROOT}/ports/${DXL_PROFILE}/target.c")
-    set(DXL_TARGET_SOURCE "${DXL_ROOT}/ports/${DXL_PROFILE}/target.c")
-elseif(EXISTS "${DXL_ROOT}/ports/${DXL_PROFILE}")
-    set(DXL_TARGET_SOURCE "${DXL_ROOT}/src/platform/target_default.c")
-else()
-    message(FATAL_ERROR "no port '${DXL_PROFILE}' to take a profile from")
-endif()
-message(STATUS "dxl: port=${DXL_PORT} profile=${DXL_PROFILE} sdl=${DXL_PORT_SDL} glibc-max=${DXL_PORT_GLIBC_MAX}")
+message(STATUS "dxl: port=${DXL_PORT} sdl=${DXL_PORT_SDL} glibc-max=${DXL_PORT_GLIBC_MAX}")
 
 # Post-build ABI guard: a binary that references a newer glibc than the
 # device has will not load there, whatever our own code calls.
@@ -93,8 +82,7 @@ target_link_libraries(dxl_core PUBLIC m)
 # ---------------------------------------------------------------------------
 add_library(dxl_app STATIC
     src/app.c
-    src/platform/target.c
-    ${DXL_TARGET_SOURCE}
+    src/platform/target_default.c
     src/platform/posix/launch.c
     src/platform/posix/gpu_probe.c
 )

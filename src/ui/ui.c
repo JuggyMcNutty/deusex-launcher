@@ -60,19 +60,16 @@ dxl_ui *dxl_ui_init(dxl_err *err) {
     dxl_ui *ui = dxl_xmalloc(sizeof *ui);
     memset(ui, 0, sizeof *ui);
 
-    /* Fullscreen-desktop rather than a mode switch: the vendor "mali" driver
-     * hands out one surface at the panel's native size, and asking it to
-     * change modes gains nothing on a fixed screen. DXL_WINDOW=WxH asks for
-     * a plain window instead -- for working on the UI at the panel's size
-     * on a desktop, and for the screenshot tool. */
+    /* A window of the profile's size; DXL_WINDOW=WxH asks for another. */
     const dxl_target *t = dxl_target_get();
     int ww = t->panel_w, wh = t->panel_h;
-    Uint32 wflags = SDL_WINDOW_FULLSCREEN_DESKTOP;
     const char *wenv = SDL_getenv("DXL_WINDOW");
-    if (wenv && sscanf(wenv, "%dx%d", &ww, &wh) == 2 && ww > 0 && wh > 0)
-        wflags = 0;
+    if (wenv && (sscanf(wenv, "%dx%d", &ww, &wh) != 2 || ww <= 0 || wh <= 0)) {
+        ww = t->panel_w;
+        wh = t->panel_h;
+    }
     ui->win = SDL_CreateWindow("Deus Ex", SDL_WINDOWPOS_CENTERED,
-                               SDL_WINDOWPOS_CENTERED, ww, wh, wflags);
+                               SDL_WINDOWPOS_CENTERED, ww, wh, 0);
     if (!ui->win) {
         dxl_err_set(err, "SDL_CreateWindow: %s", SDL_GetError());
         free(ui);
@@ -441,8 +438,7 @@ static dxl_act from_button(SDL_GameControllerButton b) {
     case SDL_CONTROLLER_BUTTON_DPAD_DOWN:     return DXL_ACT_DOWN;
     case SDL_CONTROLLER_BUTTON_DPAD_LEFT:     return DXL_ACT_LEFT;
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:    return DXL_ACT_RIGHT;
-    /* The pad reports as an Xbox 360 controller, so SDL's A/B are already the
-     * physical A/B on this shell -- confirmed with Port Ex Machina's tools/probes/probe-sdl.c. */
+    /* SDL's controller API names the buttons after an Xbox pad's. */
     case SDL_CONTROLLER_BUTTON_A:             return DXL_ACT_CONFIRM;
     case SDL_CONTROLLER_BUTTON_B:             return DXL_ACT_BACK;
     case SDL_CONTROLLER_BUTTON_X:             return DXL_ACT_ALT;
@@ -450,7 +446,7 @@ static dxl_act from_button(SDL_GameControllerButton b) {
     case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return DXL_ACT_TAB_NEXT;
     case SDL_CONTROLLER_BUTTON_START:         return DXL_ACT_START;
     case SDL_CONTROLLER_BUTTON_BACK:          return DXL_ACT_QUIT;   /* SELECT */
-    case SDL_CONTROLLER_BUTTON_GUIDE:         return DXL_ACT_QUIT;   /* MENU   */
+    case SDL_CONTROLLER_BUTTON_GUIDE:         return DXL_ACT_QUIT;   /* GUIDE  */
     default:                                  return DXL_ACT_NONE;
     }
 }

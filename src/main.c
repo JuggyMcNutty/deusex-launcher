@@ -1,14 +1,13 @@
 /* Entry point.
  *
- * The launcher opens on its home screen every time: on a handheld the
- * settings have to be reachable with the pad, and a launcher that only
- * appears after a crash or with a command-line flag cannot be. START on the
- * home screen goes straight into the game.
+ * The launcher opens on its home screen every time: the settings have to be
+ * reachable with a pad, and a launcher that only appears after a crash or
+ * with a command-line flag cannot be. START on the home screen goes straight
+ * into the game.
  *
  * DXL_NO_HOME=1 keeps the original's behaviour of asking nothing when there
  * is nothing to ask, and exec'ing straight into the game. That is for
- * unattended runs -- scripts/dx.sh deploy over SSH, where no one can press
- * a button.
+ * unattended runs, where no one can press a button.
  */
 #include "app.h"
 #include "core/log.h"

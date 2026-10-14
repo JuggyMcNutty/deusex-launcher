@@ -57,36 +57,6 @@ static void renderer_reset(dxl_session *s, const dxl_row *r) {
     dxl_es_reset(s->app->es, DXL_ES_RENDER_TYPE);
 }
 
-/* ---- CPU mode ------------------------------------------------------------ */
-
-/* The modes, their order and their help come from the device profile
- * (platform/target.h); a device that offers none has no row. */
-
-static int cpu_visible(dxl_session *s, const dxl_row *r) {
-    return dxl_target_cpu_mode_count(dxl_target_get()) > 0;
-}
-
-static void cpu_value(dxl_session *s, const dxl_row *r, char *out, size_t n) {
-    snprintf(out, n, "%s", dxl_app_cpu_mode(s->app));
-}
-
-static void cpu_step(dxl_session *s, const dxl_row *r, int dir) {
-    const dxl_target *t = dxl_target_get();
-    int count = dxl_target_cpu_mode_count(t), at = 0;
-    for (int i = 0; i < count; i++)
-        if (strcmp(t->cpu_modes[i].name, dxl_app_cpu_mode(s->app)) == 0) at = i;
-    dxl_app_set_cpu_mode(s->app, t->cpu_modes[(at + dir + count) % count].name);
-}
-
-static void cpu_reset(dxl_session *s, const dxl_row *r) {
-    dxl_app_set_cpu_mode(s->app, dxl_target_cpu_mode(dxl_target_get(), NULL)->name);
-}
-
-static void cpu_describe(dxl_session *s, const dxl_row *r, char *out, size_t n) {
-    const dxl_cpu_mode_info *m = dxl_target_cpu_mode(dxl_target_get(), dxl_app_cpu_mode(s->app));
-    snprintf(out, n, "%s", m->help);
-}
-
 /* ---- ini-backed rows --------------------------------------------------- */
 
 static void brightness_value(dxl_session *s, const dxl_row *r, char *out, size_t n) {
@@ -147,16 +117,6 @@ static void gamma_describe(dxl_session *s, const dxl_row *r, char *out, size_t n
                  "applied to red, green and blue separately.");
 }
 
-/* ---- anti-aliasing: a device limit, not a preference -------------------- */
-
-/* A GPU whose multisample resolve is broken (core/renderers.h). */
-static int aa_enabled(dxl_session *s, const dxl_row *r, char *why, size_t n) {
-    if (!dxl_gpu_msaa_broken(&s->app->gpu)) return 1;
-    snprintf(why, n, "Kept off on the %s: its multisample resolve turns the edges "
-             "of polygons into speckle.", s->app->gpu.vulkan_device);
-    return 0;
-}
-
 static const char *const aa_labels[] = { "Off", "2x MSAA", "4x MSAA", NULL };
 
 static int bloom_on(dxl_session *s, const dxl_row *r, char *why, size_t n) {
@@ -202,8 +162,6 @@ static int render_enabled(dxl_session *s, const dxl_row *r, char *why, size_t n)
 static const dxl_row rows[] = {
     { .label = "Renderer", .value = renderer_value, .step = renderer_step,
       .activate = renderer_activate, .reset = renderer_reset, .describe = renderer_describe },
-    { .label = "CPU mode", .visible = cpu_visible, .value = cpu_value, .step = cpu_step,
-      .reset = cpu_reset, .describe = cpu_describe },
     { .label = "Resolution",
       .help = "The resolution the game is drawn at, scaled up to fill the screen. Fewer "
               "pixels are faster -- the GPU's work, and a share of the CPU's -- and softer, "
@@ -223,8 +181,7 @@ static const dxl_row rows[] = {
     { .label = "Gamma curve", .value = es_value, .step = es_step, .reset = es_reset,
       .describe = gamma_describe, .arg = DXL_ES_GAMMA, .choice_labels = gamma_labels },
     { .label = "Bloom",
-      .help = "A soft glow around bright lights, added by Surreal Engine. Costs GPU time, "
-              "which a handheld rarely has to spare.",
+      .help = "A soft glow around bright lights, added by Surreal Engine. Costs GPU time.",
       .value = es_value, .step = es_step, .reset = es_reset, .arg = DXL_ES_BLOOM },
     { .label = "Bloom strength",
       .help = "How far the glow spreads and how bright it is.",
@@ -233,7 +190,7 @@ static const dxl_row rows[] = {
     { .label = "Anti-aliasing",
       .help = "Multisampling smooths the edges of polygons. 2x and 4x cost GPU time and "
               "memory.",
-      .enabled = aa_enabled, .value = es_value, .step = es_step, .reset = es_reset,
+      .value = es_value, .step = es_step, .reset = es_reset,
       .arg = DXL_ES_ANTIALIAS, .choice_labels = aa_labels },
     { .label = "Decals",
       .help = "Scorch marks, bullet holes and blood left on walls and floors.",

@@ -45,12 +45,6 @@ typedef struct {
     char note[192];           /* why a probe failed or timed out */
 } dxl_gpu_probe;
 
-/* The PowerVR GE8300's multisample resolve turns partially covered pixels to
- * speckle (found on the TrimUI Smart Pro; its README). Keyed on
- * the GPU, not the device, so any PowerVR is treated the same until shown
- * otherwise. False when no probe ran: nothing is known. */
-int dxl_gpu_msaa_broken(const dxl_gpu_probe *g);
-
 typedef struct {
     char *id;             /* section name in renderers.ini */
     char *label;          /* "Vulkan", "OpenGL ES", "Software" */

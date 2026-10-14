@@ -23,7 +23,7 @@ typedef enum {
     DXL_ACT_TAB_PREV,    /* L1 */
     DXL_ACT_TAB_NEXT,    /* R1 */
     DXL_ACT_START,       /* START: play, from anywhere */
-    DXL_ACT_QUIT         /* SELECT / MENU: leave without playing */
+    DXL_ACT_QUIT         /* SELECT / GUIDE: leave without playing */
 } dxl_act;
 
 typedef enum {
