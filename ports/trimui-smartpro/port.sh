@@ -29,7 +29,7 @@ port_deploy() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --run)       run=1; shift ;;
-            --no-engine) skip+=(./SurrealEngine ./libSurrealVideo.so ./SurrealEngine.pk3); shift ;;
+            --no-engine) skip+=(./SurrealEngine ./SurrealEngine.pk3); shift ;;
             --)          shift; args=("$@"); break ;;
             *)           die "unknown option: $1" ;;
         esac

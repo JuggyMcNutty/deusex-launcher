@@ -26,7 +26,7 @@ uncommitted changes (the profiling hooks, say). It sends only the files whose ch
 keeps the device's copies of those in `.prev-<date-time>` (the device's clock) in the app
 directory, and checksums every file there afterwards. Nothing is ever deleted on the device:
 copying a previous copy back is a rollback (newest last; older hand-made ones are
-`.prev-<date>`). `--no-engine` leaves the engine's three files out.
+`.prev-<date>`). `--no-engine` leaves the engine and its `SurrealEngine.pk3` out.
 
 The app lives in `/mnt/SDCARD/App/DeusEx`, the game data in `/mnt/SDCARD/Roms/PORTS/DeusEx`
 (all 38 `.u` packages). `launcher.ini` belongs to the device's owner: `deploy` installs it only
@@ -118,9 +118,8 @@ applies the mode with the spruceOS helpers its Ports launcher uses, just before 
 starts, and restores the exact previous state (online cores, governor, min/max) when it exits.
 
 In `port-hooks.sh` the helpers are sourced in subshells only: `helperFunctions.sh` exports its
-own `LD_LIBRARY_PATH`, which hides `libSurrealVideo.so` from the engine. (`launch.sh` sources
-them directly, as spruceOS's apps do, then puts its own library path first; `run-game.sh` puts
-the app's first.)
+own `LD_LIBRARY_PATH`, which would replace the engine's. (`launch.sh` sources them directly, as
+spruceOS's apps do, then puts its own library path first; `run-game.sh` puts the app's first.)
 
 ### Engine settings
 

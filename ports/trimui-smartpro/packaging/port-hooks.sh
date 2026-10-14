@@ -13,7 +13,7 @@ PORT_LIB_PATH="/usr/trimui/lib:/usr/lib:/lib"
 # on the way out so the menu gets what it had.
 #
 # The helpers are sourced in subshells only: helperFunctions.sh exports its
-# own LD_LIBRARY_PATH, which would hide libSurrealVideo.so from the engine.
+# own LD_LIBRARY_PATH, which would replace the engine's.
 CPU=/sys/devices/system/cpu
 HELPERS=/mnt/SDCARD/spruce/scripts/helperFunctions.sh
 cpu_saved=""

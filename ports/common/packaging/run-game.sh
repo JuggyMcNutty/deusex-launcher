@@ -22,7 +22,7 @@ port_before_game() { :; }
 port_after_game()  { :; }
 [ -f "$APPDIR/port-hooks.sh" ] && . "$APPDIR/port-hooks.sh"
 
-# APPDIR first: the engine links libSurrealVideo.so, which ships beside it.
+# APPDIR first: a library shipped beside the engine wins over the system's.
 export LD_LIBRARY_PATH="$APPDIR${PORT_LIB_PATH:+:$PORT_LIB_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # The engine reads Settings.json and writes SE-Log-LastRun.txt under
