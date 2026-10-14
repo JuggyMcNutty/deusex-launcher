@@ -6,7 +6,9 @@ the side-by-side checks of engine changes run here.
 
 ## Status
 
-The staged app's launcher and engine run the game ([verified](#verified)).
+Under heavy development: the staged app's launcher and engine run the game
+([verified](#verified)), not yet fully playable
+([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
 ## Build and run
 
