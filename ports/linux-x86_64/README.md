@@ -12,7 +12,8 @@ The staged app's launcher and engine run the game ([verified](#verified)).
 
 Needs a C compiler, CMake 3.21+, pkg-config, and the SDL2 and SDL2_ttf
 development packages; the engine adds a C++20 compiler and its own
-dependencies ([its README](https://github.com/JuggyMcNutty/VibeEngine)).
+dependencies
+([the workspace's list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#dependencies)).
 
 ```sh
 scripts/dx.sh fetch                  # once: the engine, the launcher's branches, the RE
