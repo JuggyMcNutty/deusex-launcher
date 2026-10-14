@@ -3,7 +3,7 @@
  * The engine already resolves Joy1..Joy16, JoyX/Y/Z/R/U/V and JoyPov* through
  * the same binding table as the keyboard (Engine::InputEvent -> InputCommand),
  * so a layout is nothing more than those 26 lines. The fork's gamepad support
- * (engine patch 0003) is what makes the pad produce them.
+ * is what makes the pad produce them.
  *
  * Presets are data. Applying one rewrites every Joy key -- including the ones
  * it leaves empty, so nothing from a previous layout lingers -- and touches

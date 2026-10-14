@@ -192,8 +192,8 @@ static void test_render_heights(void) {
     CHECK(dxl_es_number(s, DXL_ES_RENDER_SCALE) == 0.25);
 
     /* Each offered height is kept as a scale the Video tab recognises again
-     * (within 0.002) and the engine turns back into that size (engine patch
-     * 0009: the native size times the scale as a float, rounded). A step grid
+     * (within 0.002) and the engine turns back into that size (the native
+     * size times the scale as a float, rounded). A step grid
      * would break both: 480 of 720 lines once became 0.65, 832x468. */
     static const int panels[][2] = { { 1280, 720 }, { 1920, 1080 }, { 1366, 768 }, { 1280, 800 } };
     for (size_t p = 0; p < sizeof panels / sizeof *panels; p++) {

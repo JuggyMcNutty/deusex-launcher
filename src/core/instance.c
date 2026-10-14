@@ -98,8 +98,9 @@ void dxl_instance_release(dxl_instance *inst) {
         flock(inst->lock_fd, LOCK_UN);
         close(inst->lock_fd);
     }
-    /* Leaving the (empty) lock file behind is harmless: the lock is on the
-     * descriptor, not the name, so a stale file never blocks anyone. */
+    /* Leaving the lock file behind (it holds the last pid) is harmless: the
+     * lock is on the descriptor, not the name, so a stale file never blocks
+     * anyone. */
     free(inst->lock_path);
     free(inst);
 }
