@@ -5,8 +5,9 @@
 writes the configuration the engine reads and hands over to it. `dxl-cli`
 prints, with no display and writing nothing, what it would decide and write
 (`--dry-run`) and the GPU it finds (`--probe`). It is C11 and SDL2, this
-branch's own, made for the Smart Pro: each port branch has a launcher of its
-own ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)),
+branch's own, made for the Smart Pro: each port branch has a launcher of
+its own
+([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)),
 and how this one differs from linux-x86_64's is
 [the port's README](../ports/trimui-smartpro/README.md#what-differs-from-linux-x86_64).
 It keeps part of the original, which `main` recreates
@@ -70,8 +71,8 @@ has the API it needs (the GPU probe); the picker shows both. The probe runs
 in a forked child with a timeout, before the display comes up, so a driver
 that crashes or hangs costs the child, not the launcher. The port's
 `packaging/renderers.ini` is laid over the base's
-(`ports/common/packaging/renderers.ini`). A launch swaps a renderer that cannot run here for one that can, and logs
-it.
+(`ports/common/packaging/renderers.ini`). A launch swaps a renderer that cannot
+run here for one that can, and logs it.
 
 **CPU mode** (`launcher.ini` `CpuMode`). The device profile's modes
 ([the port's](../ports/trimui-smartpro/README.md#cpu-mode)); the port's

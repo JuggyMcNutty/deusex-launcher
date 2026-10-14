@@ -196,18 +196,18 @@ device shows it, in a desktop font.
 
 Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
 Overclock; milliseconds a frame, averaged over 60 frames, measured with the profiling hooks at
-engine `15392c0`, with Distant AI on: far pawns skipping their thinking. Engine
-`503e90d`, every pawn thinking, measures 16.8 FPS at the level start under Vulkan at 853x480: a
-frame ~60, the tick ~14, the render CPU ~42 with a GPU wait of ~10.5.
+the engine each row names: `503e90d` with every pawn thinking, `15392c0` with Distant AI on, an
+option of that engine's: far pawns skipping their thinking.
 
-| Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
-|---|---|---|---|---|---|
-| Vulkan, 1280x720 (native) | 10.4 | ~96 | ~19 | ~73 | ~31 |
-| Vulkan, 853x480 | 15.0 | ~67 | ~19 | ~44 | ~6 |
-| OpenGL ES, 1280x720 | 12.1 | ~83 | ~19 | ~61 | |
-| OpenGL ES, 853x480 | 14.0 | ~72 | ~16 | ~53 | |
-| UNATCO HQ (indoors), Vulkan, 853x480 | ~32 | | | | |
-| Battery Park (outdoors), Vulkan, 853x480 | ~22 | | | | |
+| Engine | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
+|---|---|---|---|---|---|---|
+| `503e90d` | Vulkan, 853x480 | 16.8 | ~60 | ~14 | ~42 | ~10.5 |
+| `15392c0` | Vulkan, 1280x720 (native) | 10.4 | ~96 | ~19 | ~73 | ~31 |
+| `15392c0` | Vulkan, 853x480 | 15.0 | ~67 | ~19 | ~44 | ~6 |
+| `15392c0` | OpenGL ES, 1280x720 | 12.1 | ~83 | ~19 | ~61 | |
+| `15392c0` | OpenGL ES, 853x480 | 14.0 | ~72 | ~16 | ~53 | |
+| `15392c0` | UNATCO HQ (indoors), Vulkan, 853x480 | ~32 | | | | |
+| `15392c0` | Battery Park (outdoors), Vulkan, 853x480 | ~22 | | | | |
 
 The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
 only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU. The
@@ -216,9 +216,9 @@ is timed).
 
 ### Where a frame goes
 
-Vulkan at native 1280x720 at the level start, from the same runs, in ms, by the frame-time hooks
-and the device's CPU samples, with what is left in each area. The GPU draws the previous frame
-while the input, tick and view run
+Vulkan at native 1280x720 at the level start, from `15392c0`'s runs, in ms, by the frame-time
+hooks and the device's CPU samples, with what is left in each area. The GPU draws the previous
+frame while the input, tick and view run
 ([the Vulkan device](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)),
 and its time is the longer at both resolutions: ~54 at native and ~29 at 853x480, against their
 ~23. So **a frame is about the render CPU plus the GPU's time**: render-CPU and GPU savings
