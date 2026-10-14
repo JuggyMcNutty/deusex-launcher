@@ -1,10 +1,8 @@
-# Port: Linux x86_64 -- the base
+# Port: Linux x86_64 -- the development platform
 
 Desktop Linux (or a handheld PC running it), built natively against the
 distro's SDL2. The unit tests, `dxl-shots`, the engine's Vulkan validation and
-the side-by-side checks of engine changes run here; every other port is this
-one plus what differs for its device
-([`docs/PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md)).
+the side-by-side checks of engine changes run here.
 
 ## Status
 
