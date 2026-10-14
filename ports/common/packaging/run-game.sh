@@ -1,5 +1,5 @@
 #!/bin/sh
-# Hands off from the launcher to the engine. Shared by every port.
+# Hands off from the launcher to the engine.
 #
 # The launcher has already settled configuration (Settings.json, the game's
 # ini files, FirstRun) and created the crash sentinel, and it chdir's to

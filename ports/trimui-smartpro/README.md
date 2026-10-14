@@ -63,6 +63,17 @@ System tab shows the engine log and `run-game.log`'s last run.
 | `packaging/` | the spruceOS app (`config.json`, `launch.sh`, icon), `port-hooks.sh` (vendor library path, CPU mode), `launcher.ini`, `renderers.ini`, `engine-settings.json.default` |
 | `tools/profile-map.sh` | frame-time profile of one map, run on the device |
 
+The launcher's own code differs from linux-x86_64's for this device too:
+
+| What | Here | linux-x86_64 |
+|---|---|---|
+| Window | fullscreen-desktop: the vendor `mali` driver hands out one surface at the panel's size | a 1280x720 window |
+| Device profile | `target.c`, compiled in by `DXL_PROFILE`: the device's fonts, [CPU modes](#cpu-mode), the pad note; `test_target_trimui_smartpro` checks it against `port-hooks.sh` | the generic `target_default.c` |
+| `run-game.sh` | sources `packaging/port-hooks.sh`: the vendor library path, the CPU mode | no hooks |
+| Anti-aliasing | locked off on any PowerVR the GPU probe finds ([engine settings](#engine-settings)) | offered |
+| `Settings.json`'s built-in defaults | MSAA off, VSync off | the engine's: 4x MSAA, VSync on |
+| The pad | L3/R3 not offered, as the pad has none; a layout from before SELECT paused (`retired[]`) is upgraded | L3/R3 offered |
+
 ### The toolchains
 
 The device runs glibc 2.33, so every toolchain is built against 2.33 or older

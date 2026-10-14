@@ -4,9 +4,11 @@
 `System/DeusEx.exe`: a tabbed home screen, for a pad or the keyboard, that
 writes the configuration the engine reads and hands over to it. `dxl-cli`
 prints, with no display and writing nothing, what it would decide and write
-(`--dry-run`) and the GPU it finds (`--probe`). It is C11 and SDL2, the same
-on every port's branch; what differs per device is in
-[`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md).
+(`--dry-run`) and the GPU it finds (`--probe`). It is C11 and SDL2, this
+branch's own, made for the Smart Pro: each port branch has a launcher of its
+own ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)),
+and how this one differs from linux-x86_64's is
+[the port's README](../ports/trimui-smartpro/README.md#what-differs-from-linux-x86_64).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
@@ -71,12 +73,12 @@ own `renderers.ini` (the base's is `ports/common/packaging/renderers.ini`).
 A launch swaps a renderer that cannot run here for one that can, and logs
 it.
 
-**CPU mode** (`launcher.ini` `CpuMode`). Offered only where the device profile
-lists modes
-([the Smart Pro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md#cpu-mode));
-the port's `port-hooks.sh` applies it just before the engine starts
-(`port_before_game`) and restores the previous state after. Elsewhere the row
-is hidden and `CpuMode` is never written.
+**CPU mode** (`launcher.ini` `CpuMode`). The device profile's modes
+([the port's](../ports/trimui-smartpro/README.md#cpu-mode)); the port's
+`port-hooks.sh` applies the chosen one just before the engine starts
+(`port_before_game`) and restores the previous state after. A profile with
+no modes (the host build's generic one) hides the row, and `CpuMode` is
+never written.
 
 **Launch flow** (`app.c`, shared by `main.c` and `cli_main.c`). The home
 screen opens every time, on the tab the entry decision picks
@@ -100,9 +102,9 @@ to stderr. In the app directory, `run-game.sh` appends each run to
 `run-game.log`, and the engine writes
 `home/.config/SurrealEngine/SE-Log-LastRun.txt`; the System tab shows both.
 
-**The device profile** (`platform/target.h`) is a port's `target.c`
+**The device profile** (`platform/target.h`) is the port's `target.c`
 ([what it holds](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#what-a-port-is));
-without one a port gets `platform/target_default.c`, a generic desktop. GPU
+the host build gets `platform/target_default.c`, a generic desktop. GPU
 facts are keyed on the probe instead: `dxl_gpu_msaa_broken`
 (`core/renderers.h`) locks anti-aliasing on any PowerVR the probe finds
 through Vulkan, by the Vulkan device's name, so one seen only through OpenGL
@@ -126,8 +128,8 @@ edits
 - Buttons: A=`Joy1` B=`Joy2` X=`Joy3` Y=`Joy4` L1=`Joy5` R1=`Joy6`
   SELECT=`Joy7` START=`Joy8` L2=`Joy11` R2=`Joy12` (past half travel), d-pad
   `JoyPov*`. The stick clicks, `Joy9`/`Joy10`, are in no preset and not
-  offered: the layouts are made for a pad without them
-  ([the Smart Pro's](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/ports/trimui-smartpro/README.md)).
+  offered: the Smart Pro's pad has none
+  ([as measured](../ports/trimui-smartpro/README.md#the-device-as-measured)).
 - Sticks: `JoyX`/`JoyY` left, `JoyU`/`JoyV` right, up positive, ±100 at full
   deflection after a radial dead zone; the look stick has a response curve.
   The engine multiplies axis input by 16 and the binding's `Speed`, so
@@ -148,19 +150,20 @@ applied, which X restores a single button to.
 
 ## How it is tested
 
-`scripts/dx.sh test` (`scripts/dx.sh test <port>` for a device branch's host
-build) runs the host tests, with no display. The ini round-trip is checked
-byte for byte on stand-ins for the shipped files (`tests/fixtures`), and by
-`test_gamefiles` on a real install when there is one. Each device profile is
-checked against its `port-hooks.sh`: every CPU mode it offers is named in
-the hooks (a loose check: [known defects](#known-defects)), and the hooks
-fall back to its default.
+`scripts/dx.sh test trimui-smartpro` runs the host tests, with no display,
+in this branch's host build (the `linux-x86_64` preset). The ini round-trip
+is checked byte for byte on stand-ins for the shipped files
+(`tests/fixtures`), and by `test_gamefiles` on a real install when there is
+one. The port's device profile is checked against its `port-hooks.sh`
+(`test_target_trimui_smartpro`): every CPU mode it offers is named in the
+hooks (a loose check: [known defects](#known-defects)), and the hooks fall
+back to its default.
 
 `dxl-shots` renders every tab and overlay headlessly at the profile's panel
-size (`DXL_WINDOW`); a host build with `-DDXL_PROFILE=<port>` shows a
-device's screens. `DXL_SIMULATE_CRASH=1` in a launch's environment makes
-`run-game.sh` leave `Running.ini` behind whatever the engine did, so the
-crash banner and Troubleshoot can be tried without a crash.
+size (`DXL_WINDOW`); a host build with `-DDXL_PROFILE=trimui-smartpro` shows
+the Smart Pro's screens. `DXL_SIMULATE_CRASH=1` in a launch's environment
+makes `run-game.sh` leave `Running.ini` behind whatever the engine did, so
+the crash banner and Troubleshoot can be tried without a crash.
 
 ## What it changes from the original
 
