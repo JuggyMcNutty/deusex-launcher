@@ -66,8 +66,8 @@ chosen when the engine build has a backend for it (`renderers.ini`
 has the API it needs (the GPU probe); the picker shows both. The probe runs
 in a forked child with a timeout, before the display comes up, so a driver
 that crashes or hangs costs the child, not the launcher. The list is
-`ports/common/packaging/renderers.ini`. A launch swaps a renderer that cannot run here for one that can, and logs
-it.
+`ports/common/packaging/renderers.ini`. A launch swaps a renderer that cannot
+run here for one that can, and logs it.
 
 **Launch flow** (`app.c`, shared by `main.c` and `cli_main.c`). The home
 screen opens every time, on the tab the entry decision picks
