@@ -44,8 +44,8 @@ target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
 # What is the platform's: replacing this process with another
-# (src/platform/launch.h -- safe mode's relaunch, and the port branches'
-# hand-over), the game the launcher starts and stays with, as the original's
+# (src/platform/launch.h -- safe mode's relaunch), the game the launcher
+# starts and stays with, as the original's
 # process stays with its engine (process.h), and the machine the Detail page
 # asks about (machine.h).
 add_library(dxl_platform STATIC

@@ -5,9 +5,10 @@ desktop Linux from the reverse-engineering record in
 [dx-reverse-info](https://github.com/JuggyMcNutty/dx-reverse-info): its launch
 sequence, its first-run wizard and safe mode, its command line, its crash
 detection and its single-instance handoff. It is part of
-[Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina), which puts
-it together with [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) into
-ports of the game. Made with AI assistance. The recreation is whole: the
+[Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina), which runs
+it with [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) in the game's
+`System` folder; the ports of the game are this repository's other branches.
+Made with AI assistance. The recreation is whole: the
 core (`src/core/`), the launch sequence (`src/launch/`) down every road it
 can end by, the wizard's six pages, the splash and the two message boxes,
 with unit tests for each and a live check of every road a player can take
@@ -22,7 +23,7 @@ are included.
 |---|---|
 | `main` | the original, recreated almost 1:1 -- no additions, no ports |
 | `linux-x86_64` | desktop Linux, where the project is developed: the desktop's launcher ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)) and the app around it |
-| `linux-aarch64` | aarch64 Linux with an ordinary distro: the desktop's launcher, cross-built |
+| `linux-aarch64` | aarch64 Linux with an ordinary distro: the desktop's launcher, cross-built or native |
 | `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): its own launcher, with the device's profile, CPU modes, cross toolchains and packaging |
 
 Each port branch is a launcher of its own. Nothing merges between the
@@ -45,7 +46,7 @@ folder and name.
 While `DeusEx` is there, the original game does not start under Wine or
 Proton: it takes that file for its `DeusEx` package and stops
 ([a package's file](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#packages-and-linkers)).
-`scripts/recreation.sh uninstall` removes the five files.
+`scripts/recreation.sh uninstall` removes the four files.
 
 ## The look
 
@@ -113,8 +114,8 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   one argument (`--cmdline="$1"`) would keep it as given.
 - **`src/launch/launch.c` keeps its own copies of `policy.c`'s bypass and
   splash rules** (`bypass[]`, its splash step) beside its call to
-  `dxl_policy_decide`; of the decision's two fields, `skip_handoff` is read
-  by the ports' launcher alone and `show_splash` by nothing. The fix:
+  `dxl_policy_decide`, and reads neither of the decision's two fields,
+  `skip_handoff` and `show_splash`. The fix:
   `launch.c` takes both from the decision, and the copies go.
 
 ## The game and the launcher
