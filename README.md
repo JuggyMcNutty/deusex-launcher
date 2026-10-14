@@ -32,7 +32,7 @@ another branch comes over by a deliberate cherry-pick
 - [`ports/trimui-smartpro/README.md`](ports/trimui-smartpro/README.md): the
   port, the device as measured, its performance.
 - The other ports, each a branch of its own:
-  [Port Ex Machina's ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#ports).
+  [Port Ex Machina's ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
 - Building and running:
   [Port Ex Machina's quick start](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#quick-start).
 - How ports work:

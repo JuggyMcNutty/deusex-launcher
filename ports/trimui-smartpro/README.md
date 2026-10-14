@@ -7,10 +7,8 @@ here. The launcher is the app the spruceOS menu starts.
 ## Status
 
 The launcher and the engine run on the device, and the game plays on Vulkan or OpenGL ES (the
-Video tab's choice), at 853x480 by default. It is short of
-[the ~20 FPS target](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided):
-[Performance](#performance) has the numbers, and [where a frame goes](#where-a-frame-goes) the
-work left.
+Video tab's choice), at 853x480 by default: [Performance](#performance) has the numbers, and
+[where a frame goes](#where-a-frame-goes) the work left.
 
 ## Build and run
 
