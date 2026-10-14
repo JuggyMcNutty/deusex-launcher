@@ -8,10 +8,10 @@
 # (/usr/trimui/lib), not a self-built one: that vendor build carries a custom
 # "mali" EGL video driver (SDL_malivideo.c) that upstream SDL2 does not have,
 # and the PowerVR stack ships only libpvrNULL_WSEGL.so -- so an upstream
-# KMSDRM build has nothing to draw on. The engine links the device's SDL2, OpenAL
-# and ALSA, and opens EGL, GLESv2 and the Vulkan loader at run time (through SDL
-# and volk); the sysroot carries those too, and zlib, for the probes and for what
-# the libraries link in turn.
+# KMSDRM build has nothing to draw on. The engine links the device's SDL2 and
+# OpenAL, and opens EGL, GLESv2 and the Vulkan loader at run time (through SDL
+# and volk); the sysroot carries those too, and ALSA and zlib, for the probes
+# and for what the libraries link in turn.
 #
 # Headers are pinned: SDL2 and SDL_ttf from the release matching the device's
 # libraries, the rest from exact package versions in the Arch Linux archive
@@ -25,7 +25,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/port.sh"     # the device's address and login
 
 # Bump when anything below changes, so an existing sysroot is rebuilt.
-RECIPE="trimui-smartpro sysroot 2"
+RECIPE="trimui-smartpro sysroot 3"
 
 force=0
 [ "${1:-}" = "--force" ] && { force=1; shift; }
@@ -66,7 +66,6 @@ ln -s libfreetype.so.6       "$SYS/lib/libfreetype.so"
 ln -s libEGL.so              "$SYS/lib/libEGL.so.1"
 ln -s libGLESv2.so           "$SYS/lib/libGLESv2.so.2"
 ln -s libopenal.so           "$SYS/lib/libopenal.so.1"
-ln -s libasound.so.2         "$SYS/lib/libasound.so"
 ln -s libz.so                "$SYS/lib/libz.so.1"
 ln -s libvulkan.so.1         "$SYS/lib/libvulkan.so"
 
@@ -94,13 +93,12 @@ cp "$tmp/SDL2-$SDL_VER/include/"*.h "$SYS/include/SDL2/"
 curl -fsSL --retry 3 -o "$SYS/include/SDL2/SDL_ttf.h" \
     "https://raw.githubusercontent.com/libsdl-org/SDL_ttf/release-$TTF_VER/SDL_ttf.h"
 
-# ---- Vulkan, EGL/GLES/KHR, OpenAL, ALSA headers -----------------------------
+# ---- Vulkan, EGL/GLES/KHR, OpenAL headers -----------------------------------
 say "fetching pinned headers ..."
 dx_fetch_arch_pkg "$tmp/arch" vulkan-headers 1:1.4.357.0-1 any
 dx_fetch_arch_pkg "$tmp/arch" libglvnd       1.7.0-3       x86_64
 dx_fetch_arch_pkg "$tmp/arch" openal         1.25.2-2      x86_64
-dx_fetch_arch_pkg "$tmp/arch" alsa-lib       1.2.16.1-1    x86_64
-for d in vulkan vk_video EGL GLES2 GLES3 KHR AL alsa; do
+for d in vulkan vk_video EGL GLES2 GLES3 KHR AL; do
     cp -a "$tmp/arch/usr/include/$d" "$SYS/include/"
 done
 # Mesa's two EGL extension headers, beside libglvnd's.

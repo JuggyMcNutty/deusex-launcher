@@ -41,7 +41,7 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT
 set(CMAKE_SHARED_LINKER_FLAGS_INIT
     "-static-libstdc++ -static-libgcc -L${TRIMUI_SYSROOT}/lib -Wl,-rpath-link,${TRIMUI_SYSROOT}/lib")
 
-# Device headers/libs (SDL2, EGL, GLES, OpenAL, ALSA, Vulkan loader) come from
+# Device headers/libs (SDL2, EGL, GLES, OpenAL, Vulkan loader) come from
 # the device sysroot; never from the host.
 include_directories(SYSTEM "${TRIMUI_SYSROOT}/include")
 list(APPEND CMAKE_FIND_ROOT_PATH "${TRIMUI_SYSROOT}")
