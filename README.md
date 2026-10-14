@@ -21,15 +21,13 @@ are included.
 | Branch | What it is |
 |---|---|
 | `main` | the original, recreated almost 1:1 -- no additions, no ports |
-| `linux-x86_64` | desktop Linux, where the project is developed: `main` plus the launcher the ports run ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)) and the desktop app around it |
-| `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): `linux-x86_64` plus the device's profile, CPU modes, cross toolchains and packaging |
-| `linux-aarch64` | aarch64 Linux with an ordinary distro: `linux-x86_64`, cross-built |
-| `android` | Android: the plan |
-| `x360` | the Xbox 360: planned, not worked out |
+| `linux-x86_64` | desktop Linux, where the project is developed: the desktop's launcher ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)) and the app around it |
+| `linux-aarch64` | aarch64 Linux with an ordinary distro: the desktop's launcher, cross-built |
+| `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): its own launcher, with the device's profile, CPU modes, cross toolchains and packaging |
 
-`main` is the working base: each port branch is its own variant of it and
-takes `main`'s changes by merge. The port branches share the ports' README,
-which never takes this one
+Each port branch is a launcher of its own. Nothing merges between the
+branches, `main` included: a change crosses only by a deliberate
+cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 
 ## Installing

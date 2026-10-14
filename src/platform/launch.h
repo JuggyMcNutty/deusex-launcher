@@ -6,10 +6,9 @@
  * On POSIX (platform/posix/launch.c) it is exec, with the command line it was
  * given -- rather than fork+wait: nothing of this process stays resident.
  *
- * A platform that cannot start a second program implements this another way.
- * On Android the engine has to run inside the app's own process, so there it
- * would call into the engine library instead (the android branch's
- * ports/android/README.md).
+ * A platform that cannot start a second program implements this another way:
+ * where the engine has to run inside the app's own process, it would call
+ * into the engine library instead.
  */
 #ifndef DXL_LAUNCH_H
 #define DXL_LAUNCH_H
