@@ -6,10 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Types the engine knows (LauncherSettings.cpp), plus GLES, which the fork's
- * GLES backend adds. An unknown Type makes the engine keep its default
- * (Vulkan), so writing one would be a silent no-op. */
-static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", "D3D11", "D3D12", NULL };
+/* Types the engine knows (LauncherSettings.cpp). An unknown Type makes the
+ * engine keep its default (Vulkan), so writing one would be a silent no-op. */
+static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", "D3D11", NULL };
 static const char *const aa_modes[]     = { "Off", "MSAA2x", "MSAA4x", NULL };
 static const char *const light_modes[]  = { "Normal", "OneX", "BrighterActors", NULL };
 static const char *const gamma_modes[]  = { "D3D9", "XOpenGL", NULL };

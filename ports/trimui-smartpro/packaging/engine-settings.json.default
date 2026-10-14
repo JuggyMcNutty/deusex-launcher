@@ -18,14 +18,9 @@
     "LookSensitivityX": 1,
     "LookSensitivityY": 1,
     "InvertY": false,
-    "CursorSpeed": 1,
-    "Layout": "modern"
+    "CursorSpeed": 1
   },
   "Performance": {
     "RenderScale": 0.6666667
-  },
-  "Games": {
-    "SearchList": [],
-    "LastSelected": 0
   }
 }

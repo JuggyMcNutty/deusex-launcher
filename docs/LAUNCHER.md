@@ -18,7 +18,7 @@ Surreal Engine does not read the keys the original launcher writes. It reads:
 
 | File | What the engine takes from it | Who writes it |
 |---|---|---|
-| `<AppDir>/home/.config/SurrealEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; the fork's `Gamepad` and `Performance` blocks | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine saves it only from its own launcher window (`LauncherWindow.cpp`), which `--no-launcher` skips |
+| `<AppDir>/home/.config/SurrealEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; the fork's `Gamepad` and `Performance` blocks | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine only reads it |
 | `System/DeusEx.ini` | Everything else (`[Core.System]` etc.); client settings (`[WinDrv.WindowsClient]` `Brightness`, `Decals`, viewport) **only while there is no** `SE-DeusEx.ini` | The launcher, from `Default.ini` when missing; the game's options |
 | `System/SE-DeusEx.ini` | Written by the engine on its **first clean exit** (`PackageManager::SaveAllIniFiles`), then the **only** one it reads; client settings under `[Engine.SurrealClient]` | The engine; the launcher's client settings when it exists |
 | `System/User.ini`, then `System/SE-User.ini` | Key and pad bindings (`[Engine.Input]`), the same way round | The launcher's pad layouts; the game's key menu |

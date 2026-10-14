@@ -18,11 +18,6 @@
     "LookSensitivityX": 1,
     "LookSensitivityY": 1,
     "InvertY": false,
-    "CursorSpeed": 1,
-    "Layout": "modern"
-  },
-  "Games": {
-    "SearchList": [],
-    "LastSelected": 0
+    "CursorSpeed": 1
   }
 }
