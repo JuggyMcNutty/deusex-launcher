@@ -345,8 +345,8 @@ int dxl_json_save(const dxl_json *v, const char *path, dxl_err *err) {
         size_t len = strlen(text);
         int ok = fwrite(text, 1, len, f) == len;
         ok = (fflush(f) == 0) && ok;
-        /* exFAT on the device: without the sync a power-off after rename can
-         * still leave the new name pointing at unwritten blocks. */
+        /* Without the sync a power-off after rename can leave the new name
+         * pointing at unwritten blocks. */
         ok = (fsync(fileno(f)) == 0) && ok;
         ok = (fclose(f) == 0) && ok;
         if (!ok) {

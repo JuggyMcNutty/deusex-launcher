@@ -1,11 +1,10 @@
 /* System: what went wrong, and ways to put it right.
  *
- * This replaces the original's safe mode. Its eight checkboxes became flags
- * on a relaunch (-nosound, -nohard -noddraw, -defaultres, ...), which Surreal
- * Engine honoured none of when the page was dropped; the fork reads four of
- * them since, but only from the original's line (--cmdline=), which the
- * ports' run-game.sh does not pass -- so here they would still be buttons
- * that do nothing (docs/LAUNCHER.md, row 1). What actually recovers a broken
+ * This replaces the original's safe mode, whose eight checkboxes become
+ * flags on a relaunch (-nosound, -nohard -noddraw, -defaultres, ...). The
+ * engine reads four of them, but only from the original's line
+ * (--cmdline=), which this port's run-game.sh does not pass -- so here they
+ * would be buttons that do nothing (docs/LAUNCHER.md, row 1). What actually recovers a broken
  * install here is below: the engine's own log, clearing the crash marker,
  * and putting each kind of configuration back.
  */
