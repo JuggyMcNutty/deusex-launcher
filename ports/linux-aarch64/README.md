@@ -7,8 +7,8 @@ desktop-style SDL2. The same generic device profile and
 
 ## Status
 
-The launcher cross-builds warning-free, with `GLIBC_2.17` symbols only. Not yet
-run on an aarch64 device.
+The launcher cross-builds warning-free, with `GLIBC_2.17` symbols only. Untried
+on an aarch64 device.
 
 ## Build and run
 

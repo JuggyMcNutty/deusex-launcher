@@ -5,7 +5,7 @@ PORT_DESC="Linux aarch64, ordinary distros (cross-built launcher, or native)"
 native() { [ "$(uname -m)" = aarch64 ] || [ "$(uname -m)" = arm64 ]; }
 
 # On an aarch64 machine this port is a native build, engine included. Cross
-# built from a PC, it is the launcher only for now: the engine needs a C++20
+# built from a PC, it is the launcher only: the engine would need a C++20
 # toolchain and a much larger sysroot (see README.md).
 if native; then PORT_ENGINE=1; else PORT_ENGINE=0; fi
 
