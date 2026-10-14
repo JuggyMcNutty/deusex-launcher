@@ -33,12 +33,12 @@ cherry-pick
 ## Installing
 
 `DeusEx` goes in the game's `System/` folder beside the original's
-`DeusEx.exe`, with `run-game.sh` and VibeEngine's `SurrealEngine`,
-`libSurrealVideo.so` and `SurrealEngine.pk3`. Port Ex Machina's
+`DeusEx.exe`, with `run-game.sh` and VibeEngine's `SurrealEngine` and
+`SurrealEngine.pk3`. Port Ex Machina's
 [`scripts/recreation.sh`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/scripts/recreation.sh)
 puts them there (`build`, then `install [<GameDir>]`); by hand,
 `cmake --install build --prefix <GameDir>/System` and copy in the engine's
-three files. Start `System/DeusEx` with the original's command line, from
+two files. Start `System/DeusEx` with the original's command line, from
 anywhere: like the original, it finds the game and its package by its own
 folder and name.
 

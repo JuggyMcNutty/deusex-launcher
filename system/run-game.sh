@@ -17,8 +17,6 @@ if [ ! -x "$engine" ]; then
     exit 127
 fi
 
-# libSurrealVideo.so is beside the engine.
-export LD_LIBRARY_PATH="$here${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # SDL2: the display backend with the fork's pad support.
 export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL2}"
 
