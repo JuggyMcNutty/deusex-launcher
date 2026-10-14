@@ -12,3 +12,6 @@ set(ENABLE_SDL3    OFF CACHE BOOL "" FORCE)
 set(ENABLE_SDL2    ON  CACHE BOOL "" FORCE)
 set(ENABLE_X11     OFF CACHE BOOL "" FORCE)
 set(ENABLE_WAYLAND OFF CACHE BOOL "" FORCE)
+# Fullscreen as a borderless window covering the display: the vendor SDL2
+# deadlocks switching a GL window with SDL_SetWindowFullscreen.
+set(VIBE_SDL2_BORDERLESS_FULLSCREEN ON CACHE BOOL "" FORCE)

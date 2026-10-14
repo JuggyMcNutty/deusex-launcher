@@ -56,7 +56,7 @@ System tab shows the engine log and `run-game.log`'s last run.
 |---|---|
 | `port.cmake` | links the device's vendor SDL2 from the sysroot; glibc ceiling 2.33 |
 | `toolchain-c.cmake`, `toolchain-cxx.cmake` | Bootlin GCC 9.3 (launcher, C11) and GCC 10.3 (engine, C++20) |
-| `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland |
+| `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland; fullscreen as a borderless window (`VIBE_SDL2_BORDERLESS_FULLSCREEN`) |
 | `port.sh` | the device's address; `deps`, `deploy` over SSH, `profile` on the device |
 | `fetch-sysroot.sh` | the link sysroot: libraries off the device, pinned headers |
 | `target.c` | the device profile: fonts, spruceOS CPU modes, the pad note |
