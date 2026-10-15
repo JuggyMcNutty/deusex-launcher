@@ -7,9 +7,9 @@ it is `main`'s launcher, the original recreated almost 1:1
 ([`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md)),
 with the desktop's port around it; the desktop's own launcher is planned
 ([Port Ex Machina's to-do list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
-It hands over to
-[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine). Made with AI
-assistance.
+It starts
+[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and waits for it.
+Made with AI assistance.
 
 You need your own copy of Deus Ex (version 1112fm); none of the game's files
 are included.
