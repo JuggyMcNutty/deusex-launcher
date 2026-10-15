@@ -44,7 +44,7 @@ The engine also starts on its own, straight into a map
 | File | What it is |
 |---|---|
 | `port.cmake` | system SDL2 through pkg-config |
-| `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the gamepad support; `run-game.sh` asks for SDL2 at run time |
+| `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support; `run-game.sh` asks for SDL2 at run time |
 | `port.sh` | `deps` checks for SDL2 and SDL2_ttf; `stage` points a fresh app at `gamefiles/`; `run` starts the staged launcher |
 
 The device profile (`src/platform/target_default.c`) and
