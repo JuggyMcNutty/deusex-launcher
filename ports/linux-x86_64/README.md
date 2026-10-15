@@ -1,13 +1,16 @@
 # Port: Linux x86_64 -- the development platform
 
 Desktop Linux (or a handheld PC running it), built natively against the
-distro's SDL2. The unit tests, `dxl-shots`, the engine's Vulkan validation and
-the side-by-side checks of engine changes run here.
+distro's SDL2. The unit tests, the engine's Vulkan validation and the
+side-by-side checks of engine changes run here.
 
 ## Status
 
-Under heavy development: the staged app's launcher and engine run the game
-([verified](#verified)), not yet fully playable
+The launcher is `main`'s for now, the original recreated
+([`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md));
+the desktop's own is planned
+([to do](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
+The engine runs the game, not yet fully playable
 ([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
 ## Build and run
@@ -22,19 +25,22 @@ scripts/dx.sh fetch                  # once: the engine, the launcher's branches
 scripts/dx.sh deps  linux-x86_64     # only checks for SDL2 and SDL2_ttf
 scripts/dx.sh build linux-x86_64     # launcher, then engine
 scripts/dx.sh test                   # unit tests
-scripts/dx.sh stage linux-x86_64     # build/linux-x86_64/app
+scripts/dx.sh stage linux-x86_64     # build/linux-x86_64/app: DeusEx and the engine
 scripts/dx.sh run   linux-x86_64
 ```
 
-A freshly staged app's `launcher.ini` points `GameDir` at the `gamefiles/`
-beside the repositories, when there is one; edit it for another install. The
-launcher and the engine write their configuration into that game's
-`System/`, as the game would.
+`DeusEx` finds the game by its own folder, as the original's does, so `run`
+puts the staged app into the `System/` of the `gamefiles/` beside the
+repositories and starts `System/DeusEx` there, with the command line given
+to `run`. While `DeusEx` is there the original does not start under Wine or
+Proton; Port Ex Machina's `scripts/recreation.sh uninstall` takes the four
+files out.
 
-`run-game.sh` pins `HOME` to the app's `home/`, so the engine's
-`Settings.json` and logs are in
-`build/linux-x86_64/app/home/.config/SurrealEngine`, where the launcher reads
-and writes them, and your own `~/.config/SurrealEngine` is left alone.
+The game's settings are the original's: `run-game.sh` gives the engine the
+game's own `DeusEx.ini` and `User.ini`. The engine takes its renderer and
+the fork's own settings from `~/.config/SurrealEngine/Settings.json`, which
+`main`'s launcher does not write; without one, from its own defaults
+([settings and environment](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-and-environment)).
 
 The engine also starts on its own, straight into a map
 ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
@@ -43,21 +49,18 @@ The engine also starts on its own, straight into a map
 
 | File | What it is |
 |---|---|
-| `port.cmake` | system SDL2 through pkg-config |
+| `port.cmake` | system SDL2 through pkg-config, which `DeusEx` takes |
 | `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support; `run-game.sh` asks for SDL2 at run time |
-| `port.sh` | `deps` checks for SDL2 and SDL2_ttf; `stage` points a fresh app at `gamefiles/`; `run` starts the staged launcher |
+| `port.sh` | `deps` checks for SDL2 and SDL2_ttf; `run` puts the staged app in `gamefiles/System` and starts `DeusEx` there |
 
-The device profile (`src/platform/target_default.c`) and
-`ports/common/packaging` are this port's, so it has no `packaging/` of its
-own.
+Beside them, at the branch's root: the port's preset in `CMakePresets.json`
+and its include in `CMakeLists.txt`. The rest is `main`'s.
 
 ## Verified
 
-- Arch Linux, AMD GPU (Mesa's RADV and radeonsi): `dxl-cli --probe` finds
-  Vulkan 1.4 and OpenGL, both selectable; the staged app's `run-game.sh` runs
-  the engine on `gamefiles/`, Vulkan with bindless textures.
-- `DXL_NO_HOME=1` takes the staged launcher straight into Liberty Island;
-  unattended engine runs drive saves, loads and hub travel
+- Arch Linux, AMD GPU (Mesa's RADV and radeonsi): `run` starts `DeusEx`,
+  which starts the engine on `gamefiles/`; unattended engine runs drive
+  saves, loads and hub travel
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas
