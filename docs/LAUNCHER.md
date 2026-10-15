@@ -8,7 +8,7 @@ prints, with no display and writing nothing, what it would decide and write
 branch's own, made for the Smart Pro: each port branch has a launcher of
 its own
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)),
-and how this one differs from linux-x86_64's is
+and how this one differs from linux-aarch64's is
 [the port's README](../ports/trimui-smartpro/README.md#what-differs-from-linux-x86_64).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).

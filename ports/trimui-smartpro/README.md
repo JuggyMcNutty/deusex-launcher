@@ -61,9 +61,10 @@ System tab shows the engine log and `run-game.log`'s last run.
 | `packaging/` | the spruceOS app (`config.json`, `launch.sh`, icon), `port-hooks.sh` (vendor library path, CPU mode), `launcher.ini`, `renderers.ini`, `engine-settings.json.default` |
 | `tools/profile-map.sh` | frame-time profile of one map, run on the device |
 
-The launcher's own code differs from linux-x86_64's for this device too:
+The launcher's own code differs from linux-aarch64's, the same tabbed launcher without the
+device's choices, for this device too (linux-x86_64 builds `main`'s for now):
 
-| What | Here | linux-x86_64 |
+| What | Here | linux-aarch64 |
 |---|---|---|
 | Window | fullscreen-desktop: the vendor `mali` driver hands out one surface at the panel's size | a 1280x720 window |
 | Device profile | `target.c`, compiled in by `DXL_PROFILE`: the device's fonts, [CPU modes](#cpu-mode), the pad note; `test_target_trimui_smartpro` checks it against `port-hooks.sh` | the generic `target_default.c` |
