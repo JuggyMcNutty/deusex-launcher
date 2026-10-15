@@ -22,13 +22,13 @@ are included.
 | Branch | What it is |
 |---|---|
 | `main` | the original, recreated almost 1:1 -- no additions, no ports |
-| `linux-x86_64` | desktop Linux, where the project is developed: the desktop's launcher ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)) and the app around it |
-| `linux-aarch64` | aarch64 Linux with an ordinary distro: the desktop's launcher, cross-built or native |
+| `linux-x86_64` | desktop Linux, where the project is developed: this launcher for now, with the desktop's port around it; the desktop's own launcher is planned |
+| `linux-aarch64` | aarch64 Linux with an ordinary distro: its own launcher, a tabbed home screen ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-aarch64/docs/LAUNCHER.md)), cross-built or native |
 | `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): its own launcher, with the device's profile, CPU modes, cross toolchains and packaging |
 
-Each port branch is a launcher of its own. Nothing merges between the
-branches, `main` included: a change crosses only by a deliberate
-cherry-pick
+Each port branch is a launcher of its own, but linux-x86_64 for now.
+Nothing merges between the branches, `main` included: a change crosses
+only by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 
 ## Installing
