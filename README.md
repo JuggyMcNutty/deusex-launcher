@@ -18,7 +18,7 @@ are included.
 
 `linux-x86_64` is the default of its platform, desktop Linux on x86_64,
 built natively: `main`'s source, and the port (`ports/linux-x86_64`, its
-preset in `CMakePresets.json`, its include in `CMakeLists.txt`). It builds
+preset in `CMakePresets.json`, its block in `CMakeLists.txt`). It builds
 `DeusEx`, `pageshots` and the tests. Nothing merges into it, `main`
 included: a change from another branch comes over by a deliberate
 cherry-pick

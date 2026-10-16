@@ -54,7 +54,8 @@ The engine also starts on its own, straight into a map
 | `port.sh` | `deps` checks for SDL2 and SDL2_ttf; `run` puts the staged app in `gamefiles/System` and starts `DeusEx` there |
 
 Beside them, at the branch's root: the port's preset in `CMakePresets.json`
-and its include in `CMakeLists.txt`. The rest is `main`'s.
+and its block in `CMakeLists.txt`, linux-aarch64's too: where SDL2 comes
+from, a cross build's glibc ceiling. The rest is `main`'s.
 
 ## Verified
 

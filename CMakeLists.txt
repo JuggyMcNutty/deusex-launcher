@@ -13,11 +13,25 @@ add_compile_options(-Wall -Wextra -Wshadow -Wvla -Wno-unused-parameter)
 
 set(DXL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# The port, Port Ex Machina's linux-x86_64 (its docs/PORTING.md): main's
-# launcher, with the desktop's port around it. Its port.cmake names the
-# distro's SDL2, which DeusEx takes through pkg-config below.
+# The port, one of Port Ex Machina's (its docs/PORTING.md): main's launcher,
+# with the port around it. ports/<DXL_PORT>/port.cmake says where SDL2 comes
+# from -- the system's through pkg-config, or a cross build's sysroot -- and
+# a cross build's glibc ceiling, checked after each build: a binary that
+# needs a newer glibc than the device has will not load there.
 set(DXL_PORT "linux-x86_64" CACHE STRING "Port to build for: a directory under ports/")
+set(DXL_PORT_SDL system)        # system: pkg-config; sysroot: DXL_PORT_SYSROOT
+set(DXL_PORT_SYSROOT "")        # headers and libraries of the device, when cross
+set(DXL_PORT_GLIBC_MAX "")      # e.g. 2.31: fail the build on any newer symbol
+set(DXL_PORT_LINK_OPTIONS "")   # extra link options for DeusEx
 include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
+
+function(dxl_check_abi target)
+    if(DXL_PORT_GLIBC_MAX)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${DXL_ROOT}/scripts/check-abi.sh" --max "${DXL_PORT_GLIBC_MAX}" "$<TARGET_FILE:${target}>"
+            COMMENT "checking glibc ABI of ${target} against ${DXL_PORT_GLIBC_MAX}")
+    endif()
+endfunction()
 
 # ---------------------------------------------------------------------------
 # core -- the original launcher's behaviour, recreated: its ini handling, its
@@ -74,8 +88,20 @@ target_link_libraries(dxl_launch PUBLIC dxl_platform)
 # ---------------------------------------------------------------------------
 option(DXL_SCREENS "Build DeusEx and its screens (needs SDL2 and SDL2_ttf)" ON)
 if(DXL_SCREENS)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2 SDL2_ttf)
+    add_library(dxl_sdl INTERFACE)
+    if(DXL_PORT_SDL STREQUAL "sysroot")
+        if(NOT EXISTS "${DXL_PORT_SYSROOT}/include/SDL2/SDL.h")
+            message(FATAL_ERROR "no SDL2 in ${DXL_PORT_SYSROOT} -- run scripts/dx.sh deps ${DXL_PORT}")
+        endif()
+        target_include_directories(dxl_sdl INTERFACE "${DXL_PORT_SYSROOT}/include" "${DXL_PORT_SYSROOT}/include/SDL2")
+        target_link_directories(dxl_sdl INTERFACE "${DXL_PORT_SYSROOT}/lib")
+        target_link_libraries(dxl_sdl INTERFACE SDL2 SDL2_ttf)
+        target_link_options(dxl_sdl INTERFACE ${DXL_PORT_LINK_OPTIONS})
+    else()
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2 SDL2_ttf)
+        target_link_libraries(dxl_sdl INTERFACE PkgConfig::SDL2)
+    endif()
 
     add_library(dxl_gui STATIC
         src/gui/gui.c
@@ -84,10 +110,11 @@ if(DXL_SCREENS)
         src/gui/splash.c
         src/wizard/wizard.c
     )
-    target_link_libraries(dxl_gui PUBLIC dxl_platform PkgConfig::SDL2)
+    target_link_libraries(dxl_gui PUBLIC dxl_platform dxl_sdl)
 
     add_executable(DeusEx src/launch/winmain.c)
     target_link_libraries(DeusEx PRIVATE dxl_launch dxl_gui)
+    dxl_check_abi(DeusEx)
     install(TARGETS DeusEx RUNTIME DESTINATION .)
     # What DeusEx starts the game with: the engine installed beside it.
     install(PROGRAMS system/run-game.sh DESTINATION .)
