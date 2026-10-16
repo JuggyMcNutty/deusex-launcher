@@ -11,6 +11,8 @@ static void test_param_requires_a_dash(void) {
     CHECK_INT(dxl_cmd_param("DX.dx -safe", "safe"), 1);
     CHECK_INT(dxl_cmd_param("-safe -log", "safe"), 1);
     CHECK_INT(dxl_cmd_param("-log -safe", "safe"), 1);
+    CHECK_INT(dxl_cmd_param("DXMP_Silo?game=DeusEx.DeathMatchGame?-server?log=server.log", "server"), 1);
+    CHECK_INT(dxl_cmd_param("DXMP_Silo?game=DeusEx.DeathMatchGame?-serverx", "server"), 0);
 
     /* No leading dash: not a param. This is the difference from appStrfind. */
     CHECK_INT(dxl_cmd_param("safe", "safe"), 0);
@@ -96,9 +98,11 @@ static void test_join(void) {
     free(j);
 }
 
-/* argv[0] is excluded from the joined command line. If it were not, a launcher
- * living in a directory called ".../Server/" would permanently skip the
- * single-instance handoff. */
+/* argv[0] is excluded from the joined command line, the one core/policy.c
+ * reads: a launcher living in a directory called
+ * ".../Server/" still hands over to a running one. main's launch sequence
+ * checks the bypass words on the raw line instead, the program's path
+ * included, as the original does (dx-reverse-info/launch-flow.md). */
 static void test_join_excludes_argv0(void) {
     char *argv[] = { "/mnt/SDCARD/Roms/Server/deusex-launcher", "-log" };
     char *j = dxl_cmdline_join(2, argv);

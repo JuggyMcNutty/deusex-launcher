@@ -3,10 +3,15 @@
 This branch is the launcher of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina)'s port
 for aarch64 devices with an ordinary distro, run in place of Deus Ex's
-`System/DeusEx.exe`: a tabbed home screen, for a pad or the keyboard, that
-writes the configuration the engine reads and hands over to
-[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine). Made with AI
-assistance.
+`System/DeusEx.exe`. For now it is `main`'s launcher, the original recreated
+almost 1:1
+([`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md)),
+with the port around it; the desktop's own launcher, this branch's and
+linux-x86_64's, is planned
+([Port Ex Machina's to-do list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
+It starts
+[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and waits for it.
+Made with AI assistance.
 
 You need your own copy of Deus Ex (version 1112fm); none of the game's files
 are included.
@@ -14,20 +19,18 @@ are included.
 ## The branch
 
 `linux-aarch64` is the default of its platform, Linux on aarch64 with an
-ordinary distro, cross-built from a PC or built natively: the launcher
-([`docs/LAUNCHER.md`](docs/LAUNCHER.md)), the app it ships in
-(`ports/common/packaging`) and the port (`ports/linux-aarch64`), with no
-device's own choices. Cross-built it makes `deusex-launcher` and `dxl-cli`;
-its host build, `ports/linux-x86_64/port.cmake` and its preset, makes
-`dxl-shots` and runs the core's unit tests. Nothing merges into it, `main`
-included: a change from another branch comes over by a deliberate
-cherry-pick
+ordinary distro, cross-built from a PC or built natively: `main`'s source,
+and the port (`ports/linux-aarch64`, its preset in `CMakePresets.json`, its
+block in `CMakeLists.txt`). Cross-built it makes `DeusEx` and `pageshots`;
+its host build, `ports/linux-x86_64/port.cmake` and its preset, makes them
+for the PC and runs the tests. Nothing merges into it, `main` included: a
+change from another branch comes over by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 
 ## Where to read
 
-- [`docs/LAUNCHER.md`](docs/LAUNCHER.md): the launcher, from the settings
-  the engine reads to its known defects.
+- [`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md):
+  the launcher, from its screens to its known defects.
 - [`ports/linux-aarch64/README.md`](ports/linux-aarch64/README.md): the port.
 - The other ports, each a branch of its own:
   [Port Ex Machina's ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
@@ -35,8 +38,6 @@ cherry-pick
   [Port Ex Machina's quick start](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#quick-start).
 - How ports work:
   [`PORTING.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md).
-- The recreation, `main`'s program:
-  [`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md).
 
 ## License
 

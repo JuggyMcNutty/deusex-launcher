@@ -1,14 +1,17 @@
 # Port: Linux aarch64
 
-The launcher, a tabbed home screen, and the engine for aarch64 devices running
-an ordinary distro: Raspberry Pi OS, Debian, Ubuntu, and handheld images with
-a normal glibc userland, Mesa and a desktop-style SDL2. The generic device
-profile and `ports/common/packaging`.
+`main`'s launcher and the engine for aarch64 devices running an ordinary
+distro: Raspberry Pi OS, Debian, Ubuntu, and handheld images with a normal
+glibc userland, Mesa and a desktop-style SDL2.
 
 ## Status
 
-The launcher cross-builds warning-free, with `GLIBC_2.17` symbols only. Untried
-on an aarch64 device.
+The launcher is `main`'s for now
+([`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md));
+the desktop's own is planned
+([to do](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
+It cross-builds warning-free, needing glibc 2.27 at most. Untried on an
+aarch64 device.
 
 ## Build and run
 
@@ -32,18 +35,19 @@ scripts/dx.sh build linux-aarch64       # launcher and engine
 scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64
 ```
 
+Natively, `run` puts the staged app into the `System/` of the `gamefiles/`
+beside the repositories and starts `System/DeusEx` there, as linux-x86_64's
+does
+([its README](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#build-and-run)).
+
 ## What differs from linux-x86_64
 
 | File | What it is |
 |---|---|
-| `port.cmake` | a cross build links SDL2 from `deps/sysroots/linux-aarch64` with a 2.31 ceiling; a native build uses the system's |
+| `port.cmake` | a cross build links SDL2 from `deps/sysroots/linux-aarch64` with a 2.31 ceiling, which `CMakeLists.txt` checks `DeusEx` against after each build (`scripts/check-abi.sh`); a native build uses the system's |
 | `toolchain-c.cmake` | Bootlin GCC 9.3 / glibc 2.31; does nothing on an aarch64 host |
 | `engine.cmake` | the engine, native builds only |
-| `port.sh` | `deps` fetches the toolchain and builds the sysroot from Debian bookworm's arm64 packages (`libsdl2`, `libsdl2-ttf`, and the Vulkan and EGL headers the GPU probe compiles against); `run` works natively |
-
-The launcher differs too: this branch's own, a tabbed home screen
-([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)), where linux-x86_64 builds
-`main`'s for now.
+| `port.sh` | `deps` fetches the toolchain and builds the sysroot from Debian bookworm's arm64 packages (`libsdl2`, `libsdl2-ttf`); `run` works natively, as linux-x86_64's |
 
 The glibc 2.31 ceiling means the cross-built launcher loads on any distro from
 2020 on. Cross-building the engine needs the C++20 toolchain and a sysroot with
