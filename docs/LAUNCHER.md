@@ -6,9 +6,9 @@ writes the configuration the engine reads and hands over to it. `dxl-cli`
 prints, with no display and writing nothing, what it would decide and write
 (`--dry-run`) and the GPU it finds (`--probe`). It is C11 and SDL2, this
 branch's own, made for the Smart Pro: each port branch has a launcher of
-its own, but linux-x86_64, which builds `main`'s for now
+its own, but linux-x86_64 and linux-aarch64, which build `main`'s for now
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)),
-and how this one differs from linux-aarch64's is
+and its choices for the device are
 [the port's README](../ports/trimui-smartpro/README.md#what-differs-from-linux-x86_64).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).

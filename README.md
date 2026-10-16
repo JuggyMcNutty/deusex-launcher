@@ -15,7 +15,7 @@ are included.
 
 `trimui-smartpro` is the Smart Pro's own launcher, cross-built against the
 device's libraries: the launcher with the handheld's choices
-([`docs/LAUNCHER.md`](docs/LAUNCHER.md); how it differs from linux-aarch64's:
+([`docs/LAUNCHER.md`](docs/LAUNCHER.md); its choices for the device:
 [the port's README](ports/trimui-smartpro/README.md#what-differs-from-linux-x86_64)),
 the app it ships in (`ports/common/packaging`, with the port's `packaging/`
 over it) and the port (`ports/trimui-smartpro`). Cross-built it makes

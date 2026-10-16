@@ -61,17 +61,17 @@ System tab shows the engine log and `run-game.log`'s last run.
 | `packaging/` | the spruceOS app (`config.json`, `launch.sh`, icon), `port-hooks.sh` (vendor library path, CPU mode), `launcher.ini`, `renderers.ini`, `engine-settings.json.default` |
 | `tools/profile-map.sh` | frame-time profile of one map, run on the device |
 
-The launcher's own code differs from linux-aarch64's, the same tabbed launcher without the
-device's choices, for this device too (linux-x86_64 builds `main`'s for now):
+The launcher is this branch's own, the tabbed home screen (linux-x86_64 and linux-aarch64 build
+`main`'s for now); its code makes these choices for the device:
 
-| What | Here | linux-aarch64 |
-|---|---|---|
-| Window | fullscreen-desktop: the vendor `mali` driver hands out one surface at the panel's size | a 1280x720 window |
-| Device profile | `target.c`, compiled in by `DXL_PROFILE`: the device's fonts, [CPU modes](#cpu-mode), the pad note; `test_target_trimui_smartpro` checks it against `port-hooks.sh` | the generic `target_default.c` |
-| `run-game.sh` | sources `packaging/port-hooks.sh`: the vendor library path, the CPU mode | no hooks |
-| Anti-aliasing | locked off on any PowerVR the GPU probe finds ([engine settings](#engine-settings)) | offered |
-| `Settings.json`'s built-in defaults | MSAA off, VSync off | the engine's: 4x MSAA, VSync on |
-| The pad | L3/R3 not offered, as the pad has none; a retired preset (`retired[]`) is upgraded | L3/R3 offered |
+| What | Here |
+|---|---|
+| Window | fullscreen-desktop: the vendor `mali` driver hands out one surface at the panel's size |
+| Device profile | `target.c`, compiled in by `DXL_PROFILE`: the device's fonts, [CPU modes](#cpu-mode), the pad note; `test_target_trimui_smartpro` checks it against `port-hooks.sh` |
+| `run-game.sh` | sources `packaging/port-hooks.sh`: the vendor library path, the CPU mode |
+| Anti-aliasing | locked off on any PowerVR the GPU probe finds ([engine settings](#engine-settings)) |
+| `Settings.json`'s built-in defaults | MSAA off, VSync off |
+| The pad | L3/R3 not offered, as the pad has none; a retired preset (`retired[]`) is upgraded |
 
 ### The toolchains
 
