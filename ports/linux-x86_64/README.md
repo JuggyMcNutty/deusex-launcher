@@ -53,9 +53,10 @@ The engine also starts on its own, straight into a map
 | `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support; `run-game.sh` asks for SDL2 at run time |
 | `port.sh` | `deps` checks for SDL2 and SDL2_ttf; `run` puts the staged app in `gamefiles/System` and starts `DeusEx` there |
 
-Beside them, at the branch's root: the port's preset in `CMakePresets.json`
-and its block in `CMakeLists.txt`, linux-aarch64's too: where SDL2 comes
-from, a cross build's glibc ceiling. The rest is `main`'s.
+Beside them, at the branch's root: the port's preset in `CMakePresets.json`,
+and its block in `CMakeLists.txt` with the `scripts/check-abi.sh` it runs,
+both linux-aarch64's too: where SDL2 comes from, and a cross build's glibc
+ceiling, checked after each build; this port has none. The rest is `main`'s.
 
 ## Verified
 
