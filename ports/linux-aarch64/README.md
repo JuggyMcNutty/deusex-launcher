@@ -49,9 +49,10 @@ does
 | `engine.cmake` | the engine, native builds only |
 | `port.sh` | `deps` fetches the toolchain and builds the sysroot from Debian bookworm's arm64 packages (`libsdl2`, `libsdl2-ttf`); `run` works natively, as linux-x86_64's |
 
-The glibc 2.31 ceiling means the cross-built launcher loads on any distro from
-2020 on. Cross-building the engine needs the C++20 toolchain and a sysroot with
-the engine's libraries (SDL2, OpenAL, zlib, ...).
+The glibc 2.31 ceiling keeps the cross-built launcher off newer glibc symbols;
+it also needs SDL2 2.0.16 and SDL2_ttf 2.0.18 or later, as in Debian 12 or
+Ubuntu 22.04. Cross-building the engine needs the C++20 toolchain and a sysroot
+with the engine's libraries (SDL2, OpenAL, zlib, ...).
 
 A GPU without descriptor indexing or some texture formats takes the Vulkan
 device's other paths

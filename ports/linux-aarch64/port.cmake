@@ -3,8 +3,8 @@
 #
 # Built natively on an aarch64 machine it is the same as linux-x86_64. Cross
 # built from a PC, it links SDL2 from a sysroot made of Debian bookworm arm64
-# packages (port.sh) with the glibc 2.31 toolchain, so the binary loads on any
-# distro from 2020 on.
+# packages (port.sh) with the glibc 2.31 toolchain, so the binary loads on a
+# distro with glibc 2.31, SDL2 2.0.16 and SDL2_ttf 2.0.18 or later.
 if(CMAKE_CROSSCOMPILING)
     set(DXL_PORT_SDL       sysroot)
     set(DXL_PORT_SYSROOT   "${DXL_ROOT}/deps/sysroots/linux-aarch64")
