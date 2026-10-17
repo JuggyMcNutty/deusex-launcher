@@ -88,6 +88,9 @@ add_library(dxl_core STATIC
     src/core/engine_sections.c
     src/core/padcurve.c
     src/core/padmap.c
+    src/core/upkg.c
+    src/core/upkg_assets.c
+    src/core/theme_colors.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
