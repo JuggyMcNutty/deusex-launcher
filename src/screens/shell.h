@@ -39,6 +39,7 @@
 #include "core/settings.h"
 #include "core/theme_colors.h"
 #include "ui/art.h"
+#include "ui/audio.h"
 #include "ui/glyphs.h"
 #include "ui/kit.h"
 #include "ui/osk.h"
@@ -243,6 +244,16 @@ typedef struct dxl_shell {
     /* The install's art the window wears (ui/art.h): its renderer's
      * textures, let go with the window. */
     dxl_art      art;
+    /* The install's title music and menu sounds, read once for it
+     * (sounds_from its folder), and the window's sound that plays them
+     * (ui/audio.h; NULL offscreen or with no output), given them once. */
+    uint8_t     *music;
+    size_t       music_len;
+    uint8_t     *sounds[DXL_SOUND_COUNT];
+    size_t       sound_len[DXL_SOUND_COUNT];
+    char         sounds_from[1024];
+    dxl_audio   *audio;
+    int          audio_given;
 
     /* The GPU this machine has, as dxl-cli --probe --ini answers in the
      * window's worker (start_probe): 0 not asked, 1 asked, 2 known; and
@@ -286,6 +297,13 @@ void        dxl_shell_ask_engine(dxl_shell *s);
 /* The window in the player's menu theme -- User.ini's MenuThemeName, the
  * install's colours of it -- else the Default's, the kit's own. */
 void        dxl_shell_theme(dxl_shell *s);
+/* The install's title music and menu sounds read, and given the window's
+ * sound when it has one, the music begun, at launcher.ini's volumes. */
+void        dxl_shell_sound(dxl_shell *s);
+/* launcher.ini's volumes on the window's sound. */
+void        dxl_shell_volumes(dxl_shell *s);
+/* The menu sound of a frame's cues (the kit's DXL_CUE_*), the most telling. */
+void        dxl_shell_cue(dxl_shell *s, int cues);
 /* The install chosen: on the first run the profile to be made from it, on
  * Your profile; else the profile pointed at it, and the screen done -- or,
  * asked for from a page but Recovery, that page again. */

@@ -1,13 +1,16 @@
-# The libraries the launcher's window is built with -- SDL3 and SDL3_ttf --
-# as the INTERFACE target dxl_sdl. DXL_PORT_DEPS (its default the port's
-# port.cmake's DXL_PORT_DEPS_DEFAULT; -DDXL_PORT_DEPS= names another):
+# The libraries the launcher's window is built with -- SDL3, SDL3_ttf and
+# libxmp, the title music's player -- as the INTERFACE target dxl_sdl.
+# DXL_PORT_DEPS (its default the port's port.cmake's DXL_PORT_DEPS_DEFAULT;
+# -DDXL_PORT_DEPS= names another):
 #
-#   system    the system's, through pkg-config (sdl3, sdl3-ttf)
+#   system    the system's, through pkg-config (sdl3, sdl3-ttf, libxmp)
 #   vendored  built here, static, from the sources cmake/deps.lock pins,
 #             fetched into DXL_DEPS_SRC (deps/cache/src) beforehand: SDL3
 #             with its window and audio backends opened at run time, so the
 #             programs need only the C library; FreeType with no HarfBuzz,
-#             PNG, bzip2 or Brotli, for SDL3_ttf
+#             PNG, bzip2 or Brotli, for SDL3_ttf; libxmp-lite, which plays
+#             the IT module the launcher takes out of the title music's
+#             package (DXL_XMP_LITE)
 #   auto      the system's when pkg-config has them, else vendored
 #
 # A cross build's vendored libraries see the port's sysroot through
@@ -20,12 +23,12 @@ set(dxl_deps_mode "${DXL_PORT_DEPS}")
 if(dxl_deps_mode STREQUAL "auto" OR dxl_deps_mode STREQUAL "system")
     find_package(PkgConfig)
     if(PKG_CONFIG_FOUND)
-        pkg_check_modules(DXL_SDL3 IMPORTED_TARGET sdl3>=3.2 sdl3-ttf>=3.2)
+        pkg_check_modules(DXL_SDL3 IMPORTED_TARGET sdl3>=3.2 sdl3-ttf>=3.2 libxmp>=4.4)
     endif()
     if(DXL_SDL3_FOUND)
         set(dxl_deps_mode system)
     elseif(dxl_deps_mode STREQUAL "system")
-        message(FATAL_ERROR "DXL_PORT_DEPS system: no sdl3 and sdl3-ttf through pkg-config")
+        message(FATAL_ERROR "DXL_PORT_DEPS system: no sdl3, sdl3-ttf and libxmp through pkg-config")
     else()
         set(dxl_deps_mode vendored)
     endif()
@@ -34,7 +37,7 @@ endif()
 add_library(dxl_sdl INTERFACE)
 
 if(dxl_deps_mode STREQUAL "system")
-    message(STATUS "dxl: SDL3 ${DXL_SDL3_sdl3_VERSION} and SDL3_ttf ${DXL_SDL3_sdl3-ttf_VERSION}, the system's")
+    message(STATUS "dxl: SDL3 ${DXL_SDL3_sdl3_VERSION}, SDL3_ttf ${DXL_SDL3_sdl3-ttf_VERSION} and libxmp ${DXL_SDL3_libxmp_VERSION}, the system's")
     target_link_libraries(dxl_sdl INTERFACE PkgConfig::DXL_SDL3)
     return()
 endif()
@@ -126,9 +129,18 @@ ExternalProject_Add(dep_sdl3_ttf
         -DFREETYPE_LIBRARY=${dxl_prefix}/lib/libfreetype.a
     BUILD_BYPRODUCTS "${dxl_prefix}/lib/libSDL3_ttf.a")
 
-message(STATUS "dxl: SDL3 ${dxl_sdl3_version} and SDL3_ttf ${dxl_ttf_version}, built here from cmake/deps.lock's sources")
-add_dependencies(dxl_sdl dep_sdl3_ttf)
+dxl_dep(xmp_lite)
+set(dxl_xmp_version ${dep_version})
+ExternalProject_Add(dep_xmp
+    URL "${dep_file}" URL_HASH SHA256=${dep_sha256}
+    CMAKE_COMMAND ${dxl_dep_cmake}
+    CMAKE_ARGS ${dxl_dep_args} -DBUILD_SHARED=OFF -DBUILD_STATIC=ON
+    BUILD_BYPRODUCTS "${dxl_prefix}/lib/libxmp-lite.a")
+
+message(STATUS "dxl: SDL3 ${dxl_sdl3_version}, SDL3_ttf ${dxl_ttf_version} and libxmp-lite ${dxl_xmp_version}, built here from cmake/deps.lock's sources")
+add_dependencies(dxl_sdl dep_sdl3_ttf dep_xmp)
 target_include_directories(dxl_sdl INTERFACE "${dxl_prefix}/include")
+target_compile_definitions(dxl_sdl INTERFACE DXL_XMP_LITE LIBXMP_STATIC)
 target_link_libraries(dxl_sdl INTERFACE
     "${dxl_prefix}/lib/libSDL3_ttf.a" "${dxl_prefix}/lib/libfreetype.a" "${dxl_prefix}/lib/libSDL3.a"
-    m ${CMAKE_DL_LIBS} pthread rt)
+    "${dxl_prefix}/lib/libxmp-lite.a" m ${CMAKE_DL_LIBS} pthread rt)

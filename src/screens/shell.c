@@ -2,6 +2,7 @@
 #include "screens/shell.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "core/upkg_assets.h"
 #include "platform/process.h"
 #include "ui/draw.h"
 #include "ui/text.h"
@@ -48,6 +49,94 @@ void dxl_shell_free(dxl_shell *s) {
     s->theme_count = 0;
     s->themes_from[0] = '\0';
     dxl_art_free(&s->art);
+    free(s->music);
+    s->music = NULL;
+    for (int i = 0; i < DXL_SOUND_COUNT; i++) {
+        free(s->sounds[i]);
+        s->sounds[i] = NULL;
+    }
+    s->sounds_from[0] = '\0';
+}
+
+/* A file of the install by its folder's and its own names, any case. */
+static char *install_file(const char *root, const char *dir, const char *name) {
+    char *d = dxl_path_resolve_ci(root, dir);
+    char *f = d ? dxl_path_resolve_ci(d, name) : NULL;
+    free(d);
+    return f;
+}
+
+static void read_sounds(dxl_shell *s, const char *root) {
+    free(s->music);
+    s->music = NULL;
+    s->music_len = 0;
+    for (int i = 0; i < DXL_SOUND_COUNT; i++) {
+        free(s->sounds[i]);
+        s->sounds[i] = NULL;
+        s->sound_len[i] = 0;
+    }
+    dxl_upkg p;
+    dxl_err e;
+    char type[16];
+    char *umx = install_file(root, "Music", "Title_Music.umx");
+    if (umx && dxl_upkg_load(&p, umx, &e) == 0) {
+        s->music = dxl_upkg_file(&p, dxl_upkg_find(&p, "Music", "Title_Music"), &s->music_len, type, sizeof type, &e);
+        dxl_upkg_free(&p);
+    }
+    if (!s->music) dxl_log("sound: no title music (%s)", umx ? dxl_err_msg(&e) : "no Music/Title_Music.umx");
+    free(umx);
+    char *u = install_file(root, "System", "DeusExSounds.u");
+    if (u && dxl_upkg_load(&p, u, &e) == 0) {
+        for (int i = 0; i < DXL_SOUND_COUNT; i++)
+            s->sounds[i] = dxl_upkg_file(&p, dxl_upkg_find(&p, "Sound", dxl_sound_names[i]), &s->sound_len[i], type,
+                                         sizeof type, &e);
+        dxl_upkg_free(&p);
+    } else {
+        dxl_log("sound: no menu sounds (%s)", u ? dxl_err_msg(&e) : "no System/DeusExSounds.u");
+    }
+    free(u);
+}
+
+void dxl_shell_volumes(dxl_shell *s) {
+    if (!s->audio || !s->run) return;
+    const dxl_ini *ini = s->run->session.ini;
+    const char *m = dxl_ini_get(ini, "Launcher", "MusicVolume"), *v = dxl_ini_get(ini, "Launcher", "SoundVolume");
+    dxl_audio_volumes(s->audio, m ? (float)atof(m) : 0.5f, v ? (float)atof(v) : 0.7f);
+}
+
+void dxl_shell_sound(dxl_shell *s) {
+    const dxl_install *in = s->run ? &s->run->session.install : NULL;
+    const char *root = in && in->ok ? in->root : "";
+    if (strcmp(s->sounds_from, root) != 0) {
+        snprintf(s->sounds_from, sizeof s->sounds_from, "%s", root);
+        if (*root) read_sounds(s, root);
+        s->audio_given = 0;
+    }
+    if (!s->audio || s->audio_given) return;
+    s->audio_given = 1;
+    int given = 0;
+    for (int i = 0; i < DXL_SOUND_COUNT; i++) {
+        if (!s->sounds[i]) continue;
+        if (dxl_audio_sound(s->audio, (dxl_sound)i, s->sounds[i], s->sound_len[i]) == 0) given++;
+        else dxl_log("sound: %s is no WAV SDL reads", dxl_sound_names[i]);
+    }
+    int music = s->music && dxl_audio_music(s->audio, s->music, s->music_len) == 0;
+    if (s->music && !music) dxl_log("sound: the title music does not play");
+    dxl_shell_volumes(s);
+    if (*root) dxl_log("sound: %s and %d menu sounds", music ? "the title music" : "no music", given);
+}
+
+void dxl_shell_cue(dxl_shell *s, int cues) {
+    if (!s->audio || !cues) return;
+    static const struct { int cue; dxl_sound sound; } order[] = {
+        { DXL_CUE_PLAY, DXL_SOUND_OK }, { DXL_CUE_BACK, DXL_SOUND_CANCEL }, { DXL_CUE_OPEN, DXL_SOUND_ACTIVATE },
+        { DXL_CUE_PRESS, DXL_SOUND_PRESS }, { DXL_CUE_SLIDE, DXL_SOUND_SLIDER }, { DXL_CUE_FOCUS, DXL_SOUND_FOCUS },
+    };
+    for (size_t i = 0; i < sizeof order / sizeof *order; i++)
+        if (cues & order[i].cue) {
+            dxl_audio_play(s->audio, order[i].sound);
+            return;
+        }
 }
 
 void dxl_shell_theme(dxl_shell *s) {
@@ -618,6 +707,8 @@ double dxl_shell_idle_for(const dxl_shell *s) {
 
 void dxl_shell_frame(dxl_shell *s, double now) {
     dxl_ui *ui = &s->ui;
+    dxl_dialog dialog_was = s->dialog;
+    dxl_shell_sound(s);
     /* The pads drive the window but under the wizard and the test, which
      * take them -- by what is up, so no way a dialog goes leaves them off. */
     ui->pads_off = s->dialog == DXL_DIALOG_PADWIZARD || s->dialog == DXL_DIALOG_PADTEST;
@@ -678,4 +769,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     }
     toasts(s, m);
     dxl_ui_end(ui);
+    /* A dialog come up, and play, for the menu's sounds. */
+    if (dialog_was == DXL_DIALOG_NONE && s->dialog != DXL_DIALOG_NONE) ui->cues |= DXL_CUE_OPEN;
+    if (s->result == 1) ui->cues |= DXL_CUE_PLAY;
 }

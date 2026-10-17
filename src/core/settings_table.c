@@ -218,6 +218,16 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "audio.channels", .page = "Audio", .label = "Sound channels",
       .help = "How many sounds play at once; past them, the furthest stop.", .kind = DXL_SET_CHOICE,
       .choices = channels, .def = "16", .at = { AUDIO("EffectsChannels", DXL_CODEC_INT) } },
+    /* The launcher's own, in its window alone. */
+    { .id = "launcher.music_volume", .page = "Audio", .label = "The launcher's music",
+      .help = "The game's title music in the launcher's window, this loud; none at 0. The game's own music "
+              "is Music, above.",
+      .kind = DXL_SET_NUMBER, .min = 0, .max = 1, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
+      .def = "0.5", .at = { LAUNCHER("MusicVolume", DXL_CODEC_FLOAT) } },
+    { .id = "launcher.sound_volume", .page = "Audio", .label = "The launcher's sounds",
+      .help = "The game's menu sounds in the launcher's window, this loud; none at 0.",
+      .kind = DXL_SET_NUMBER, .min = 0, .max = 1, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
+      .def = "0.7", .at = { LAUNCHER("SoundVolume", DXL_CODEC_FLOAT) } },
     { .id = "audio.rate", .page = "Audio", .label = "Mixing rate",
       .help = "The game's mixer's rate, from its next start; the system's sound resamples it.",
       .kind = DXL_SET_CHOICE, .choices = rates, .def = "44100", .at = { AUDIO("OutputRate", DXL_CODEC_HZ) },

@@ -207,7 +207,9 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
         if (to > count - 1) to = count - 1;
         int off_end = (down > up && was == count - 1) || (up > down && was == 0);
         if ((down || up || ui->in.page_down || ui->in.page_up) && !off_end) {
-            ui->focus = dxl_list_cell_id(l, to, col);
+            uint32_t now = dxl_list_cell_id(l, to, col);
+            if (now != ui->focus_was) ui->cues |= DXL_CUE_FOCUS;
+            ui->focus = now;
             ui->focus_moved = 1;
             keep = 1;
         }
