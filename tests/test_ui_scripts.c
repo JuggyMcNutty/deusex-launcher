@@ -42,8 +42,9 @@ static int fresh_home(void) {
               home);
 }
 
-/* SDL's controllers the scripts' virtual ones alone (uiscript.c's): a pad
- * plugged into the machine moves nothing of a run. */
+/* SDL's controllers those of the scripts' virtual ones' makes and models
+ * alone (uiscript.c's): a pad of another plugged into the machine moves
+ * nothing of a run, though a real one of those models would. */
 #define OUR_PADS "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1"
 
 /* The launcher on the script, the stub doing mode; its exit code. */

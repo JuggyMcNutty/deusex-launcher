@@ -132,7 +132,7 @@ size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], s
         dxl_profile p;
         if (dxl_profile_open(&p, x, e->d_name, NULL) != 0) continue;
         if (dxl_profile_exists(&p)) {
-            if (n < max) snprintf(ids[n], DXL_PROFILE_ID_MAX + 1, "%s", e->d_name);
+            if (n < max) snprintf(ids[n], DXL_PROFILE_ID_MAX + 1, "%.64s", e->d_name);
             n++;
         }
         dxl_profile_free(&p);
@@ -141,6 +141,22 @@ size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], s
     free(dir);
     qsort(ids, n < max ? n : max, sizeof ids[0], by_id);
     return n;
+}
+
+/* Whether any of the four folders of a profile of that id is there: what
+ * a deleted one left would be the new one's. */
+static int id_taken(const dxl_xdg *x, const char *id) {
+    dxl_profile p;
+    if (dxl_profile_open(&p, x, id, NULL) != 0) return 1;
+    char *dirs[4];
+    dxl_profile_folders(&p, dirs);
+    int taken = 0;
+    for (int i = 0; i < 4; i++) {
+        taken |= dxl_path_exists(dirs[i]);
+        free(dirs[i]);
+    }
+    dxl_profile_free(&p);
+    return taken;
 }
 
 void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size) {
@@ -158,16 +174,11 @@ void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t si
     }
     base[n] = '\0';
     if (!n) snprintf(base, sizeof base, "profile");
-    char *profiles = dxl_path_join(x->config, "profiles");
     for (int k = 1; k < 1000; k++) {
         if (k == 1) snprintf(out, size, "%s", base);
         else snprintf(out, size, "%s-%d", base, k);
-        char *dir = dxl_path_join(profiles, out);
-        int taken = dxl_path_exists(dir);
-        free(dir);
-        if (!taken) break;
+        if (!id_taken(x, out)) break;
     }
-    free(profiles);
 }
 
 /* The engine folder's own files worth a copy: Settings.json and a class's

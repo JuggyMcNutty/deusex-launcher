@@ -70,7 +70,8 @@ size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], s
 
 /* A new profile's id from its name: its letters and digits, lower case, a
  * '-' for each run of anything else ("Deus Ex 2" deus-ex-2), "profile" for
- * none; "-2", "-3"... after it when a profile's folder has it already. */
+ * none; "-2", "-3"... after it when any of a profile's four folders of it
+ * is there already. */
 void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size);
 
 /* to made a copy of from's settings -- profile.ini, the two inis with to's

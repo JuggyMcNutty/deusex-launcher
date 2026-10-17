@@ -52,6 +52,7 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->pad_db = NULL;
     s->result = -1;
     s->dialog = DXL_DIALOG_NONE;
+    s->ui.pads_off = 0;
     s->repoint = v == DXL_VIEW_INSTALL;
     s->repoint_back = 0;
     s->making = 0;
@@ -70,6 +71,14 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
 }
 
 void dxl_shell_go(dxl_shell *s, dxl_page p) {
+    /* Asked for as a page draws: once it is drawn. */
+    if (s->in_page) {
+        s->go_pending = 1;
+        s->go_to = p;
+        return;
+    }
+    /* The system's folder dialog's answer is the page's it was shown from. */
+    s->pick_open = 0;
     if (s->page != p) {
         s->focus[s->page] = s->ui.focus;
         s->from = s->page;
@@ -207,20 +216,38 @@ void dxl_shell_engine_answer(dxl_shell *s, uint32_t id) {
         if (dxl_session_save(ss, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
         s->engine_asked = 0;
         dxl_shell_ask_engine(s);
-        if (s->engine_ok) dxl_shell_toast(s, "The engine is the launcher's own, %s.", s->engine_version);
+        if (ss->engine_by_env) dxl_shell_toast(s, "Kept, but DXL_ENGINE names the engine played with: unset it to "
+                                                  "play with the launcher's own.");
+        else if (s->engine_ok) dxl_shell_toast(s, "The engine is the launcher's own, %s.", s->engine_version);
         else dxl_shell_message(s, "The launcher's own engine", "%s", s->engine_problem);
     } else if (got == ENGINE_BROWSE) {
         char *dir = dxl_path_dirname(ss->engine);
         dxl_browser_open(s, dxl_path_is_dir(dir) ? dir : getenv("HOME"), DXL_BROWSE_ENGINE);
         free(dir);
-    } else if (got == ENGINE_DIALOG && s->pick_folder) {
-        s->pick_for = DXL_BROWSE_ENGINE;
-        s->pick_folder(s);
+    } else if (got == ENGINE_DIALOG) {
+        dxl_shell_pick_folder(s, DXL_BROWSE_ENGINE);
     }
+}
+
+void dxl_shell_pick_folder(dxl_shell *s, int what) {
+    if (!s->pick_folder) return;
+    s->pick_for = what;
+    s->pick_open = 1;
+    s->pick_page = s->page;
+    s->pick_repoint = s->repoint;
+    s->pick_making = s->making;
+    s->pick_folder(s);
 }
 
 void dxl_shell_folder_picked(dxl_shell *s, const char *path) {
     char shown[1024];
+    if (!s->pick_open || s->page != s->pick_page || s->repoint != s->pick_repoint || s->making != s->pick_making ||
+        s->dialog != DXL_DIALOG_NONE) {
+        dxl_log("the folder dialog's answer, %s, is for a page gone: dropped", path);
+        s->pick_open = 0;
+        return;
+    }
+    s->pick_open = 0;
     if (s->pick_for == DXL_BROWSE_ENGINE) {
         char brief[200], why[800];
         if (!dxl_shell_choose_engine(s, path, brief, sizeof brief, why, sizeof why))
@@ -243,6 +270,12 @@ void dxl_shell_repoint(dxl_shell *s, dxl_page back_to) {
 
 void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
     dxl_session *ss = &s->run->session;
+    /* An install for nothing to make: the profile in use is made, and this
+     * is no repoint (a folder dialog's answer late, say). */
+    if (!s->repoint && !s->making && dxl_profile_exists(&ss->profile)) {
+        dxl_log("an install chosen with no profile to make: %s left as it is", ss->profile.id);
+        return;
+    }
     if (s->repoint) {
         char id[96];
         dxl_err e;
@@ -468,6 +501,11 @@ static void foot(dxl_shell *s, dxl_rect r, float m) {
     int n = hints_of(s, items);
     dxl_rect hints = { r.x + m, r.y, r.w - 2 * m, r.h };
     int hit = dxl_hints(ui, hints, items, n);
+    /* Under an edit a press here is its hints' -- Keep, Cancel -- not a
+     * click away from the field, which would keep it before Cancel. */
+    if (ui->text_id && ui->in.pressed && ui->in.px >= r.x && ui->in.px < r.x + r.w && ui->in.py >= r.y &&
+        ui->in.py < r.y + r.h)
+        ui->in.pressed = 0;
     if (hit == DXL_HINT_CONFIRM) ui->in.activate++;
     else if (hit == DXL_HINT_BACK) ui->in.back++;
     else if (hit == DXL_HINT_PLAY) ui->in.start++;
@@ -533,6 +571,9 @@ double dxl_shell_idle_for(const dxl_shell *s) {
 
 void dxl_shell_frame(dxl_shell *s, double now) {
     dxl_ui *ui = &s->ui;
+    /* The pads drive the window but under the wizard and the test, which
+     * take them -- by what is up, so no way a dialog goes leaves them off. */
+    ui->pads_off = s->dialog == DXL_DIALOG_PADWIZARD || s->dialog == DXL_DIALOG_PADTEST;
     dxl_ui_begin(ui, now);
     if (s->page_since < 0) s->page_since = now;
     expire_toasts(s);
@@ -560,6 +601,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     float shift = (1 - t) * SLIDE_DP;
     float head_h = head(s, m, shift);
     dxl_rect r = { m + shift, head_h, ui->w - 2 * m, ui->h - head_h - FOOT_H - 18 };
+    s->in_page = 1;
     switch (s->page) {
     case DXL_PAGE_HOME: dxl_page_home(s, r); break;
     case DXL_PAGE_WELCOME: dxl_page_welcome(s, r); break;
@@ -571,6 +613,11 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     case DXL_PAGE_LOG: dxl_page_log(s, r); break;
     case DXL_PAGE_PROFILES: dxl_page_profiles(s, r); break;
     default: break;
+    }
+    s->in_page = 0;
+    if (s->go_pending) {
+        s->go_pending = 0;
+        dxl_shell_go(s, s->go_to);
     }
     if (t < 1) {
         const dxl_theme *th = &ui->theme;

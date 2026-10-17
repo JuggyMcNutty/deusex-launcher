@@ -117,6 +117,11 @@ typedef struct dxl_shell {
 
     dxl_page     page, from;      /* the page, and the one before it */
     double       page_since;      /* when it came up; -1 until the next frame */
+    /* A page asked for while one draws: taken as it is drawn, so what is
+     * left of it draws on its own state. */
+    int          in_page;
+    int          go_pending;
+    dxl_page     go_to;
     uint32_t     focus[DXL_PAGE_COUNT];   /* each page's focus, for coming back to it */
 
     /* The engine's --version, asked once: what is wrong in a few words, and
@@ -130,6 +135,11 @@ typedef struct dxl_shell {
     int          repoint_back;    /* ...asked for from a page, which its Back goes to: */
     dxl_page     repoint_to;
     int          pick_for;        /* what the system's folder dialog is for: DXL_BROWSE_* */
+    /* The system's folder dialog up: from which page, in which state; its
+     * answer is dropped once any of them has changed. */
+    int          pick_open;
+    dxl_page     pick_page;
+    int          pick_repoint, pick_making;
     int          looked;          /* the finder has run */
     dxl_found_list found;
     dxl_install  chosen;          /* the install the profile is to be made from */
@@ -174,7 +184,7 @@ typedef struct dxl_shell {
     int          answered;
     const char  *pick_labels[DXL_PICK_MAX];  /* into pick_text: the dialog's own copy */
     char         pick_text[DXL_PICK_MAX][96];
-    char         pick_detail[DXL_PICK_MAX][48];   /* each one's group, "" for none */
+    char         pick_detail[DXL_PICK_MAX][96];   /* each one's group, or a word on it; "" for none */
     int          pick_count, pick_current;
     char         ask_title[96], ask_yes[48], ask_no[48], ask_third[48];
     char        *osk_buf;
@@ -277,7 +287,11 @@ int         dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief,
  * frames, its answer done. */
 void        dxl_shell_engine_pick(dxl_shell *s, uint32_t id);
 void        dxl_shell_engine_answer(dxl_shell *s, uint32_t id);
-/* A folder the system's dialog gave, for what s->pick_for says. */
+/* The system's folder dialog shown for what (DXL_BROWSE_*), from the page
+ * as it is now. */
+void        dxl_shell_pick_folder(dxl_shell *s, int what);
+/* A folder it gave: for what it was shown for, if the page it was shown
+ * from is still up as it was; else dropped. */
 void        dxl_shell_folder_picked(dxl_shell *s, const char *path);
 /* A folder or file with the desktop's handler. */
 void        dxl_shell_open(dxl_shell *s, const char *path);

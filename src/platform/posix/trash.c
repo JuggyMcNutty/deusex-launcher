@@ -44,7 +44,7 @@ static void url_escape(const char *path, char *out, size_t size) {
     out[n] = '\0';
 }
 
-int dxl_trash(const char *path, const char *data_home, dxl_err *err) {
+int dxl_trash(const char *path, const char *data_home, char *trashed, size_t trashed_size, dxl_err *err) {
     char *abs = realpath(path, NULL);
     if (!abs) {
         dxl_err_set(err, "%s: %s", path, strerror(errno));
@@ -92,7 +92,22 @@ int dxl_trash(const char *path, const char *data_home, dxl_err *err) {
         free(abs);
         return -1;
     }
+    if (trashed) snprintf(trashed, trashed_size, "%s", name);
     free(dir);
     free(abs);
+    return 0;
+}
+
+int dxl_trash_undo(const char *data_home, const char *name, const char *path, dxl_err *err) {
+    char *dir = dxl_path_join(data_home, "Trash");
+    char from[1024], info[1024];
+    snprintf(from, sizeof from, "%s/files/%s", dir, name);
+    snprintf(info, sizeof info, "%s/info/%s.trashinfo", dir, name);
+    free(dir);
+    if (dxl_path_exists(path) || rename(from, path) != 0) {
+        dxl_err_set(err, "cannot put %s back at %s: %s", from, path, dxl_path_exists(path) ? "it is there" : strerror(errno));
+        return -1;
+    }
+    unlink(info);
     return 0;
 }

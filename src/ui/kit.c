@@ -180,6 +180,14 @@ void dxl_ui_input_begin(dxl_ui *ui) {
     ui->in.py = py;
 }
 
+/* The bytes of the UTF-8 character at p; 0 when it is none whole. */
+static size_t utf8_len(const unsigned char *p) {
+    size_t len = *p < 0x80 ? 1 : (*p & 0xe0) == 0xc0 ? 2 : (*p & 0xf0) == 0xe0 ? 3 : (*p & 0xf8) == 0xf0 ? 4 : 0;
+    for (size_t k = 1; k < len; k++)
+        if ((p[k] & 0xc0) != 0x80) return 0;
+    return len;
+}
+
 /* Text into the frame's typing: what fits, cut at a character's edge. */
 static void typed(dxl_ui *ui, const char *s) {
     size_t have = strlen(ui->in.text), add = strlen(s), room = sizeof ui->in.text - 1 - have;
@@ -266,7 +274,7 @@ static int ready_key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
     case SDLK_BACKSPACE: typed_op(ui, ctrl ? DXL_EDIT_ERASE_WORD : DXL_EDIT_ERASE, 0); break;
     case SDLK_DELETE:    typed_op(ui, ctrl ? DXL_EDIT_DELETE_WORD : DXL_EDIT_DELETE, 0); break;
     case SDLK_V:         if (!ctrl) return 0; paste(ui); break;
-    case SDLK_SPACE:     ui->swallow_space = 1; return 0;
+    case SDLK_SPACE:     ui->swallow_space = !(k->mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)); return 0;
     default: return 0;
     }
     ui->mode = DXL_INPUT_KEYBOARD;
@@ -275,6 +283,8 @@ static int ready_key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
 }
 
 static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
+    /* Space's own text follows its key at once, or never (Ctrl+Space). */
+    ui->swallow_space = 0;
     if (ui->capture_id) {
         if (k->repeat) return;
         if (k->key == SDLK_ESCAPE) ui->in.back++;
@@ -290,7 +300,6 @@ static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
         edit_key(ui, k);
         return;
     }
-    if (k->key != SDLK_SPACE) ui->swallow_space = 0;
     if (ready_key(ui, k)) return;
     if (k->key == SDLK_TAB && (k->mod & SDL_KMOD_CTRL)) {
         if (k->mod & SDL_KMOD_SHIFT) ui->in.tab_prev++;
@@ -483,15 +492,24 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         break;
     case SDL_EVENT_TEXT_INPUT:
         if ((ui->text_id || (ui->text_ready && ui->text_ready == ui->focus)) && e->text.text) {
-            if (ui->swallow_space && !strcmp(e->text.text, " ")) {
-                ui->swallow_space = 0;
-                break;
-            }
-            /* Text, never the editing keys' codes. */
-            char clean[256];
+            int swallow = ui->swallow_space;
+            ui->swallow_space = 0;
+            if (swallow && !strcmp(e->text.text, " ")) break;
+            /* Text, never the editing keys' codes, whole characters alone:
+             * as many as fit. */
+            char clean[sizeof ui->in.text];
             size_t n = 0;
-            for (const char *p = e->text.text; *p && n + 1 < sizeof clean; p++)
-                if (!DXL_EDIT_IS_OP(*p)) clean[n++] = *p;
+            for (const unsigned char *p = (const unsigned char *)e->text.text; *p;) {
+                size_t len = utf8_len(p);
+                if (!len || (len == 1 && DXL_EDIT_IS_OP(*p))) {
+                    p++;
+                    continue;
+                }
+                if (n + len >= sizeof clean) break;
+                memcpy(clean + n, p, len);
+                n += len;
+                p += len;
+            }
             clean[n] = '\0';
             typed(ui, clean);
             ui->mode = DXL_INPUT_KEYBOARD;
