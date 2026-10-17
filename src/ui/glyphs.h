@@ -15,6 +15,9 @@ typedef enum {
     DXL_HINT_BACK,      /* Esc; its back */
     DXL_HINT_PLAY,      /* F5; Start */
     DXL_HINT_MOVE,      /* the arrows; the d-pad */
+    DXL_HINT_TAB_PREV,  /* Ctrl+Shift+Tab; the left shoulder */
+    DXL_HINT_TAB_NEXT,  /* Ctrl+Tab; the right shoulder */
+    DXL_HINT_CLEAR,     /* Delete; the west button */
     DXL_HINT_COUNT
 } dxl_hint;
 

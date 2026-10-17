@@ -67,6 +67,8 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     int play = dxl_button(ui, "home play", dxl_cut_top(&menu, 48), "Play",
                           DXL_W_PRIMARY | DXL_W_LEFT | (playable ? 0 : DXL_W_DISABLED));
     dxl_cut_top(&menu, 10);
+    int settings = dxl_button(ui, "home settings", dxl_cut_top(&menu, 48), "Settings", DXL_W_LEFT);
+    dxl_cut_top(&menu, 10);
     int about = dxl_button(ui, "home about", dxl_cut_top(&menu, 48), "About", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
     int quit = dxl_button(ui, "home quit", dxl_cut_top(&menu, 48), "Quit", DXL_W_LEFT);
@@ -107,6 +109,7 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     }
 
     if (play || (ui->in.start && playable)) s->result = 1;
+    else if (settings) dxl_shell_go(s, DXL_PAGE_SETTINGS);
     else if (about) dxl_shell_go(s, DXL_PAGE_ABOUT);
     else if (quit) s->result = 0;
 }

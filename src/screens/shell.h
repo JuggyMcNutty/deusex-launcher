@@ -15,8 +15,12 @@
  *               import, shown before it runs), and Make the profile
  *   Recovery    how the last run ended, the end of its log, Play again
  *   About       the launcher, the engine, the folders, the app menu's entry
+ *   Settings    the settings (core/settings.h), a tab a page, kept as the
+ *               page is left
+ *   The log     the last run's output, the run's before it, the engine's own
+ *               log
  *
- * Graphics (-changevideo) opens Home: there is no Graphics page.
+ * Graphics (-changevideo) opens Settings on its Graphics tab.
  *
  * Every page draws itself from the run's state and the shell's own, in
  * dxl_shell_frame; the window around it is window.h's, or dxl-shots' (a
@@ -27,8 +31,11 @@
 
 #include "app/run.h"
 #include "core/finder.h"
+#include "core/renderers.h"
+#include "core/settings.h"
 #include "ui/glyphs.h"
 #include "ui/kit.h"
+#include "ui/osk.h"
 
 typedef enum {
     DXL_PAGE_HOME,
@@ -37,10 +44,22 @@ typedef enum {
     DXL_PAGE_IMPORT,
     DXL_PAGE_RECOVERY,
     DXL_PAGE_ABOUT,
+    DXL_PAGE_SETTINGS,
+    DXL_PAGE_LOG,
     DXL_PAGE_COUNT
 } dxl_page;
 
-typedef enum { DXL_DIALOG_NONE, DXL_DIALOG_BROWSER, DXL_DIALOG_MESSAGE } dxl_dialog;
+/* The most choices a pick dialog lists: the game's 30 menu themes. */
+#define DXL_PICK_MAX 32
+
+typedef enum {
+    DXL_DIALOG_NONE,
+    DXL_DIALOG_BROWSER,
+    DXL_DIALOG_MESSAGE,
+    DXL_DIALOG_PICK,      /* one of a setting's choices */
+    DXL_DIALOG_OSK,       /* the on-screen keyboard */
+    DXL_DIALOG_CONFIRM    /* a question, two answers */
+} dxl_dialog;
 
 typedef struct {
     char  *dir;          /* the folder shown */
@@ -70,6 +89,7 @@ typedef struct dxl_shell {
 
     /* The first run, and a profile's install found again. */
     int          repoint;         /* The game is for the profile's install, not a first run */
+    int          repoint_back;    /* ...asked for from Recovery, which its Back goes to */
     int          looked;          /* the finder has run */
     dxl_found_list found;
     dxl_install  chosen;          /* the install the profile is to be made from */
@@ -88,6 +108,50 @@ typedef struct dxl_shell {
     dxl_browser  browser;
     char         message_title[96];
     char         message[800];
+    /* The asking dialogs: whose control asked, and the answer, once. */
+    uint32_t     asked_for;
+    int          answer;          /* the choice, 1 kept or yes, 0 no; -1 none yet */
+    int          answered;
+    const char  *pick_labels[DXL_PICK_MAX];  /* into pick_text: the dialog's own copy */
+    char         pick_text[DXL_PICK_MAX][96];
+    int          pick_count, pick_current;
+    char         ask_title[96], ask_yes[48], ask_no[48], ask_third[48];
+    char        *osk_buf;
+    size_t       osk_size;
+    dxl_osk_state osk;
+
+    /* Words for the next run alone (Recovery's, Settings' next-run rows):
+     * added to the original's command line as Play is chosen. */
+    char         next_run[512];
+
+    /* Settings, while the page is up: its stores, open, and the text rows'
+     * values as they are edited. */
+    int          settings_tab;
+    int          settings_open;
+    dxl_stores   stores;
+    dxl_engine_settings *engine_settings;
+    const dxl_setting *text_rows[8];
+    char         texts[8][256];
+    int          text_count;
+    /* A key captured for an action, waiting on the answer to whose it is. */
+    int          bind_action, bind_slot;
+    char         bind_key[32];
+
+    /* The log page: which log, read as it opened, its lines, the first
+     * shown. */
+    int          log_which;
+    char        *log_text;
+    long        *log_starts;
+    int          log_lines;
+    int          log_top;
+
+    /* The GPU this machine has, as dxl-cli --probe --ini answers in the
+     * window's worker (start_probe): 0 not asked, 1 asked, 2 known; and
+     * renderers.ini's list, resolved by it. */
+    int          probe_state;
+    dxl_gpu_probe probe;
+    dxl_renderer_list renderers;
+    void       (*start_probe)(struct dxl_shell *s);
 
     struct { char text[200]; double at; } toasts[DXL_TOASTS];
     int          toast_count;
@@ -125,6 +189,10 @@ void        dxl_shell_ask_engine(dxl_shell *s);
 void        dxl_shell_choose(dxl_shell *s, const dxl_install *in);
 /* A folder or file with the desktop's handler. */
 void        dxl_shell_open(dxl_shell *s, const char *path);
+/* The GPU probe asked for, once: renderers.ini's list loaded now, resolved
+ * as dxl_shell_probed hands the answer in. */
+void        dxl_shell_probe(dxl_shell *s);
+void        dxl_shell_probed(dxl_shell *s, const dxl_gpu_probe *p);
 
 /* The pages, each in r: the window less its head and foot. */
 void dxl_page_home(dxl_shell *s, dxl_rect r);
@@ -136,6 +204,35 @@ void dxl_page_import(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery_enter(dxl_shell *s);
 void dxl_page_about(dxl_shell *s, dxl_rect r);
+void dxl_page_settings(dxl_shell *s, dxl_rect r);
+void dxl_page_log(dxl_shell *s, dxl_rect r);
+void dxl_page_log_enter(dxl_shell *s);
+void dxl_page_log_free(dxl_shell *s);
+void dxl_page_settings_enter(dxl_shell *s);
+/* The settings kept: their files written, the stores let go. */
+void dxl_settings_keep(dxl_shell *s);
+/* A page's settings (NULL: every page's) as a new profile has them, the
+ * keys too on the keyboard's: the open stores', kept as the page is. */
+void dxl_settings_defaults(dxl_shell *s, const char *page);
+/* The screen is done (the window closes): what a page holds, kept. */
+void dxl_shell_leave(dxl_shell *s);
+
+/* The asking dialogs, each for the control id that asks; its answer,
+ * read once: dxl_shell_answer gives the choice (pick), 1 for a text kept
+ * (osk) or yes (confirm), 0 for no, and -1 while there is none. A pick or
+ * the keyboard put back gives none. */
+void dxl_shell_pick(dxl_shell *s, uint32_t id, const char *title, const char *const *labels, int n, int current);
+/* A pick's answer as the label it chose, the dialog's copy: a list made
+ * again may have changed under it (the renderers, as the probe answers).
+ * NULL for no answer. */
+const char *dxl_shell_picked(const dxl_shell *s, int answer);
+void dxl_shell_osk(dxl_shell *s, uint32_t id, const char *title, char *buf, size_t size);
+void dxl_shell_confirm(dxl_shell *s, uint32_t id, const char *title, const char *text, const char *yes,
+                       const char *no);
+/* The same with a third answer between them, 2. */
+void dxl_shell_confirm3(dxl_shell *s, uint32_t id, const char *title, const char *text, const char *yes,
+                        const char *third, const char *no);
+int  dxl_shell_answer(dxl_shell *s, uint32_t id);
 
 /* The dialogs: over r, the window less its foot; back is the Esc or the
  * pad's back the dialog takes. */

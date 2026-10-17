@@ -41,7 +41,33 @@ typedef struct {
     int   quit;            /* the window's close */
     int   resized;
     int   any;
+    int   tab_prev, tab_next;  /* Ctrl+Shift+Tab, Ctrl+Tab: a page's tabs */
+    int   clear;               /* Delete; the pad's west button: a key slot emptied */
+
+    /* While a field is edited (dxl_ui_text_begin): what was typed this
+     * frame, UTF-8, the editing keys in it as they came -- DXL_EDIT_* --
+     * and Enter activate, Esc back. */
+    char  text[128];
+
+    /* While a slot captures (dxl_ui_capture_begin): the first key, mouse
+     * button, wheel notch or pad button, as it is; Esc is back. */
+    int   captured;            /* DXL_CAPTURED_* */
+    int   captured_code;       /* the scancode, button, notch (+1 up) or pad button */
 } dxl_input;
+
+/* The editing keys in dxl_input's text: no text SDL gives has them. */
+#define DXL_EDIT_ERASE  '\b'     /* Backspace */
+#define DXL_EDIT_DELETE '\x7f'   /* Delete */
+#define DXL_EDIT_LEFT   '\x02'
+#define DXL_EDIT_RIGHT  '\x06'
+#define DXL_EDIT_HOME   '\x01'
+#define DXL_EDIT_END    '\x05'
+
+#define DXL_CAPTURED_NONE   0
+#define DXL_CAPTURED_KEY    1
+#define DXL_CAPTURED_MOUSE  2
+#define DXL_CAPTURED_WHEEL  3
+#define DXL_CAPTURED_PAD    4
 
 typedef enum {
     DXL_FONT_TITLE, DXL_FONT_HEADING, DXL_FONT_BUTTON, DXL_FONT_LABEL, DXL_FONT_BODY,
@@ -106,9 +132,21 @@ typedef struct dxl_ui {
     uint32_t        id_seed;
     int             forget;      /* dxl_ui_forget: the next frame starts afresh */
 
+    /* Text entry and capture: the widget they are for, 0 for none. */
+    uint32_t        text_id;
+    dxl_rect        text_area;   /* where the text is, for the input method's window */
+    int             text_on;     /* SDL's text input is started */
+    uint32_t        capture_id;
+
     /* The backdrop, drawn once for the window's size (draw.h). */
     SDL_Texture    *backdrop;
     int             backdrop_w, backdrop_h;
+
+    /* The focusables' names, as the frame draws them (dxl_ui_name). */
+    struct {
+        int count;
+        struct { uint32_t id; char name[64]; } at[160];
+    } names;
 } dxl_ui;
 
 /* The kit on a renderer (a window's, or a software one on a surface for
@@ -143,11 +181,34 @@ void     dxl_ui_seed(dxl_ui *ui, uint32_t seed);
 #define DXL_HIT_HELD      4   /* the pointer's button is down on it */
 #define DXL_HIT_ACTIVATED 8   /* clicked, or Enter or the pad's confirm while focused */
 int  dxl_ui_focusable(dxl_ui *ui, uint32_t id, dxl_rect r, int disabled);
+/* What the focusable id is called this frame: its label, for a script that
+ * finds a control by it (screens/uiscript.h). */
+void dxl_ui_name(dxl_ui *ui, uint32_t id, const char *name);
+/* Between frames, the last frame's focusable of that name, the last drawn
+ * of it (a dialog's over its page's); 0 for none. */
+uint32_t dxl_ui_named(const dxl_ui *ui, const char *name);
 /* The pointer's part alone, for what takes no focus (a hint): HOVERED,
  * HELD, ACTIVATED. */
 int  dxl_ui_clickable(dxl_ui *ui, uint32_t id, dxl_rect r);
 /* Gives id the focus (a screen's first, a dialog's default). */
 void dxl_ui_focus(dxl_ui *ui, uint32_t id);
+/* A focused control's left and right: a move it had the focus for, taken
+ * back from navigation. Returns the steps, right positive; 0 when id did
+ * not have the focus or there was no such move. */
+int  dxl_ui_take_lr(dxl_ui *ui, uint32_t id);
+/* The same for up and down, down positive (a view that scrolls). */
+int  dxl_ui_take_ud(dxl_ui *ui, uint32_t id);
+
+/* Text entry for id, its text in area: the keys edit (dxl_input's text
+ * fields), and on a window SDL's text input runs, the input method's
+ * window placed by area. */
+void dxl_ui_text_begin(dxl_ui *ui, uint32_t id, dxl_rect area);
+void dxl_ui_text_end(dxl_ui *ui);
+/* The next key, mouse button, wheel notch or pad button for id, as it is
+ * (dxl_input's captured), none of it navigation; Esc is back. */
+void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id);
+void dxl_ui_capture_end(dxl_ui *ui);
+
 /* What the last frame drew is gone -- a page or a dialog changed: the next
  * frame keeps the focus as it is now and moves nothing; the one after gives
  * it to the first focusable when what it names was not drawn. */
@@ -156,6 +217,8 @@ void dxl_ui_forget(dxl_ui *ui);
 /* The scope new focusables go to: 0 the screen's, higher a dialog's, whose
  * focusables alone take the focus while they are there. */
 void dxl_ui_scope(dxl_ui *ui, int scope);
+/* Whether what is drawn now takes input: no dialog's scope is over its. */
+int  dxl_ui_live(const dxl_ui *ui);
 
 /* A value kept for id from frame to frame, init the first time. */
 float *dxl_ui_value(dxl_ui *ui, uint32_t id, float init);

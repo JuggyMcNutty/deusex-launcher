@@ -1,5 +1,6 @@
-# Host-only. Nothing here needs a display: the UI's tests draw with SDL's
-# software renderer on a surface.
+# Host-only. Nothing here needs a display but test_ui_scripts, which runs
+# on the desktop's and is skipped without one: the UI's other tests draw
+# with SDL's software renderer on a surface.
 set(DXL_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 
 function(dxl_test name)
@@ -39,7 +40,7 @@ target_link_libraries(test_desktop PRIVATE dxl_platform)
 
 # The UI kit: focus and navigation, text, input from the keyboard, the
 # mouse and virtual pads.
-foreach(name test_ui_focus test_ui_text test_ui_input)
+foreach(name test_ui_focus test_ui_text test_ui_input test_ui_controls)
     dxl_test(${name})
     target_link_libraries(${name} PRIVATE dxl_ui)
     target_compile_definitions(${name} PRIVATE DXL_FONTS="${DXL_ROOT}/data/fonts")
@@ -70,3 +71,14 @@ target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gam
                            DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
 add_dependencies(test_gamefiles stub_engine)
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
+
+# The window through its own loop, scripts of input (tests/ui/) driving it,
+# the stub engine in the engine's place: on the desktop's display, skipped
+# without one or without an install in gamefiles/.
+dxl_test(test_ui_scripts)
+target_compile_definitions(test_ui_scripts PRIVATE
+    DXL_LAUNCHER="$<TARGET_FILE:deusex-launcher>" DXL_CLI="$<TARGET_FILE:dxl-cli>"
+    DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>" DXL_DATA="${DXL_ROOT}/data"
+    DXL_UI_SCRIPTS="${CMAKE_CURRENT_SOURCE_DIR}/ui" DXL_GAME="${DXL_ROOT}/gamefiles")
+add_dependencies(test_ui_scripts deusex-launcher dxl-cli stub_engine)
+set_tests_properties(test_ui_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 180)

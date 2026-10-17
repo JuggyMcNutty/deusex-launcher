@@ -225,7 +225,7 @@ static void test_list(void) {
         if (frame > 1) key(SDLK_DOWN, 0);
         dxl_ui_begin(&ui, clock_s += 0.016);
         dxl_list l;
-        dxl_list_begin(&ui, &l, "rows", (dxl_rect){ 20, 20, 300, 200 }, 30, 40);
+        dxl_list_begin(&ui, &l, "rows", (dxl_rect){ 20, 20, 300, 200 }, 30, 40, 0);
         for (int i = 0; i < 30; i++)
             if (dxl_list_row(&ui, &l, i, "row", NULL, ui.theme.text, 0) & DXL_HIT_FOCUSED) last = i;
         offset = l.offset;
@@ -242,7 +242,7 @@ static void test_list(void) {
     key(SDLK_DOWN, 0);
     dxl_ui_begin(&ui, clock_s += 0.016);
     dxl_list l;
-    dxl_list_begin(&ui, &l, "rows", (dxl_rect){ 20, 20, 300, 200 }, 30, 40);
+    dxl_list_begin(&ui, &l, "rows", (dxl_rect){ 20, 20, 300, 200 }, 30, 40, 0);
     for (int i = 0; i < 30; i++) dxl_list_row(&ui, &l, i, "row", NULL, ui.theme.text, 0);
     dxl_list_end(&ui, &l);
     focus_below = dxl_ui_focusable(&ui, below, (dxl_rect){ 20, 240, 300, 40 }, 0) & DXL_HIT_FOCUSED;

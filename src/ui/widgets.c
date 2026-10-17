@@ -2,6 +2,7 @@
 #include "ui/draw.h"
 #include "ui/text.h"
 
+#include <math.h>
 #include <string.h>
 
 #define BUTTON_CHAMFER 6
@@ -65,6 +66,7 @@ int dxl_button(dxl_ui *ui, const char *id, dxl_rect r, const char *label, int fl
     const dxl_theme *t = &ui->theme;
     int disabled = flags & DXL_W_DISABLED;
     int hits = dxl_ui_focusable(ui, dxl_ui_id(ui, id), r, disabled);
+    if (!disabled) dxl_ui_name(ui, dxl_ui_id(ui, id), label);
     int lit = hits & (DXL_HIT_FOCUSED | DXL_HIT_HOVERED);
     dxl_bevel_style s;
     if (hits & DXL_HIT_HELD) {
@@ -120,19 +122,28 @@ uint32_t dxl_list_row_id(const dxl_list *l, int i) {
     return h ? h : 1;
 }
 
+#define COLS 4
+
+uint32_t dxl_list_cell_id(const dxl_list *l, int i, int col) {
+    uint32_t id = dxl_list_row_id(l, i);
+    if (col > 0) id ^= (uint32_t)col * 0x632be5abu;
+    return id ? id : 1;
+}
+
 void dxl_list_focus(dxl_ui *ui, dxl_list *l, int i) {
     if (i < 0 || i >= l->count) return;
     *dxl_ui_value(ui, l->id ^ WANT_KEY, -1) = (float)i;
     ui->focus = dxl_list_row_id(l, i);
 }
 
-void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int count, float row_h) {
+void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int count, float row_h, int flags) {
     memset(l, 0, sizeof *l);
     l->id = dxl_ui_id(ui, id);
     l->area = r;
     l->count = count;
     l->row_h = row_h;
     l->focused = -1;
+    l->flags = flags;
     l->scrollable = count * row_h > r.h + 0.5f;
     float *off = dxl_ui_value(ui, l->id, 0);
     float *want = dxl_ui_value(ui, l->id ^ WANT_KEY, -1);
@@ -142,9 +153,13 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
     /* Up and down from a row go along the rows, those out of view too; off
      * either end, the kit's move stands and takes the focus out of the
      * list. */
-    int was = -1, keep = 0;
+    int was = -1, col = 0, keep = 0;
     for (int i = 0; i < count && was < 0; i++)
-        if (dxl_list_row_id(l, i) == ui->focus_was) was = i;
+        for (int c = 0; c < COLS && was < 0; c++)
+            if (dxl_list_cell_id(l, i, c) == ui->focus_was) {
+                was = i;
+                col = c;
+            }
     if (was >= 0) {
         int down = ui->in.nav[DXL_DIR_DOWN], up = ui->in.nav[DXL_DIR_UP];
         int to = was + down - up + (ui->in.page_down - ui->in.page_up) * visible;
@@ -152,7 +167,7 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
         if (to > count - 1) to = count - 1;
         int off_end = (down > up && was == count - 1) || (up > down && was == 0);
         if ((down || up || ui->in.page_down || ui->in.page_up) && !off_end) {
-            ui->focus = dxl_list_row_id(l, to);
+            ui->focus = dxl_list_cell_id(l, to, col);
             ui->focus_moved = 1;
             keep = 1;
         }
@@ -165,7 +180,8 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
         keep = 1;
     }
     for (int i = 0; i < count && l->focused < 0; i++)
-        if (dxl_list_row_id(l, i) == ui->focus) l->focused = i;
+        for (int c = 0; c < COLS && l->focused < 0; c++)
+            if (dxl_list_cell_id(l, i, c) == ui->focus) l->focused = i;
 
     if (l->focused >= 0 && (keep || ui->focus_moved)) {
         float top = l->focused * row_h, bottom = top + row_h;
@@ -173,15 +189,33 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
         if (bottom > *off + r.h) *off = bottom - r.h;
     }
     int over = ui->in.px >= r.x && ui->in.px < r.x + r.w && ui->in.py >= r.y && ui->in.py < r.y + r.h;
-    if (ui->in.wheel != 0 && over) {
+    if (ui->in.wheel != 0 && over && dxl_ui_live(ui)) {
         *off -= ui->in.wheel * row_h * 2;
         ui->in.wheel = 0;
     }
     float max = count * row_h - r.h;
+    if (flags & DXL_LIST_WHOLE_ROWS) {
+        /* A whole number of rows scrolled, the focused one all in view. */
+        if (max > 0) max = ceilf(max / row_h) * row_h;
+        float snapped = floorf(*off / row_h + 0.5f) * row_h;
+        if (l->focused >= 0 && (keep || ui->focus_moved)) {
+            float top = l->focused * row_h;
+            if (top < snapped) snapped = top;
+            while (top + row_h > snapped + r.h + 0.5f && snapped < top) snapped += row_h;
+        }
+        *off = snapped;
+    }
     if (*off > max) *off = max;
     if (*off < 0) *off = 0;
     l->offset = *off;
     dxl_clip_push(ui, r);
+}
+
+int dxl_list_rect(const dxl_list *l, int i, dxl_rect *out) {
+    dxl_rect row = { l->area.x, l->area.y + i * l->row_h - l->offset, l->area.w - (l->scrollable ? BAR_W : 0),
+                     l->row_h };
+    *out = row;
+    return row.y >= l->area.y - 0.5f && row.y + row.h <= l->area.y + l->area.h + 0.5f;
 }
 
 int dxl_list_row(dxl_ui *ui, dxl_list *l, int i, const char *title, const char *detail, dxl_rgba detail_c,
@@ -197,6 +231,7 @@ int dxl_list_row(dxl_ui *ui, dxl_list *l, int i, const char *title, const char *
     if (seen.y + seen.h > bottom) seen.h = bottom - seen.y;
 
     int hits = dxl_ui_focusable(ui, dxl_list_row_id(l, i), seen, flags & DXL_W_DISABLED);
+    if (!(flags & DXL_W_DISABLED)) dxl_ui_name(ui, dxl_list_row_id(l, i), title);
     if (hits & DXL_HIT_FOCUSED) dxl_fill(ui, row, t->row_focus);
     else if (hits & DXL_HIT_HOVERED) dxl_fill(ui, row, t->row_highlight);
     dxl_rect sep = { row.x + 8, row.y + row.h - 1, row.w - 16, 1 };
@@ -219,6 +254,12 @@ int dxl_list_row(dxl_ui *ui, dxl_list *l, int i, const char *title, const char *
 
 void dxl_list_end(dxl_ui *ui, dxl_list *l) {
     dxl_clip_pop(ui);
+    /* Moved up or down from a row's second control into a row of one: that
+     * one, not a control nothing drew. */
+    if (l->focused >= 0 && !dxl_focus_has(&ui->cur, ui->focus)) {
+        uint32_t first = dxl_list_row_id(l, l->focused);
+        if (dxl_focus_has(&ui->cur, first)) ui->focus = first;
+    }
     if (!l->scrollable) return;
     const dxl_theme *t = &ui->theme;
     float total = l->count * l->row_h;

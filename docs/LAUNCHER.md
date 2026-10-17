@@ -14,7 +14,7 @@ It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
 `deusex-launcher`'s screens are a window of its own, drawn with SDL3 and
-SDL3_ttf: Home, the first run, Recovery, About
+SDL3_ttf: Home, the first run, Settings, Recovery, the log, About
 ([the window](#the-window)).
 
 ## Where everything lives
@@ -26,8 +26,8 @@ scratch home:
 
 | Folder | What is in it |
 |---|---|
-| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
-| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json`, a class's own config files, the engine's log and crash reports |
+| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
+| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` (`~/.local/share`) | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
@@ -42,8 +42,9 @@ which the harness's runs read: an engine whose `--version` lacks
 The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`SurrealEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
 window's type (`data/fonts`), the app menu's entry
-([the app menu](#the-app-menu)), and the Smart Pro's renderer list and
-engine settings' defaults. `DXL_ENGINE=<path>` runs another engine.
+([the app menu](#the-app-menu)), the engine's renderers and what each needs
+of the machine (`renderers.ini`), and `Settings.json`'s defaults
+(`engine-settings.json.default`). `DXL_ENGINE=<path>` runs another engine.
 
 ## An install
 
@@ -136,12 +137,15 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 | Page | What it has |
 |---|---|
-| Home | Play, About, Quit; the profile's game, its build, the engine, its saves, its last run |
+| Home | Play, Settings, About, Quit; the profile's game, its build, the engine, its saves, its last run |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
-| Recovery | how the last run ended and when, the engine's error, the end of its log; Play, the log opened, Quit |
+| Settings | [the settings](#settings), a tab a page |
+| Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
+| The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
 
-Graphics (`-changevideo`) opens Home ([known defects](#known-defects)).
+Graphics (`-changevideo`, and an engine's `RELAUNCH` with it) opens
+Settings on its Graphics tab, whose Done is Play.
 
 It is our own drawing on SDL3's renderer (`src/ui/`), with none of the
 game's art: steel panels with cut corners and lit edges, title bars in the
@@ -155,12 +159,13 @@ which the display's scale makes pixels, so it is as sharp at any size: for
 
 **Controls.** The keyboard: the arrows or WASD move, Enter or Space
 chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
-Up and Page Down scroll a list, F5 plays. The mouse: the pointer focuses
+Up and Page Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs,
+F5 plays. The mouse: the pointer focuses
 what it moves onto, a click chooses, the wheel scrolls a list. A pad: the
 d-pad or the left stick moves (held, again after 350 ms and then every
 90), its confirm button chooses and its back button goes back -- south and
-east, or on a Nintendo pad, whose A is east, east and south -- and Start
-plays. The foot of each page shows what to press on the device last used,
+east, or on a Nintendo pad, whose A is east, east and south -- its
+shoulders change tabs, and Start plays. The foot of each page shows what to press on the device last used,
 keycaps or the pad's own buttons as SDL names them, drawn as shapes of our
 own, no maker's logo; a hint clicked does what its key does. The pointer
 hides while a pad is used.
@@ -169,6 +174,75 @@ Idle, it costs nothing: it waits on its events and draws only while
 something moves, VSync-paced. A second start while it is up hands it its
 command line and raises it; a pad connected or lost is a note in its
 corner.
+
+## Settings
+
+Settings' tabs are its pages: Display, Graphics, Audio, Keyboard & mouse,
+Gameplay & HUD, Multiplayer, Launcher; a page's advanced rows come after
+its others. Each row is the registry's (`src/core/settings_table.c`): what
+it is, its help, and the places it is kept, each with the codec its reader
+takes (`src/core/settings.c`):
+
+| Kept in | What |
+|---|---|
+| `DeusEx.ini` | the engine's sections, `[Engine.SurrealClient]`, `SurrealAudioDevice`, `SurrealRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
+| `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys |
+| `engine/Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR |
+| `launcher.ini`, `profile.ini` | the launcher's own: its size, reduced motion, Home after playing, its renderer; the engine's extra words |
+
+**As the engine reads them.** The engine reads its own sections once
+`[Engine.SurrealAudioDevice]` has a key, else the retail ones
+(`[WinDrv.WindowsClient]`, `[Galaxy.GalaxyAudioSubsystem]`, the render
+device's), taking its built-in default for a key missing there; a row reads
+the same way, and is written to both, so the two agree. The engine stops at
+start on a value its converters refuse (`yes` for a bool, a rate without
+`Hz`): to a row such text is no value either. A value is written as the
+engine writes it (`True`, `0.600000`, `153`, `44100Hz`), and only as the
+player changes it. Before the page opens and before each run, each key of
+the engine's sections that is missing is written, from the retail value
+where there is one, else the engine's default (`src/core/engine_sections.c`),
+so the engine reads what the page shows. A row's default is what is taken
+with no value kept: the engine's own, the class's for `User.ini`'s keys,
+the defaults file's for `Settings.json`.
+
+**Back to the defaults** gives a page what a new profile has: the install's
+`Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
+defaults file; on Keyboard & mouse, the keys too. Recovery's The defaults...
+does it for a page or for all.
+
+**Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
+drew it: no multisampling, bloom or detail textures), Enhanced (4x
+multisampling, bloom, detail textures) and Performance (less to draw, three
+quarters of the window's size); Custom once a row is changed by itself. Its
+Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2
+and OpenGL ES 3.2 (`data/renderers.ini`), which `dxl-cli --probe --ini`
+finds in a child process as the page needs them.
+
+**Keyboard & mouse** has the game's key menu's actions, and the commands
+the game's defaults bind besides (the pause menu, the belt's slots, the
+augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A
+slot takes the next key, mouse button or wheel notch; Esc puts it back,
+Delete takes the key away. A key bound to another action asks: that action
+instead, or both (`a|b`), the key then each one's. Keys are named as the engine's window gives them
+(`src/core/keys.c`): a key that window passes on as none is not taken, and
+a binding on one is marked ([known defects](#known-defects)). The game's own
+key menu refuses Escape, F1 to F18, the digits, Tilde, PrintScrn and Pause,
+whose bindings it does not show; this page shows them, and takes all but
+Escape.
+
+**A text row** takes the keyboard's text, Enter keeping it and Esc putting
+it back, or a pad's through the on-screen keyboard (`src/ui/osk.c`). Your
+name keeps what the game takes in a name, letters, digits and `[ ] ( )`,
+and is `Player` when nothing of it is left.
+
+**The next run's words**, `-nosound`, `-nohard -noddraw` (a window),
+`-defaultres` (640 x 480) and `-nojoy`, are Launcher's advanced rows and
+Recovery's: added to the original's command line of the run Play starts
+next, and of no other.
+
+The changes are in the open files at once, and written as Settings is
+left, by Done or otherwise. The launcher's size and reduced motion apply at
+once, its renderer from the window's next opening.
 
 ## The app menu
 
@@ -219,6 +293,15 @@ was not clean, and at the next start that finds `Running.ini`; with no
 window (`dxl-cli`), that start says so with the end of the run's log, and
 exits 3.
 
+The page says what to do about the run's end (`src/core/advice.c`). For a
+crash, and for the errors it knows -- the Vulkan renderer not made, OpenAL
+not started, a package or the engine's `.pk3` not found, an engine that
+ended before its first map -- it says the likely cause, and has its fix as
+a button: another renderer, of those that run here; a run without sound;
+the game's folder. Below are the end of the log where it fits, the [next
+run's words](#settings), and Play, the fix, the log, the defaults of a
+page or of all, Quit.
+
 ## dxl-cli
 
 | Mode | What it does |
@@ -231,7 +314,8 @@ exits 3.
 
 ## How it is tested
 
-`scripts/dx.sh test` runs the host tests, with no display, side by side.
+`scripts/dx.sh test` runs the host tests side by side, all but
+`test_ui_scripts` with no display.
 `test_settings` takes the registry's rows through each codec, both
 generations of the system ini, the sizes, the next run's words,
 `Settings.json`, the presets and a new profile's defaults; `test_keys` the
@@ -248,17 +332,26 @@ in the game's folder changed.
 The window's kit is tested on SDL's software renderer and a surface:
 focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the
 keyboard, the mouse and virtual pads with an Xbox's, a DualSense's and a
-Switch Pro's ids (`test_ui_input`). `dxl-shots` (`tools/shots.c`) draws
-every page and dialog, from states it makes up in a scratch home, at
+Switch Pro's ids (`test_ui_input`), and the controls and the on-screen
+keyboard (`test_ui_controls`). `dxl-shots` (`tools/shots.c`) draws every
+page and dialog, each settings page too, from states it makes up in a
+scratch home, at
 1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160 at 2 and
 960x600, with the keyboard, the mouse and four virtual pads, and fails on
 any diagnostic of the kit's: a label cut short, focusables on one another
 or off the window (`test_ui_shots_*`); with `--out=<dir>` it writes them as
 PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
-window a script of keys, page checks and shots, through its own event
-queue (`src/screens/uiscript.h`): a first run from a fresh home to the game
-and its clean end, a crash into Recovery, and a second start handed over
-are run that way.
+window a script of keys, text, controls found by their labels, page checks
+and shots, through its own event queue (`src/screens/uiscript.h`): a first
+run from a fresh home to the game and its clean end, a crash into Recovery,
+and a second start handed over are run that way. `test_ui_scripts` runs
+`tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home and
+with the stub for the engine, and reads what they changed:
+`settings_roundtrip` changes a row of each kind on each page and finds each
+in its file as its reader takes it, and the next run's words on that run;
+`recovery` goes from a crash to Recovery's log, the next run in a window
+and another renderer, and finds those on the next run alone. It is skipped
+with no display or no install.
 
 ## What it changes from the original
 
@@ -277,18 +370,22 @@ whatever the install. Changed:
 | The launcher and the engine one process, which stays for the game's run | The engine a child, started by its words, which the launcher waits on, holding its lock to the end | The engine is a program of its own; started by its words, a quoted word in the command line arrives whole, where `main`'s split them |
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The desktop's screens, from a laptop's to a television's, and pads |
-| Safe mode's eight flags on a relaunch; the save migration below FirstRun 220; the Detail page | Not carried | The engine reads none of the Detail page's keys; the saves are 1112fm's |
+| The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
+| Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
+| The save migration below FirstRun 220; the Detail page | Not carried | The engine reads none of the Detail page's keys; the saves are 1112fm's |
 
 ## Known defects
 
-- **No Graphics page**: `-changevideo`, and an engine's `RELAUNCH` with
-  it, open Home.
 - **Not the player's theme**: the window's colours are the default menu
   theme's, whatever the profile's `MenuThemeName`.
-- **The settings are the inis' alone.** `Settings.json` is not written:
-  the engine takes its own defaults, the Vulkan renderer and 4x
-  anti-aliasing, and `data/` (the renderer list, the engine settings'
-  defaults) is the Smart Pro's, unused.
+- **Keys the engine's window does not pass on.** Under SDL2, the window the
+  launcher starts the engine with, the engine has the shifts and controls
+  only as `LShift`, `RShift`, `LControl` and `RControl`, and no Alt, Caps
+  Lock, punctuation (`; = , - . / [ \ ] '`) or keypad operator: the
+  defaults' Shift (walk), Alt (strafe), Caps Lock (walk or run), Comma and
+  Period (strafe), the brackets (scope, laser), Semicolon (reload), the
+  quote (ammunition) and the keypad's quick save, quick load and screenshot
+  reach nothing. The keyboard page marks such a binding.
 - **The finder looks in a few places**: Steam's own library, not the
   others `libraryfolders.vdf` lists; `~/Games/Heroic` and `~/GOG Games`;
   not Lutris, Bottles or Wine prefixes. The folder browser, the system's

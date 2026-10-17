@@ -126,6 +126,8 @@ add_library(dxl_ui STATIC
     src/ui/widgets.c
     src/ui/glyphs.c
     src/ui/icon.c
+    src/ui/controls.c
+    src/ui/osk.c
 )
 target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
 
@@ -139,6 +141,8 @@ add_library(dxl_screens STATIC
     src/screens/dialogs.c
     src/screens/window.c
     src/screens/uiscript.c
+    src/screens/settings.c
+    src/screens/log.c
 )
 target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
 

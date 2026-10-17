@@ -19,6 +19,7 @@
 #include "core/gamedb.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "core/settings.h"
 #include "screens/shell.h"
 #include "ui/text.h"
 
@@ -71,12 +72,31 @@ typedef enum {
     SCENE_RECOVERY,
     SCENE_SAFE,
     SCENE_ABOUT,
+    SCENE_SETTINGS,
+    SCENE_PICK,
+    SCENE_OSK,
+    SCENE_CONFIRM,
+    SCENE_LOG,
+    SCENE_KEYS,
+    /* The other settings pages, by their names in page_scenes. */
+    SCENE_GRAPHICS,
+    SCENE_AUDIO,
+    SCENE_GAMEPLAY,
+    SCENE_MULTIPLAYER,
+    SCENE_LAUNCHER,
     SCENE_COUNT
 } scene;
 
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "repoint",
-    "recovery", "safe", "about",
+    "recovery", "safe", "about", "settings", "pick", "osk", "confirm", "log", "keys",
+    "graphics", "audio", "gameplay", "multiplayer", "launcher",
+};
+
+/* The settings page each of those scenes shows. */
+static const struct { scene sc; const char *page; } page_scenes[] = {
+    { SCENE_KEYS, "Keyboard & mouse" }, { SCENE_GRAPHICS, "Graphics" }, { SCENE_AUDIO, "Audio" },
+    { SCENE_GAMEPLAY, "Gameplay & HUD" }, { SCENE_MULTIPLAYER, "Multiplayer" }, { SCENE_LAUNCHER, "Launcher" },
 };
 
 static char home[512];
@@ -151,6 +171,11 @@ static void make_run(dxl_run *r, int profile) {
     dxl_profile_set(p, "Install", "1112fm-00000000");
     dxl_profile_save(p, &e);
     write_file(p->system_ini, "[Engine.Engine]\n");
+    /* A few bindings of the shots' own, one on a key the engine's window
+     * does not pass on. */
+    write_file(p->user_ini, "[Engine.Input]\nW=MoveForward\nUp=MoveForward\nS=MoveBackward\nA=StrafeLeft\n"
+                            "D=StrafeRight\nSpace=Jump\nX=Duck\nShift=Walking\nLeftMouse=ParseLeftClick|Fire\n"
+                            "RightMouse=ParseRightClick\nR=ReloadWeapon\nF1=ShowInventoryWindow\n");
     for (int i = 1; i <= 12; i++) {
         char leaf[32];
         snprintf(leaf, sizeof leaf, "Save%04d", i);
@@ -159,6 +184,7 @@ static void make_run(dxl_run *r, int profile) {
         free(d);
     }
     good_install(&r->session.install, "GOG Games/Deus Ex GOTY", 0);
+    r->config = dxl_config_open_files(r->session.install.system_dir, "DeusEx", p->system_ini, p->user_ini);
     r->last.known = 1;
     r->last.clean = 1;
     r->last.ready = 1;
@@ -273,12 +299,55 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         dxl_shell_go(s, DXL_PAGE_ABOUT);
         break;
+    case SCENE_SETTINGS:
+    case SCENE_PICK:
+    case SCENE_OSK:
+    case SCENE_CONFIRM: {
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_SETTINGS);
+        if (sc == SCENE_SETTINGS) break;
+        static const char *labels[16];
+        const dxl_setting *row = NULL;
+        for (size_t i = 0; i < dxl_settings_count() && !row; i++)
+            if (dxl_setting_at(i)->kind == DXL_SET_CHOICE) row = dxl_setting_at(i);
+        int n = 0;
+        for (; row && row->choices[n].value && n < 16; n++) labels[n] = row->choices[n].label;
+        for (size_t i = 0; i < dxl_settings_page_count(); i++)
+            if (row && !strcmp(dxl_settings_page(i), row->page)) s->settings_tab = (int)i;
+        if (sc == SCENE_PICK && row) dxl_shell_pick(s, 1, row->label, labels, n, 1);
+        if (sc == SCENE_OSK && s->text_count) {
+            snprintf(s->texts[0], sizeof s->texts[0], "-nosound");
+            dxl_shell_osk(s, 2, s->text_rows[0]->label, s->texts[0], sizeof s->texts[0]);
+        }
+        if (sc == SCENE_CONFIRM)
+            dxl_shell_confirm(s, 3, "Display", "Every setting on this page back to its default?", "Reset", "Keep them");
+        break;
+    }
+    case SCENE_KEYS:
+    case SCENE_GRAPHICS:
+    case SCENE_AUDIO:
+    case SCENE_GAMEPLAY:
+    case SCENE_MULTIPLAYER:
+    case SCENE_LAUNCHER:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_SETTINGS);
+        for (size_t p = 0; p < sizeof page_scenes / sizeof *page_scenes; p++)
+            for (size_t i = 0; page_scenes[p].sc == sc && i < dxl_settings_page_count(); i++)
+                if (!strcmp(dxl_settings_page(i), page_scenes[p].page)) s->settings_tab = (int)i;
+        break;
+    case SCENE_LOG:
+        crashed(r);
+        dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
+        dxl_shell_go(s, DXL_PAGE_LOG);
+        break;
     default:
         break;
     }
 }
 
 static void tear_down(dxl_run *r) {
+    dxl_config_free(r->config);
+    r->config = NULL;
     dxl_session_close(&r->session);
     /* The next scene's profile from nothing. */
     char *cfg = at_home(".config"), *data = at_home(".local/share/dxlauncher"), *state = at_home(".local/state");
@@ -410,6 +479,10 @@ static void shoot(scene sc, int si, mode m) {
     }
     /* The kit goes on to the next shot, its texts and textures with it. */
     kit = s.ui;
+    if (s.settings_open) {
+        dxl_es_free(s.engine_settings);
+        s.settings_open = 0;
+    }
     dxl_shell_free(&s);
     tear_down(&r);
 }

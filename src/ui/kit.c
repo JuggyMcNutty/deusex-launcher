@@ -16,6 +16,8 @@
 #define STICK_ON  0.55f
 #define STICK_OFF 0.35f
 
+static void text_input_sync(dxl_ui *ui);
+
 /* ---- the pads ---------------------------------------------------------- */
 
 #define PADS 8
@@ -108,6 +110,9 @@ int dxl_ui_attach(dxl_ui *ui, SDL_Window *window, SDL_Renderer *renderer) {
 }
 
 void dxl_ui_detach(dxl_ui *ui) {
+    if (ui->text_on && ui->window) SDL_StopTextInput(ui->window);
+    ui->text_on = 0;
+    ui->text_id = ui->capture_id = 0;
     if (ui->backdrop) SDL_DestroyTexture(ui->backdrop);
     ui->backdrop = NULL;
     dxl_text_flush(ui);
@@ -135,6 +140,7 @@ void dxl_ui_reset(dxl_ui *ui) {
     ui->pad_family = DXL_PADFAMILY_XBOX;
     memset(ui->values, 0, sizeof ui->values);
     memset(&ui->in, 0, sizeof ui->in);
+    ui->text_id = ui->capture_id = 0;
     held_dir = stick_dir = -1;
 }
 
@@ -148,11 +154,60 @@ void dxl_ui_free(dxl_ui *ui) {
 void dxl_ui_input_begin(dxl_ui *ui) {
     float px = ui->in.px, py = ui->in.py;
     memset(&ui->in, 0, sizeof ui->in);
+    text_input_sync(ui);
     ui->in.px = px;
     ui->in.py = py;
 }
 
+/* A key while a field is edited: the editing keys; the rest is text, which
+ * comes as SDL_EVENT_TEXT_INPUT. */
+static void typed(dxl_ui *ui, const char *s) {
+    size_t have = strlen(ui->in.text), add = strlen(s);
+    if (have + add < sizeof ui->in.text) memcpy(ui->in.text + have, s, add + 1);
+}
+
+static void edit_key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
+    char op[2] = { 0, 0 };
+    switch (k->key) {
+    case SDLK_BACKSPACE: op[0] = DXL_EDIT_ERASE; break;
+    case SDLK_DELETE:    op[0] = DXL_EDIT_DELETE; break;
+    case SDLK_LEFT:      op[0] = DXL_EDIT_LEFT; break;
+    case SDLK_RIGHT:     op[0] = DXL_EDIT_RIGHT; break;
+    case SDLK_HOME:      op[0] = DXL_EDIT_HOME; break;
+    case SDLK_END:       op[0] = DXL_EDIT_END; break;
+    case SDLK_RETURN:
+    case SDLK_KP_ENTER:  if (!k->repeat) ui->in.activate++; break;
+    case SDLK_ESCAPE:    if (!k->repeat) ui->in.back++; break;
+    default: return;
+    }
+    if (op[0]) typed(ui, op);
+    ui->mode = DXL_INPUT_KEYBOARD;
+    ui->in.any = 1;
+}
+
 static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
+    if (ui->capture_id) {
+        if (k->repeat) return;
+        if (k->key == SDLK_ESCAPE) ui->in.back++;
+        else if (!ui->in.captured) {
+            ui->in.captured = DXL_CAPTURED_KEY;
+            ui->in.captured_code = (int)k->scancode;
+        }
+        ui->mode = DXL_INPUT_KEYBOARD;
+        ui->in.any = 1;
+        return;
+    }
+    if (ui->text_id) {
+        edit_key(ui, k);
+        return;
+    }
+    if (k->key == SDLK_TAB && (k->mod & SDL_KMOD_CTRL)) {
+        if (k->mod & SDL_KMOD_SHIFT) ui->in.tab_prev++;
+        else ui->in.tab_next++;
+        ui->mode = DXL_INPUT_KEYBOARD;
+        ui->in.any = 1;
+        return;
+    }
     switch (k->key) {
     case SDLK_UP:       ui->in.nav[DXL_DIR_UP]++; break;
     case SDLK_DOWN:     ui->in.nav[DXL_DIR_DOWN]++; break;
@@ -171,6 +226,7 @@ static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
     case SDLK_PAGEUP:   ui->in.page_up++; break;
     case SDLK_PAGEDOWN: ui->in.page_down++; break;
     case SDLK_F5:       if (!k->repeat) ui->in.start++; break;
+    case SDLK_DELETE:   if (!k->repeat) ui->in.clear++; break;
     case SDLK_F11:      if (!k->repeat) ui->in.toggle_big++; break;
     default: return;
     }
@@ -184,6 +240,13 @@ static void pad_button(dxl_ui *ui, const SDL_GamepadButtonEvent *b) {
     ui->pad = b->which;
     ui->pad_family = family_of(g);
     ui->in.any = 1;
+    if (ui->capture_id) {
+        if (!ui->in.captured) {
+            ui->in.captured = DXL_CAPTURED_PAD;
+            ui->in.captured_code = b->button;
+        }
+        return;
+    }
     /* Confirm and back where the pad's own labels put them: a Nintendo pad
      * confirms with its A, on the east. */
     int south_confirms = ui->pad_family != DXL_PADFAMILY_NINTENDO;
@@ -195,6 +258,7 @@ static void pad_button(dxl_ui *ui, const SDL_GamepadButtonEvent *b) {
     case SDL_GAMEPAD_BUTTON_SOUTH: if (south_confirms) ui->in.activate++; else ui->in.back++; break;
     case SDL_GAMEPAD_BUTTON_EAST:  if (south_confirms) ui->in.back++; else ui->in.activate++; break;
     case SDL_GAMEPAD_BUTTON_START: ui->in.start++; break;
+    case SDL_GAMEPAD_BUTTON_WEST:  ui->in.clear++; break;
     case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:  ui->in.shoulder_l++; break;
     case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: ui->in.shoulder_r++; break;
     default: break;
@@ -254,6 +318,14 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         float density = ui->window ? SDL_GetWindowPixelDensity(ui->window) : 1;
         ui->in.px = e->button.x * density / ui->scale;
         ui->in.py = e->button.y * density / ui->scale;
+        if (ui->capture_id) {
+            if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN && !ui->in.captured) {
+                ui->in.captured = DXL_CAPTURED_MOUSE;
+                ui->in.captured_code = e->button.button;
+            }
+            ui->in.any = 1;
+            break;
+        }
         if (e->button.button == SDL_BUTTON_LEFT) {
             if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN) ui->in.pressed = 1;
             else ui->in.released = 1;
@@ -263,6 +335,13 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         break;
     }
     case SDL_EVENT_MOUSE_WHEEL:
+        if (ui->capture_id && !ui->in.captured && e->wheel.y != 0) {
+            float y = e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e->wheel.y : e->wheel.y;
+            ui->in.captured = DXL_CAPTURED_WHEEL;
+            ui->in.captured_code = y > 0 ? 1 : -1;
+            ui->in.any = 1;
+            break;
+        }
         ui->in.wheel += e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e->wheel.y : e->wheel.y;
         ui->in.any = 1;
         ui->mode = DXL_INPUT_MOUSE;
@@ -285,7 +364,19 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
             held_dir = -1;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-        pad_axis(ui, &e->gaxis);
+        if (!ui->capture_id) pad_axis(ui, &e->gaxis);
+        break;
+    case SDL_EVENT_TEXT_INPUT:
+        if (ui->text_id && e->text.text) {
+            /* Text, never the editing keys' codes. */
+            char clean[64];
+            size_t n = 0;
+            for (const char *p = e->text.text; *p && n + 1 < sizeof clean; p++)
+                if ((unsigned char)*p >= 0x20 && *p != 0x7f) clean[n++] = *p;
+            clean[n] = '\0';
+            typed(ui, clean);
+            ui->in.any = 1;
+        }
         break;
     default:
         break;
@@ -325,6 +416,7 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
         ui->prev = ui->cur;
     }
     dxl_focus_clear(&ui->cur);
+    ui->names.count = 0;
     ui->hot = 0;
 
     /* The focus where it can be: the screen's first when it has none, or
@@ -420,11 +512,61 @@ void dxl_ui_focus(dxl_ui *ui, uint32_t id) { ui->focus = id; }
 
 void dxl_ui_forget(dxl_ui *ui) { ui->forget = 1; }
 
+int dxl_ui_take_lr(dxl_ui *ui, uint32_t id) {
+    int steps = ui->in.nav[DXL_DIR_RIGHT] - ui->in.nav[DXL_DIR_LEFT];
+    if (ui->focus_was != id || (!ui->in.nav[DXL_DIR_RIGHT] && !ui->in.nav[DXL_DIR_LEFT])) return 0;
+    ui->focus = id;
+    return steps;
+}
+
+int dxl_ui_take_ud(dxl_ui *ui, uint32_t id) {
+    int steps = ui->in.nav[DXL_DIR_DOWN] - ui->in.nav[DXL_DIR_UP];
+    if (ui->focus_was != id || (!ui->in.nav[DXL_DIR_DOWN] && !ui->in.nav[DXL_DIR_UP])) return 0;
+    ui->focus = id;
+    return steps;
+}
+
+/* SDL's text input, started and stopped with the kit's, its window for
+ * the input method placed by the field. */
+static void text_input_sync(dxl_ui *ui) {
+    if (!ui->window) return;
+    if (ui->text_id && !ui->text_on) {
+        ui->text_on = SDL_StartTextInput(ui->window);
+    } else if (!ui->text_id && ui->text_on) {
+        SDL_StopTextInput(ui->window);
+        ui->text_on = 0;
+    }
+    if (ui->text_on) {
+        dxl_rect p = dxl_px(ui, ui->text_area);
+        float density = SDL_GetWindowPixelDensity(ui->window);
+        if (density <= 0) density = 1;
+        SDL_Rect r = { (int)(p.x / density), (int)(p.y / density), (int)(p.w / density), (int)(p.h / density) };
+        SDL_SetTextInputArea(ui->window, &r, 0);
+    }
+}
+
+void dxl_ui_text_begin(dxl_ui *ui, uint32_t id, dxl_rect area) {
+    ui->text_id = id;
+    ui->text_area = area;
+    text_input_sync(ui);
+}
+
+void dxl_ui_text_end(dxl_ui *ui) {
+    ui->text_id = 0;
+    text_input_sync(ui);
+}
+
+void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id) { ui->capture_id = id; }
+
+void dxl_ui_capture_end(dxl_ui *ui) { ui->capture_id = 0; }
+
 /* Whether input reaches the scope focusables are added to now: only the
  * topmost, as last frame drew it. */
 static int scope_live(const dxl_ui *ui) {
     return !ui->prev.count || ui->scope >= dxl_focus_top_scope(&ui->prev);
 }
+
+int dxl_ui_live(const dxl_ui *ui) { return scope_live(ui); }
 
 static int pointer_hits(dxl_ui *ui, uint32_t id, dxl_rect r, int focuses) {
     int hits = 0;
@@ -463,6 +605,22 @@ int dxl_ui_focusable(dxl_ui *ui, uint32_t id, dxl_rect r, int disabled) {
         }
     }
     return hits;
+}
+
+void dxl_ui_name(dxl_ui *ui, uint32_t id, const char *name) {
+    int n = ui->names.count;
+    if (!name || n >= (int)(sizeof ui->names.at / sizeof *ui->names.at)) return;
+    ui->names.at[n].id = id;
+    snprintf(ui->names.at[n].name, sizeof ui->names.at[n].name, "%s", name);
+    ui->names.count++;
+}
+
+uint32_t dxl_ui_named(const dxl_ui *ui, const char *name) {
+    /* The last drawn of the name: a dialog's, over the page under it. */
+    uint32_t id = 0;
+    for (int i = 0; i < ui->names.count; i++)
+        if (!strcmp(ui->names.at[i].name, name)) id = ui->names.at[i].id;
+    return id;
 }
 
 int dxl_ui_clickable(dxl_ui *ui, uint32_t id, dxl_rect r) {

@@ -12,7 +12,11 @@ struct dxl_uiscript {
     int      count, at;
     double   next;        /* when the next line runs; 0 before the first */
     char    *shot;        /* a shot asked for */
+    const char *seek;     /* a find's label, sought frame by frame */
+    int      seek_left;   /* the Downs it has left */
 };
+
+#define SEEK_TRIES 80
 
 dxl_uiscript *dxl_uiscript_open(void) {
     const char *path = getenv("DXL_UI_SCRIPT");
@@ -45,8 +49,14 @@ void dxl_uiscript_free(dxl_uiscript *u) {
 }
 
 static const char *up_now(const dxl_shell *s) {
-    if (s->dialog == DXL_DIALOG_BROWSER) return "browser";
-    if (s->dialog == DXL_DIALOG_MESSAGE) return "message";
+    switch (s->dialog) {
+    case DXL_DIALOG_BROWSER: return "browser";
+    case DXL_DIALOG_MESSAGE: return "message";
+    case DXL_DIALOG_PICK: return "pick";
+    case DXL_DIALOG_OSK: return "keyboard";
+    case DXL_DIALOG_CONFIRM: return "confirm";
+    default: break;
+    }
     switch (s->page) {
     case DXL_PAGE_HOME: return "home";
     case DXL_PAGE_WELCOME: return "welcome";
@@ -54,15 +64,20 @@ static const char *up_now(const dxl_shell *s) {
     case DXL_PAGE_IMPORT: return "import";
     case DXL_PAGE_RECOVERY: return "recovery";
     case DXL_PAGE_ABOUT: return "about";
+    case DXL_PAGE_SETTINGS: return "settings";
+    case DXL_PAGE_LOG: return "log";
     default: return "?";
     }
 }
 
+/* A key down and up, with its scancode: a key the keyboard page captures
+ * is named by it. */
 static void push_key(SDL_Keycode k) {
     SDL_Event e;
     SDL_zero(e);
     e.type = SDL_EVENT_KEY_DOWN;
     e.key.key = k;
+    e.key.scancode = SDL_GetScancodeFromKey(k, NULL);
     e.key.down = true;
     SDL_PushEvent(&e);
     e.type = SDL_EVENT_KEY_UP;
@@ -70,29 +85,82 @@ static void push_key(SDL_Keycode k) {
     SDL_PushEvent(&e);
 }
 
+/* The script stopped where it failed, and the window closed. */
+static void fail(dxl_uiscript *u, const char *what) {
+    fprintf(stderr, "ui script: FAILED: %s\n", what);
+    dxl_log("ui script: FAILED: %s", what);
+    u->at = u->count;
+    u->seek = NULL;
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = SDL_EVENT_QUIT;
+    SDL_PushEvent(&e);
+}
+
+/* A find under way: the control focused once it is drawn, else one more
+ * Down. 1 while it goes on. */
+static int seek(dxl_uiscript *u, dxl_shell *s) {
+    uint32_t id = dxl_ui_named(&s->ui, u->seek);
+    if (id) {
+        dxl_ui_focus(&s->ui, id);
+        s->ui.mode = DXL_INPUT_KEYBOARD;
+        u->seek = NULL;
+        return 0;
+    }
+    if (u->seek_left-- <= 0) {
+        char what[160];
+        snprintf(what, sizeof what, "no %s on %s", u->seek, up_now(s));
+        fail(u, what);
+        return 0;
+    }
+    push_key(SDLK_DOWN);
+    return 1;
+}
+
 double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
     if (!u) return -1;
     if (u->next == 0) u->next = now;
-    while (u->at < u->count && now >= u->next) {
+    if (u->seek && seek(u, s)) return 0;
+    while (u->at < u->count && now >= u->next && !u->seek) {
         const char *l = u->lines[u->at++];
         char word[32] = "", arg[960] = "";
         sscanf(l, "%31s %959[^\n]", word, arg);
+        /* The line's own text, which stays while the script does. */
+        const char *rest = l + strlen(word);
+        while (*rest == ' ' || *rest == '\t') rest++;
         dxl_log("ui script: %s", l);
         if (!strcmp(word, "wait")) {
             u->next = now + atof(arg);
         } else if (!strcmp(word, "key")) {
+            int times = 1;
+            char *star = strrchr(arg, '*');
+            if (star && star > arg && star[-1] == ' ') {
+                times = atoi(star + 1);
+                for (star--; star >= arg && *star == ' '; star--) *star = '\0';
+            }
             SDL_Keycode k = SDL_GetKeyFromName(arg);
-            if (k == SDLK_UNKNOWN) dxl_log("ui script: FAILED: no key %s", arg);
-            else push_key(k);
+            char what[1000];
+            snprintf(what, sizeof what, "no key %s", arg);
+            if (k == SDLK_UNKNOWN) fail(u, what);
+            for (int n = 0; k != SDLK_UNKNOWN && n < times; n++) push_key(k);
+            /* A frame takes it before the next line moves the focus. */
+            return 0;
+        } else if (!strcmp(word, "type")) {
+            SDL_Event e;
+            SDL_zero(e);
+            e.type = SDL_EVENT_TEXT_INPUT;
+            e.text.text = rest;
+            SDL_PushEvent(&e);
+            return 0;
+        } else if (!strcmp(word, "find")) {
+            u->seek = rest;
+            u->seek_left = SEEK_TRIES;
+            if (seek(u, s)) return 0;
         } else if (!strcmp(word, "expect")) {
             if (strcmp(arg, up_now(s)) != 0) {
-                fprintf(stderr, "ui script: FAILED: expected %s, %s is up\n", arg, up_now(s));
-                dxl_log("ui script: FAILED: expected %s, %s is up", arg, up_now(s));
-                u->at = u->count;
-                SDL_Event e;
-                SDL_zero(e);
-                e.type = SDL_EVENT_QUIT;
-                SDL_PushEvent(&e);
+                char what[160];
+                snprintf(what, sizeof what, "expected %.60s, %s is up", arg, up_now(s));
+                fail(u, what);
             }
         } else if (!strcmp(word, "shot")) {
             free(u->shot);
@@ -103,7 +171,9 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
             e.type = SDL_EVENT_QUIT;
             SDL_PushEvent(&e);
         } else {
-            dxl_log("ui script: FAILED: no command %s", word);
+            char what[80];
+            snprintf(what, sizeof what, "no command %s", word);
+            fail(u, what);
         }
     }
     if (u->at >= u->count) return -1;
