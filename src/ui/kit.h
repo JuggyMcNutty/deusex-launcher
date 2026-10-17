@@ -37,6 +37,8 @@ typedef struct {
     int   pointer_moved;
     float px, py;          /* the pointer, dp */
     int   pressed, released;   /* the left button, this frame */
+    int   clicks;              /* its press: 1, 2 a double click's, 3 a triple's */
+    int   shift_click;         /* Shift held as it was pressed */
     float wheel;           /* notches, up positive */
     int   quit;            /* the window's close */
     int   resized;
@@ -46,8 +48,10 @@ typedef struct {
 
     /* While a field is edited (dxl_ui_text_begin): what was typed this
      * frame, UTF-8, the editing keys in it as they came -- DXL_EDIT_* --
-     * and Enter activate, Esc back. */
-    char  text[128];
+     * and Enter activate, Esc back; Tab, Up and Down move on as ever. What
+     * the keys type on a field that takes typing (dxl_ui_text_ready) the
+     * same: its edit's beginning. Ctrl+V's text comes as typed. */
+    char  text[1024];
 
     /* While a slot captures (dxl_ui_capture_begin): the first key, mouse
      * button, wheel notch, pad button or trigger, as it is; Esc is back. */
@@ -55,13 +59,23 @@ typedef struct {
     int   captured_code;       /* the scancode, button, notch (+1 up) or pad button */
 } dxl_input;
 
-/* The editing keys in dxl_input's text: no text SDL gives has them. */
+/* The editing keys in dxl_input's text: no text SDL gives has them, and
+ * no text typed keeps them (DXL_EDIT_IS_OP). */
 #define DXL_EDIT_ERASE  '\b'     /* Backspace */
 #define DXL_EDIT_DELETE '\x7f'   /* Delete */
 #define DXL_EDIT_LEFT   '\x02'
 #define DXL_EDIT_RIGHT  '\x06'
 #define DXL_EDIT_HOME   '\x01'
 #define DXL_EDIT_END    '\x05'
+#define DXL_EDIT_WORD_LEFT   '\x10'   /* Ctrl+Left: a word at a time */
+#define DXL_EDIT_WORD_RIGHT  '\x11'
+#define DXL_EDIT_ERASE_WORD  '\x17'   /* Ctrl+Backspace */
+#define DXL_EDIT_DELETE_WORD '\x0b'   /* Ctrl+Delete */
+#define DXL_EDIT_SELECT '\x13'        /* Shift, before a move: the selection grows with it */
+#define DXL_EDIT_ALL    '\x0e'        /* Ctrl+A */
+#define DXL_EDIT_COPY   '\x03'        /* Ctrl+C, Ctrl+Insert */
+#define DXL_EDIT_CUT    '\x18'        /* Ctrl+X, Shift+Delete */
+#define DXL_EDIT_IS_OP(c) ((unsigned char)(c) < 0x20 || (c) == 0x7f)
 
 #define DXL_CAPTURED_NONE   0
 #define DXL_CAPTURED_KEY    1
@@ -117,6 +131,7 @@ typedef struct dxl_ui {
     int             br_valid;
 
     int             animating;   /* something moves: draw again soon */
+    double          wake;        /* a frame due at this time with nothing else happening (a caret's blink); 0 none */
     unsigned long   frame;
 
     /* Values widgets keep from frame to frame (a list's scroll), by id. */
@@ -137,6 +152,10 @@ typedef struct dxl_ui {
     uint32_t        text_id;
     dxl_rect        text_area;   /* where the text is, for the input method's window */
     int             text_on;     /* SDL's text input is started */
+    uint32_t        text_ready;  /* a field with the focus that takes typing, as the last frame drew it */
+    uint32_t        text_ready_now;   /* ...as this one draws it */
+    uint32_t        text_lost;   /* a field whose edit ended as it was not drawn: kept */
+    int             swallow_space;    /* Space chose a field: the text it types is not typed */
     uint32_t        capture_id;
     /* The pads' buttons and sticks drive nothing (a controller being mapped). */
     int             pads_off;
@@ -210,6 +229,12 @@ int  dxl_ui_take_ud(dxl_ui *ui, uint32_t id);
  * window placed by area. */
 void dxl_ui_text_begin(dxl_ui *ui, uint32_t id, dxl_rect area);
 void dxl_ui_text_end(dxl_ui *ui);
+/* This frame, the field id has the focus and takes typing, its text in
+ * area: until the next frame the keys that type text type it -- W, A, S
+ * and D too, which move the focus elsewhere -- as dxl_input's text, which
+ * begins its edit; Backspace, Delete, Ctrl+A and Ctrl+V begin it with what
+ * they do. Space chooses it as ever. */
+void dxl_ui_text_ready(dxl_ui *ui, uint32_t id, dxl_rect area);
 /* The next key, mouse button, wheel notch or pad button for id, as it is
  * (dxl_input's captured), none of it navigation; Esc is back. */
 void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id);
@@ -250,6 +275,10 @@ void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...);
 
 /* An animation is running: the frame after this one comes soon. */
 void dxl_ui_animate(dxl_ui *ui);
+/* A frame due at the time at (the kit's clock), with no input before it:
+ * a change of its own, as a caret's blink, with the window waiting till
+ * then. The soonest asked for this frame stands. */
+void dxl_ui_wake(dxl_ui *ui, double at);
 /* How far an animation of dur seconds begun at start has gone, 0 to 1,
  * eased out; under reduced motion 1 at once. */
 float dxl_ui_tween(dxl_ui *ui, double start, float dur);

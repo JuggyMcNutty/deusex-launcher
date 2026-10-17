@@ -400,7 +400,9 @@ static void expire_toasts(dxl_shell *s) {
 }
 
 double dxl_shell_idle_for(const dxl_shell *s) {
+    /* A frame the kit asked for (a caret's blink), and each toast's fade. */
     double soonest = -1;
+    if (s->ui.wake > 0) soonest = s->ui.wake > s->ui.now ? s->ui.wake - s->ui.now : 0;
     for (int i = 0; i < s->toast_count; i++) {
         if (s->toasts[i].at < 0) return 0;
         double left = (s->toasts[i].at + TOAST_S - TOAST_FADE) - s->ui.now;
