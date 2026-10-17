@@ -7,7 +7,7 @@ as linux-x86_64 has it, an app outside the game's folder that keeps the
 player's settings and saves in a profile, starts
 [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and stays with it
 ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)). Its window has Home, the first
-run, Recovery and About; the rest is planned
+run, Settings, Recovery, the log and About; the rest is planned
 ([Port Ex Machina's to-do list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
 Made with AI assistance.
 
