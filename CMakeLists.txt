@@ -20,6 +20,7 @@ set(DXL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 # device has will not load there.
 set(DXL_PORT "linux-x86_64" CACHE STRING "Port to build for: a directory under ports/")
 set(DXL_PORT_SYSROOT "")        # headers and libraries of the device, when cross
+set(DXL_PORT_INCLUDE_DIRS "")   # the sysroot's header folders, for the GPU probe's Vulkan and EGL
 set(DXL_PORT_GLIBC_MAX "")      # e.g. 2.31: fail the build on any newer symbol
 set(DXL_PORT_LINK_OPTIONS "")   # extra link options for the programs
 set(DXL_PORT_DEPS_DEFAULT "auto")   # where SDL3 and SDL3_ttf come from: auto, system, vendored
@@ -94,8 +95,8 @@ add_library(dxl_platform STATIC
 )
 # The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
 # their headers come from the sysroot on a cross build, else the host's.
-if(DXL_PORT_SYSROOT)
-    target_include_directories(dxl_platform PRIVATE "${DXL_PORT_SYSROOT}/include")
+if(DXL_PORT_INCLUDE_DIRS)
+    target_include_directories(dxl_platform PRIVATE ${DXL_PORT_INCLUDE_DIRS})
 endif()
 target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS})
 

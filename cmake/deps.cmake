@@ -76,6 +76,11 @@ set(dxl_dep_args
 if(CMAKE_TOOLCHAIN_FILE)
     list(APPEND dxl_dep_args -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
 endif()
+if(CMAKE_CROSSCOMPILING)
+    # A cross toolchain finds things under its roots only: the libraries
+    # built before are in the prefix (the toolchain file adds the sysroot).
+    list(APPEND dxl_dep_args -DCMAKE_FIND_ROOT_PATH=${dxl_prefix})
+endif()
 set(dxl_dep_cmake ${CMAKE_COMMAND})
 if(DXL_PORT_DEPS_ENV)
     set(dxl_dep_cmake ${CMAKE_COMMAND} -E env ${DXL_PORT_DEPS_ENV} ${CMAKE_COMMAND})

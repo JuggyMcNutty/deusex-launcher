@@ -6,7 +6,9 @@ and saves in a profile, and starts
 [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md)
 and stays with it. Two programs: `deusex-launcher`, the launcher, and
 `dxl-cli`, the same with no window, for scripts and for looking. C11, its
-core with no SDL; this branch's own, as each port branch's launcher is
+core with no SDL; the desktop Linux branches', linux-x86_64's and
+linux-aarch64's, whose launcher commits each come over to the other by a
+cherry-pick, so this file is the same on both
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
