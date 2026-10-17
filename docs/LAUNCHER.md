@@ -28,7 +28,8 @@ scratch home:
 |---|---|
 | `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
-| `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` (`~/.local/share`) | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
+| `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)) |
+| `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
 
@@ -178,16 +179,16 @@ corner.
 ## Settings
 
 Settings' tabs are its pages: Display, Graphics, Audio, Keyboard & mouse,
-Gameplay & HUD, Multiplayer, Launcher; a page's advanced rows come after
-its others. Each row is the registry's (`src/core/settings_table.c`): what
+Controller ([the controller](#the-controller)), Gameplay & HUD,
+Multiplayer, Launcher; a page's advanced rows come after its others. Each row is the registry's (`src/core/settings_table.c`): what
 it is, its help, and the places it is kept, each with the codec its reader
 takes (`src/core/settings.c`):
 
 | Kept in | What |
 |---|---|
 | `DeusEx.ini` | the engine's sections, `[Engine.SurrealClient]`, `SurrealAudioDevice`, `SurrealRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
-| `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys |
-| the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR |
+| `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
+| the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
 | `launcher.ini`, `profile.ini` | the launcher's own: its size, reduced motion, Home after playing, its renderer; the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
@@ -207,7 +208,8 @@ the defaults file's for `Settings.json`.
 
 **Back to the defaults** gives a page what a new profile has: the install's
 `Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
-defaults file; on Keyboard & mouse, the keys too. Recovery's The defaults...
+defaults file; on Keyboard & mouse the keys too, on Controller its
+buttons. Recovery's The defaults...
 does it for a page or for all.
 
 **Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
@@ -246,6 +248,55 @@ The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's size and reduced motion apply at
 once, its renderer from the window's next opening.
 
+## The controller
+
+The engine takes the first controller SDL has a mapping for, and reads its
+buttons by where they are, whoever made it: `User.ini`'s `Joy1` is the
+bottom face button, `Joy2` the right, `Joy3` the left, `Joy4` the top,
+`Joy5` and `Joy6` the shoulders, `Joy7` and `Joy8` the middle two, `Joy9`
+and `Joy10` the stick clicks, `Joy11` and `Joy12` the triggers,
+`JoyPovUp` to `JoyPovRight` the d-pad; in the game's menus they have uses of
+their own
+([the gamepad](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices)).
+
+Settings' Controller page (`src/screens/controller.c`) has on its left the
+controller shown: a model of its family, of our own shapes, no maker's --
+an Xbox pad's, a PlayStation pad's, a Nintendo pad's, any other's
+(`src/ui/padmesh.c`) -- drawn in 3D in the theme's colour and live, a
+button held sinking and lit, a stick tilting, a trigger pulled
+(`src/ui/pad3d.c`); dragged, or turned by the right stick, it turns. A line
+from each control names what it does, the chosen row's lit; where a side's
+do not fit, the chosen one's alone. Under it, each stick and trigger as the
+engine takes it, through the dead zone, the curve and the look speeds
+(`src/core/padcurve.c`), so a change of those is seen before it is played.
+With several controllers, the one shown is chosen above the model, and the
+line under it says how it is joined, its battery, whose mapping SDL has for
+it -- the launcher's, Steam's, SDL's own -- and whether the game takes it.
+
+On its right, the rows: Layout, a preset -- Modern, Modern with the sticks
+swapped, Original Deus Ex, the game's own -- or Custom once a button is
+changed by itself (`src/core/bindings.c`); Find a button, the next button
+pressed then its row, as a click on the model's is; a row for each of the
+sixteen buttons, named as the controller's maker names it (the bottom face
+button A on an Xbox pad, Cross on a PlayStation pad, B on a Nintendo
+pad), whose choice is Keyboard & mouse's actions; the dead zone, the look
+speeds, inverted looking and the pointer's speed in the game's menus,
+`Settings.json`'s `Gamepad`; Map this controller....
+
+**Map this controller...** learns a controller SDL has no mapping for, or
+one it maps wrongly: each of SDL's controls asked for in turn -- the face
+buttons, the shoulders, the triggers, the middle buttons and the maker's,
+the stick clicks, the d-pad, each stick's two ways -- and pressed or moved,
+the model showing which; Skip for one the controller lacks, Back for a step
+again (`src/screens/padwizard.c`). While it is up, the controller moves
+nothing of the window. Its mapping, SDL's text for it
+(`src/core/padmap.c`), is given to SDL at once and kept in
+`gamecontrollerdb.txt`, a line a controller, by its GUID, which the window
+loads as it opens its pads. The engine is given the file in
+`SDL_GAMECONTROLLERCONFIG` (`src/app/run.c`), after the value the launcher
+was started with, as Steam sets it: each mapping, and again with its GUID's
+CRC of the name zeroed, as an SDL2 before 2.26 makes GUIDs.
+
 ## The app menu
 
 `deusex-launcher --install-desktop`, or About's button, puts the launcher on
@@ -270,8 +321,10 @@ between them (`src/core/engine_args.c`, `src/platform/posix/process.c`):
 
 in the game's `System` folder, its output into the profile's
 `last-run.log`, with `SURREALWIDGETS_DISPLAY_BACKEND=SDL2` unless the
-environment names a backend (only SDL2's has the fork's pad support), and
-`DXL_LAUNCHER_FD`, the launcher's end of a socket pair. On that line the
+environment names a backend (only SDL2's has the fork's pad support),
+`SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
+([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the launcher's
+end of a socket pair. On that line the
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the
@@ -321,8 +374,11 @@ page or of all, Quit.
 `test_settings` takes the registry's rows through each codec, both
 generations of the system ini, the sizes, the next run's words,
 `Settings.json`, the presets and a new profile's defaults; `test_keys` the
-key names, bindings and their reset; `test_engine_sections` the keys
-written; `test_advice` the advice. The stand-in
+key names, bindings and their reset; `test_bindings` the controller's
+layouts, labels and actions; `test_padcurve` its sticks and triggers as the
+engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`
+and what the engine is given; `test_engine_sections` the keys written;
+`test_advice` the advice. The stand-in
 engine `tests/stub_engine.c` answers `--version` and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, `test_play`). `test_profile` imports from a fake
@@ -343,8 +399,9 @@ scratch home, at
 any diagnostic of the kit's: a label cut short, focusables on one another
 or off the window (`test_ui_shots_*`); with `--out=<dir>` it writes them as
 PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
-window a script of keys, text, controls found by their labels, page checks
-and shots, through its own event queue (`src/screens/uiscript.h`): a first
+window a script of keys, text, controls found by their labels, virtual
+controllers, page checks and shots, through its own event queue
+(`src/screens/uiscript.h`): a first
 run from a fresh home to the game and its clean end, a crash into Recovery,
 and a second start handed over are run that way. `test_ui_scripts` runs
 `tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home and
@@ -352,8 +409,11 @@ with the stub for the engine, and reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
 in its file as its reader takes it, and the next run's words on that run;
 `recovery` goes from a crash to Recovery's log, the next run in a window
-and another renderer, and finds those on the next run alone. It is skipped
-with no display or no install.
+and another renderer, and finds those on the next run alone; `remap_pad`
+binds two buttons of a virtual Xbox pad, one found by pressing it, maps a
+controller SDL has no mapping for with the wizard, and finds the bindings
+in `User.ini`, the mapping in `gamecontrollerdb.txt` and in the engine's
+environment. It is skipped with no display or no install.
 
 ## What it changes from the original
 
