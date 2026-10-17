@@ -416,7 +416,7 @@ static void help(dxl_shell *s, const dxl_setting *st, dxl_rect r) {
             snprintf(text + len, sizeof text - len, "%s%s", len ? " " : "", st->choices[i].help);
         }
     }
-    dxl_paragraph(ui, r, DXL_FONT_SMALL, text, ui->theme.help);
+    dxl_paragraph_typed(ui, r, DXL_FONT_SMALL, text, ui->theme.help, ui->focus_since);
 }
 
 void dxl_page_settings(dxl_shell *s, dxl_rect r) {
@@ -483,7 +483,7 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
         row_why(s, focused, now, sizeof now);
         if (now[0]) why = now;
     }
-    if (why) dxl_paragraph(ui, help_r, DXL_FONT_SMALL, why, t->help);
+    if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
     else help(s, focused, help_r);
     int conflict = dxl_shell_answer(s, dxl_ui_id(ui, "keys conflict"));
     if (conflict > 0) bind(s, s->bind_action, s->bind_slot, s->bind_key, conflict == 2);

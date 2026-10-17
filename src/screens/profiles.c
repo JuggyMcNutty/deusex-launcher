@@ -199,7 +199,7 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         why = "A new profile with the chosen one's settings, keys and controller: none of its saves.";
     else if (ui->focus == del_id)
         why = "The chosen profile's settings, saves and screenshots to the trash, to be put back from there.";
-    if (why) dxl_paragraph(ui, help_r, DXL_FONT_SMALL, why, t->help);
+    if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
     if (dxl_shell_answer(s, del_id) == 1 && sel >= 0 && !sel_active) {
         dxl_err e;

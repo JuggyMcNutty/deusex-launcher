@@ -535,6 +535,8 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     ui->wake = 0;
     ui->text_ready_now = 0;
     ui->cues = ui->in.back ? DXL_CUE_BACK : 0;
+    /* A key or a click shows what is typing whole. */
+    if (ui->in.activate || ui->in.back || ui->in.pressed || ui->in.start) ui->typed_until = now;
     ui->diag_count = 0;
     ui->focus_moved = 0;
     ui->id_seed = 0;
@@ -604,6 +606,10 @@ static dxl_box lerp_box(dxl_box a, dxl_box b, float t) {
 
 void dxl_ui_end(dxl_ui *ui) {
     if (ui->in.released) ui->held = 0;
+    if (ui->focus != ui->focus_seen) {
+        ui->focus_seen = ui->focus;
+        ui->focus_since = ui->now;
+    }
 
     /* The field that takes typing, for the keys before the next frame. An
      * edit or a capture whose control this frame did not draw -- scrolled
@@ -902,6 +908,18 @@ void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...) {
         va_end(ap);
     }
     ui->diag_count++;
+}
+
+/* The typewriter's pace. */
+#define TYPE_CPS 220.0
+
+float dxl_ui_typed(dxl_ui *ui, double since, const char *text) {
+    size_t n = text ? strlen(text) : 0;
+    if (ui->reduced_motion || n == 0 || since < ui->typed_until) return 1;
+    double t = (ui->now - since) * TYPE_CPS / (double)n;
+    if (t >= 1) return 1;
+    dxl_ui_animate(ui);
+    return t <= 0 ? 0 : (float)t;
 }
 
 void dxl_ui_set_theme(dxl_ui *ui, const dxl_theme *t) {

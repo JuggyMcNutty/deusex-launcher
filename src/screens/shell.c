@@ -255,6 +255,7 @@ void dxl_shell_message(dxl_shell *s, const char *title, const char *fmt, ...) {
     vsnprintf(s->message, sizeof s->message, fmt, ap);
     va_end(ap);
     if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
+    s->dialog_since = s->ui.now;
     s->dialog = DXL_DIALOG_MESSAGE;
 }
 
@@ -557,7 +558,8 @@ static float head(dxl_shell *s, float m, float shift) {
         dxl_fill(ui, (dxl_rect){ x, 106, 64, 2 }, t->accent);
         return 132;
     }
-    dxl_label(ui, (dxl_rect){ x, 46, w * 0.6f, 36 }, DXL_FONT_HEADING, page_title(s->page), t->title_text, DXL_W_LEFT);
+    dxl_label_typed(ui, (dxl_rect){ x, 46, w * 0.6f, 36 }, DXL_FONT_HEADING, page_title(s->page), t->title_text,
+                    DXL_W_LEFT, s->page_since);
     dxl_fill(ui, (dxl_rect){ x, 86, 56, 2 }, t->accent);
     if (!s->repoint && (s->page == DXL_PAGE_WELCOME || s->page == DXL_PAGE_FIND || s->page == DXL_PAGE_IMPORT))
         steps(s, x + w, 52);

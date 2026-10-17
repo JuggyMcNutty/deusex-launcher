@@ -40,7 +40,7 @@ void dxl_well(dxl_ui *ui, dxl_rect r) {
     dxl_bevel(ui, r, &s);
 }
 
-void dxl_label(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, int flags) {
+static void label(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, int flags, float reveal) {
     if (!s || !*s) return;
     char buf[1024];
     int cut = (flags & DXL_W_TAIL) ? dxl_text_fit_tail(ui, role, s, r.w, buf, sizeof buf)
@@ -51,15 +51,32 @@ void dxl_label(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rg
     if (flags & DXL_W_CENTER) x = r.x + (r.w - size.x) / 2;
     else if (flags & DXL_W_RIGHT) x = r.x + r.w - size.x;
     float y = r.y + (r.h - size.y) / 2;
-    dxl_text_draw(ui, role, buf, x, y, 0, c, 1);
+    dxl_text_draw(ui, role, buf, x, y, 0, c, reveal);
 }
 
-float dxl_paragraph(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c) {
+void dxl_label(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, int flags) {
+    label(ui, r, role, s, c, flags, 1);
+}
+
+void dxl_label_typed(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, int flags,
+                     double since) {
+    label(ui, r, role, s, c, flags, dxl_ui_typed(ui, since, s));
+}
+
+static float paragraph(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, float reveal) {
     if (!s || !*s) return 0;
     SDL_FPoint size = dxl_text_size(ui, role, s, r.w);
     if (size.y > r.h + 0.5f) dxl_ui_diag(ui, "text taller than its %.0f dp: \"%.40s\"", r.h, s);
-    dxl_text_draw(ui, role, s, r.x, r.y, r.w, c, 1);
+    dxl_text_draw(ui, role, s, r.x, r.y, r.w, c, reveal);
     return size.y;
+}
+
+float dxl_paragraph(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c) {
+    return paragraph(ui, r, role, s, c, 1);
+}
+
+float dxl_paragraph_typed(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, double since) {
+    return paragraph(ui, r, role, s, c, dxl_ui_typed(ui, since, s));
 }
 
 int dxl_button(dxl_ui *ui, const char *id, dxl_rect r, const char *label, int flags) {

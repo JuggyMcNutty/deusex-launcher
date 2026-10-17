@@ -33,6 +33,11 @@ void     dxl_label(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dx
 /* Text wrapped to r's width from its top; returns the height it took. Text
  * taller than r is a diagnostic. */
 float    dxl_paragraph(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c);
+/* The same two typing themselves in from since (dxl_ui_typed): the game's
+ * way with a title, a help line, a message. */
+void     dxl_label_typed(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, int flags,
+                         double since);
+float    dxl_paragraph_typed(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, dxl_rgba c, double since);
 
 /* 1 when activated: clicked, or Enter or the pad's confirm on it. */
 int      dxl_button(dxl_ui *ui, const char *id, dxl_rect r, const char *label, int flags);

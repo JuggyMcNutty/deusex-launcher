@@ -178,6 +178,7 @@ typedef struct dxl_shell {
     /* Dialogs. */
     dxl_dialog   dialog;
     uint32_t     dialog_return;   /* the focus it took, given back as it closes */
+    double       dialog_since;    /* when it came up: its message types itself in from then */
     dxl_browser  browser;
     char         message_title[96];
     char         message[800];

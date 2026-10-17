@@ -99,6 +99,32 @@ static void test_scale(void) {
     offscreen_close(&o1, &a);
 }
 
+/* The typewriter: 220 characters a second from its start; whole once a key
+ * comes after it began, and under reduced motion. */
+static void test_typed(dxl_ui *ui) {
+    static const char text[] = "A line the window types itself, as the game's menus do.";
+    dxl_ui_input_begin(ui);
+    dxl_ui_begin(ui, 100.0);
+    float part = dxl_ui_typed(ui, 100.0 - 0.1, text), want = 0.1f * 220 / (float)strlen(text);
+    CHECK(part > want - 0.01f && part < want + 0.01f);
+    CHECK(ui->animating);
+    CHECK(dxl_ui_typed(ui, 100.0, text) < 0.01f);
+    CHECK(dxl_ui_typed(ui, 99.0, text) >= 1);
+    dxl_ui_end(ui);
+    ui->in.activate = 1;
+    dxl_ui_begin(ui, 100.05);
+    CHECK(dxl_ui_typed(ui, 100.0, text) >= 1);
+    /* Begun as the key came: it types. */
+    CHECK(dxl_ui_typed(ui, 100.05, text) < 0.01f);
+    dxl_ui_end(ui);
+    dxl_ui_input_begin(ui);
+    ui->reduced_motion = 1;
+    dxl_ui_begin(ui, 100.1);
+    CHECK(dxl_ui_typed(ui, 100.1, text) >= 1);
+    dxl_ui_end(ui);
+    ui->reduced_motion = 0;
+}
+
 TEST_MAIN_BEGIN
     if (!TTF_Init()) {
         fprintf(stderr, "TTF_Init: %s\n", SDL_GetError());
@@ -115,6 +141,8 @@ TEST_MAIN_BEGIN
     test_label_diagnostic(&ui);
     dxl_test_current = "test_cache";
     test_cache(&ui);
+    dxl_test_current = "test_typed";
+    test_typed(&ui);
     offscreen_close(&o, &ui);
     RUN(test_scale);
     TTF_Quit();

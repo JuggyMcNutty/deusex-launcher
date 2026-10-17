@@ -195,7 +195,7 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     }
     if (advice) {
         dxl_cut_top(&in, 6);
-        float h = dxl_paragraph(ui, in, DXL_FONT_BODY, advice->advice, t->text_focus);
+        float h = dxl_paragraph_typed(ui, in, DXL_FONT_BODY, advice->advice, t->text_focus, s->page_since);
         dxl_cut_top(&in, h);
     }
     dxl_cut_top(&in, 10);
