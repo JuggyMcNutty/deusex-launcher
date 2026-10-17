@@ -43,6 +43,45 @@ void dxl_shell_free(dxl_shell *s) {
     memset(&s->wizard, 0, sizeof s->wizard);
     free(s->pad_db);
     s->pad_db = NULL;
+    free(s->themes);
+    s->themes = NULL;
+    s->theme_count = 0;
+    s->themes_from[0] = '\0';
+}
+
+void dxl_shell_theme(dxl_shell *s) {
+    const char *sys = s->run && s->run->session.install.ok ? s->run->session.install.system_dir : NULL;
+    if (sys && strcmp(s->themes_from, sys) != 0) {
+        snprintf(s->themes_from, sizeof s->themes_from, "%s", sys);
+        if (!s->themes) s->themes = dxl_xmalloc(sizeof *s->themes * DXL_MENU_THEMES_MAX);
+        char *u = dxl_path_resolve_ci(sys, "DeusEx.u");
+        dxl_err e;
+        s->theme_count = u ? dxl_menu_themes_read(u, s->themes, DXL_MENU_THEMES_MAX, &e) : -1;
+        if (s->theme_count < 0) {
+            dxl_log("menu themes: %s", u ? dxl_err_msg(&e) : "no DeusEx.u");
+            s->theme_count = 0;
+        }
+        free(u);
+    }
+    /* The player's, as the game takes it: User.ini's, else the class's. */
+    const char *want = NULL;
+    dxl_ini *usr = s->run && s->run->config ? dxl_config_user_ini(s->run->config) : NULL;
+    if (usr) want = dxl_ini_get(usr, "DeusEx.DeusExPlayer", "MenuThemeName");
+    if (!want || !*want) want = "Grey";
+    const dxl_menu_theme *mt = sys ? dxl_menu_theme_find(s->themes, s->theme_count, want) : NULL;
+    dxl_theme t;
+    if (mt) {
+        dxl_rgba menu[DXL_MENU_COLORS];
+        for (int i = 0; i < DXL_MENU_COLORS; i++)
+            menu[i] = (dxl_rgba){ mt->colors[i][0], mt->colors[i][1], mt->colors[i][2], 255 };
+        dxl_theme_from_menu(&t, mt->name, menu);
+    } else {
+        dxl_theme_default(&t);
+    }
+    if (strcmp(t.name, s->ui.theme.name) != 0 || memcmp(t.menu, s->ui.theme.menu, sizeof t.menu) != 0) {
+        dxl_ui_set_theme(&s->ui, &t);
+        dxl_log("theme: %s", t.name);
+    }
 }
 
 void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
@@ -57,6 +96,7 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->repoint_back = 0;
     s->making = 0;
     if (v == DXL_VIEW_FIRST_RUN) snprintf(s->begin_name, sizeof s->begin_name, "Deus Ex");
+    dxl_shell_theme(s);
     dxl_page p = DXL_PAGE_HOME;
     switch (v) {
     case DXL_VIEW_FIRST_RUN: p = DXL_PAGE_WELCOME; break;
@@ -287,6 +327,7 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
         }
         dxl_log("profile %s: install %s (%s)", ss->profile.id, id, in->root);
         dxl_session_check_install(ss);
+        dxl_shell_theme(s);
         /* Asked for from a page, that page again; from Recovery, as from a
          * profile whose install had gone, on to the game. */
         if (s->repoint_back && s->repoint_to != DXL_PAGE_RECOVERY) {

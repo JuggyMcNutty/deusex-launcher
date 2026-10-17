@@ -72,6 +72,8 @@ typedef enum {
     SCENE_HOME,
     SCENE_HOME_MADE,
     SCENE_HOME_ENGINE,      /* an engine this system cannot start */
+    SCENE_THEME_PASTEL,     /* Home in two of the game's menu themes: a light one, */
+    SCENE_THEME_RED,        /* and Settings in a strong one */
     SCENE_REPOINT,
     SCENE_RECOVERY,
     SCENE_SAFE,
@@ -97,7 +99,7 @@ typedef enum {
 } scene;
 
 static const char *const scene_names[SCENE_COUNT] = {
-    "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "home-engine", "repoint",
+    "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
     "recovery", "safe", "about", "profiles", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
@@ -299,6 +301,28 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
                  "build it here.", home);
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         break;
+    case SCENE_THEME_PASTEL:
+    case SCENE_THEME_RED: {
+        /* Two of DeusEx.u's ColorThemeMenu_* colours, as the install has
+         * them: no file of the game's is read here. */
+        static const dxl_rgba pastel[DXL_MENU_COLORS] = {
+            { 207, 255, 212, 255 }, { 255, 196, 255, 255 }, { 250, 250, 131, 255 }, { 204, 223, 255, 255 },
+            { 244, 255, 161, 255 }, { 255, 255, 255, 255 }, { 100, 100, 100, 255 }, { 175, 134, 196, 255 },
+            { 175, 113, 175, 255 }, { 255, 255, 145, 255 }, { 100, 100, 124, 255 }, { 150, 80, 150, 255 },
+            { 255, 188, 255, 255 },
+        };
+        static const dxl_rgba red[DXL_MENU_COLORS] = {
+            { 255, 0, 0, 255 }, { 135, 0, 0, 255 }, { 255, 255, 255, 255 }, { 255, 27, 0, 255 },
+            { 255, 107, 94, 255 }, { 255, 191, 186, 255 }, { 169, 8, 3, 255 }, { 200, 200, 200, 255 },
+            { 255, 0, 0, 255 }, { 0, 0, 0, 255 }, { 255, 191, 186, 255 }, { 255, 0, 0, 255 }, { 255, 0, 0, 255 },
+        };
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_theme t;
+        dxl_theme_from_menu(&t, sc == SCENE_THEME_RED ? "Red" : "Pastel", sc == SCENE_THEME_RED ? red : pastel);
+        dxl_ui_set_theme(&s->ui, &t);
+        if (sc == SCENE_THEME_RED) dxl_shell_go(s, DXL_PAGE_SETTINGS);
+        break;
+    }
     case SCENE_REPOINT: {
         dxl_install_free(&r->session.install);
         char *gone = at_home("Games/Deus Ex");
@@ -567,8 +591,14 @@ static void shoot(scene sc, int si, mode m) {
         SDL_SetJoystickVirtualAxis(tried, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, -32768);
         events(&s);
     }
-    /* The kit goes on to the next shot, its texts and textures with it. */
+    /* The kit goes on to the next shot, its texts and textures with it, in
+     * the Default's colours. */
     s.ui.pads_off = 0;
+    if (strcmp(s.ui.theme.name, "Default") != 0) {
+        dxl_theme def;
+        dxl_theme_default(&def);
+        dxl_ui_set_theme(&s.ui, &def);
+    }
     kit = s.ui;
     if (s.settings_open) {
         dxl_es_free(s.engine_settings);

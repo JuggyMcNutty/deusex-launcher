@@ -37,6 +37,7 @@
 #include "core/renderers.h"
 #include "core/padmap.h"
 #include "core/settings.h"
+#include "core/theme_colors.h"
 #include "ui/glyphs.h"
 #include "ui/kit.h"
 #include "ui/osk.h"
@@ -233,6 +234,12 @@ typedef struct dxl_shell {
     int          log_lines;
     int          log_top;
 
+    /* The install's menu themes, read from its DeusEx.u once (themes_from
+     * the System folder they are of): the window wears the player's. */
+    dxl_menu_theme *themes;
+    int          theme_count;
+    char         themes_from[1024];
+
     /* The GPU this machine has, as dxl-cli --probe --ini answers in the
      * window's worker (start_probe): 0 not asked, 1 asked, 2 known; and
      * renderers.ini's list, resolved by it. */
@@ -272,6 +279,9 @@ void        dxl_shell_close_dialog(dxl_shell *s);
 const char *dxl_shell_tilde(const char *path, char *buf, size_t size);
 /* The engine's --version, into s->engine_*: once. */
 void        dxl_shell_ask_engine(dxl_shell *s);
+/* The window in the player's menu theme -- User.ini's MenuThemeName, the
+ * install's colours of it -- else the Default's, the kit's own. */
+void        dxl_shell_theme(dxl_shell *s);
 /* The install chosen: on the first run the profile to be made from it, on
  * Your profile; else the profile pointed at it, and the screen done -- or,
  * asked for from a page but Recovery, that page again. */

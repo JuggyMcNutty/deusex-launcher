@@ -176,12 +176,14 @@ static void choose(dxl_shell *s, const dxl_setting *st, const char *value) {
         return;
     }
     dxl_setting_set(&s->stores, st, value);
+    live(s, st);
 }
 
 /* What the launcher's own settings change in its window, at once. */
 static void live(dxl_shell *s, const dxl_setting *st) {
     if (!strcmp(st->id, "launcher.ui_scale")) s->ui.user_scale = (float)dxl_setting_number(&s->stores, st);
     else if (!strcmp(st->id, "launcher.reduced_motion")) s->ui.reduced_motion = dxl_setting_bool(&s->stores, st);
+    else if (!strcmp(st->id, "hud.menu_theme")) dxl_shell_theme(s);
 }
 
 /* The engine's row: its version, or what is wrong with it; its choices. */

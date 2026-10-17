@@ -44,8 +44,12 @@ static int fresh_home(void) {
 
 /* SDL's controllers those of the scripts' virtual ones' makes and models
  * alone (uiscript.c's): a pad of another plugged into the machine moves
- * nothing of a run, though a real one of those models would. */
-#define OUR_PADS "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1"
+ * nothing of a run, though a real one of those models would. Their input
+ * reaches the window as it waits behind another one too: SDL drops a pad's
+ * for a window without the focus, which one on a desktop someone uses may
+ * not have. */
+#define OUR_PADS "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1 " \
+                 "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1"
 
 /* The launcher on the script, the stub doing mode; its exit code. */
 static int launch_with(const char *script, const char *mode, const char *env) {
@@ -201,6 +205,10 @@ static void test_settings_roundtrip(void) {
     CHECK_STR(value(b.usr, "DefaultPlayer", "Name"), "JC(Denton)");
     /* Launcher: the next run's words, on that run's command line. */
     char *log = read_home("state/dxlauncher/launcher.log");
+    /* The window wore the menu theme chosen, the install's colours of it. */
+    char worn[160];
+    snprintf(worn, sizeof worn, "theme: %s\n", value(b.usr, "DeusEx.DeusExPlayer", "MenuThemeName"));
+    CHECK(strstr(log, worn) != NULL);
     char line[2048];
     line_with(log, "starting the game:", 0, line, sizeof line);
     CHECK(strstr(line, "-nohard -noddraw") != NULL);
