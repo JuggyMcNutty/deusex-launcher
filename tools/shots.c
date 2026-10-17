@@ -16,6 +16,7 @@
  * nothing of the game's is read, and nothing is written anywhere else.
  */
 #define _GNU_SOURCE
+#include "core/bindings.h"
 #include "core/gamedb.h"
 #include "core/log.h"
 #include "core/paths.h"
@@ -58,6 +59,8 @@ static const struct {
     { 0x1234, 0x5678, "Unknown Pad" },
 };
 static SDL_JoystickID pad_ids[4];
+/* A joystick SDL has no mapping for, for the mapping wizard. */
+static SDL_JoystickID raw_id;
 
 typedef enum {
     SCENE_WELCOME,
@@ -79,6 +82,8 @@ typedef enum {
     SCENE_LOG,
     SCENE_KEYS,
     /* The other settings pages, by their names in page_scenes. */
+    SCENE_CONTROLLER,
+    SCENE_PADWIZARD,
     SCENE_GRAPHICS,
     SCENE_AUDIO,
     SCENE_GAMEPLAY,
@@ -90,12 +95,13 @@ typedef enum {
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "repoint",
     "recovery", "safe", "about", "settings", "pick", "osk", "confirm", "log", "keys",
-    "graphics", "audio", "gameplay", "multiplayer", "launcher",
+    "controller", "padwizard", "graphics", "audio", "gameplay", "multiplayer", "launcher",
 };
 
 /* The settings page each of those scenes shows. */
 static const struct { scene sc; const char *page; } page_scenes[] = {
-    { SCENE_KEYS, "Keyboard & mouse" }, { SCENE_GRAPHICS, "Graphics" }, { SCENE_AUDIO, "Audio" },
+    { SCENE_KEYS, "Keyboard & mouse" }, { SCENE_CONTROLLER, "Controller" }, { SCENE_GRAPHICS, "Graphics" },
+    { SCENE_AUDIO, "Audio" },
     { SCENE_GAMEPLAY, "Gameplay & HUD" }, { SCENE_MULTIPLAYER, "Multiplayer" }, { SCENE_LAUNCHER, "Launcher" },
 };
 
@@ -324,6 +330,7 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         break;
     }
     case SCENE_KEYS:
+    case SCENE_CONTROLLER:
     case SCENE_GRAPHICS:
     case SCENE_AUDIO:
     case SCENE_GAMEPLAY:
@@ -334,6 +341,16 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         for (size_t p = 0; p < sizeof page_scenes / sizeof *page_scenes; p++)
             for (size_t i = 0; page_scenes[p].sc == sc && i < dxl_settings_page_count(); i++)
                 if (!strcmp(dxl_settings_page(i), page_scenes[p].page)) s->settings_tab = (int)i;
+        /* The default layout on the pad, as a player who chose it has it. */
+        if (sc == SCENE_CONTROLLER && s->stores.user) dxl_bindings_apply(s->stores.user, dxl_pad_preset_default());
+        break;
+    case SCENE_PADWIZARD:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_SETTINGS);
+        for (size_t i = 0; i < dxl_settings_page_count(); i++)
+            if (!strcmp(dxl_settings_page(i), "Controller")) s->settings_tab = (int)i;
+        dxl_page_settings_enter(s);
+        if (raw_id) dxl_padwizard_open(s, raw_id);
         break;
     case SCENE_LOG:
         crashed(r);
@@ -454,6 +471,8 @@ static void shoot(scene sc, int si, mode m) {
     s.ui = kit;
     dxl_run r;
     set_up(sc, &r, &s);
+    /* The Controller page shows the pad the shot's mode uses. */
+    if (m >= MODE_XBOX) s.pad_id = pad_ids[m - MODE_XBOX];
     s.page_since = 0;   /* the page up long since: no slide in the frames below */
     double t = 100;
     events(&s);
@@ -502,6 +521,16 @@ static void attach_pads(void) {
         if (pad_ids[i]) SDL_OpenGamepad(pad_ids[i]);
         else fprintf(stderr, "dxl-shots: no virtual %s: %s\n", pads[i].name, SDL_GetError());
     }
+    SDL_VirtualJoystickDesc d;
+    SDL_INIT_INTERFACE(&d);
+    d.type = SDL_JOYSTICK_TYPE_UNKNOWN;
+    d.vendor_id = 0x1209;
+    d.product_id = 0xd0d1;
+    d.naxes = 6;
+    d.nbuttons = 13;
+    d.nhats = 1;
+    d.name = "A pad of no maker";
+    raw_id = SDL_AttachVirtualJoystick(&d);
 }
 
 int main(int argc, char **argv) {

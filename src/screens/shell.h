@@ -32,10 +32,12 @@
 #include "app/run.h"
 #include "core/finder.h"
 #include "core/renderers.h"
+#include "core/padmap.h"
 #include "core/settings.h"
 #include "ui/glyphs.h"
 #include "ui/kit.h"
 #include "ui/osk.h"
+#include "ui/padmesh.h"
 
 typedef enum {
     DXL_PAGE_HOME,
@@ -49,8 +51,8 @@ typedef enum {
     DXL_PAGE_COUNT
 } dxl_page;
 
-/* The most choices a pick dialog lists: the game's 30 menu themes. */
-#define DXL_PICK_MAX 32
+/* The most choices a pick dialog lists: the actions a pad's button takes. */
+#define DXL_PICK_MAX 96
 
 typedef enum {
     DXL_DIALOG_NONE,
@@ -58,8 +60,24 @@ typedef enum {
     DXL_DIALOG_MESSAGE,
     DXL_DIALOG_PICK,      /* one of a setting's choices */
     DXL_DIALOG_OSK,       /* the on-screen keyboard */
-    DXL_DIALOG_CONFIRM    /* a question, two answers */
+    DXL_DIALOG_CONFIRM,   /* a question, two answers */
+    DXL_DIALOG_PADWIZARD  /* a controller's mapping made (screens/padwizard.c) */
 } dxl_dialog;
+
+/* The mapping wizard's state: the controller, the step, where it rests,
+ * the mapping so far. */
+typedef struct {
+    int            open;
+    SDL_JoystickID id;
+    SDL_Joystick  *joy;
+    int            step;
+    int            armed;         /* at rest since the last control taken: the next may come */
+    int            nbuttons, naxes, nhats;
+    Sint16         axis_rest[16];
+    Uint8          hat_rest[4];
+    dxl_padmap     map;
+    dxl_padmesh    mesh;
+} dxl_padwizard_state;
 
 typedef struct {
     char  *dir;          /* the folder shown */
@@ -114,6 +132,7 @@ typedef struct dxl_shell {
     int          answered;
     const char  *pick_labels[DXL_PICK_MAX];  /* into pick_text: the dialog's own copy */
     char         pick_text[DXL_PICK_MAX][96];
+    char         pick_detail[DXL_PICK_MAX][48];   /* each one's group, "" for none */
     int          pick_count, pick_current;
     char         ask_title[96], ask_yes[48], ask_no[48], ask_third[48];
     char        *osk_buf;
@@ -133,6 +152,15 @@ typedef struct dxl_shell {
     const dxl_setting *text_rows[8];
     char         texts[8][256];
     int          text_count;
+    /* The Controller tab: the controller shown (its SDL id), its model,
+     * the view's turn and the pointer's drag, a control to find, the one
+     * chosen; the wizard. */
+    SDL_JoystickID pad_id;
+    dxl_padmesh  pad_mesh;
+    int          pad_mesh_family;     /* -1 for none built */
+    float        pad_yaw, pad_pitch, pad_drag_x, pad_drag_y;
+    int          pad_find, pad_chosen;
+    dxl_padwizard_state wizard;
     /* A key captured for an action, waiting on the answer to whose it is. */
     int          bind_action, bind_slot;
     char         bind_key[32];
@@ -209,6 +237,14 @@ void dxl_page_log(dxl_shell *s, dxl_rect r);
 void dxl_page_log_enter(dxl_shell *s);
 void dxl_page_log_free(dxl_shell *s);
 void dxl_page_settings_enter(dxl_shell *s);
+/* Settings' Controller tab in area: why and focused, its help line's. */
+void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dxl_setting **focused);
+/* A page's registry rows in the order shown; one drawn as its kind. */
+int  dxl_settings_rows(const char *page, const dxl_setting **out, int max);
+void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect r);
+/* The mapping wizard for the controller id, and its dialog. */
+void dxl_padwizard_open(dxl_shell *s, SDL_JoystickID id);
+void dxl_padwizard(dxl_shell *s, dxl_rect over, int back);
 /* The settings kept: their files written, the stores let go. */
 void dxl_settings_keep(dxl_shell *s);
 /* A page's settings (NULL: every page's) as a new profile has them, the
@@ -222,6 +258,9 @@ void dxl_shell_leave(dxl_shell *s);
  * (osk) or yes (confirm), 0 for no, and -1 while there is none. A pick or
  * the keyboard put back gives none. */
 void dxl_shell_pick(dxl_shell *s, uint32_t id, const char *title, const char *const *labels, int n, int current);
+/* The same, each choice's group under its label (details NULL for none). */
+void dxl_shell_pick_with(dxl_shell *s, uint32_t id, const char *title, const char *const *labels,
+                         const char *const *details, int n, int current);
 /* A pick's answer as the label it chose, the dialog's copy: a list made
  * again may have changed under it (the renderers, as the probe answers).
  * NULL for no answer. */

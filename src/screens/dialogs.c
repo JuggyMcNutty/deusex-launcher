@@ -199,16 +199,22 @@ static void answer(dxl_shell *s, int a) {
     dxl_shell_close_dialog(s);
 }
 
-void dxl_shell_pick(dxl_shell *s, uint32_t id, const char *title, const char *const *labels, int n, int current) {
+void dxl_shell_pick_with(dxl_shell *s, uint32_t id, const char *title, const char *const *labels,
+                         const char *const *details, int n, int current) {
     ask(s, DXL_DIALOG_PICK, id);
     snprintf(s->ask_title, sizeof s->ask_title, "%s", title);
     if (n > DXL_PICK_MAX) n = DXL_PICK_MAX;
     for (int i = 0; i < n; i++) {
         snprintf(s->pick_text[i], sizeof s->pick_text[i], "%s", labels && labels[i] ? labels[i] : "");
+        snprintf(s->pick_detail[i], sizeof s->pick_detail[i], "%s", details && details[i] ? details[i] : "");
         s->pick_labels[i] = s->pick_text[i];
     }
     s->pick_count = n;
     s->pick_current = current;
+}
+
+void dxl_shell_pick(dxl_shell *s, uint32_t id, const char *title, const char *const *labels, int n, int current) {
+    dxl_shell_pick_with(s, id, title, labels, NULL, n, current);
 }
 
 const char *dxl_shell_picked(const dxl_shell *s, int answer) {
@@ -248,18 +254,21 @@ int dxl_shell_answer(dxl_shell *s, uint32_t id) {
 
 static void pick(dxl_shell *s, dxl_rect over, int back) {
     dxl_ui *ui = &s->ui;
-    float rows = (float)(s->pick_count < 9 ? s->pick_count : 9);
-    dxl_rect in = dxl_dialog_begin(ui, over, 520, 5 + 32 + 16 + rows * 40 + 8 + 20, s->ask_title);
+    int grouped = 0;
+    for (int i = 0; i < s->pick_count; i++) grouped |= s->pick_detail[i][0] != '\0';
+    float row_h = grouped ? 50 : 40, rows = (float)(s->pick_count < 9 ? s->pick_count : 9);
+    dxl_rect in = dxl_dialog_begin(ui, over, 520, 5 + 32 + 16 + rows * row_h + 8 + 20, s->ask_title);
     dxl_well(ui, in);
     dxl_list l;
-    dxl_list_begin(ui, &l, "pick", dxl_inset(in, 4), s->pick_count, 40, DXL_LIST_WHOLE_ROWS);
+    dxl_list_begin(ui, &l, "pick", dxl_inset(in, 4), s->pick_count, row_h, DXL_LIST_WHOLE_ROWS);
     if (ui->focus == 0 || s->pick_current >= 0) {
         dxl_list_focus(ui, &l, s->pick_current);
         s->pick_current = -1;
     }
     int chosen = -1;
     for (int i = 0; i < s->pick_count; i++)
-        if (dxl_list_row(ui, &l, i, s->pick_labels[i], NULL, ui->theme.help, 0) & DXL_HIT_ACTIVATED) chosen = i;
+        if (dxl_list_row(ui, &l, i, s->pick_labels[i], s->pick_detail[i], ui->theme.help, 0) & DXL_HIT_ACTIVATED)
+            chosen = i;
     dxl_list_end(ui, &l);
     dxl_dialog_end(ui);
     if (chosen >= 0) answer(s, chosen);
@@ -309,6 +318,7 @@ void dxl_dialogs(dxl_shell *s, dxl_rect r, int back) {
     case DXL_DIALOG_PICK: pick(s, r, back); break;
     case DXL_DIALOG_OSK: osk(s, r, back); break;
     case DXL_DIALOG_CONFIRM: confirm(s, r, back); break;
+    case DXL_DIALOG_PADWIZARD: dxl_padwizard(s, r, back); break;
     default: break;
     }
 }

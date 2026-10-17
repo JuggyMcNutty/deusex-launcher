@@ -130,6 +130,8 @@ add_library(dxl_ui STATIC
     src/ui/icon.c
     src/ui/controls.c
     src/ui/osk.c
+    src/ui/padmesh.c
+    src/ui/pad3d.c
 )
 target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
 
@@ -145,6 +147,8 @@ add_library(dxl_screens STATIC
     src/screens/uiscript.c
     src/screens/settings.c
     src/screens/log.c
+    src/screens/controller.c
+    src/screens/padwizard.c
 )
 target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
 

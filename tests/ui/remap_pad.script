@@ -1,0 +1,112 @@
+# The Controller page with a virtual Xbox pad: its south button given Quick
+# Save from the list, its north found by pressing it and given Quick Load;
+# then a controller SDL has no mapping for, mapped by the wizard -- its face
+# buttons pressed, the rest skipped -- and Play: test_ui_scripts.c reads
+# User.ini, gamecontrollerdb.txt and what the engine got.
+pad attach xbox
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+find Controller
+key Return
+wait 0.5
+find A
+key Return
+wait 0.3
+expect pick
+find Quick Save
+key Return
+wait 0.3
+expect settings
+find Find a button
+key Return
+wait 0.3
+pad button 3 down
+wait 0.15
+pad button 3 up
+wait 0.3
+key Return
+wait 0.3
+expect pick
+find Quick Load
+key Return
+wait 0.3
+
+# A second controller, SDL's none: chosen above the model, mapped from the
+# rows' end.
+pad attach raw
+wait 0.5
+find Controller
+key Right
+wait 0.3
+find Layout
+find Map this controller...
+key Return
+wait 0.5
+expect padwizard
+pad button 0 down
+wait 0.15
+pad button 0 up
+wait 0.3
+pad button 1 down
+wait 0.15
+pad button 1 up
+wait 0.3
+pad button 2 down
+wait 0.15
+pad button 2 up
+wait 0.3
+pad button 3 down
+wait 0.15
+pad button 3 up
+wait 0.3
+find Skip
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+key Return
+wait 0.1
+wait 0.3
+expect settings
+find Done
+key Return
+wait 0.5
+expect home
+find Play
+key Return
+wait 2.5
+expect recovery
+find Quit
+key Return

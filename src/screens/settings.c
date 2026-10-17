@@ -21,10 +21,11 @@
 
 #define ROW_H 46
 #define KEYS_PAGE "Keyboard & mouse"
+#define PAD_PAGE "Controller"
 #define SLOT_W 170
 
 /* The page's rows, in the order shown: its own, then its advanced ones. */
-static int rows_of(const char *page, const dxl_setting **out, int max) {
+int dxl_settings_rows(const char *page, const dxl_setting **out, int max) {
     int n = 0;
     for (int pass = 0; pass < 2; pass++)
         for (size_t i = 0; i < dxl_settings_count() && n < max; i++) {
@@ -94,8 +95,13 @@ void dxl_settings_defaults(dxl_shell *s, const char *page) {
     char *def = dxl_path_join(ss->data_dir, "engine-settings.json.default");
     fresh.engine = dxl_es_open("", def);
     dxl_settings_reset(&s->stores, &fresh, page);
-    /* The keys as DefUser.ini has them. */
+    /* The keys as DefUser.ini has them; the controller's, its Joy lines. */
     if ((!page || !strcmp(page, KEYS_PAGE)) && fresh.user && s->stores.user) dxl_keys_reset(s->stores.user, fresh.user);
+    if ((!page || !strcmp(page, PAD_PAGE)) && fresh.user && s->stores.user)
+        for (size_t k = 0; k < DXL_JOY_KEY_COUNT; k++) {
+            const char *v = dxl_ini_get(fresh.user, DXL_INPUT_SECTION, dxl_joy_keys[k]);
+            dxl_bindings_set(s->stores.user, dxl_joy_keys[k], v ? v : "");
+        }
     for (int i = 0; i < s->text_count; i++)
         dxl_setting_get(&s->stores, s->text_rows[i], s->texts[i], sizeof s->texts[0]);
     for (size_t i = 0; i < dxl_settings_count(); i++) live(s, dxl_setting_at(i));
@@ -179,7 +185,7 @@ static void live(dxl_shell *s, const dxl_setting *st) {
 }
 
 /* One row: the control for its kind, the change kept in the stores. */
-static void row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect r) {
+void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     char v[512];
     switch (st->kind) {
@@ -394,22 +400,28 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
     dxl_cut_bottom(&area, 8);
 
     const dxl_setting *rows[64];
-    int n = rows_of(names[s->settings_tab], rows, 64), settings_n = n;
+    int n = dxl_settings_rows(names[s->settings_tab], rows, 64), settings_n = n;
     int keys_page = !strcmp(names[s->settings_tab], KEYS_PAGE) && s->stores.user;
+    int pad_page = !strcmp(names[s->settings_tab], PAD_PAGE);
     if (keys_page) n += action_count();
-    dxl_well(ui, area);
-    dxl_list l;
-    char list_id[64];
-    snprintf(list_id, sizeof list_id, "settings %s", names[s->settings_tab]);
-    dxl_list_begin(ui, &l, list_id, dxl_inset(area, 4), n, ROW_H, DXL_LIST_WHOLE_ROWS);
     const dxl_setting *focused = NULL;
     const char *why = NULL;
+    dxl_list l;
+    if (pad_page) {
+        dxl_page_controller(s, area, &why, &focused);
+        n = 0;
+    } else {
+        dxl_well(ui, area);
+        char list_id[64];
+        snprintf(list_id, sizeof list_id, "settings %s", names[s->settings_tab]);
+        dxl_list_begin(ui, &l, list_id, dxl_inset(area, 4), n, ROW_H, DXL_LIST_WHOLE_ROWS);
+    }
     for (int i = 0; i < n; i++) {
         dxl_rect rr;
         if (!dxl_list_rect(&l, i, &rr)) continue;
         uint32_t id = dxl_list_row_id(&l, i);
         if (i < settings_n) {
-            row(s, rows[i], id, rr);
+            dxl_settings_row(s, rows[i], id, rr);
             if (ui->focus == id) focused = rows[i];
         } else {
             key_row(s, &l, i, i - settings_n, rr, &why);
@@ -418,7 +430,7 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
                                   "the key away.";
         }
     }
-    dxl_list_end(ui, &l);
+    if (!pad_page) dxl_list_end(ui, &l);
     if (why) dxl_paragraph(ui, help_r, DXL_FONT_SMALL, why, t->help);
     else help(s, focused, help_r);
     int conflict = dxl_shell_answer(s, dxl_ui_id(ui, "keys conflict"));

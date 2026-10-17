@@ -13,10 +13,14 @@ struct dxl_uiscript {
     double   next;        /* when the next line runs; 0 before the first */
     char    *shot;        /* a shot asked for */
     const char *seek;     /* a find's label, sought frame by frame */
-    int      seek_left;   /* the Downs it has left */
+    int      seek_left;   /* the moves it has left */
+    int      seek_up;     /* going up, the bottom met */
+    int      seek_still;  /* moves in a row the focus stayed put */
+    uint32_t seek_from;   /* the focus before the last move */
+    SDL_Joystick *pad;    /* a virtual controller's, pad attach's */
 };
 
-#define SEEK_TRIES 80
+#define SEEK_TRIES 300
 
 dxl_uiscript *dxl_uiscript_open(void) {
     const char *path = getenv("DXL_UI_SCRIPT");
@@ -42,6 +46,11 @@ dxl_uiscript *dxl_uiscript_open(void) {
 
 void dxl_uiscript_free(dxl_uiscript *u) {
     if (!u) return;
+    if (u->pad) {
+        SDL_JoystickID id = SDL_GetJoystickID(u->pad);
+        SDL_CloseJoystick(u->pad);
+        SDL_DetachVirtualJoystick(id);
+    }
     for (int i = 0; i < u->count; i++) free(u->lines[i]);
     free(u->lines);
     free(u->shot);
@@ -55,6 +64,7 @@ static const char *up_now(const dxl_shell *s) {
     case DXL_DIALOG_PICK: return "pick";
     case DXL_DIALOG_OSK: return "keyboard";
     case DXL_DIALOG_CONFIRM: return "confirm";
+    case DXL_DIALOG_PADWIZARD: return "padwizard";
     default: break;
     }
     switch (s->page) {
@@ -97,8 +107,69 @@ static void fail(dxl_uiscript *u, const char *what) {
     SDL_PushEvent(&e);
 }
 
+/* pad's line: a virtual controller attached, worked or taken away. */
+static void pad(dxl_uiscript *u, const char *arg) {
+    static const struct { const char *kind; Uint16 vendor, product; const char *name; } kinds[] = {
+        { "xbox", 0x045e, 0x0b12, "Xbox Series X Controller" },
+        { "dualsense", 0x054c, 0x0ce6, "DualSense Wireless Controller" },
+        { "switchpro", 0x057e, 0x2009, "Nintendo Switch Pro Controller" },
+        { "generic", 0x1234, 0x5678, "A virtual controller" },
+    };
+    char verb[16] = "", what[32] = "";
+    float value = 0;
+    sscanf(arg, "%15s %31s %f", verb, what, &value);
+    if (!strcmp(verb, "attach")) {
+        SDL_VirtualJoystickDesc d;
+        SDL_INIT_INTERFACE(&d);
+        d.type = SDL_JOYSTICK_TYPE_UNKNOWN;
+        d.vendor_id = 0x1209;
+        d.product_id = 0xd0d1;
+        d.naxes = 6;
+        d.nbuttons = 13;
+        d.nhats = 1;
+        d.name = "A pad of no maker";
+        for (size_t i = 0; i < sizeof kinds / sizeof *kinds; i++)
+            if (!strcmp(what, kinds[i].kind)) {
+                d.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+                d.vendor_id = kinds[i].vendor;
+                d.product_id = kinds[i].product;
+                d.naxes = SDL_GAMEPAD_AXIS_COUNT;
+                d.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+                d.nhats = 0;
+                d.name = kinds[i].name;
+            }
+        if (u->pad) SDL_CloseJoystick(u->pad);
+        SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
+        u->pad = id ? SDL_OpenJoystick(id) : NULL;
+        if (!u->pad) fail(u, "no virtual controller");
+        return;
+    }
+    if (!u->pad) {
+        fail(u, "no controller attached");
+        return;
+    }
+    int n = atoi(what);
+    if (!strcmp(verb, "button")) {
+        int down = strstr(arg, " down") != NULL;
+        SDL_SetJoystickVirtualButton(u->pad, n, down);
+    } else if (!strcmp(verb, "axis")) {
+        if (value > 1) value = 1;
+        if (value < -1) value = -1;
+        SDL_SetJoystickVirtualAxis(u->pad, n, (Sint16)(value * 32767));
+    } else if (!strcmp(verb, "hat")) {
+        SDL_SetJoystickVirtualHat(u->pad, n, (Uint8)value);
+    } else if (!strcmp(verb, "detach")) {
+        SDL_JoystickID id = SDL_GetJoystickID(u->pad);
+        SDL_CloseJoystick(u->pad);
+        SDL_DetachVirtualJoystick(id);
+        u->pad = NULL;
+    } else {
+        fail(u, "no such pad line");
+    }
+}
+
 /* A find under way: the control focused once it is drawn, else one more
- * Down. 1 while it goes on. */
+ * Down, or once the focus stays put at the bottom, Up. 1 while it goes on. */
 static int seek(dxl_uiscript *u, dxl_shell *s) {
     uint32_t id = dxl_ui_named(&s->ui, u->seek);
     if (id) {
@@ -107,13 +178,19 @@ static int seek(dxl_uiscript *u, dxl_shell *s) {
         u->seek = NULL;
         return 0;
     }
-    if (u->seek_left-- <= 0) {
+    u->seek_still = s->ui.focus == u->seek_from ? u->seek_still + 1 : 0;
+    if (u->seek_still >= 2 && !u->seek_up) {
+        u->seek_up = 1;
+        u->seek_still = 0;
+    }
+    if (u->seek_left-- <= 0 || (u->seek_still >= 2 && u->seek_up)) {
         char what[160];
         snprintf(what, sizeof what, "no %s on %s", u->seek, up_now(s));
         fail(u, what);
         return 0;
     }
-    push_key(SDLK_DOWN);
+    u->seek_from = s->ui.focus;
+    push_key(u->seek_up ? SDLK_UP : SDLK_DOWN);
     return 1;
 }
 
@@ -145,6 +222,9 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
             for (int n = 0; k != SDLK_UNKNOWN && n < times; n++) push_key(k);
             /* A frame takes it before the next line moves the focus. */
             return 0;
+        } else if (!strcmp(word, "pad")) {
+            pad(u, arg);
+            return 0;
         } else if (!strcmp(word, "type")) {
             SDL_Event e;
             SDL_zero(e);
@@ -155,6 +235,8 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
         } else if (!strcmp(word, "find")) {
             u->seek = rest;
             u->seek_left = SEEK_TRIES;
+            u->seek_up = u->seek_still = 0;
+            u->seek_from = 0;
             if (seek(u, s)) return 0;
         } else if (!strcmp(word, "expect")) {
             if (strcmp(arg, up_now(s)) != 0) {

@@ -40,11 +40,13 @@ static int fresh_home(void) {
 }
 
 /* The launcher on the script, the stub doing mode; its exit code. */
-static int launch(const char *script, const char *mode) {
-    return sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=%s DXL_STUB_MS=300 DXL_UI_SCRIPT='%s/%s' "
+static int launch_with(const char *script, const char *mode, const char *env) {
+    return sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=%s DXL_STUB_MS=300 %s DXL_UI_SCRIPT='%s/%s' "
               "'%s/deusex-launcher' >>'%s/out.txt' 2>&1",
-              home, DXL_STUB_ENGINE, mode, DXL_UI_SCRIPTS, script, app, home);
+              home, DXL_STUB_ENGINE, mode, env, DXL_UI_SCRIPTS, script, app, home);
 }
+
+static int launch(const char *script, const char *mode) { return launch_with(script, mode, ""); }
 
 static char *home_file(const char *rel) {
     size_t n = strlen(home) + strlen(rel) + 2;
@@ -234,6 +236,26 @@ static void test_recovery(void) {
     close_files(&b);
 }
 
+/* The Controller page: two buttons bound from it, one found by pressing it;
+ * a controller mapped by the wizard, kept, and handed to the engine. */
+static void test_remap_pad(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch_with("remap_pad.script", "env", "DXL_STUB_ENV=SDL_GAMECONTROLLERCONFIG");
+    script_ok();
+    profile_files b;
+    open_files(&b);
+    CHECK_STR(value(b.usr, "Engine.Input", "Joy1"), "QuickSave");
+    CHECK_STR(value(b.usr, "Engine.Input", "Joy4"), "QuickLoad");
+    char *db = read_home("data/dxlauncher/gamecontrollerdb.txt");
+    CHECK(strstr(db, ",A pad of no maker,a:b0,b:b1,x:b2,y:b3,platform:Linux,") != NULL);
+    free(db);
+    /* What the engine was started with. */
+    char *run = read_home("state/dxlauncher/profiles/default/logs/last-run.log");
+    CHECK(strstr(run, "A pad of no maker,a:b0,b:b1,x:b2,y:b3,platform:Linux,") != NULL);
+    free(run);
+    close_files(&b);
+}
+
 int dxl_test_failures = 0;
 const char *dxl_test_current = "(none)";
 
@@ -259,6 +281,7 @@ int main(void) {
     }
     RUN(test_settings_roundtrip);
     RUN(test_recovery);
+    RUN(test_remap_pad);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);
     if (dxl_test_failures) {

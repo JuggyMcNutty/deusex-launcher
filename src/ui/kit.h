@@ -137,6 +137,8 @@ typedef struct dxl_ui {
     dxl_rect        text_area;   /* where the text is, for the input method's window */
     int             text_on;     /* SDL's text input is started */
     uint32_t        capture_id;
+    /* The pads' buttons and sticks drive nothing (a controller being mapped). */
+    int             pads_off;
 
     /* The backdrop, drawn once for the window's size (draw.h). */
     SDL_Texture    *backdrop;
@@ -181,6 +183,9 @@ void     dxl_ui_seed(dxl_ui *ui, uint32_t seed);
 #define DXL_HIT_HELD      4   /* the pointer's button is down on it */
 #define DXL_HIT_ACTIVATED 8   /* clicked, or Enter or the pad's confirm while focused */
 int  dxl_ui_focusable(dxl_ui *ui, uint32_t id, dxl_rect r, int disabled);
+/* A pad's family, by the label its south button carries. */
+dxl_pad_family dxl_ui_pad_family(SDL_Gamepad *g);
+
 /* What the focusable id is called this frame: its label, for a script that
  * finds a control by it (screens/uiscript.h). */
 void dxl_ui_name(dxl_ui *ui, uint32_t id, const char *name);

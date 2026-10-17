@@ -372,7 +372,13 @@ static int open_window(dxl_window *w, dxl_run *r) {
         w->job_event = w->wake_event + 2;
         w->sdl = 1;
     }
-    if (!w->pads) w->pads = SDL_InitSubSystem(SDL_INIT_GAMEPAD);
+    if (!w->pads && (w->pads = SDL_InitSubSystem(SDL_INIT_GAMEPAD))) {
+        /* The controllers the mapping wizard made known (core/padmap.h). */
+        char *db = dxl_run_pad_db(r);
+        if (dxl_path_exists(db) && SDL_AddGamepadMappingsFromFile(db) < 0)
+            dxl_log("warning: the pad mappings in %s: %s", db, SDL_GetError());
+        free(db);
+    }
     w->window = SDL_CreateWindow("DXLauncher", FIRST_W, FIRST_H,
                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
     if (!w->window) {
