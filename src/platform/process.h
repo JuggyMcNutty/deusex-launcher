@@ -61,10 +61,10 @@ int dxl_game_clean(const dxl_game *g);
 int  dxl_open_url(const char *url);
 
 /* Runs argv to its end, at most timeout_ms (then it is killed), its output
- * into out (cut at size, NUL-terminated) and its errors nowhere: the
- * engine's --version. *status is its exit code, or 128 + the signal. -1
- * when it could not be run or ran out of time. */
-int  dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, int *status,
-                     dxl_err *err);
+ * into out and its errors into errs (NULL: nowhere), each cut at its size
+ * and NUL-terminated: the engine's --version. *status is its exit code, or
+ * 128 + the signal. -1 when it could not be run or ran out of time. */
+int  dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
+                     int *status, dxl_err *err);
 
 #endif

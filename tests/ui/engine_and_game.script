@@ -1,0 +1,51 @@
+# An engine this system cannot start, launcher.ini's: Home says why and
+# offers the fix first. Another chosen there by the browser, which opens on
+# the engine's own folder -- that one refused again, its reason on the
+# browser's line -- and then the game's folder from Settings > Launcher, the
+# first install The game lists; and the launcher's own engine again.
+wait 1
+expect home
+key Return
+wait 0.3
+expect pick
+find Another, in a folder...
+key Return
+wait 0.3
+expect browser
+find Use this folder
+key Return
+wait 0.5
+expect browser
+find .. (the folder above)
+key Return
+wait 0.3
+find good
+key Return
+wait 0.3
+find Use this folder
+key Return
+wait 0.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+find Launcher
+key Return
+wait 0.5
+expect settings Launcher
+find The game's folder
+key Return
+wait 0.5
+expect find
+key Return
+wait 0.5
+expect settings Launcher
+find The engine
+key Return
+wait 0.3
+expect pick
+find The launcher's own
+key Return
+wait 0.5
+quit

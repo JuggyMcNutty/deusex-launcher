@@ -19,6 +19,7 @@
 
 #include <math.h>
 #include <stdarg.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -284,6 +285,57 @@ static void test_pad_test(void) {
     free(log);
 }
 
+/* Engines in the scratch home: glibc, one the loader refuses for a glibc
+ * newer than this system's; good, the stub as VibeEngine. */
+static void engines(void) {
+    sh("mkdir -p '%s/engines/glibc' '%s/engines/good' && cp '%s' '%s/engines/good/VibeEngine'", home, home,
+       DXL_STUB_ENGINE, home);
+    char *script = home_file("engines/glibc/VibeEngine");
+    FILE *f = fopen(script, "w");
+    if (f) {
+        fputs("#!/bin/sh\necho \"$0: /lib64/libm.so.6: version \\`GLIBC_2.99' not found (required by $0)\" >&2\n"
+              "exit 127\n", f);
+        fclose(f);
+    }
+    chmod(script, 0755);
+    free(script);
+}
+
+/* An engine this system cannot start, launcher.ini's, no DXL_ENGINE: Home
+ * said why and offered the fix; another taken by the browser, after one
+ * more refused; the game's folder chosen again from Settings; the
+ * launcher's own engine again. */
+static void test_engine_and_game(void) {
+    CHECK_INT(fresh_home(), 0);
+    engines();
+    char *ini = home_file("config/dxlauncher/launcher.ini");
+    dxl_ini *li = dxl_ini_load(ini, NULL);
+    CHECK(li != NULL);
+    if (!li) return;
+    char *glibc = home_file("engines/glibc/VibeEngine"), *good = home_file("engines/good/VibeEngine");
+    dxl_ini_set(li, "Launcher", "Engine", glibc);
+    dxl_ini_save(li, ini, NULL);
+    dxl_ini_free(li);
+    sh("DXL_HOME='%s' %s DXL_UI_SCRIPT='%s/engine_and_game.script' '%s/deusex-launcher' >>'%s/out.txt' 2>&1", home,
+       OUR_PADS, DXL_UI_SCRIPTS, app, home);
+    script_ok();
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "does not start here: it needs glibc 2.99") != NULL);
+    CHECK_INT(count(log, "engine refused:"), 1);
+    char line[2048];
+    snprintf(line, sizeof line, "engine: %s", good);
+    CHECK(strstr(log, line) != NULL);
+    CHECK(strstr(log, "profile default: install") != NULL);
+    CHECK(strstr(log, "engine: the launcher's own") != NULL);
+    free(log);
+    li = dxl_ini_load(ini, NULL);
+    CHECK(li && dxl_ini_get(li, "Launcher", "Engine") == NULL);
+    dxl_ini_free(li);
+    free(ini);
+    free(glibc);
+    free(good);
+}
+
 /* A first run from nothing on the script, a controller connected: the
  * graphics preset and the pad layout the profile was made with, by their
  * ids ("" for none of them). */
@@ -352,6 +404,7 @@ int main(void) {
     RUN(test_recovery);
     RUN(test_remap_pad);
     RUN(test_pad_test);
+    RUN(test_engine_and_game);
     RUN(test_first_run);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);

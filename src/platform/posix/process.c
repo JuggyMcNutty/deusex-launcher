@@ -198,11 +198,23 @@ int dxl_open_url(const char *url) {
     return 0;
 }
 
-int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, int *status,
-                    dxl_err *err) {
+/* What a pipe has, onto buf's end (cut at size, NUL-terminated); 0 at the
+ * pipe's end. */
+static int take_pipe(int fd, char *buf, size_t size, size_t *got) {
+    char chunk[512];
+    ssize_t n = read(fd, chunk, sizeof chunk);
+    if (n <= 0) return 0;
+    for (ssize_t i = 0; i < n && *got + 1 < size; i++) buf[(*got)++] = chunk[i];
+    if (size) buf[*got] = '\0';
+    return 1;
+}
+
+int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
+                    int *status, dxl_err *err) {
     if (size) out[0] = '\0';
-    int pipefd[2];
-    if (pipe2(pipefd, O_CLOEXEC) != 0) {
+    if (errs && errs_size) errs[0] = '\0';
+    int pipefd[2], errfd[2] = { -1, -1 };
+    if (pipe2(pipefd, O_CLOEXEC) != 0 || (errs && pipe2(errfd, O_CLOEXEC) != 0)) {
         dxl_err_set(err, "pipe: %s", strerror(errno));
         return -1;
     }
@@ -210,34 +222,44 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     if (pid < 0) {
         dxl_err_set(err, "fork: %s", strerror(errno));
         close(pipefd[0]); close(pipefd[1]);
+        if (errfd[0] >= 0) { close(errfd[0]); close(errfd[1]); }
         return -1;
     }
     if (pid == 0) {
         dup2(pipefd[1], STDOUT_FILENO);
         int null = open("/dev/null", O_RDWR | O_CLOEXEC);
-        if (null >= 0) { dup2(null, STDIN_FILENO); dup2(null, STDERR_FILENO); }
+        if (null >= 0) dup2(null, STDIN_FILENO);
+        if (errfd[1] >= 0) dup2(errfd[1], STDERR_FILENO);
+        else if (null >= 0) dup2(null, STDERR_FILENO);
         unsetenv(DXL_LAUNCHER_FD_ENV);
         execv(argv[0], argv);
+        /* Why, as a shell says it, on the errors' line: write alone, the
+         * launcher's other threads' locks being anyone's after the fork. */
+        const char *why = errno == ENOENT ? ": No such file or directory\n"
+                        : errno == EACCES ? ": Permission denied\n"
+                        : errno == ENOEXEC ? ": Exec format error\n" : ": cannot be run\n";
+        if (write(STDERR_FILENO, argv[0], strlen(argv[0])) < 0 || write(STDERR_FILENO, why, strlen(why)) < 0) {}
         _exit(127);
     }
     close(pipefd[1]);
-    size_t got = 0;
+    if (errfd[1] >= 0) close(errfd[1]);
+    size_t got = 0, got_err = 0;
+    int open_out = 1, open_err = errfd[0] >= 0;
     int ms = timeout_ms, timed_out = 0;
-    for (;;) {
-        struct pollfd p = { pipefd[0], POLLIN, 0 };
-        int r = poll(&p, 1, ms > 100 ? 100 : ms);
+    while (open_out || open_err) {
+        struct pollfd p[2] = { { open_out ? pipefd[0] : -1, POLLIN, 0 }, { open_err ? errfd[0] : -1, POLLIN, 0 } };
+        int r = poll(p, 2, ms > 100 ? 100 : ms);
         if (r > 0) {
-            char chunk[512];
-            ssize_t n = read(pipefd[0], chunk, sizeof chunk);
-            if (n <= 0) break;   /* the end of its output */
-            for (ssize_t i = 0; i < n && got + 1 < size; i++) out[got++] = chunk[i];
-            if (size) out[got] = '\0';
+            if (open_out && (p[0].revents & (POLLIN | POLLHUP | POLLERR))) open_out = take_pipe(pipefd[0], out, size, &got);
+            if (open_err && (p[1].revents & (POLLIN | POLLHUP | POLLERR)))
+                open_err = take_pipe(errfd[0], errs, errs_size, &got_err);
             continue;
         }
         if (r < 0 && errno == EINTR) continue;
         if ((ms -= 100) <= 0) { timed_out = 1; break; }
     }
     close(pipefd[0]);
+    if (errfd[0] >= 0) close(errfd[0]);
     if (timed_out) kill(pid, SIGKILL);
     int st = 0;
     while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}

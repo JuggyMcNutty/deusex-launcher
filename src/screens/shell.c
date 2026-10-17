@@ -137,16 +137,105 @@ void dxl_shell_ask_engine(dxl_shell *s) {
     if (s->engine_asked || !s->run) return;
     s->engine_asked = 1;
     dxl_engine_version v;
-    char why[512];
-    s->engine_ok = dxl_run_engine_check(&s->run->session, &v, why, sizeof why) == 0;
+    s->engine_ok = dxl_run_engine_check(&s->run->session, &v, s->engine_brief, sizeof s->engine_brief,
+                                        s->engine_problem, sizeof s->engine_problem) == 0;
     if (s->engine_ok) {
         snprintf(s->engine_version, sizeof s->engine_version, "%s", v.version);
         snprintf(s->engine_features, sizeof s->engine_features, "%s", v.features);
-        s->engine_problem[0] = '\0';
+        s->engine_brief[0] = s->engine_problem[0] = '\0';
     } else {
-        snprintf(s->engine_problem, sizeof s->engine_problem, "%s", why);
-        dxl_log("%s", why);
+        dxl_log("%s", s->engine_problem);
     }
+}
+
+int dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief, size_t brief_size, char *why,
+                            size_t why_size) {
+    char *prog = dxl_path_is_dir(path) ? dxl_engine_in(path) : dxl_xstrdup(path);
+    if (!prog) {
+        snprintf(brief, brief_size, "No VibeEngine or SurrealEngine in this folder.");
+        snprintf(why, why_size, "There is no VibeEngine or SurrealEngine program in %s.", path);
+        return 0;
+    }
+    dxl_engine_version v;
+    if (dxl_engine_check(prog, &v, brief, brief_size, why, why_size) != 0) {
+        dxl_log("engine refused: %s", why);
+        free(prog);
+        return 0;
+    }
+    dxl_session *ss = &s->run->session;
+    dxl_session_set_engine(ss, prog);
+    dxl_err e;
+    if (dxl_session_save(ss, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    s->engine_asked = 0;
+    dxl_shell_ask_engine(s);
+    if (ss->engine_by_env)
+        dxl_shell_toast(s, "Kept, but DXL_ENGINE names the engine played with: unset it to play with %s.", v.version);
+    else if (!dxl_engine_pk3_found(prog))
+        dxl_shell_toast(s, "The engine is %s, but it finds no SurrealEngine.pk3: put one beside it.", v.version);
+    else
+        dxl_shell_toast(s, "The engine is %s.", v.version);
+    free(prog);
+    return 1;
+}
+
+/* The pick's choices, in its order. */
+enum { ENGINE_OWN, ENGINE_BROWSE, ENGINE_DIALOG };
+
+void dxl_shell_engine_pick(dxl_shell *s, uint32_t id) {
+    dxl_session *ss = &s->run->session;
+    char *own = dxl_session_own_engine(ss);
+    dxl_engine_version v;
+    char brief[160], why[700], detail[200];
+    if (dxl_engine_check(own, &v, brief, sizeof brief, why, sizeof why) == 0) snprintf(detail, sizeof detail, "%s", v.version);
+    else snprintf(detail, sizeof detail, "%s", brief);
+    free(own);
+    const char *labels[3] = { "The launcher's own", "Another, in a folder...", "Another, by the system's dialog..." };
+    const char *details[3] = { detail, "VibeEngine or SurrealEngine in it, a build of your own", "" };
+    dxl_shell_pick_with(s, id, "The engine", labels, details, s->pick_folder ? 3 : 2,
+                        ss->engine_by_env || !dxl_ini_get(ss->ini, "Launcher", "Engine") ? ENGINE_OWN : ENGINE_BROWSE);
+}
+
+void dxl_shell_engine_answer(dxl_shell *s, uint32_t id) {
+    int got = dxl_shell_answer(s, id);
+    dxl_session *ss = &s->run->session;
+    if (got == ENGINE_OWN) {
+        dxl_session_set_engine(ss, NULL);
+        dxl_err e;
+        if (dxl_session_save(ss, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+        s->engine_asked = 0;
+        dxl_shell_ask_engine(s);
+        if (s->engine_ok) dxl_shell_toast(s, "The engine is the launcher's own, %s.", s->engine_version);
+        else dxl_shell_message(s, "The launcher's own engine", "%s", s->engine_problem);
+    } else if (got == ENGINE_BROWSE) {
+        char *dir = dxl_path_dirname(ss->engine);
+        dxl_browser_open(s, dxl_path_is_dir(dir) ? dir : getenv("HOME"), DXL_BROWSE_ENGINE);
+        free(dir);
+    } else if (got == ENGINE_DIALOG && s->pick_folder) {
+        s->pick_for = DXL_BROWSE_ENGINE;
+        s->pick_folder(s);
+    }
+}
+
+void dxl_shell_folder_picked(dxl_shell *s, const char *path) {
+    char shown[1024];
+    if (s->pick_for == DXL_BROWSE_ENGINE) {
+        char brief[200], why[800];
+        if (!dxl_shell_choose_engine(s, path, brief, sizeof brief, why, sizeof why))
+            dxl_shell_message(s, "Not an engine to play with", "%s", why);
+        return;
+    }
+    dxl_install in;
+    dxl_install_check(path, &in);
+    if (in.ok) dxl_shell_choose(s, &in);
+    else dxl_shell_message(s, "Not one to play", "%s: %s.", dxl_shell_tilde(in.root, shown, sizeof shown), in.problem);
+    dxl_install_free(&in);
+}
+
+void dxl_shell_repoint(dxl_shell *s, dxl_page back_to) {
+    s->repoint = s->repoint_back = 1;
+    s->repoint_to = back_to;
+    s->looked = 0;
+    dxl_shell_go(s, DXL_PAGE_FIND);
 }
 
 void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
@@ -162,6 +251,15 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
         }
         dxl_log("profile %s: install %s (%s)", ss->profile.id, id, in->root);
         dxl_session_check_install(ss);
+        /* Asked for from a page, that page again; from Recovery, as from a
+         * profile whose install had gone, on to the game. */
+        if (s->repoint_back && s->repoint_to != DXL_PAGE_RECOVERY) {
+            char shown[1024];
+            s->repoint = s->repoint_back = 0;
+            dxl_shell_toast(s, "The profile plays the game in %s now.", dxl_shell_tilde(in->root, shown, sizeof shown));
+            dxl_shell_go(s, s->repoint_to);
+            return;
+        }
         s->result = 1;
         return;
     }

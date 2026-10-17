@@ -71,6 +71,7 @@ typedef enum {
     SCENE_IMPORT,
     SCENE_HOME,
     SCENE_HOME_MADE,
+    SCENE_HOME_ENGINE,      /* an engine this system cannot start */
     SCENE_REPOINT,
     SCENE_RECOVERY,
     SCENE_SAFE,
@@ -95,7 +96,7 @@ typedef enum {
 } scene;
 
 static const char *const scene_names[SCENE_COUNT] = {
-    "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "repoint",
+    "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "home-engine", "repoint",
     "recovery", "safe", "about", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
@@ -257,7 +258,7 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         s->looked = 1;
         if (sc != SCENE_FIND_NONE) found(s);
         dxl_shell_go(s, DXL_PAGE_FIND);
-        if (sc == SCENE_BROWSER) dxl_browser_open(s, home);
+        if (sc == SCENE_BROWSER) dxl_browser_open(s, home, DXL_BROWSE_GAME);
         if (sc == SCENE_MESSAGE)
             dxl_shell_message(s, "Not one to play", "%s: %s.", s->found.items[1].install.root,
                               s->found.items[1].install.problem);
@@ -286,6 +287,15 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
                      "The profile is made: 12 saves and 3 screenshots copied from the game's folder.");
             r->last.known = 0;
         }
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        break;
+    case SCENE_HOME_ENGINE:
+        s->engine_ok = 0;
+        snprintf(s->engine_brief, sizeof s->engine_brief, "needs glibc 2.44, this system has 2.43");
+        snprintf(s->engine_problem, sizeof s->engine_problem,
+                 "%.200s/Applications/DXLauncher/SurrealEngine does not start here: it needs glibc 2.44, and this system "
+                 "has 2.43. It was built on a newer system than this one: choose an engine built for this one, or "
+                 "build it here.", home);
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         break;
     case SCENE_REPOINT: {

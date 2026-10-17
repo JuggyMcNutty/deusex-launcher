@@ -3,7 +3,9 @@
  * the engine does (hello as it starts, ready once "its map is in").
  *
  *   --version   (any mode) answers as VibeEngine does; DXL_STUB_FEATURES
- *               the features (default "userdir")
+ *               the features (default "userdir"); with DXL_STUB_VERSION_ERR
+ *               set, that line on stderr and exit 127, as a program the
+ *               loader could not start
  *   args        prints its working folder, then its words one a line
  *   env         prints the value of the variable DXL_STUB_ENV names
  *   ready       hello, ready, then prints each line the launcher sends,
@@ -45,6 +47,11 @@ static const char *env_or(const char *name, const char *fallback) {
 int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--version") == 0) {
+            const char *err = getenv("DXL_STUB_VERSION_ERR");
+            if (err && *err) {
+                fprintf(stderr, "%s\n", err);
+                return 127;
+            }
             printf("VibeEngine stub000 (2026-10-16)\nfeatures: %s\n", env_or("DXL_STUB_FEATURES", "userdir"));
             return 0;
         }

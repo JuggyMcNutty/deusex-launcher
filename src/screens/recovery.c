@@ -242,9 +242,7 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
         next_run_set(s, "next.nosound", 1);
         s->result = 1;
     } else if (fixed && fix == DXL_FIX_INSTALL) {
-        s->repoint = s->repoint_back = 1;
-        s->looked = 0;
-        dxl_shell_go(s, DXL_PAGE_FIND);
+        dxl_shell_repoint(s, DXL_PAGE_RECOVERY);
     } else if (read) {
         s->log_which = 0;
         dxl_shell_go(s, DXL_PAGE_LOG);

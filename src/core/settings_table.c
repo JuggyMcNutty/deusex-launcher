@@ -339,6 +339,14 @@ const dxl_setting dxl_settings_table[] = {
       .flags = DXL_SET_ADVANCED },
 
     /* ---- Launcher ------------------------------------------------------------- */
+    /* The engine and the game's folder, chosen by the page (screens/settings.c). */
+    { .id = "launcher.engine", .page = "Launcher", .label = "The engine",
+      .help = "The VibeEngine the game runs on: the launcher's own, beside it, or another -- a build of your own, "
+              "one made for this system.",
+      .kind = DXL_SET_ACTION },
+    { .id = "profile.game", .page = "Launcher", .label = "The game's folder",
+      .help = "The copy of Deus Ex this profile plays: another the launcher finds, or one shown to it.",
+      .kind = DXL_SET_ACTION },
     { .id = "launcher.ui_scale", .page = "Launcher", .label = "The launcher's size",
       .help = "Everything in the launcher's window larger or smaller, over the size the display's own "
               "scale gives it.",

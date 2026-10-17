@@ -3,13 +3,16 @@
  * profile it plays with and that profile's install.
  *
  *   <config>/launcher.ini   [Launcher] Profile, the active profile's id;
- *                           [Install.<id>] Path, Version, SHA1, each install
- *                           the launcher has met (core/install.h's id);
- *                           [Window] Width, Height, Maximized, the window as
- *                           it last closed (screens/window.h)
+ *                           Engine, another engine's program than the
+ *                           launcher's own; [Install.<id>] Path, Version,
+ *                           SHA1, each install the launcher has met
+ *                           (core/install.h's id); [Window] Width, Height,
+ *                           Maximized, the window as it last closed
+ *                           (screens/window.h)
  *
- * The launcher's own folder is where its program is (/proc/self/exe): the
- * engine beside it (SurrealEngine; DXL_ENGINE names another) and its data/.
+ * The launcher's own folder is where its program is (/proc/self/exe): its
+ * own engine beside it (SurrealEngine) and its data/. DXL_ENGINE names the
+ * engine over launcher.ini's.
  */
 #ifndef DXL_SESSION_H
 #define DXL_SESSION_H
@@ -30,6 +33,7 @@ typedef struct {
     char        *app_dir;     /* the launcher's own folder */
     char        *data_dir;    /* <app_dir>/data */
     char        *engine;      /* the engine's program */
+    int          engine_by_env;   /* DXL_ENGINE named it */
     char        *ini_path;    /* launcher.ini */
     dxl_ini     *ini;
     dxl_profile  profile;     /* the active one; it may not be made yet */
@@ -64,6 +68,12 @@ int  dxl_session_make_profile(dxl_session *s, const dxl_install *in, const char 
  * for the controls as imported; its files written. */
 int  dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl_pad_preset *layout,
                             dxl_err *err);
+
+/* The launcher's own engine, the one beside it. Caller frees. */
+char *dxl_session_own_engine(const dxl_session *s);
+/* The engine played with from now on, launcher.ini's: path, or NULL for the
+ * launcher's own. Under DXL_ENGINE that one is still the one played with. */
+void  dxl_session_set_engine(dxl_session *s, const char *path);
 
 /* An id for the single-instance lock: one launcher for a home, a scratch
  * one (DXL_HOME) apart from the real one. Caller frees. */

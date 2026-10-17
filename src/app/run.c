@@ -9,10 +9,15 @@
 #include "core/paths.h"
 #include "platform/process.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#ifdef __GLIBC__
+#include <gnu/libc-version.h>
+#endif
 
 #define HANDOFF_TIMEOUT_MS 30000   /* the original's SendMessageTimeout */
 #define VERSION_TIMEOUT_MS 5000
@@ -94,35 +99,123 @@ static void say_view(dxl_run *r, dxl_view v) {
 
 /* ---- the engine ------------------------------------------------------ */
 
-int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *why, size_t size) {
-    const char *engine = s->engine;
+/* The version a loader's error says the program needs of a library
+ * ("version `GLIBC_2.44' not found"): its name and number into what. */
+static int needs_version(const char *errs, char *what, size_t size) {
+    const char *v = strstr(errs, "version `");
+    if (!v) return 0;
+    v += 9;
+    size_t n = strcspn(v, "'\n");
+    if (!n || v[n] != '\'') return 0;
+    snprintf(what, size, "%.*s", (int)n, v);
+    return 1;
+}
+
+/* The library a loader's error says the program cannot find. */
+static int needs_library(const char *errs, char *what, size_t size) {
+    const char *l = strstr(errs, "error while loading shared libraries: ");
+    if (!l) return 0;
+    l += strlen("error while loading shared libraries: ");
+    size_t n = strcspn(l, ":\n");
+    if (!n) return 0;
+    snprintf(what, size, "%.*s", (int)n, l);
+    return 1;
+}
+
+int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
+                     size_t size) {
     memset(v, 0, sizeof *v);
-    if (!dxl_path_exists(engine)) {
-        snprintf(why, size, "no engine at %s", engine);
+    if (!engine || !dxl_path_exists(engine)) {
+        snprintf(brief, brief_size, "not there");
+        snprintf(why, size, "There is no engine at %s.", engine ? engine : "(none)");
         return -1;
     }
     char *argv[] = { (char *)engine, "--version", NULL };
-    char out[1024];
+    char out[1024], errs[1024];
     int status = 0;
     dxl_err e;
-    if (dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, &status, &e) != 0 ||
-        dxl_engine_version_parse(out, v) != 0) {
-        snprintf(why, size, "%s is not a VibeEngine that answers --version: refusing it", engine);
+    int ran = dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, errs, sizeof errs, &status, &e) == 0;
+    if (!ran && status == 128 + SIGKILL && !errs[0]) {
+        snprintf(brief, brief_size, "gives no answer");
+        snprintf(why, size, "%s gave no answer to --version in %d seconds: refusing it.", engine,
+                 VERSION_TIMEOUT_MS / 1000);
+        return -1;
+    }
+    if (dxl_engine_version_parse(out, v) != 0) {
+        char need[96], line[300];
+        snprintf(line, sizeof line, "%.*s", (int)strcspn(errs, "\n"), errs);
+        if (needs_version(errs, need, sizeof need) && !strncmp(need, "GLIBC_", 6)) {
+#ifdef __GLIBC__
+            const char *here = gnu_get_libc_version();
+#else
+            const char *here = "an older one";
+#endif
+            snprintf(brief, brief_size, "needs glibc %s, this system has %s", need + 6, here);
+            snprintf(why, size, "%s does not start here: it needs glibc %s, and this system has %s. It was built on "
+                     "a newer system than this one: choose an engine built for this one, or build it here.",
+                     engine, need + 6, here);
+        } else if (needs_version(errs, need, sizeof need)) {
+            snprintf(brief, brief_size, "needs %s", need);
+            snprintf(why, size, "%s does not start here: it needs %s of a library, which this system lacks (%s).",
+                     engine, need, line);
+        } else if (needs_library(errs, need, sizeof need)) {
+            snprintf(brief, brief_size, "needs %s", need);
+            snprintf(why, size, "%s does not start here: it needs %s, which this system lacks.", engine, need);
+        } else if (status != 0 || line[0]) {
+            snprintf(brief, brief_size, "does not start");
+            snprintf(why, size, "%s does not start here (its exit %d)%s%s", engine, status, line[0] ? ": " : ".",
+                     line);
+        } else {
+            snprintf(brief, brief_size, "not VibeEngine");
+            snprintf(why, size, "%s does not answer --version as VibeEngine does: refusing it.", engine);
+        }
         return -1;
     }
     if (!dxl_engine_has(v, DXL_ENGINE_NEEDS)) {
-        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/SurrealEngine",
+        snprintf(brief, brief_size, "%s, without --%s", v->version, DXL_ENGINE_NEEDS);
+        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/SurrealEngine.",
                  engine, v->version, DXL_ENGINE_NEEDS);
         return -1;
     }
     return 0;
 }
 
+int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
+                         size_t size) {
+    return dxl_engine_check(s->engine, v, brief, brief_size, why, size);
+}
+
+char *dxl_engine_in(const char *dir) {
+    static const char *const names[] = { "VibeEngine", "SurrealEngine" };
+    for (size_t i = 0; dir && i < sizeof names / sizeof *names; i++) {
+        char *p = dxl_path_join(dir, names[i]);
+        if (dxl_path_exists(p) && !dxl_path_is_dir(p) && access(p, X_OK) == 0) return p;
+        free(p);
+    }
+    return NULL;
+}
+
+int dxl_engine_pk3_found(const char *path) {
+    char *dir = dxl_path_dirname(path);
+    char *beside = dxl_path_join(dir, "SurrealEngine.pk3");
+    int found = dxl_path_exists(beside);
+    free(beside);
+    free(dir);
+    if (found || dxl_path_exists("/usr/share/surrealengine/SurrealEngine.pk3")) return 1;
+    const char *home = getenv("HOME"), *data = getenv("XDG_DATA_HOME");
+    char p[2048];
+    if (data && *data) snprintf(p, sizeof p, "%s/surrealengine/SurrealEngine.pk3", data);
+    else snprintf(p, sizeof p, "%s/.local/share/surrealengine/SurrealEngine.pk3", home ? home : "");
+    if (dxl_path_exists(p)) return 1;
+    snprintf(p, sizeof p, "%s/.surrealengine/SurrealEngine.pk3", home ? home : "");
+    return dxl_path_exists(p);
+}
+
 /* The engine's --version, before the game: refused without the userdir
  * feature. */
 static int check_engine(dxl_run *r, dxl_engine_version *v) {
-    char why[512];
-    if (dxl_run_engine_check(&r->session, v, why, sizeof why) != 0) {
+    char why[700], brief[160];
+    if (dxl_run_engine_check(&r->session, v, brief, sizeof brief, why, sizeof why) != 0) {
         stop_with(r, "%s", why);
         return -1;
     }

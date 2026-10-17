@@ -62,8 +62,9 @@ static void list(dxl_browser *b, const char *dir) {
     if (b->count) qsort(b->names, b->count, sizeof *b->names, by_name);
 }
 
-void dxl_browser_open(dxl_shell *s, const char *dir) {
+void dxl_browser_open(dxl_shell *s, const char *dir, int mode) {
     s->browser.note[0] = '\0';
+    s->browser.mode = mode;
     list(&s->browser, dir && *dir ? dir : "/");
     if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
     s->dialog = DXL_DIALOG_BROWSER;
@@ -80,9 +81,14 @@ static void go_to(dxl_shell *s, dxl_list *l, const char *dir) {
 }
 
 /* The folder shown, as the game's: it, or the folder above when this is
- * the game's System. */
+ * the game's System; or as the engine's. */
 static void use(dxl_shell *s) {
     dxl_browser *b = &s->browser;
+    if (b->mode == DXL_BROWSE_ENGINE) {
+        char why[800];
+        if (dxl_shell_choose_engine(s, b->dir, b->note, sizeof b->note, why, sizeof why)) dxl_shell_close_dialog(s);
+        return;
+    }
     dxl_install in;
     if (dxl_install_check(b->dir, &in) != 0 && !in.found && dxl_stricmp(dxl_path_basename(b->dir), "System") == 0) {
         char *up = dxl_path_dirname(b->dir);
@@ -107,7 +113,8 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     dxl_browser *b = &s->browser;
     char shown[PATH_MAX + 2];
 
-    dxl_rect in = dxl_dialog_begin(ui, over, 840, 600, "The game's folder");
+    dxl_rect in = dxl_dialog_begin(ui, over, 840, 600, b->mode == DXL_BROWSE_ENGINE ? "The engine's folder"
+                                                                                   : "The game's folder");
     dxl_label(ui, dxl_cut_top(&in, 28), DXL_FONT_BODY, dxl_shell_tilde(b->dir, shown, sizeof shown), t->text_focus,
               DXL_W_LEFT | DXL_W_TAIL | DXL_W_MAY_CUT);
     dxl_cut_top(&in, 8);

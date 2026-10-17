@@ -20,8 +20,6 @@ int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
     s->app_dir = self ? dxl_path_dirname(self) : dxl_xstrdup(".");
     free(self);
     s->data_dir = dxl_path_join(s->app_dir, "data");
-    const char *engine = getenv("DXL_ENGINE");
-    s->engine = engine && *engine ? dxl_xstrdup(engine) : dxl_path_join(s->app_dir, ENGINE_NAME);
 
     s->ini_path = dxl_path_join(s->xdg.config, "launcher.ini");
     s->ini = dxl_ini_load(s->ini_path, NULL);
@@ -29,6 +27,12 @@ int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
         s->ini = dxl_ini_new();
         dxl_ini_set_eol(s->ini, "\n");
     }
+    /* DXL_ENGINE's, launcher.ini's, or the launcher's own. */
+    const char *engine = getenv("DXL_ENGINE"), *chosen = dxl_ini_get(s->ini, LAUNCHER, "Engine");
+    s->engine_by_env = engine && *engine;
+    if (s->engine_by_env) s->engine = dxl_xstrdup(engine);
+    else if (chosen && *chosen) s->engine = dxl_xstrdup(chosen);
+    else s->engine = dxl_session_own_engine(s);
 
     const char *id = profile_id;
     if (!id || !*id) id = dxl_ini_get(s->ini, LAUNCHER, "Profile");
@@ -144,6 +148,22 @@ int dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl
         dxl_log("profile %s begun with %s graphics and %s", s->profile.id, graphics ? graphics->label : "the engine's",
                 layout ? layout->label : "the controls as imported");
     return rc;
+}
+
+char *dxl_session_own_engine(const dxl_session *s) { return dxl_path_join(s->app_dir, ENGINE_NAME); }
+
+void dxl_session_set_engine(dxl_session *s, const char *path) {
+    char *own = dxl_session_own_engine(s);
+    int theirs = path && *path && strcmp(path, own) != 0;
+    if (theirs) dxl_ini_set(s->ini, LAUNCHER, "Engine", path);
+    else dxl_ini_remove(s->ini, LAUNCHER, "Engine");
+    if (!s->engine_by_env) {
+        free(s->engine);
+        s->engine = theirs ? dxl_xstrdup(path) : own;
+        own = NULL;
+    }
+    free(own);
+    dxl_log("engine: %s", theirs ? path : "the launcher's own");
 }
 
 char *dxl_session_instance_id(const dxl_session *s) {

@@ -81,7 +81,10 @@ size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out
  * FConfigCache::EmptySection. */
 void dxl_ini_empty_section(dxl_ini *ini, const char *section);
 
-/* True once any set/append/empty has run. */
+/* Removes every line of the key in the section. */
+void dxl_ini_remove(dxl_ini *ini, const char *section, const char *key);
+
+/* True once any set/append/empty/remove has run. */
 int  dxl_ini_dirty(const dxl_ini *ini);
 /* The ini as its file now is (saved): not dirty until the next change. */
 void dxl_ini_clean(dxl_ini *ini);
