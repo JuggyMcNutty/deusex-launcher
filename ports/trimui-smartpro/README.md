@@ -61,8 +61,9 @@ System tab shows the engine log and `run-game.log`'s last run.
 | `packaging/` | the spruceOS app (`config.json`, `launch.sh`, icon), `port-hooks.sh` (vendor library path, CPU mode), `launcher.ini`, `renderers.ini`, `engine-settings.json.default` |
 | `tools/profile-map.sh` | frame-time profile of one map, run on the device |
 
-The launcher is this branch's own, the tabbed home screen (linux-x86_64 and linux-aarch64 build
-`main`'s for now); its code makes these choices for the device:
+The launcher is this branch's own, the tabbed home screen (linux-x86_64's is DXLauncher, the
+desktop's own; linux-aarch64 builds `main`'s for now); its code makes these choices for the
+device:
 
 | What | Here |
 |---|---|
