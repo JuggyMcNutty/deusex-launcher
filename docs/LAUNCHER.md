@@ -495,9 +495,11 @@ puts another in its place from Home, and the game's folder from Settings;
 `profiles` makes a profile, duplicates one, renames and deletes the copy to
 the trash, and uses the first again; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
-with Your profile's choices made and as they come. SDL's controllers in
-each are the virtual ones alone (`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT`),
-whatever pad is plugged in. It is skipped with no display or no install.
+with Your profile's choices made and as they come. SDL takes in each
+only controllers of the virtual ones' makes and models
+(`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT`): a pad of another plugged in
+moves nothing of a run, though a real one of those models would. It is
+skipped with no display or no install.
 
 ## What it changes from the original
 

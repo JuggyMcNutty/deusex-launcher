@@ -8,8 +8,8 @@ changes run here.
 
 The launcher is DXLauncher, the desktop's own
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)): a window with Home, the first
-run, Settings, Recovery, the log and About, which makes a profile from the
-game's files, keeps its settings and plays it. The engine runs the game, not yet fully playable
+run, Settings, Profiles, Recovery, the log and About, which makes profiles
+from the game's files, keeps their settings and plays them. The engine runs the game, not yet fully playable
 ([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
 ## Build and run
@@ -75,6 +75,15 @@ checked after each build; this port has neither.
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas
+
+### Where it runs
+
+The build has no glibc ceiling: it runs on the system it was built on, or
+one as new. Built in a container whose glibc is newer than its host's (an
+Arch container on Bazzite: 2.44 and 2.43), the staged launcher may start on
+the host while its engine does not; the launcher refuses the engine and says
+so ("needs glibc 2.44, this system has 2.43"). Run it in the container, or
+choose an engine built for the host (Settings > Launcher, The engine).
 
 ### Audio
 
