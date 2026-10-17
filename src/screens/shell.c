@@ -23,6 +23,8 @@ void dxl_shell_init(dxl_shell *s, const char *version) {
     memset(s, 0, sizeof *s);
     s->version = version;
     s->result = -1;
+    s->pad_mesh_family = -1;
+    s->pad_find = s->pad_chosen = -1;
 }
 
 void dxl_shell_free(dxl_shell *s) {
@@ -34,6 +36,11 @@ void dxl_shell_free(dxl_shell *s) {
     free(s->log_tail);
     s->log_tail = NULL;
     dxl_page_log_free(s);
+    dxl_padmesh_free(&s->pad_mesh);
+    s->pad_mesh_family = -1;
+    if (s->wizard.joy) SDL_CloseJoystick(s->wizard.joy);
+    dxl_padmesh_free(&s->wizard.mesh);
+    memset(&s->wizard, 0, sizeof s->wizard);
 }
 
 void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {

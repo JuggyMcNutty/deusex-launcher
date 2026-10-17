@@ -342,9 +342,16 @@ int dxl_tabs(dxl_ui *ui, const char *id, dxl_rect r, const char *const *labels, 
     if (ui->mode == DXL_INPUT_PAD) {
         x += dxl_glyph(ui, DXL_HINT_TAB_PREV, x, r.y + r.h / 2, gs, 1) + 12;
     }
+    /* Each label and its padding, the padding less where all would not fit. */
+    float text = 0;
+    for (int i = 0; i < n; i++) text += dxl_text_size(ui, DXL_FONT_BUTTON, labels[i], 0).x;
+    float room = r.x + r.w - x - (ui->mode == DXL_INPUT_PAD ? gs + 12 : 0) - 4 * (n - 1);
+    float pad = (room - text) / n;
+    if (pad > 32) pad = 32;
+    if (pad < 8) pad = 8;
     uint32_t base = dxl_ui_id(ui, id);
     for (int i = 0; i < n; i++) {
-        float w = dxl_text_size(ui, DXL_FONT_BUTTON, labels[i], 0).x + 32;
+        float w = dxl_text_size(ui, DXL_FONT_BUTTON, labels[i], 0).x + pad;
         dxl_rect tr = { x, r.y, w, r.h };
         uint32_t tid = base ^ ((uint32_t)(i + 1) * 0x9e3779b1u);
         int hits = dxl_ui_focusable(ui, tid, tr, 0);
@@ -353,7 +360,7 @@ int dxl_tabs(dxl_ui *ui, const char *id, dxl_rect r, const char *const *labels, 
         if (hits & (DXL_HIT_FOCUSED | DXL_HIT_HOVERED)) dxl_fill(ui, tr, t->row_highlight);
         int on = i == *current;
         dxl_label(ui, tr, DXL_FONT_BUTTON, labels[i], on ? t->text_focus : t->help, DXL_W_CENTER);
-        if (on) dxl_fill(ui, (dxl_rect){ tr.x + 12, tr.y + tr.h - 4, tr.w - 24, 3 }, t->accent);
+        if (on) dxl_fill(ui, (dxl_rect){ tr.x + pad * 0.375f, tr.y + tr.h - 4, tr.w - pad * 0.75f, 3 }, t->accent);
         x += w + 4;
     }
     if (ui->mode == DXL_INPUT_PAD) dxl_glyph(ui, DXL_HINT_TAB_NEXT, x + 8, r.y + r.h / 2, gs, 1);

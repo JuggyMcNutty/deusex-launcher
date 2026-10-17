@@ -7,11 +7,18 @@
  *                     F5; n times over
  *   type <text>       text typed, as an input method gives it
  *   find <label>      the focus on the control of that label (ui/kit.h's names):
- *                     Down pressed, a frame each, until one is drawn
+ *                     Down pressed, a frame each, until one is drawn, then Up
+ *                     once the focus stays put at the bottom
  *   expect <name>     the page or dialog up: home, welcome, find, import, recovery,
  *                     about, settings, log; browser, message, pick, keyboard,
- *                     confirm. Not so: "ui script: FAILED" in the launcher's log and
- *                     on stderr, and the window closes
+ *                     confirm, padwizard. Not so: "ui script: FAILED" in the
+ *                     launcher's log and on stderr, and the window closes
+ *   pad attach <kind> a virtual controller: xbox, dualsense, switchpro or generic,
+ *                     as SDL knows them, or raw, one it has no mapping for (13
+ *                     buttons, 6 axes, a hat); pad detach takes it away
+ *   pad button <n> <down|up>   its button n (a known one's in SDL's order: 0 south)
+ *   pad axis <n> <value>       its axis n, -1 to 1
+ *   pad hat <n> <mask>         its hat n: 1 up, 2 right, 4 down, 8 left
  *   shot <file>       the window's next frame as a PNG
  *   quit              the window's close
  *

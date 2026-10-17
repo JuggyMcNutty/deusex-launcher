@@ -45,7 +45,7 @@ static SDL_Gamepad *pad_of(SDL_JoystickID id) {
 }
 
 /* Whose labels the pad's face buttons carry: where confirm and back are. */
-static dxl_pad_family family_of(SDL_Gamepad *g) {
+dxl_pad_family dxl_ui_pad_family(SDL_Gamepad *g) {
     if (!g) return DXL_PADFAMILY_GENERIC;
     switch (SDL_GetGamepadButtonLabel(g, SDL_GAMEPAD_BUTTON_SOUTH)) {
     case SDL_GAMEPAD_BUTTON_LABEL_A: return DXL_PADFAMILY_XBOX;
@@ -238,7 +238,7 @@ static void pad_button(dxl_ui *ui, const SDL_GamepadButtonEvent *b) {
     SDL_Gamepad *g = pad_of(b->which);
     ui->mode = DXL_INPUT_PAD;
     ui->pad = b->which;
-    ui->pad_family = family_of(g);
+    ui->pad_family = dxl_ui_pad_family(g);
     ui->in.any = 1;
     if (ui->capture_id) {
         if (!ui->in.captured) {
@@ -282,7 +282,7 @@ static void pad_axis(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
         stick_dir = dir;
         ui->mode = DXL_INPUT_PAD;
         ui->pad = a->which;
-        ui->pad_family = family_of(g);
+        ui->pad_family = dxl_ui_pad_family(g);
         ui->in.any = 1;
         press_dir(ui, dir);
     }
@@ -356,7 +356,7 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         ui->in.any = 1;
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-        pad_button(ui, &e->gbutton);
+        if (!ui->pads_off) pad_button(ui, &e->gbutton);
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
         if ((e->gbutton.button >= SDL_GAMEPAD_BUTTON_DPAD_UP && e->gbutton.button <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT) &&
@@ -364,7 +364,7 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
             held_dir = -1;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-        if (!ui->capture_id) pad_axis(ui, &e->gaxis);
+        if (!ui->capture_id && !ui->pads_off) pad_axis(ui, &e->gaxis);
         break;
     case SDL_EVENT_TEXT_INPUT:
         if (ui->text_id && e->text.text) {
