@@ -286,14 +286,17 @@ int dxl_ini_get_bool(const dxl_ini *ini, const char *section, const char *key,
  * rather than keeping a stray ending some other tool left behind. */
 static void pair_write(ini_line *l, const char *key, const char *value,
                        const char *eol) {
+    /* key and value may be the line's own strings (a name dxl_ini_pairs
+     * gave): copied before the line's go. */
+    char *name = dxl_xstrdup(key), *text = dxl_xstrdup(value ? value : "");
     free(l->raw); free(l->name); free(l->value);
     if (eol) { free(l->eol); l->eol = dxl_xstrdup(eol); }
     l->kind  = LINE_PAIR;
-    l->name  = dxl_xstrdup(key);
-    l->value = dxl_xstrdup(value ? value : "");
-    size_t n = strlen(key) + 1 + strlen(l->value) + 1;
+    l->name  = name;
+    l->value = text;
+    size_t n = strlen(name) + 1 + strlen(text) + 1;
     l->raw = dxl_xmalloc(n);
-    snprintf(l->raw, n, "%s=%s", key, l->value);
+    snprintf(l->raw, n, "%s=%s", name, text);
 }
 
 /* Ensures the section exists, returning its header index. */
@@ -372,6 +375,21 @@ int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
     return find_section(ini, section) != (size_t)-1;
 }
 
+size_t dxl_ini_pairs(const dxl_ini *ini, const char *section, const char **keys, const char **values, size_t max) {
+    size_t header = find_section(ini, section), n = 0;
+    if (header == (size_t)-1) return 0;
+    size_t end = section_end(ini, header);
+    for (size_t i = header + 1; i < end; i++) {
+        if (ini->lines[i].kind != LINE_PAIR) continue;
+        if (n < max) {
+            if (keys) keys[n] = ini->lines[i].name;
+            if (values) values[n] = ini->lines[i].value;
+        }
+        n++;
+    }
+    return n;
+}
+
 size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out, size_t max) {
     size_t n = 0, plen = strlen(prefix);
     for (size_t i = 0; i < ini->count; i++) {
@@ -396,6 +414,7 @@ void dxl_ini_empty_section(dxl_ini *ini, const char *section) {
 }
 
 int dxl_ini_dirty(const dxl_ini *ini) { return ini->dirty; }
+void dxl_ini_clean(dxl_ini *ini) { ini->dirty = 0; }
 
 void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src) {
     const char *section = "";

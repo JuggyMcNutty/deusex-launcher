@@ -81,6 +81,11 @@ add_library(dxl_core STATIC
     src/core/engine_args.c
     src/core/lastrun.c
     src/core/finder.c
+    src/core/settings.c
+    src/core/settings_table.c
+    src/core/advice.c
+    src/core/keys.c
+    src/core/engine_sections.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)

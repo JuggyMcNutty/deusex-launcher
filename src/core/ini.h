@@ -69,6 +69,10 @@ void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src);
 void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section);
 
 int  dxl_ini_has_section(const dxl_ini *ini, const char *section);
+/* The key=value lines of a section, in file order: at most max of each into
+ * keys and values (either may be NULL), the count returned. The strings
+ * are the ini's, valid until it changes. */
+size_t dxl_ini_pairs(const dxl_ini *ini, const char *section, const char **keys, const char **values, size_t max);
 /* The names of the sections that start with prefix (any case), in file
  * order, each once. Returns the count; writes at most max into out. The
  * names are the ini's, valid until it changes. */
@@ -79,5 +83,7 @@ void dxl_ini_empty_section(dxl_ini *ini, const char *section);
 
 /* True once any set/append/empty has run. */
 int  dxl_ini_dirty(const dxl_ini *ini);
+/* The ini as its file now is (saved): not dirty until the next change. */
+void dxl_ini_clean(dxl_ini *ini);
 
 #endif

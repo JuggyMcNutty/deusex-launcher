@@ -1,6 +1,7 @@
 #include "test.h"
 #include "scratch.h"
 #include "app/run.h"
+#include "core/config.h"
 #include "core/ini.h"
 #include "core/install.h"
 #include "core/localize.h"
@@ -210,6 +211,76 @@ static void test_headless_run(void) {
     free(home);
 }
 
+/* A window that plays from its first Home and quits at the next, looking
+ * at the inis then. */
+static int views, saw_rewrite;
+
+static int home_then_quit(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    if (which != DXL_VIEW_HOME) return 0;
+    if (++views == 1) return 1;
+    saw_rewrite = r->config && dxl_ini_get(dxl_config_user_ini(r->config), "DXL.Stub", "Wrote") != NULL;
+    return 0;
+}
+
+/* Back here after playing: Home after a clean end, the inis as the engine
+ * left them; with DXL_NO_HOME=1, no Home and one run. */
+static void test_back_home(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-back"));
+    char *count = scratch_path(home, "runs");
+    setenv("DXL_HOME", home, 1);
+    setenv("DXL_ENGINE", DXL_STUB_ENGINE, 1);
+    setenv("DXL_STUB", "ready", 1);
+    setenv("DXL_STUB_MS", "200", 1);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    char *launcher_ini = dxl_path_join(x.config, "launcher.ini");
+    dxl_ini *li = dxl_ini_load(launcher_ini, NULL);
+    CHECK(li != NULL);
+    if (li) {
+        dxl_ini_set(li, "Launcher", "ReturnAfterPlaying", "True");
+        CHECK_INT(dxl_ini_save(li, launcher_ini, NULL), 0);
+        dxl_ini_free(li);
+    }
+
+    setenv("DXL_STUB", "rewrite", 1);
+    setenv("DXL_STUB_COUNT", count, 1);
+    dxl_run_ui ui = { .view = home_then_quit };
+    char *argv[] = { "deusex-launcher", NULL };
+    static volatile int stop;
+    views = saw_rewrite = 0;
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
+    CHECK_INT(views, 2);
+    CHECK_INT(saw_rewrite, 1);
+    size_t len = 0;
+    char *runs = slurp(count, &len);
+    CHECK_STR(runs, "x");
+    free(runs);
+
+    setenv("DXL_NO_HOME", "1", 1);
+    views = 0;
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
+    CHECK_INT(views, 0);
+    runs = slurp(count, &len);
+    CHECK_STR(runs, "xx");
+    free(runs);
+    unsetenv("DXL_NO_HOME");
+
+    dxl_xdg_free(&x);
+    free(launcher_ini);
+    free(root);
+    unsetenv("DXL_STUB_COUNT");
+    unsetenv("DXL_STUB");
+    unsetenv("DXL_STUB_MS");
+    unsetenv("DXL_ENGINE");
+    unsetenv("DXL_HOME");
+    free(count);
+    scratch_remove(home);
+    free(home);
+}
+
 /* dx-reverse-info/wizard.md, the frame: the wizard's icon is DeusEx.exe's
  * group 128, the only one it has. For 32 its 32x32 of 256 colours is taken,
  * square and every pixel in, a near-black corner and a blue centre; for 16
@@ -246,4 +317,5 @@ TEST_MAIN_BEGIN
     RUN(test_install);
     RUN(test_import_plan);
     RUN(test_headless_run);
+    RUN(test_back_home);
 TEST_MAIN_END

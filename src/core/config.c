@@ -96,6 +96,7 @@ static int file_save(ini_file *f, dxl_err *err) {
     if (!f->ini || !f->path) return 0;
     if (!dxl_ini_dirty(f->ini) && f->existed) return 0;
     if (dxl_ini_save(f->ini, f->path, err) != 0) return -1;
+    dxl_ini_clean(f->ini);
     f->existed = 1;
     return 0;
 }

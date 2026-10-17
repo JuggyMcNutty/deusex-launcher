@@ -122,6 +122,22 @@ static void test_noop_set_is_not_dirty(void) {
     dxl_ini_free(ini);
 }
 
+/* A line written with the ini's own strings, as dxl_ini_pairs gives them:
+ * a key's name, a value. */
+static void test_set_with_its_own_strings(void) {
+    const char *src = "[S]\nKey=One\nOther=Two\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    const char *k[2], *v[2];
+    CHECK_INT(dxl_ini_pairs(ini, "S", k, v, 2), 2);
+    dxl_ini_set(ini, "S", k[0], v[1]);
+    dxl_ini_set(ini, "S", k[1], "");
+    size_t len = 0;
+    char *text = dxl_ini_render(ini, &len);
+    CHECK_STR(text, "[S]\nKey=Two\nOther=\n");
+    free(text);
+    dxl_ini_free(ini);
+}
+
 static void test_new_key_and_section(void) {
     dxl_ini *ini = dxl_ini_parse("[A]\r\nx=1\r\n", 10);
     CHECK(ini != NULL);
@@ -308,6 +324,7 @@ TEST_MAIN_BEGIN
     RUN(test_repeated_keys);
     RUN(test_set_preserves_everything_else);
     RUN(test_noop_set_is_not_dirty);
+    RUN(test_set_with_its_own_strings);
     RUN(test_new_key_and_section);
     RUN(test_bool_spelling);
     RUN(test_comments_and_oddities);
