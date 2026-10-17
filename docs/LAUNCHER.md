@@ -62,7 +62,11 @@ start without, in any case: `System`'s `Core.u`, `Engine.u`, `Extension.u`,
 
 With no profile yet, the first run makes `default`, in three pages:
 Welcome; The game, the install it is made from; Your profile, what will be
-made, before anything is. The game lists what the finder found
+made, before anything is, and how it begins: its graphics, the engine's
+defaults or one of [Graphics'](#settings) presets, and with a controller
+connected its [layout](#the-controller), Modern over the game's own three
+buttons or none, else the controls as imported, a layout of the player's
+(`src/app/session.c`). The game lists what the finder found
 (`src/core/finder.c`), each folder once and checked: the folder
 `--game=<dir>` names, the installs `launcher.ini` lists, the game in
 Steam's own library, as Steam's distro package, its Flatpak and its Snap
@@ -420,7 +424,10 @@ binds three buttons of a virtual Xbox pad, two found by pressing or pulling
 them, maps that pad with the wizard its own confirm opened, and a
 controller SDL has no mapping for, its trigger resting at the top and first
 read before it was, and finds the bindings in `User.ini`, the mappings in
-`gamecontrollerdb.txt` and in the engine's environment. It is skipped with no display or no install.
+`gamecontrollerdb.txt` and in the engine's environment; `first_run` and
+`first_run_defaults` make a profile from nothing, a controller connected,
+with Your profile's choices made and as they come. It is skipped with no
+display or no install.
 
 ## What it changes from the original
 
