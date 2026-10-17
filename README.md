@@ -22,12 +22,11 @@ are included.
 | Branch | What it is |
 |---|---|
 | `main` | the original, recreated almost 1:1 -- no additions, no ports; the reference the port branches start from |
-| `linux-x86_64` | desktop Linux, where the project is developed: this launcher for now, with the desktop's port around it; the desktop's own launcher is planned |
-| `linux-aarch64` | aarch64 Linux with an ordinary distro: this launcher for now, cross-built or native, with the port around it; the desktop's own launcher is planned |
+| `linux-x86_64` | desktop Linux, where the project is developed: DXLauncher, the desktop's own launcher, begun from this one ([its `LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)), with the desktop's port around it |
+| `linux-aarch64` | aarch64 Linux with an ordinary distro: this launcher for now, cross-built or native, with the port around it; DXLauncher is to come from linux-x86_64 |
 | `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): its own launcher, a tabbed home screen ([`LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md)), with the device's profile, CPU modes, cross toolchains and packaging |
 
-Each port branch is a launcher of its own, but linux-x86_64 and
-linux-aarch64 for now.
+Each port branch is a launcher of its own, but linux-aarch64 for now.
 Nothing merges between the branches, `main` included: a change crosses
 only by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
