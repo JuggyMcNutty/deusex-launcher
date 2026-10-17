@@ -41,11 +41,15 @@ static int fresh_home(void) {
               home);
 }
 
+/* SDL's controllers the scripts' virtual ones alone (uiscript.c's): a pad
+ * plugged into the machine moves nothing of a run. */
+#define OUR_PADS "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1"
+
 /* The launcher on the script, the stub doing mode; its exit code. */
 static int launch_with(const char *script, const char *mode, const char *env) {
-    return sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=%s DXL_STUB_MS=300 %s DXL_UI_SCRIPT='%s/%s' "
+    return sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=%s DXL_STUB_MS=300 %s %s DXL_UI_SCRIPT='%s/%s' "
               "'%s/deusex-launcher' >>'%s/out.txt' 2>&1",
-              home, DXL_STUB_ENGINE, mode, env, DXL_UI_SCRIPTS, script, app, home);
+              home, DXL_STUB_ENGINE, mode, OUR_PADS, env, DXL_UI_SCRIPTS, script, app, home);
 }
 
 static int launch(const char *script, const char *mode) { return launch_with(script, mode, ""); }
@@ -272,9 +276,9 @@ static void test_remap_pad(void) {
 static void first_run(const char *script, char *looks, char *layout) {
     looks[0] = layout[0] = '\0';
     sh("rm -rf '%s' && mkdir -p '%s'", home, home);
-    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready DXL_UI_SCRIPT='%s/%s' "
+    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/%s' "
                  "'%s/deusex-launcher' --game='%s' >>'%s/out.txt' 2>&1",
-                 home, DXL_STUB_ENGINE, DXL_UI_SCRIPTS, script, app, DXL_GAME, home),
+                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, script, app, DXL_GAME, home),
               0);
     script_ok();
     profile_files b;
