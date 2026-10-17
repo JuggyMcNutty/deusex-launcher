@@ -24,6 +24,11 @@ dxl_test(test_json)
 dxl_test(test_engine_settings)
 dxl_test(test_renderers)
 dxl_test(test_bindings)
+dxl_test(test_xdg)
+dxl_test(test_gamedb)
+dxl_test(test_profile)
+dxl_test(test_engine_args)
+dxl_test(test_lastrun)
 
 # The whole run, with stand-ins for the screens and the game.
 dxl_test(test_launch)

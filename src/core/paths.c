@@ -134,6 +134,41 @@ int dxl_path_mkdirs(const char *p) {
     return rc;
 }
 
+int dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *err) {
+    DIR *d = opendir(from);
+    if (!d) {
+        dxl_err_set(err, "cannot read %s", from);
+        return -1;
+    }
+    if (dxl_path_mkdirs(to) != 0) {
+        closedir(d);
+        dxl_err_set(err, "cannot create %s", to);
+        return -1;
+    }
+    int rc = 0;
+    struct dirent *e;
+    while (rc == 0 && (e = readdir(d)) != NULL) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        char *src = dxl_path_join(from, e->d_name);
+        char *dst = dxl_path_join(to, e->d_name);
+        if (dxl_path_is_dir(src)) {
+            rc = dxl_path_copy_dir(src, dst, copied, err);
+        } else {
+            rc = dxl_path_copy(src, dst, err);
+            if (rc == 0 && copied) (*copied)++;
+        }
+        free(src);
+        free(dst);
+    }
+    closedir(d);
+    return rc;
+}
+
+long dxl_path_mtime(const char *p) {
+    struct stat st;
+    return stat(p, &st) == 0 ? (long)st.st_mtime : -1;
+}
+
 int dxl_path_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
     char *dir = dxl_path_dirname(path);
     size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 16;

@@ -48,6 +48,15 @@ int  dxl_path_mkdirs(const char *p);
  * partial destination rather than leaving half a config behind. */
 int  dxl_path_copy(const char *from, const char *to, dxl_err *err);
 
+/* Copies the files of a folder into another, made if missing, and its
+ * folders' in turn; a file already there is replaced. Counts the files
+ * copied into *copied (may be NULL). */
+int  dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *err);
+
+/* Seconds since the epoch the file was last changed; -1 when it is not
+ * there. */
+long dxl_path_mtime(const char *p);
+
 /* Replaces path with data whole or not at all: written to a temporary file
  * beside it (mkstemp), synced, given the old file's mode (0644 for a new
  * one), renamed over it, and the folder synced. A crash or a power cut

@@ -65,6 +65,14 @@ add_library(dxl_core STATIC
     src/core/engine_settings.c
     src/core/bindings.c
     src/core/renderers.c
+    # The desktop's own: its folders, its profiles and what they are made
+    # from, the game's builds, the engine's command line, the last run.
+    src/core/xdg.c
+    src/core/sha1.c
+    src/core/gamedb.c
+    src/core/profile.c
+    src/core/engine_args.c
+    src/core/lastrun.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)

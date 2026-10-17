@@ -357,6 +357,17 @@ void dxl_ini_set_bool(dxl_ini *ini, const char *section, const char *key, int va
     dxl_ini_set(ini, section, key, value ? "True" : "False");
 }
 
+void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section) {
+    size_t header = find_section(src, section);
+    if (header == (size_t)-1) return;
+    size_t end = section_end(src, header);
+    ensure_section(dst, section);
+    dst->dirty = 1;
+    for (size_t i = header + 1; i < end; i++)
+        if (src->lines[i].kind == LINE_PAIR)
+            dxl_ini_append(dst, section, src->lines[i].name, src->lines[i].value);
+}
+
 int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
     return find_section(ini, section) != (size_t)-1;
 }

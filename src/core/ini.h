@@ -64,6 +64,10 @@ void dxl_ini_append  (dxl_ini *ini, const char *section, const char *key, const 
  * values a partial file already carried. */
 void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src);
 
+/* Appends every line of src's section to dst's, repeated keys and all,
+ * creating the section in dst if it has none. */
+void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section);
+
 int  dxl_ini_has_section(const dxl_ini *ini, const char *section);
 /* Removes every key line in the section, keeping the header. Mirrors
  * FConfigCache::EmptySection. */
