@@ -227,6 +227,56 @@ static int downs(double t, int i, int n) {
     return moves;
 }
 
+/* A press after the window waited seconds for an event: one move, its
+ * first repeat 350 ms after the frame that takes it -- not in that same
+ * frame, as when it counted from the last frame before the wait. A
+ * direction let go of stops its own repeat, not one pressed since. */
+static void test_repeat_after_idle(void) {
+    SDL_JoystickID xbox = pad(0x045e, 0x0b12, "Xbox Series X Controller");
+    SDL_Joystick *j = SDL_GetJoystickFromID(xbox);
+    dxl_ui_input_begin(&ui);
+    dxl_ui_begin(&ui, clock_s += 0.016);
+    dxl_ui_end(&ui);
+    double t = clock_s + 5;
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualButton(j, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
+    pump();
+    dxl_ui_begin(&ui, t);
+    CHECK_INT(ui.in.nav[DXL_DIR_DOWN], 1);
+    dxl_ui_end(&ui);
+    CHECK_INT(downs(t, 1, 33), 0);
+    CHECK_INT(downs(t, 34, 40), 1);
+
+    /* Right pressed as down is held, then down let go: right repeats. */
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualButton(j, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, true);
+    pump();
+    CHECK_INT(ui.in.nav[DXL_DIR_RIGHT], 1);
+    SDL_SetJoystickVirtualButton(j, SDL_GAMEPAD_BUTTON_DPAD_DOWN, false);
+    pump();
+    int rights = 0;
+    for (int i = 41; i <= 100; i++) {
+        dxl_ui_input_begin(&ui);
+        dxl_ui_begin(&ui, t + i * 0.01);
+        rights += ui.in.nav[DXL_DIR_RIGHT];
+        CHECK_INT(ui.in.nav[DXL_DIR_DOWN], 0);
+        dxl_ui_end(&ui);
+    }
+    CHECK(rights >= 2);
+    SDL_SetJoystickVirtualButton(j, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, false);
+    pump();
+    rights = 0;
+    for (int i = 101; i <= 150; i++) {
+        dxl_ui_input_begin(&ui);
+        dxl_ui_begin(&ui, t + i * 0.01);
+        rights += ui.in.nav[DXL_DIR_RIGHT];
+        dxl_ui_end(&ui);
+    }
+    CHECK_INT(rights, 0);
+    clock_s = t + 2;
+    dxl_ui_input_begin(&ui);
+}
+
 /* A slot capturing takes a trigger pulled past half, as the game presses
  * it. With the pads another's (the mapping wizard's), a held stick stops
  * repeating: its letting go is not seen. */
@@ -307,6 +357,47 @@ static void test_list(void) {
     CHECK_INT(ui.diag_count, 0);
 }
 
+/* A frame of a list of 30 rows of 40 in 200 dp: its offset. */
+static float bar_frame(void) {
+    dxl_ui_begin(&ui, clock_s += 0.016);
+    dxl_list l;
+    dxl_list_begin(&ui, &l, "bar rows", (dxl_rect){ 20, 20, 300, 200 }, 30, 40, 0);
+    for (int i = 0; i < 30; i++) dxl_list_row(&ui, &l, i, "row", NULL, ui.theme.text, 0);
+    float offset = l.offset;
+    dxl_list_end(&ui, &l);
+    dxl_ui_end(&ui);
+    dxl_ui_input_begin(&ui);
+    return offset;
+}
+
+/* The scroll bar: its thumb dragged to the bottom scrolls to the end; the
+ * track clicked above the thumb, a page back. The mouse's back button is
+ * Esc's. */
+static void test_list_bar(void) {
+    float s = ui.scale;
+    bar_frame();
+    mouse(SDL_EVENT_MOUSE_MOTION, 315 * s, 30 * s);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, 315 * s, 30 * s);
+    CHECK(bar_frame() < 1);
+    mouse(SDL_EVENT_MOUSE_MOTION, 315 * s, 215 * s);
+    CHECK(bar_frame() > 999);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, 315 * s, 215 * s);
+    bar_frame();
+    mouse(SDL_EVENT_MOUSE_MOTION, 315 * s, 40 * s);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, 315 * s, 40 * s);
+    float paged = bar_frame();
+    CHECK(paged > 799 && paged < 801);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, 315 * s, 40 * s);
+    bar_frame();
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+    e.button.button = SDL_BUTTON_X1;
+    dxl_ui_event(&ui, &e);
+    CHECK_INT(ui.in.back, 1);
+    dxl_ui_input_begin(&ui);
+}
+
 TEST_MAIN_BEGIN
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
     if (!SDL_Init(SDL_INIT_GAMEPAD) || !TTF_Init()) {
@@ -319,8 +410,10 @@ TEST_MAIN_BEGIN
     RUN(test_mouse);
     RUN(test_pads);
     RUN(test_repeat);
+    RUN(test_repeat_after_idle);
     RUN(test_trigger_and_pads_off);
     RUN(test_list);
+    RUN(test_list_bar);
     offscreen_close(&o, &ui);
     TTF_Quit();
     SDL_Quit();

@@ -55,16 +55,33 @@ dxl_pad_family dxl_ui_pad_family(SDL_Gamepad *g) {
     }
 }
 
-/* The held directions a pad gives, for its repeats: the d-pad's and the
- * left stick's. */
+/* The held direction a pad gives, for its repeats: the d-pad's or the
+ * left stick's, the last pressed. Its first repeat counts from the frame
+ * that takes the press: the events come before the frame sets the clock,
+ * which until then is the last frame's -- seconds old once the window has
+ * waited a while. */
 static int    held_dir = -1;
+static int    held_by_stick;  /* the stick holds it, not the d-pad */
+static int    held_new;       /* pressed since the last frame began */
 static double held_next;
 static int    stick_dir = -1;
 
-static void press_dir(dxl_ui *ui, int dir) {
+static void press_dir(dxl_ui *ui, int dir, int stick) {
     ui->in.nav[dir]++;
     held_dir = dir;
-    held_next = ui->now + REPEAT_FIRST;
+    held_by_stick = stick;
+    held_new = 1;
+}
+
+/* The direction of a d-pad button; -1 for any other. */
+static int dpad_dir(int button) {
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_DPAD_UP: return DXL_DIR_UP;
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return DXL_DIR_DOWN;
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return DXL_DIR_LEFT;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return DXL_DIR_RIGHT;
+    default: return -1;
+    }
 }
 
 /* ---- setup ------------------------------------------------------------- */
@@ -113,6 +130,7 @@ void dxl_ui_detach(dxl_ui *ui) {
     if (ui->text_on && ui->window) SDL_StopTextInput(ui->window);
     ui->text_on = 0;
     ui->text_id = ui->capture_id = 0;
+    ui->text_ready = ui->text_ready_now = ui->text_lost = 0;
     if (ui->backdrop) SDL_DestroyTexture(ui->backdrop);
     ui->backdrop = NULL;
     dxl_text_flush(ui);
@@ -141,6 +159,9 @@ void dxl_ui_reset(dxl_ui *ui) {
     memset(ui->values, 0, sizeof ui->values);
     memset(&ui->in, 0, sizeof ui->in);
     ui->text_id = ui->capture_id = 0;
+    ui->text_ready = ui->text_ready_now = ui->text_lost = 0;
+    ui->swallow_space = 0;
+    ui->wake = 0;
     held_dir = stick_dir = -1;
 }
 
@@ -159,30 +180,98 @@ void dxl_ui_input_begin(dxl_ui *ui) {
     ui->in.py = py;
 }
 
-/* A key while a field is edited: the editing keys; the rest is text, which
- * comes as SDL_EVENT_TEXT_INPUT. */
+/* Text into the frame's typing: what fits, cut at a character's edge. */
 static void typed(dxl_ui *ui, const char *s) {
-    size_t have = strlen(ui->in.text), add = strlen(s);
-    if (have + add < sizeof ui->in.text) memcpy(ui->in.text + have, s, add + 1);
+    size_t have = strlen(ui->in.text), add = strlen(s), room = sizeof ui->in.text - 1 - have;
+    if (add > room) {
+        add = room;
+        while (add > 0 && ((unsigned char)s[add] & 0xc0) == 0x80) add--;
+    }
+    memcpy(ui->in.text + have, s, add);
+    ui->in.text[have + add] = '\0';
 }
 
+static void typed_op(dxl_ui *ui, char op, int select) {
+    char ops[3] = { select ? DXL_EDIT_SELECT : op, select ? op : '\0', '\0' };
+    typed(ui, ops);
+}
+
+/* The clipboard's text as typed: one line, its line ends and other
+ * control characters spaces, the last line end dropped. */
+static void paste(dxl_ui *ui) {
+    char *clip = SDL_GetClipboardText();
+    if (clip) {
+        size_t n = strlen(clip);
+        while (n && (clip[n - 1] == '\n' || clip[n - 1] == '\r')) clip[--n] = '\0';
+        for (char *p = clip; *p; p++)
+            if (DXL_EDIT_IS_OP(*p)) *p = ' ';
+        typed(ui, clip);
+    }
+    SDL_free(clip);
+}
+
+/* A key while a field is edited: the editing keys; the rest is text, which
+ * comes as SDL_EVENT_TEXT_INPUT. Enter keeps the edit, Esc puts it back;
+ * Tab, Up and Down keep it and move on. */
 static void edit_key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
-    char op[2] = { 0, 0 };
+    int ctrl = (k->mod & SDL_KMOD_CTRL) != 0, shift = (k->mod & SDL_KMOD_SHIFT) != 0;
     switch (k->key) {
-    case SDLK_BACKSPACE: op[0] = DXL_EDIT_ERASE; break;
-    case SDLK_DELETE:    op[0] = DXL_EDIT_DELETE; break;
-    case SDLK_LEFT:      op[0] = DXL_EDIT_LEFT; break;
-    case SDLK_RIGHT:     op[0] = DXL_EDIT_RIGHT; break;
-    case SDLK_HOME:      op[0] = DXL_EDIT_HOME; break;
-    case SDLK_END:       op[0] = DXL_EDIT_END; break;
+    case SDLK_BACKSPACE: typed_op(ui, ctrl ? DXL_EDIT_ERASE_WORD : DXL_EDIT_ERASE, 0); break;
+    case SDLK_DELETE:
+        if (shift) typed_op(ui, DXL_EDIT_CUT, 0);
+        else typed_op(ui, ctrl ? DXL_EDIT_DELETE_WORD : DXL_EDIT_DELETE, 0);
+        break;
+    case SDLK_LEFT:      typed_op(ui, ctrl ? DXL_EDIT_WORD_LEFT : DXL_EDIT_LEFT, shift); break;
+    case SDLK_RIGHT:     typed_op(ui, ctrl ? DXL_EDIT_WORD_RIGHT : DXL_EDIT_RIGHT, shift); break;
+    case SDLK_HOME:      typed_op(ui, DXL_EDIT_HOME, shift); break;
+    case SDLK_END:       typed_op(ui, DXL_EDIT_END, shift); break;
+    case SDLK_A:         if (!ctrl) return; typed_op(ui, DXL_EDIT_ALL, 0); break;
+    case SDLK_C:         if (!ctrl) return; typed_op(ui, DXL_EDIT_COPY, 0); break;
+    case SDLK_X:         if (!ctrl) return; typed_op(ui, DXL_EDIT_CUT, 0); break;
+    case SDLK_V:         if (!ctrl) return; paste(ui); break;
+    case SDLK_INSERT:
+        if (shift) paste(ui);
+        else if (ctrl) typed_op(ui, DXL_EDIT_COPY, 0);
+        else return;
+        break;
     case SDLK_RETURN:
     case SDLK_KP_ENTER:  if (!k->repeat) ui->in.activate++; break;
     case SDLK_ESCAPE:    if (!k->repeat) ui->in.back++; break;
+    case SDLK_TAB:       if (shift) ui->in.untab++; else ui->in.tab++; break;
+    case SDLK_UP:        ui->in.nav[DXL_DIR_UP]++; break;
+    case SDLK_DOWN:      ui->in.nav[DXL_DIR_DOWN]++; break;
     default: return;
     }
-    if (op[0]) typed(ui, op);
     ui->mode = DXL_INPUT_KEYBOARD;
     ui->in.any = 1;
+}
+
+/* A key on a field that takes typing (dxl_ui_text_ready), not edited yet:
+ * a letter types -- its SDL_EVENT_TEXT_INPUT follows -- even W, A, S and
+ * D, which move the focus elsewhere; Backspace, Delete, Ctrl+A and Ctrl+V
+ * begin the edit with what they do; Space chooses the field, its own text
+ * not typed. 1 when the field took the key. */
+static int ready_key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
+    if (!ui->text_ready || ui->text_ready != ui->focus || ui->text_id) return 0;
+    int ctrl = (k->mod & SDL_KMOD_CTRL) != 0;
+    switch (k->key) {
+    case SDLK_A:
+        if (ctrl) { typed_op(ui, DXL_EDIT_ALL, 0); break; }
+        /* fall through */
+    case SDLK_W:
+    case SDLK_S:
+    case SDLK_D:
+        if (ctrl) return 0;
+        break;
+    case SDLK_BACKSPACE: typed_op(ui, ctrl ? DXL_EDIT_ERASE_WORD : DXL_EDIT_ERASE, 0); break;
+    case SDLK_DELETE:    typed_op(ui, ctrl ? DXL_EDIT_DELETE_WORD : DXL_EDIT_DELETE, 0); break;
+    case SDLK_V:         if (!ctrl) return 0; paste(ui); break;
+    case SDLK_SPACE:     ui->swallow_space = 1; return 0;
+    default: return 0;
+    }
+    ui->mode = DXL_INPUT_KEYBOARD;
+    ui->in.any = 1;
+    return 1;
 }
 
 static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
@@ -201,6 +290,8 @@ static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
         edit_key(ui, k);
         return;
     }
+    if (k->key != SDLK_SPACE) ui->swallow_space = 0;
+    if (ready_key(ui, k)) return;
     if (k->key == SDLK_TAB && (k->mod & SDL_KMOD_CTRL)) {
         if (k->mod & SDL_KMOD_SHIFT) ui->in.tab_prev++;
         else ui->in.tab_next++;
@@ -250,11 +341,11 @@ static void pad_button(dxl_ui *ui, const SDL_GamepadButtonEvent *b) {
     /* Confirm and back where the pad's own labels put them: a Nintendo pad
      * confirms with its A, on the east. */
     int south_confirms = ui->pad_family != DXL_PADFAMILY_NINTENDO;
+    if (dpad_dir(b->button) >= 0) {
+        press_dir(ui, dpad_dir(b->button), 0);
+        return;
+    }
     switch (b->button) {
-    case SDL_GAMEPAD_BUTTON_DPAD_UP:    press_dir(ui, DXL_DIR_UP); break;
-    case SDL_GAMEPAD_BUTTON_DPAD_DOWN:  press_dir(ui, DXL_DIR_DOWN); break;
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT:  press_dir(ui, DXL_DIR_LEFT); break;
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: press_dir(ui, DXL_DIR_RIGHT); break;
     case SDL_GAMEPAD_BUTTON_SOUTH: if (south_confirms) ui->in.activate++; else ui->in.back++; break;
     case SDL_GAMEPAD_BUTTON_EAST:  if (south_confirms) ui->in.back++; else ui->in.activate++; break;
     case SDL_GAMEPAD_BUTTON_START: ui->in.start++; break;
@@ -285,7 +376,7 @@ static void pad_axis(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
     float y = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTY) / 32767.0f;
     float m = fmaxf(fabsf(x), fabsf(y));
     if (stick_dir >= 0 && m < STICK_OFF) {
-        if (held_dir == stick_dir) held_dir = -1;
+        if (held_by_stick) held_dir = -1;
         stick_dir = -1;
         return;
     }
@@ -296,7 +387,7 @@ static void pad_axis(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
         ui->pad = a->which;
         ui->pad_family = dxl_ui_pad_family(g);
         ui->in.any = 1;
-        press_dir(ui, dir);
+        press_dir(ui, dir, 1);
     }
 }
 
@@ -339,14 +430,24 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
             break;
         }
         if (e->button.button == SDL_BUTTON_LEFT) {
-            if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN) ui->in.pressed = 1;
-            else ui->in.released = 1;
+            if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                ui->in.pressed = 1;
+                ui->in.clicks = e->button.clicks > 1 ? e->button.clicks : 1;
+                ui->in.shift_click = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
+            } else {
+                ui->in.released = 1;
+            }
+        } else if (e->button.button == SDL_BUTTON_X1 && e->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+            /* The mouse's back button, as Esc. */
+            ui->in.back++;
         }
         ui->in.any = 1;
         ui->mode = DXL_INPUT_MOUSE;
         break;
     }
     case SDL_EVENT_MOUSE_WHEEL:
+        /* Nothing scrolls under an edit: its field would go from view. */
+        if (ui->text_id) break;
         if (ui->capture_id && !ui->in.captured && e->wheel.y != 0) {
             float y = e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e->wheel.y : e->wheel.y;
             ui->in.captured = DXL_CAPTURED_WHEEL;
@@ -371,9 +472,9 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         if (!ui->pads_off) pad_button(ui, &e->gbutton);
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
-        if ((e->gbutton.button >= SDL_GAMEPAD_BUTTON_DPAD_UP && e->gbutton.button <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT) &&
-            held_dir != stick_dir)
-            held_dir = -1;
+        /* The d-pad let go of: its own direction's repeat, not another's
+         * pressed since. */
+        if (!held_by_stick && held_dir >= 0 && dpad_dir(e->gbutton.button) == held_dir) held_dir = -1;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         if (ui->pads_off) break;
@@ -381,14 +482,19 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         else pad_axis(ui, &e->gaxis);
         break;
     case SDL_EVENT_TEXT_INPUT:
-        if (ui->text_id && e->text.text) {
+        if ((ui->text_id || (ui->text_ready && ui->text_ready == ui->focus)) && e->text.text) {
+            if (ui->swallow_space && !strcmp(e->text.text, " ")) {
+                ui->swallow_space = 0;
+                break;
+            }
             /* Text, never the editing keys' codes. */
-            char clean[64];
+            char clean[256];
             size_t n = 0;
             for (const char *p = e->text.text; *p && n + 1 < sizeof clean; p++)
-                if ((unsigned char)*p >= 0x20 && *p != 0x7f) clean[n++] = *p;
+                if (!DXL_EDIT_IS_OP(*p)) clean[n++] = *p;
             clean[n] = '\0';
             typed(ui, clean);
+            ui->mode = DXL_INPUT_KEYBOARD;
             ui->in.any = 1;
         }
         break;
@@ -408,6 +514,8 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     ui->dt = ui->now > 0 ? (float)(now - ui->now) : 0;
     ui->now = now;
     ui->animating = 0;
+    ui->wake = 0;
+    ui->text_ready_now = 0;
     ui->diag_count = 0;
     ui->focus_moved = 0;
     ui->id_seed = 0;
@@ -419,10 +527,13 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     /* A pad's held direction repeats; none while the pads are another's,
      * whose letting go it would not see. */
     if (ui->pads_off) held_dir = stick_dir = -1;
-    if (held_dir >= 0 && now >= held_next) {
+    if (held_dir >= 0 && held_new) {
+        held_next = now + REPEAT_FIRST;
+    } else if (held_dir >= 0 && now >= held_next) {
         ui->in.nav[held_dir]++;
         held_next = now + REPEAT_NEXT;
     }
+    held_new = 0;
     if (held_dir >= 0) dxl_ui_animate(ui);
 
     if (ui->forget) {
@@ -469,6 +580,17 @@ static dxl_box lerp_box(dxl_box a, dxl_box b, float t) {
 
 void dxl_ui_end(dxl_ui *ui) {
     if (ui->in.released) ui->held = 0;
+
+    /* The field that takes typing, for the keys before the next frame. An
+     * edit or a capture whose control this frame did not draw -- scrolled
+     * from view, its page gone -- ends: the edit kept, as its field says
+     * when it is drawn again. */
+    ui->text_ready = ui->text_ready_now;
+    if (ui->text_id && !dxl_focus_has(&ui->cur, ui->text_id)) {
+        ui->text_lost = ui->text_id;
+        dxl_ui_text_end(ui);
+    }
+    if (ui->capture_id && !dxl_focus_has(&ui->cur, ui->capture_id)) dxl_ui_capture_end(ui);
 
     /* The brackets round the focus, moved to it over 150 ms. */
     const dxl_focusable *f = NULL;
@@ -546,9 +668,10 @@ int dxl_ui_take_ud(dxl_ui *ui, uint32_t id) {
  * the input method placed by the field. */
 static void text_input_sync(dxl_ui *ui) {
     if (!ui->window) return;
-    if (ui->text_id && !ui->text_on) {
+    int wanted = ui->text_id || ui->text_ready;
+    if (wanted && !ui->text_on) {
         ui->text_on = SDL_StartTextInput(ui->window);
-    } else if (!ui->text_id && ui->text_on) {
+    } else if (!wanted && ui->text_on) {
         SDL_StopTextInput(ui->window);
         ui->text_on = 0;
     }
@@ -572,6 +695,11 @@ void dxl_ui_text_end(dxl_ui *ui) {
     text_input_sync(ui);
 }
 
+void dxl_ui_text_ready(dxl_ui *ui, uint32_t id, dxl_rect area) {
+    ui->text_ready_now = id;
+    if (!ui->text_id) ui->text_area = area;
+}
+
 void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id) { ui->capture_id = id; }
 
 void dxl_ui_capture_end(dxl_ui *ui) { ui->capture_id = 0; }
@@ -591,8 +719,9 @@ static int pointer_hits(dxl_ui *ui, uint32_t id, dxl_rect r, int focuses) {
         hits |= DXL_HIT_HOVERED;
         ui->hot = id;
         /* Focus follows the pointer only as it moves, so it does not take
-         * the keys' focus from where they put it. */
-        if (focuses && ui->in.pointer_moved) ui->focus = id;
+         * the keys' focus from where they put it; and not from a field
+         * being edited. */
+        if (focuses && ui->in.pointer_moved && !ui->text_id) ui->focus = id;
     }
     if (inside && ui->in.pressed) {
         ui->held = id;
@@ -745,6 +874,10 @@ void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...) {
 }
 
 void dxl_ui_animate(dxl_ui *ui) { ui->animating = 1; }
+
+void dxl_ui_wake(dxl_ui *ui, double at) {
+    if (ui->wake <= 0 || at < ui->wake) ui->wake = at;
+}
 
 float dxl_ui_tween(dxl_ui *ui, double start, float dur) {
     if (ui->reduced_motion || dur <= 0) return 1;

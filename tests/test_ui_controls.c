@@ -2,6 +2,7 @@
 #include "ui_offscreen.h"
 #include "ui/controls.h"
 #include "ui/osk.h"
+#include "ui/text.h"
 #include "ui/widgets.h"
 
 static dxl_ui ui;
@@ -13,6 +14,34 @@ static void key(SDL_Keycode k, SDL_Scancode sc) {
     e.type = SDL_EVENT_KEY_DOWN;
     e.key.key = k;
     e.key.scancode = sc;
+    dxl_ui_event(&ui, &e);
+}
+
+static void key_mod(SDL_Keycode k, SDL_Keymod mod) {
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = SDL_EVENT_KEY_DOWN;
+    e.key.key = k;
+    e.key.scancode = SDL_GetScancodeFromKey(k, NULL);
+    e.key.mod = mod;
+    dxl_ui_event(&ui, &e);
+}
+
+/* The pointer at x, y dp (the scale is 1): moved, or its left button
+ * pressed (clicks: 2 a double click) or let go. */
+static void mouse(Uint32 type, float x, float y, int clicks) {
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = type;
+    if (type == SDL_EVENT_MOUSE_MOTION) {
+        e.motion.x = x;
+        e.motion.y = y;
+    } else {
+        e.button.button = SDL_BUTTON_LEFT;
+        e.button.x = x;
+        e.button.y = y;
+        e.button.clicks = (Uint8)clicks;
+    }
     dxl_ui_event(&ui, &e);
 }
 
@@ -161,6 +190,165 @@ static void test_text_field(void) {
     CHECK_INT(r, DXL_TEXT_OSK);
 }
 
+/* A frame of the field id over a button below it; the field's
+ * DXL_TEXT_*, and the button's DXL_HIT_*s. */
+static int field_frame(uint32_t id, char *buf, size_t size, int *below) {
+    begin();
+    int r = dxl_text_field(&ui, id, (dxl_rect){ 20, 20, 600, 44 }, "Name", buf, size, NULL, 0);
+    int h = dxl_ui_focusable(&ui, dxl_ui_id(&ui, "below"), (dxl_rect){ 20, 80, 600, 44 }, 0);
+    if (below) *below = h;
+    end();
+    return r;
+}
+
+/* Shift selects, Ctrl goes by words, and the clipboard's three. */
+static void test_text_select(void) {
+    char buf[64] = "JC Denton";
+    uint32_t id = dxl_ui_id(&ui, "select");
+    dxl_ui_forget(&ui);
+    dxl_ui_focus(&ui, id);
+    ui.mode = DXL_INPUT_KEYBOARD;
+    field_frame(id, buf, sizeof buf, NULL);
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    key_mod(SDLK_LEFT, SDL_KMOD_LCTRL | SDL_KMOD_LSHIFT);   /* "Denton" selected */
+    key_mod(SDLK_C, SDL_KMOD_LCTRL);
+    text("Paul");
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "JC Paul");
+    key_mod(SDLK_HOME, 0);
+    key_mod(SDLK_V, SDL_KMOD_LCTRL);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "DentonJC Paul");
+    key_mod(SDLK_BACKSPACE, SDL_KMOD_LCTRL);   /* the word before the caret */
+    key_mod(SDLK_RIGHT, SDL_KMOD_LCTRL);
+    key_mod(SDLK_DELETE, SDL_KMOD_LCTRL);      /* the space and the word after it */
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "JC");
+    key_mod(SDLK_A, SDL_KMOD_LCTRL);
+    key_mod(SDLK_X, SDL_KMOD_LCTRL);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "");
+    key_mod(SDLK_V, SDL_KMOD_LCTRL);
+    key_mod(SDLK_V, SDL_KMOD_LCTRL);
+    key_mod(SDLK_LEFT, SDL_KMOD_LSHIFT);
+    key_mod(SDLK_LEFT, SDL_KMOD_LSHIFT);
+    key_mod(SDLK_LEFT, 0);                     /* to the selection's start */
+    text("-");
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    CHECK_INT(field_frame(id, buf, sizeof buf, NULL), DXL_TEXT_DONE);
+    CHECK_STR(buf, "JC-JC");
+}
+
+/* A field with the focus takes typing as it is: W, A, S and D type there,
+ * the text typed in its place; Space chooses it; Tab keeps it and moves. */
+static void test_text_typed_on(void) {
+    char buf[64] = "Player";
+    uint32_t id = dxl_ui_id(&ui, "typed on");
+    dxl_ui_forget(&ui);
+    dxl_ui_focus(&ui, id);
+    ui.mode = DXL_INPUT_KEYBOARD;
+    int below = 0;
+    field_frame(id, buf, sizeof buf, NULL);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_ready, id);
+    key(SDLK_S, SDL_SCANCODE_S);
+    text("s");
+    key(SDLK_D, SDL_SCANCODE_D);
+    text("d");
+    field_frame(id, buf, sizeof buf, &below);
+    CHECK_INT(ui.text_id, id);
+    CHECK_STR(buf, "sd");
+    CHECK(!(below & DXL_HIT_FOCUSED));
+    key(SDLK_ESCAPE, SDL_SCANCODE_ESCAPE);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "Player");
+    CHECK_INT(ui.text_id, 0);
+    key(SDLK_SPACE, SDL_SCANCODE_SPACE);
+    text(" ");
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    CHECK_STR(buf, "Player");
+    text("!");
+    key(SDLK_TAB, SDL_SCANCODE_TAB);
+    CHECK_INT(field_frame(id, buf, sizeof buf, &below), DXL_TEXT_DONE);
+    CHECK_STR(buf, "Player!");
+    CHECK(below & DXL_HIT_FOCUSED);
+    CHECK_INT(ui.text_id, 0);
+    /* Backspace on it as it has the focus: its edit, not the page's back. */
+    dxl_ui_focus(&ui, id);
+    field_frame(id, buf, sizeof buf, NULL);
+    field_frame(id, buf, sizeof buf, NULL);
+    key(SDLK_BACKSPACE, SDL_SCANCODE_BACKSPACE);
+    CHECK_INT(ui.in.back, 0);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    CHECK_STR(buf, "");
+    key(SDLK_ESCAPE, SDL_SCANCODE_ESCAPE);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "Player!");
+}
+
+/* A click puts the caret where it is, a double click takes a word, the
+ * pointer moved elsewhere leaves the edit be, a click away keeps it. An
+ * edit whose field is not drawn ends, and is kept as it is drawn again. */
+static void test_text_mouse(void) {
+    char buf[64] = "JC Denton";
+    uint32_t id = dxl_ui_id(&ui, "mouse");
+    dxl_ui_forget(&ui);
+    ui.mode = DXL_INPUT_MOUSE;
+    field_frame(id, buf, sizeof buf, NULL);
+    /* The text starts 10 dp into the field's box, itself after the label's
+     * column (controls.c). */
+    float x0 = 20 + dxl_control_label_w(600) + 8 + 10, y = 42;
+    float x = x0 + dxl_text_size(&ui, DXL_FONT_BODY, "JC", 0).x + 0.4f;
+    mouse(SDL_EVENT_MOUSE_MOTION, x, y, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, x, y, 1);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, x, y, 1);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    text("!");
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "JC! Denton");
+    int below = 0;
+    mouse(SDL_EVENT_MOUSE_MOTION, 100, 100, 0);
+    field_frame(id, buf, sizeof buf, &below);
+    CHECK(!(below & DXL_HIT_FOCUSED));
+    CHECK_INT(ui.text_id, id);
+    x = x0 + dxl_text_size(&ui, DXL_FONT_BODY, "JC! Den", 0).x;
+    mouse(SDL_EVENT_MOUSE_MOTION, x, y, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, x, y, 2);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, x, y, 2);
+    text("Paul");
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, "JC! Paul");
+    /* Out of view a frame: ended, kept. */
+    begin();
+    dxl_ui_focusable(&ui, dxl_ui_id(&ui, "below"), (dxl_rect){ 20, 80, 600, 44 }, 0);
+    end();
+    CHECK_INT(ui.text_id, 0);
+    CHECK_INT(field_frame(id, buf, sizeof buf, NULL), DXL_TEXT_DONE);
+    /* Again by a click, and a click away. */
+    mouse(SDL_EVENT_MOUSE_MOTION, x0 + 2, y, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, x0 + 2, y, 1);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, x0 + 2, y, 1);
+    field_frame(id, buf, sizeof buf, NULL);
+    text(">");
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_STR(buf, ">JC! Paul");
+    mouse(SDL_EVENT_MOUSE_MOTION, 100, 100, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, 100, 100, 1);
+    CHECK_INT(field_frame(id, buf, sizeof buf, &below), DXL_TEXT_DONE);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, 100, 100, 1);
+    field_frame(id, buf, sizeof buf, &below);
+    CHECK(below & DXL_HIT_ACTIVATED);
+    CHECK_INT(ui.text_id, 0);
+    CHECK_INT(ui.diag_count, 0);
+}
+
 /* A slot takes the next key as it is, Esc cancels, Delete empties. */
 static void test_key_slot(void) {
     uint32_t id = dxl_ui_id(&ui, "slot");
@@ -260,8 +448,10 @@ static void test_osk(void) {
 }
 
 TEST_MAIN_BEGIN
-    if (!TTF_Init()) {
-        fprintf(stderr, "TTF_Init: %s\n", SDL_GetError());
+    /* A video driver of none, for the clipboard SDL keeps itself. */
+    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+    if (!SDL_Init(SDL_INIT_VIDEO) || !TTF_Init()) {
+        fprintf(stderr, "SDL: %s\n", SDL_GetError());
         return 1;
     }
     offscreen o;
@@ -269,9 +459,13 @@ TEST_MAIN_BEGIN
     dxl_ui_input_begin(&ui);
     RUN(test_toggle_slider_spinner);
     RUN(test_text_field);
+    RUN(test_text_select);
+    RUN(test_text_typed_on);
+    RUN(test_text_mouse);
     RUN(test_key_slot);
     RUN(test_tabs);
     RUN(test_osk);
     offscreen_close(&o, &ui);
     TTF_Quit();
+    SDL_Quit();
 TEST_MAIN_END

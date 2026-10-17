@@ -4,6 +4,7 @@
 #include "ui/text.h"
 #include "ui/widgets.h"
 
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +13,6 @@
 
 /* Values the controls keep beside their own id. */
 #define DRAG_KEY  0x51ab1e00u
-#define CARET_KEY 0xca9e7000u
 #define LEFT_KEY  0x1ef7a000u
 #define RIGHT_KEY 0x219b7000u
 
@@ -159,9 +159,19 @@ int dxl_spinner(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *ind
 
 /* ---- text ----------------------------------------------------------- */
 
-/* The text a field had as its edit began: Esc puts it back. One field is
- * edited at a time. */
-static char edit_original[1024];
+/* The field being edited -- one at a time -- as its edit began and where
+ * it is: the caret and the selection's other end (bytes), how far its
+ * text is scrolled (dp), whether the pointer drags a selection, when the
+ * caret last moved (its blink starts again). Esc puts the text back. */
+static struct {
+    char   original[1024];
+    size_t caret, anchor;
+    float  scroll;
+    int    dragging;
+    double moved;
+} ed;
+
+#define BLINK_S 0.53
 
 static size_t utf8_back(const char *s, size_t at) {
     if (at == 0) return 0;
@@ -178,77 +188,242 @@ static size_t utf8_ahead(const char *s, size_t at) {
     return at;
 }
 
-/* The frame's typing, in order: text in at the caret, the editing keys as
- * they came. */
-static void edit(dxl_ui *ui, char *buf, size_t size, float *caret_v) {
-    size_t len = strlen(buf), c = (size_t)*caret_v;
-    if (c > len) c = len;
+/* A word's character: a letter, a digit, or any of more than one byte. */
+static int wordy(unsigned char c) { return c >= 0x80 || isalnum(c) || c == '_'; }
+
+static size_t word_back(const char *s, size_t at) {
+    while (at > 0 && !wordy((unsigned char)s[utf8_back(s, at)])) at = utf8_back(s, at);
+    while (at > 0 && wordy((unsigned char)s[utf8_back(s, at)])) at = utf8_back(s, at);
+    return at;
+}
+
+static size_t word_ahead(const char *s, size_t at) {
+    size_t n = strlen(s);
+    while (at < n && !wordy((unsigned char)s[at])) at = utf8_ahead(s, at);
+    while (at < n && wordy((unsigned char)s[at])) at = utf8_ahead(s, at);
+    return at;
+}
+
+static size_t sel_lo(void) { return ed.caret < ed.anchor ? ed.caret : ed.anchor; }
+static size_t sel_hi(void) { return ed.caret < ed.anchor ? ed.anchor : ed.caret; }
+
+/* The selection taken out of buf; the caret where it was. */
+static void cut_selection(char *buf) {
+    size_t lo = sel_lo(), hi = sel_hi(), len = strlen(buf);
+    if (lo == hi) return;
+    memmove(buf + lo, buf + hi, len - hi + 1);
+    ed.caret = ed.anchor = lo;
+}
+
+static void copy_selection(const char *buf) {
+    size_t lo = sel_lo(), hi = sel_hi();
+    if (lo == hi) return;
+    char part[1024];
+    size_t n = hi - lo < sizeof part ? hi - lo : sizeof part - 1;
+    memcpy(part, buf + lo, n);
+    part[n] = '\0';
+    SDL_SetClipboardText(part);
+}
+
+/* buf's bytes from..to taken out, the caret at from. */
+static void erase_span(char *buf, size_t from, size_t to) {
+    size_t len = strlen(buf);
+    if (to > len) to = len;
+    if (from >= to) return;
+    memmove(buf + from, buf + to, len - to + 1);
+    ed.caret = ed.anchor = from;
+}
+
+/* The frame's typing, in order: text in at the caret over the selection,
+ * the editing keys as they came. 1 when the text or the caret changed. */
+static int edit(dxl_ui *ui, char *buf, size_t size) {
+    size_t len = strlen(buf);
+    if (ed.caret > len) ed.caret = len;
+    if (ed.anchor > len) ed.anchor = len;
+    int changed = 0, select = 0;
     for (const char *p = ui->in.text; *p;) {
-        switch (*p) {
-        case DXL_EDIT_ERASE:
-            if (c > 0) {
-                size_t b = utf8_back(buf, c);
-                memmove(buf + b, buf + c, len - c + 1);
-                len -= c - b;
-                c = b;
+        if (DXL_EDIT_IS_OP(*p)) {
+            char op = *p++;
+            int sel = ed.caret != ed.anchor, move = 0;
+            changed = 1;
+            switch (op) {
+            case DXL_EDIT_SELECT: select = 1; continue;
+            case DXL_EDIT_ERASE:
+                if (sel) cut_selection(buf);
+                else erase_span(buf, utf8_back(buf, ed.caret), ed.caret);
+                break;
+            case DXL_EDIT_DELETE:
+                if (sel) cut_selection(buf);
+                else erase_span(buf, ed.caret, utf8_ahead(buf, ed.caret));
+                break;
+            case DXL_EDIT_ERASE_WORD:
+                if (sel) cut_selection(buf);
+                else erase_span(buf, word_back(buf, ed.caret), ed.caret);
+                break;
+            case DXL_EDIT_DELETE_WORD:
+                if (sel) cut_selection(buf);
+                else erase_span(buf, ed.caret, word_ahead(buf, ed.caret));
+                break;
+            /* A move without Shift from a selection goes to its end that
+             * way; with Shift it grows the selection. */
+            case DXL_EDIT_LEFT: ed.caret = sel && !select ? sel_lo() : utf8_back(buf, ed.caret); move = 1; break;
+            case DXL_EDIT_RIGHT: ed.caret = sel && !select ? sel_hi() : utf8_ahead(buf, ed.caret); move = 1; break;
+            case DXL_EDIT_WORD_LEFT: ed.caret = word_back(buf, ed.caret); move = 1; break;
+            case DXL_EDIT_WORD_RIGHT: ed.caret = word_ahead(buf, ed.caret); move = 1; break;
+            case DXL_EDIT_HOME: ed.caret = 0; move = 1; break;
+            case DXL_EDIT_END: ed.caret = strlen(buf); move = 1; break;
+            case DXL_EDIT_ALL: ed.anchor = 0; ed.caret = strlen(buf); break;
+            case DXL_EDIT_COPY: copy_selection(buf); changed = 0; break;
+            case DXL_EDIT_CUT: copy_selection(buf); cut_selection(buf); break;
+            default: changed = 0; break;
             }
-            p++;
+            if (move && !select) ed.anchor = ed.caret;
+            select = 0;
+            len = strlen(buf);
             continue;
-        case DXL_EDIT_DELETE:
-            if (c < len) {
-                size_t e = utf8_ahead(buf, c);
-                memmove(buf + c, buf + e, len - e + 1);
-                len -= e - c;
-            }
-            p++;
-            continue;
-        case DXL_EDIT_LEFT: c = utf8_back(buf, c); p++; continue;
-        case DXL_EDIT_RIGHT: c = utf8_ahead(buf, c); p++; continue;
-        case DXL_EDIT_HOME: c = 0; p++; continue;
-        case DXL_EDIT_END: c = len; p++; continue;
-        default: break;
         }
-        /* A run of text, up to the next editing key. */
+        /* A run of text, up to the next editing key, over the selection. */
         size_t add = 0;
-        while (p[add] && !strchr("\b\x7f\x02\x06\x01\x05", p[add])) add++;
-        if (len + add < size) {
-            memmove(buf + c + add, buf + c, len - c + 1);
-            memcpy(buf + c, p, add);
-            c += add;
-            len += add;
+        while (p[add] && !DXL_EDIT_IS_OP(p[add])) add++;
+        cut_selection(buf);
+        len = strlen(buf);
+        size_t fits = add;
+        if (len + fits >= size) {
+            fits = size - 1 - len;
+            while (fits > 0 && ((unsigned char)p[fits] & 0xc0) == 0x80) fits--;
+        }
+        if (fits) {
+            memmove(buf + ed.caret + fits, buf + ed.caret, len - ed.caret + 1);
+            memcpy(buf + ed.caret, p, fits);
+            ed.caret += fits;
+            ed.anchor = ed.caret;
+            len += fits;
+            changed = 1;
         }
         p += add;
+        select = 0;
     }
-    *caret_v = (float)c;
+    return changed;
+}
+
+/* The width of buf's first n bytes, dp. */
+static float width_to(dxl_ui *ui, const char *buf, size_t n) {
+    char part[1024];
+    if (n >= sizeof part) n = sizeof part - 1;
+    if (!n) return 0;
+    memcpy(part, buf, n);
+    part[n] = '\0';
+    return dxl_text_size(ui, DXL_FONT_BODY, part, 0).x;
+}
+
+/* The character edge nearest x, dp from the text's start. */
+static size_t edge_at(dxl_ui *ui, const char *buf, float x) {
+    size_t best = 0, at = 0, len = strlen(buf);
+    float best_d = x < 0 ? -x : x;
+    while (at < len) {
+        at = utf8_ahead(buf, at);
+        float d = width_to(ui, buf, at) - x;
+        if (d < 0) d = -d;
+        if (d < best_d) {
+            best_d = d;
+            best = at;
+        }
+    }
+    return best;
+}
+
+static void begin_edit(dxl_ui *ui, uint32_t id, dxl_rect box, const char *buf, size_t caret, size_t anchor) {
+    snprintf(ed.original, sizeof ed.original, "%s", buf);
+    ed.caret = caret;
+    ed.anchor = anchor;
+    ed.scroll = 0;
+    ed.dragging = 0;
+    ed.moved = ui->now;
+    dxl_ui_text_begin(ui, id, box);
+}
+
+/* A press in the field at x (dp from its text's start): the caret there,
+ * Shift growing the selection to it; a double click's word, a triple's
+ * all of it. */
+static void press_at(dxl_ui *ui, const char *buf, float x) {
+    size_t at = edge_at(ui, buf, x);
+    if (ui->in.clicks >= 3) {
+        ed.anchor = 0;
+        ed.caret = strlen(buf);
+    } else if (ui->in.clicks == 2) {
+        size_t lo = at, hi = at;
+        while (lo > 0 && wordy((unsigned char)buf[utf8_back(buf, lo)])) lo = utf8_back(buf, lo);
+        while (buf[hi] && wordy((unsigned char)buf[hi])) hi = utf8_ahead(buf, hi);
+        ed.anchor = lo;
+        ed.caret = hi;
+    } else {
+        ed.caret = at;
+        if (!ui->in.shift_click) ed.anchor = at;
+        ed.dragging = 1;
+    }
+    ed.moved = ui->now;
 }
 
 int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char *buf, size_t size,
                    const char *placeholder, int flags) {
     const dxl_theme *t = &ui->theme;
-    int hits, ret = 0;
+    int ret = 0;
+    int editing = ui->text_id == id;
+    /* Enter on it as it is edited, before the row takes it as a choice. */
+    int enter = editing && ui->in.activate && ui->focus == id;
+    int hits;
     dxl_rect a = row(ui, id, r, label, flags, &hits);
     dxl_rect box = { a.x, a.y + 6, a.w, a.h - 12 };
-    float *caret = dxl_ui_value(ui, id ^ CARET_KEY, 0);
-    int editing = ui->text_id == id;
+    dxl_rect in = dxl_inset(box, 2);
+    in.x += 8;
+    in.w -= 16;
+    float text_x = in.x - (editing ? ed.scroll : 0);
+    int over = ui->in.px >= box.x && ui->in.px < box.x + box.w && ui->in.py >= box.y && ui->in.py < box.y + box.h;
+    if (ui->text_lost == id) {
+        /* Its edit ended as it was out of view: kept. */
+        ui->text_lost = 0;
+        ret = DXL_TEXT_DONE;
+    }
     if (!(flags & DXL_W_DISABLED)) {
-        if (!editing && (hits & DXL_HIT_ACTIVATED)) {
+        int pressed = ui->in.pressed && over && dxl_ui_live(ui);
+        if (!editing && pressed && ui->mode == DXL_INPUT_MOUSE) {
+            /* A click puts the caret where it is. */
+            begin_edit(ui, id, box, buf, 0, 0);
+            editing = 1;
+            text_x = in.x;
+            press_at(ui, buf, ui->in.px - text_x);
+            pressed = 0;
+        } else if (!editing && (hits & DXL_HIT_ACTIVATED)) {
             if (ui->mode == DXL_INPUT_PAD) {
                 ret = DXL_TEXT_OSK;
             } else {
-                snprintf(edit_original, sizeof edit_original, "%s", buf);
-                dxl_ui_text_begin(ui, id, box);
-                *caret = (float)strlen(buf);
+                begin_edit(ui, id, box, buf, strlen(buf), strlen(buf));
                 editing = 1;
             }
-        } else if (editing) {
-            edit(ui, buf, size, caret);
-            int click_away = ui->in.pressed && !(hits & DXL_HIT_HOVERED);
-            if ((hits & DXL_HIT_ACTIVATED) || click_away || ui->focus != id) {
+        } else if (!editing && (hits & DXL_HIT_FOCUSED) && ui->text_ready == id && ui->in.text[0]) {
+            /* Typed on as it had the focus: what was typed in its place. */
+            begin_edit(ui, id, box, buf, strlen(buf), 0);
+            editing = 1;
+        }
+        if (!editing && (hits & DXL_HIT_FOCUSED) && ui->mode != DXL_INPUT_PAD) dxl_ui_text_ready(ui, id, box);
+        if (editing) {
+            if (pressed) press_at(ui, buf, ui->in.px - text_x);
+            else if (ed.dragging && ui->held == id && !ui->in.pressed) {
+                size_t at = edge_at(ui, buf, ui->in.px - text_x);
+                if (at != ed.caret) {
+                    ed.caret = at;
+                    ed.moved = ui->now;
+                }
+            }
+            if (ui->held != id) ed.dragging = 0;
+            if (edit(ui, buf, size)) ed.moved = ui->now;
+            int click_away = ui->in.pressed && !over;
+            if (enter || click_away || ui->focus != id) {
                 dxl_ui_text_end(ui);
                 editing = 0;
                 ret = DXL_TEXT_DONE;
             } else if (ui->in.back) {
-                snprintf(buf, size, "%s", edit_original);
+                snprintf(buf, size, "%s", ed.original);
                 dxl_ui_text_end(ui);
                 ui->in.back = 0;
                 editing = 0;
@@ -256,29 +431,35 @@ int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char 
         }
     }
     dxl_well(ui, box);
-    dxl_rect in = dxl_inset(box, 2);
-    in.x += 8;
-    in.w -= 16;
     float lh = dxl_text_line(ui, DXL_FONT_BODY), ty = box.y + (box.h - lh) / 2;
-    /* Scrolled to keep the caret in sight. */
-    float caret_x = 0, shift = 0;
     if (editing) {
-        char before[1024];
-        size_t c = (size_t)*caret;
-        if (c > strlen(buf)) c = strlen(buf);
-        if (c >= sizeof before) c = sizeof before - 1;
-        memcpy(before, buf, c);
-        before[c] = '\0';
-        caret_x = c ? dxl_text_size(ui, DXL_FONT_BODY, before, 0).x : 0;
-        if (caret_x > in.w - 4) shift = caret_x - (in.w - 4);
+        /* Scrolled to keep the caret in sight, and no room left after the
+         * text's end. */
+        float caret_x = width_to(ui, buf, ed.caret), full = width_to(ui, buf, strlen(buf)), room = in.w - 4;
+        if (caret_x - ed.scroll > room) ed.scroll = caret_x - room;
+        if (caret_x < ed.scroll) ed.scroll = caret_x;
+        if (ed.scroll > 0 && full - ed.scroll < room) ed.scroll = full - room > 0 ? full - room : 0;
+        text_x = in.x - ed.scroll;
+        dxl_clip_push(ui, in);
+        if (ed.caret != ed.anchor) {
+            float x0 = width_to(ui, buf, sel_lo()), x1 = width_to(ui, buf, sel_hi());
+            dxl_fill(ui, (dxl_rect){ text_x + x0, ty, x1 - x0, lh }, dxl_rgba_fade(t->accent, 0.45f));
+        }
+        if (*buf) dxl_text_draw(ui, DXL_FONT_BODY, buf, text_x, ty, 0, t->text_focus, 1);
+        /* The caret, blinking from its last move; steady under reduced
+         * motion. */
+        double since = ui->now - ed.moved;
+        long phase = since > 0 ? (long)(since / BLINK_S) : 0;
+        if (ui->reduced_motion || phase % 2 == 0)
+            dxl_fill(ui, (dxl_rect){ text_x + caret_x, ty + 2, 2, lh - 4 }, t->bracket);
+        if (!ui->reduced_motion) dxl_ui_wake(ui, ed.moved + (double)(phase + 1) * BLINK_S);
+        dxl_clip_pop(ui);
+    } else {
+        dxl_clip_push(ui, in);
+        if (*buf) dxl_text_draw(ui, DXL_FONT_BODY, buf, in.x, ty, 0, t->text, 1);
+        else if (placeholder) dxl_text_draw(ui, DXL_FONT_BODY, placeholder, in.x, ty, 0, t->text_disabled, 1);
+        dxl_clip_pop(ui);
     }
-    dxl_clip_push(ui, in);
-    if (*buf)
-        dxl_text_draw(ui, DXL_FONT_BODY, buf, in.x - shift, ty, 0, editing ? t->text_focus : t->text, 1);
-    else if (!editing && placeholder)
-        dxl_text_draw(ui, DXL_FONT_BODY, placeholder, in.x, ty, 0, t->text_disabled, 1);
-    if (editing) dxl_fill(ui, (dxl_rect){ in.x - shift + caret_x, ty + 2, 2, lh - 4 }, t->bracket);
-    dxl_clip_pop(ui);
     return ret;
 }
 

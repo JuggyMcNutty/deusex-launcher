@@ -113,10 +113,46 @@ void dxl_field(dxl_ui *ui, dxl_rect *r, float h, float name_w, const char *name,
 
 /* ---- lists ---------------------------------------------------------- */
 
-/* A list's second value: a row asked for (dxl_list_focus), kept beside its
- * scroll. */
+/* A list's other values: a row asked for (dxl_list_focus), kept beside its
+ * scroll; where the pointer holds its scroll bar's thumb. */
 #define WANT_KEY 0x2545f491u
+#define BAR_KEY  0x5c40bba7u
+#define GRAB_KEY 0x0a7e11edu
 #define BAR_W    10
+
+/* The scroll bar's track and its thumb, for a list scrolled off dp. */
+static void bar_of(const dxl_list *l, float off, dxl_rect *track, dxl_rect *thumb) {
+    float total = l->count * l->row_h;
+    *track = (dxl_rect){ l->area.x + l->area.w - BAR_W + 3, l->area.y + 2, 4, l->area.h - 4 };
+    float h = track->h * l->area.h / total;
+    if (h < 24) h = 24;
+    float span = total - l->area.h;
+    *thumb = (dxl_rect){ track->x, track->y + (track->h - h) * (span > 0 ? off / span : 0), track->w, h };
+}
+
+/* The pointer on the scroll bar: the thumb dragged, the track clicked a
+ * page that way. */
+static void bar_input(dxl_ui *ui, dxl_list *l, float *off) {
+    dxl_rect track, thumb;
+    bar_of(l, *off, &track, &thumb);
+    dxl_rect hit = { l->area.x + l->area.w - BAR_W, l->area.y, BAR_W, l->area.h };
+    uint32_t id = l->id ^ BAR_KEY;
+    float *grab = dxl_ui_value(ui, l->id ^ GRAB_KEY, -1);
+    int hits = dxl_ui_clickable(ui, id, hit);
+    if (ui->in.pressed && (hits & DXL_HIT_HOVERED)) {
+        int on_thumb = ui->in.py >= thumb.y && ui->in.py < thumb.y + thumb.h;
+        *grab = on_thumb ? ui->in.py - thumb.y : -1;
+        if (!on_thumb) *off += ui->in.py < thumb.y ? -l->area.h : l->area.h;
+    }
+    if (*grab >= 0 && ui->held == id) {
+        float span = track.h - thumb.h, f = span > 0 ? (ui->in.py - *grab - track.y) / span : 0;
+        if (f < 0) f = 0;
+        if (f > 1) f = 1;
+        *off = f * (l->count * l->row_h - l->area.h);
+    } else {
+        *grab = -1;
+    }
+}
 
 uint32_t dxl_list_row_id(const dxl_list *l, int i) {
     uint32_t h = l->id ^ ((uint32_t)(i + 1) * 0x9e3779b1u);
@@ -197,6 +233,7 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
         *off -= ui->in.wheel * row_h * 2;
         ui->in.wheel = 0;
     }
+    if (l->scrollable) bar_input(ui, l, off);
     float max = count * row_h - r.h;
     if (flags & DXL_LIST_WHOLE_ROWS) {
         /* A whole number of rows scrolled, the focused one all in view. */
@@ -266,14 +303,12 @@ void dxl_list_end(dxl_ui *ui, dxl_list *l) {
     }
     if (!l->scrollable) return;
     const dxl_theme *t = &ui->theme;
-    float total = l->count * l->row_h;
-    dxl_rect track = { l->area.x + l->area.w - BAR_W + 3, l->area.y + 2, 4, l->area.h - 4 };
+    dxl_rect track, thumb;
+    bar_of(l, l->offset, &track, &thumb);
     dxl_fill(ui, track, dxl_rgba_fade(t->panel_light, 0.18f));
-    float h = track.h * l->area.h / total;
-    if (h < 24) h = 24;
-    float y = track.y + (track.h - h) * (l->offset / (total - l->area.h));
-    dxl_rect thumb = { track.x, y, track.w, h };
-    dxl_fill(ui, thumb, dxl_rgba_fade(t->accent, 0.7f));
+    /* Lit under the pointer, or held. */
+    int lit = ui->hot == (l->id ^ BAR_KEY) || ui->held == (l->id ^ BAR_KEY);
+    dxl_fill(ui, thumb, lit ? t->accent : dxl_rgba_fade(t->accent, 0.7f));
 }
 
 /* ---- dialogs ---------------------------------------------------------- */
