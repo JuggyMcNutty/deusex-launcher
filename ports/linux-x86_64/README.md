@@ -66,7 +66,9 @@ command line and the last run (`src/core/xdg.c`, `profile.c`, `sha1.c`,
 `gamedb.c`, `engine_args.c`, `lastrun.c`); nothing uses either yet. And the
 ini and JSON saves, written whole or not at all (`dxl_path_write_atomic` in
 `src/core/paths.c`: a temporary file beside the old one, synced, renamed
-over it).
+over it), and `src/platform/posix/process.c`'s start of a program by its
+words, with changes to its environment (`dxl_game_start_argv`), and its
+run of one to its end, output captured (`dxl_run_capture`).
 
 ## Verified
 

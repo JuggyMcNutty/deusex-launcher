@@ -30,6 +30,14 @@ dxl_test(test_profile)
 dxl_test(test_engine_args)
 dxl_test(test_lastrun)
 
+# The processes the launcher starts, with a stand-in for the engine
+# (stub_engine.c) in its place.
+add_executable(stub_engine stub_engine.c)
+dxl_test(test_process)
+target_link_libraries(test_process PRIVATE dxl_platform)
+target_compile_definitions(test_process PRIVATE DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
+add_dependencies(test_process stub_engine)
+
 # The whole run, with stand-ins for the screens and the game.
 dxl_test(test_launch)
 target_link_libraries(test_launch PRIVATE dxl_launch)

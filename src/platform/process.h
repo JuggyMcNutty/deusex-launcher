@@ -36,6 +36,13 @@ typedef struct {
 int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *workdir,
                    const char *log_path, dxl_err *err);
 
+/* The same with the words as given, argv[0] the program's path: no shell
+ * splits them again, so a quoted word arrives whole. env is NULL or a
+ * NULL-terminated list of changes to this process's environment for the
+ * game: "NAME=value" sets one, "NAME" alone takes it out. */
+int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                        const char *log_path, dxl_err *err);
+
 /* What dxl_game_wait saw. */
 #define DXL_GAME_LINE  1   /* a line from the engine, in line */
 #define DXL_GAME_EXTRA 2   /* extra_fd is readable */
@@ -63,5 +70,12 @@ int  dxl_child_reap(pid_t pid);
 /* Opens a URL with the desktop's handler, not waiting for it -- the
  * original's ShellExecute of a web page. */
 int  dxl_open_url(const char *url);
+
+/* Runs argv to its end, at most timeout_ms (then it is killed), its output
+ * into out (cut at size, NUL-terminated) and its errors nowhere: the
+ * engine's --version. *status is its exit code, or 128 + the signal. -1
+ * when it could not be run or ran out of time. */
+int  dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, int *status,
+                     dxl_err *err);
 
 #endif
