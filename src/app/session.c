@@ -70,6 +70,18 @@ const char *dxl_session_install_path(const dxl_session *s, const char *id) {
     return dxl_ini_get(s->ini, section, "Path");
 }
 
+size_t dxl_session_installs(const dxl_session *s, const char **paths, size_t max) {
+    const char *sections[64];
+    size_t n = dxl_ini_sections(s->ini, "Install.", sections, 64), k = 0;
+    for (size_t i = 0; i < n && i < 64; i++) {
+        const char *path = dxl_ini_get(s->ini, sections[i], "Path");
+        if (!path || !*path) continue;
+        if (paths && k < max) paths[k] = path;
+        k++;
+    }
+    return k;
+}
+
 void dxl_session_remember_install(dxl_session *s, const dxl_install *in, char *id, size_t size) {
     char mine[96];
     dxl_install_id(in, mine, sizeof mine);

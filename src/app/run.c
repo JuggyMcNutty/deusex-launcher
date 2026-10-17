@@ -92,11 +92,11 @@ static void say_view(dxl_run *r, dxl_view v) {
 
 /* ---- the engine ------------------------------------------------------ */
 
-/* The engine's --version: refused without the userdir feature. */
-static int check_engine(dxl_run *r, dxl_engine_version *v) {
-    const char *engine = r->session.engine;
+int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *why, size_t size) {
+    const char *engine = s->engine;
+    memset(v, 0, sizeof *v);
     if (!dxl_path_exists(engine)) {
-        stop_with(r, "no engine at %s", engine);
+        snprintf(why, size, "no engine at %s", engine);
         return -1;
     }
     char *argv[] = { (char *)engine, "--version", NULL };
@@ -105,15 +105,26 @@ static int check_engine(dxl_run *r, dxl_engine_version *v) {
     dxl_err e;
     if (dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, &status, &e) != 0 ||
         dxl_engine_version_parse(out, v) != 0) {
-        stop_with(r, "%s is not a VibeEngine that answers --version: refusing it", engine);
+        snprintf(why, size, "%s is not a VibeEngine that answers --version: refusing it", engine);
         return -1;
     }
     if (!dxl_engine_has(v, DXL_ENGINE_NEEDS)) {
-        stop_with(r, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/SurrealEngine",
-                  engine, v->version, DXL_ENGINE_NEEDS);
+        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/SurrealEngine",
+                 engine, v->version, DXL_ENGINE_NEEDS);
         return -1;
     }
-    dxl_log("engine: %s, %s; features: %s", engine, v->version, v->features);
+    return 0;
+}
+
+/* The engine's --version, before the game: refused without the userdir
+ * feature. */
+static int check_engine(dxl_run *r, dxl_engine_version *v) {
+    char why[512];
+    if (dxl_run_engine_check(&r->session, v, why, sizeof why) != 0) {
+        stop_with(r, "%s", why);
+        return -1;
+    }
+    dxl_log("engine: %s, %s; features: %s", r->session.engine, v->version, v->features);
     return 0;
 }
 
@@ -163,6 +174,7 @@ static const char *view_name(dxl_view v) {
     case DXL_VIEW_NONE: return "none: play";
     case DXL_VIEW_HOME: return "Home";
     case DXL_VIEW_FIRST_RUN: return "First run";
+    case DXL_VIEW_INSTALL: return "the profile's install";
     case DXL_VIEW_RECOVERY: return "Recovery";
     case DXL_VIEW_GRAPHICS: return "Graphics";
     }
@@ -236,17 +248,18 @@ static void open_log(dxl_run *r) {
     free(path);
 }
 
-/* The first run: a profile made from --game's install, or by the First
- * run screen. 0 to go on; -1 when the player quit there; else the exit
- * code to stop with. */
+/* The first run: a profile made by the first run's screens, where --game's
+ * install is the first one offered; with no window, from --game's install.
+ * 0 to go on; -1 when the player quit there; else the exit code to stop
+ * with. */
 static int first_run(dxl_run *r, const dxl_run_ui *ui) {
+    if (ui && ui->view && !r->opt.import_only) {
+        if (!ui->view(ui->ctx, r, DXL_VIEW_FIRST_RUN)) return -1;
+        if (dxl_profile_exists(&r->session.profile)) return 0;
+        stop_with(r, "the first run made no profile");
+        return DXL_RUN_EXIT_NOGAME;
+    }
     if (!r->opt.game) {
-        if (ui && ui->view) {
-            if (!ui->view(ui->ctx, r, DXL_VIEW_FIRST_RUN)) return -1;
-            if (dxl_profile_exists(&r->session.profile)) return 0;
-            stop_with(r, "the First run screen made no profile");
-            return DXL_RUN_EXIT_NOGAME;
-        }
         say_view(r, DXL_VIEW_FIRST_RUN);
         dxl_log("no profile yet and no --game");
         return DXL_RUN_EXIT_SCREEN;
@@ -425,10 +438,16 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
                r->session.install.root ? r->session.install.root : r->opt.game);
         goto done;
     }
-    if (dxl_profile_exists(&r->session.profile) && dxl_session_check_install(&r->session) != 0) {
-        if (!r->opt.dry) {
-            stop_with(r, "profile %s has no install to play%s%s", r->session.profile.id,
-                      r->session.install.problem[0] ? ": " : "", r->session.install.problem);
+    if (dxl_profile_exists(&r->session.profile) && dxl_session_check_install(&r->session) != 0 && !r->opt.dry) {
+        if (ui && ui->view && !r->opt.print_command) {
+            dxl_log("profile %s: its install is not there to play (%s)", r->session.profile.id,
+                    r->session.install.problem);
+            if (!ui->view(ui->ctx, r, DXL_VIEW_INSTALL)) goto done;
+        }
+        if (dxl_session_check_install(&r->session) != 0) {
+            const dxl_install *in = &r->session.install;
+            stop_with(r, "profile %s has no install to play%s%s%s%s", r->session.profile.id,
+                      in->root ? " at " : "", in->root ? in->root : "", in->problem[0] ? ": " : "", in->problem);
             rc = DXL_RUN_EXIT_NOGAME;
             goto done;
         }

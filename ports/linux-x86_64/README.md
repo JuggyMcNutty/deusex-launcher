@@ -7,15 +7,17 @@ changes run here.
 ## Status
 
 The launcher is DXLauncher, the desktop's own
-([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)), with no screens yet: it makes
-a profile from the game's files and plays with no window. The engine runs
-the game, not yet fully playable
+([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)): a window with Home, the first
+run, Recovery and About, which makes a profile from the game's files and
+plays it. The engine runs the game, not yet fully playable
 ([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
 ## Build and run
 
-Needs a C compiler, CMake 3.21+ and pkg-config; the engine adds a C++20
-compiler and its own dependencies
+Needs a C compiler, CMake 3.21+, pkg-config, and SDL3 and SDL3_ttf 3.2 or
+newer, the window's, as the distro has them; without them,
+`scripts/dx.sh deps linux-x86_64` fetches their sources and the build makes
+its own. The engine adds a C++20 compiler and its own dependencies
 ([the workspace's list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#dependencies)).
 
 ```sh
@@ -31,8 +33,7 @@ scripts/dx.sh run   linux-x86_64 [--fresh] [-- <the launcher's words>]
 the game's folder, and the launcher's files go in the home's XDG folders
 ([where everything lives](../../docs/LAUNCHER.md#where-everything-lives)).
 `--fresh` gives it a scratch home instead, `build/linux-x86_64/fresh-home`,
-emptied first: a first run from nothing. `-- --play` is a run with no Home
-screen, the one way to play until the screens are built.
+emptied first: a first run from nothing. `-- --play` skips Home.
 
 The game's settings are the profile's inis, made from the game's own on the
 first run. The engine takes its renderer and the fork's own settings from
@@ -47,7 +48,7 @@ The engine also starts on its own, straight into a map
 
 | File | What it is |
 |---|---|
-| `port.cmake` | no glibc ceiling and no sysroot: the binaries run where they are built |
+| `port.cmake` | no glibc ceiling and no sysroot: the binaries run where they are built; SDL3 and SDL3_ttf the distro's, through pkg-config, else built from `cmake/deps.lock`'s sources (`cmake/deps.cmake`) |
 | `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support; the launcher asks for SDL2 at run time |
 | `port.sh` | `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh` |
 
@@ -58,12 +59,15 @@ checked after each build; this port has neither.
 
 ## Verified
 
-- Arch Linux, AMD GPU (Mesa's RADV and radeonsi):
-  `scripts/dx.sh run linux-x86_64 --fresh -- --play` makes a profile from
-  `gamefiles/` and plays, the engine on the desktop's display, to a clean
-  end, with nothing newer in `gamefiles/` or `~/.config/SurrealEngine`; a
-  crashing stand-in engine is reported, and the next start stops at
-  Recovery. Unattended engine runs drive saves, loads and hub travel
+- Arch Linux, KDE Plasma on Wayland, AMD GPU (Mesa's RADV and radeonsi),
+  the window on SDL3's OpenGL renderer: `scripts/dx.sh run linux-x86_64
+  --fresh`, driven by a UI script, goes through the first run on
+  `gamefiles/` to Home and plays, the engine on the desktop's display, to a
+  clean end, and the launcher exits, with nothing newer in `gamefiles/` or
+  `~/.config/SurrealEngine`; a crashing stand-in engine brings the window
+  back on Recovery, the next start opens on it, and a second start while it
+  is up is handed over. Unattended engine runs drive saves, loads and hub
+  travel
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas

@@ -79,15 +79,18 @@ add_library(dxl_core STATIC
     src/core/profile.c
     src/core/engine_args.c
     src/core/lastrun.c
+    src/core/finder.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
 # What is the platform's: the processes the launcher starts, the game among
-# them (platform/process.h), and the crash-isolated GPU probe.
+# them (platform/process.h), the crash-isolated GPU probe, and the app
+# menu's entry.
 add_library(dxl_platform STATIC
     src/platform/posix/process.c
     src/platform/posix/gpu_probe.c
+    src/platform/posix/desktop.c
 )
 # The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
 # their headers come from the sysroot on a cross build, else the host's.
@@ -120,12 +123,26 @@ add_library(dxl_ui STATIC
 )
 target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
 
+# The window and its pages (src/screens/shell.h).
+add_library(dxl_screens STATIC
+    src/screens/shell.c
+    src/screens/home.c
+    src/screens/firstrun.c
+    src/screens/recovery.c
+    src/screens/about.c
+    src/screens/dialogs.c
+    src/screens/window.c
+    src/screens/uiscript.c
+)
+target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
+
 # deusex-launcher, the launcher; dxl-cli, the same with no window, for
 # scripts and for looking.
 add_executable(deusex-launcher src/main.c)
+target_link_libraries(deusex-launcher PRIVATE dxl_screens)
 add_executable(dxl-cli src/cli_main.c)
+target_link_libraries(dxl-cli PRIVATE dxl_app)
 foreach(program deusex-launcher dxl-cli)
-    target_link_libraries(${program} PRIVATE dxl_app)
     target_compile_definitions(${program} PRIVATE DXL_VERSION="${DXL_VERSION}")
     if(DXL_PORT_LINK_OPTIONS)
         target_link_options(${program} PRIVATE ${DXL_PORT_LINK_OPTIONS})
@@ -133,11 +150,18 @@ foreach(program deusex-launcher dxl-cli)
     dxl_check_abi(${program})
 endforeach()
 
+# dxl-shots: every page drawn offscreen, for review and for the tests
+# (tools/shots.c). Not part of the app.
+add_executable(dxl-shots tools/shots.c)
+target_link_libraries(dxl-shots PRIVATE dxl_screens)
+target_compile_definitions(dxl-shots PRIVATE DXL_SHOTS_FONTS="${DXL_ROOT}/data/fonts")
+
 # The app as it ships, one flat folder (cmake --install <build> --prefix
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
 # programs, data/ and the notices of what is in them.
 install(TARGETS deusex-launcher dxl-cli RUNTIME DESTINATION .)
-install(FILES data/renderers.ini data/engine-settings.json.default DESTINATION data)
+install(FILES data/renderers.ini data/engine-settings.json.default
+              data/io.github.juggymcnutty.DXLauncher.desktop.in DESTINATION data)
 install(DIRECTORY data/fonts DESTINATION data)
 install(FILES THIRD-PARTY.md DESTINATION .)
 

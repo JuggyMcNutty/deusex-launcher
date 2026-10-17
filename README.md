@@ -5,8 +5,8 @@ This branch is the launcher of
 desktop Linux port: DXLauncher, the desktop's own, an app outside the
 game's folder that keeps the player's settings and saves in a profile,
 starts [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and stays
-with it ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)). Its screens are being
-built
+with it ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)). Its window has Home, the
+first run, Recovery and About; the rest is planned
 ([Port Ex Machina's to-do list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
 Made with AI assistance.
 
@@ -18,8 +18,8 @@ are included.
 `linux-x86_64` is the default of its platform, desktop Linux on x86_64,
 built natively: DXLauncher's source (`src/`), and the port
 (`ports/linux-x86_64`, its preset in `CMakePresets.json`, its block in
-`CMakeLists.txt`). It builds `deusex-launcher`, `dxl-cli` and the tests. It
-began as `main`'s launcher, whose core it keeps. Nothing merges into it,
+`CMakeLists.txt`). It builds `deusex-launcher`, `dxl-cli`, `dxl-shots` and
+the tests. It began as `main`'s launcher, whose core it keeps. Nothing merges into it,
 `main` included: a change from another branch comes over by a deliberate
 cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
@@ -38,5 +38,7 @@ cherry-pick
 
 ## License
 
-[zlib](LICENSE). Deus Ex belongs to its owners; this project is not
-affiliated with or endorsed by them.
+[zlib](LICENSE); what the app carries of others', its fonts and libraries,
+under their own terms ([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex
+belongs to its owners; this project is not affiliated with or endorsed by
+them.

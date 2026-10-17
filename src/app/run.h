@@ -6,7 +6,8 @@
  *      TestRenDev).
  *   2. The folders, launcher.ini, the active profile (app/session.h). No
  *      profile yet: the first run makes one from an install (--game=<dir>,
- *      or the First run screen).
+ *      or the first run's screens). A profile whose install is not there
+ *      to play: the window asks for another.
  *   3. The decision (core/policy.h): Home; Recovery after -safe or after a
  *      run that did not end cleanly, whose Running.ini survived; Graphics
  *      after -changevideo. --play and DXL_NO_HOME=1 skip Home, not the
@@ -21,9 +22,10 @@
  *
  * The launcher's own options start with "--"; every other word is the
  * original's command line, the player's, passed to the engine in
- * --cmdline. The screens are the caller's (dxl_run_ui); with none -- dxl-cli,
- * and deusex-launcher until its window -- Home is skipped and any other
- * screen that is due is a message and DXL_RUN_EXIT_SCREEN.
+ * --cmdline. The screens are the caller's (dxl_run_ui): deusex-launcher's
+ * window (screens/shell.h). With none -- dxl-cli -- Home is skipped, the
+ * first run makes the profile from --game's install, and any other screen
+ * that is due is a message and DXL_RUN_EXIT_SCREEN.
  */
 #ifndef DXL_RUN_H
 #define DXL_RUN_H
@@ -31,6 +33,7 @@
 #include "app/play.h"
 #include "app/session.h"
 #include "core/config.h"
+#include "core/engine_args.h"
 #include "core/instance.h"
 #include "core/lastrun.h"
 #include "core/policy.h"
@@ -45,6 +48,7 @@ typedef enum {
     DXL_VIEW_NONE,
     DXL_VIEW_HOME,
     DXL_VIEW_FIRST_RUN,
+    DXL_VIEW_INSTALL,     /* the profile's install is not there to play: another */
     DXL_VIEW_RECOVERY,
     DXL_VIEW_GRAPHICS
 } dxl_view;
@@ -88,5 +92,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
 /* The launcher's own options out of argv, the rest joined into *words
  * (caller frees). -1 for one it does not know, named in err. */
 int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl_err *err);
+
+/* The session's engine asked for its --version: 0 when it is a VibeEngine
+ * with the userdir feature, else -1 and why. */
+int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *why, size_t size);
 
 #endif

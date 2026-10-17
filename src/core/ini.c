@@ -372,6 +372,19 @@ int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
     return find_section(ini, section) != (size_t)-1;
 }
 
+size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out, size_t max) {
+    size_t n = 0, plen = strlen(prefix);
+    for (size_t i = 0; i < ini->count; i++) {
+        const ini_line *l = &ini->lines[i];
+        if (l->kind != LINE_SECTION || dxl_strnicmp(l->name, prefix, plen) != 0) continue;
+        /* A section written twice is one section to its lookups. */
+        if (find_section(ini, l->name) != i) continue;
+        if (out && n < max) out[n] = l->name;
+        n++;
+    }
+    return n;
+}
+
 void dxl_ini_empty_section(dxl_ini *ini, const char *section) {
     size_t header = find_section(ini, section);
     if (header == (size_t)-1) return;

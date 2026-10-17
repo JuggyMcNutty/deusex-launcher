@@ -35,7 +35,7 @@ int dxl_install_check(const char *root, dxl_install *out) {
     free(exe);
 
     if (!out->found) {
-        snprintf(out->problem, sizeof out->problem, "no System/DeusEx.exe in %s", out->root);
+        snprintf(out->problem, sizeof out->problem, "no System/DeusEx.exe there");
         return -1;
     }
     for (size_t i = 0; i < sizeof required / sizeof *required; i++) {

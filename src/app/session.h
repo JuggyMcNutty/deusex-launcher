@@ -4,7 +4,9 @@
  *
  *   <config>/launcher.ini   [Launcher] Profile, the active profile's id;
  *                           [Install.<id>] Path, Version, SHA1, each install
- *                           the launcher has met (core/install.h's id)
+ *                           the launcher has met (core/install.h's id);
+ *                           [Window] Width, Height, Maximized, the window as
+ *                           it last closed (screens/window.h)
  *
  * The launcher's own folder is where its program is (/proc/self/exe): the
  * engine beside it (SurrealEngine; DXL_ENGINE names another) and its data/.
@@ -38,6 +40,9 @@ int  dxl_session_save(dxl_session *s, dxl_err *err);
 
 /* The folder of an install launcher.ini lists, or NULL. */
 const char *dxl_session_install_path(const dxl_session *s, const char *id);
+/* The folders of every install launcher.ini lists, at most max, in its
+ * order; returns how many there are. Valid until launcher.ini changes. */
+size_t dxl_session_installs(const dxl_session *s, const char **paths, size_t max);
 /* Lists an install in launcher.ini; its id into id (may be NULL). */
 void dxl_session_remember_install(dxl_session *s, const dxl_install *in, char *id, size_t size);
 

@@ -69,6 +69,10 @@ void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src);
 void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section);
 
 int  dxl_ini_has_section(const dxl_ini *ini, const char *section);
+/* The names of the sections that start with prefix (any case), in file
+ * order, each once. Returns the count; writes at most max into out. The
+ * names are the ini's, valid until it changes. */
+size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out, size_t max);
 /* Removes every key line in the section, keeping the header. Mirrors
  * FConfigCache::EmptySection. */
 void dxl_ini_empty_section(dxl_ini *ini, const char *section);

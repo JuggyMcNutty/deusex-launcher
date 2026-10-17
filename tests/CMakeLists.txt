@@ -27,6 +27,10 @@ dxl_test(test_install)
 dxl_test(test_profile)
 dxl_test(test_engine_args)
 dxl_test(test_lastrun)
+dxl_test(test_finder)
+
+dxl_test(test_desktop)
+target_link_libraries(test_desktop PRIVATE dxl_platform)
 
 # The UI kit: focus and navigation, text, input from the keyboard, the
 # mouse and virtual pads.
@@ -34,6 +38,13 @@ foreach(name test_ui_focus test_ui_text test_ui_input)
     dxl_test(${name})
     target_link_libraries(${name} PRIVATE dxl_ui)
     target_compile_definitions(${name} PRIVATE DXL_FONTS="${DXL_ROOT}/data/fonts")
+endforeach()
+
+# Every page at every size and with every device, without a diagnostic
+# (tools/shots.c): a test for each size, so they run side by side.
+foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600-)
+    string(REPLACE "-" "" name "${size}")
+    add_test(NAME test_ui_shots_${name} COMMAND dxl-shots --only=${size})
 endforeach()
 
 # The processes the launcher starts and the game's run, with a stand-in for

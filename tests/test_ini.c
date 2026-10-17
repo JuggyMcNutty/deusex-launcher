@@ -287,8 +287,23 @@ static void test_set_eol(void) {
     dxl_ini_free(ini);
 }
 
+/* The sections by a prefix: launcher.ini's [Install.<id>]s. */
+static void test_sections(void) {
+    const char *src = "[Launcher]\nProfile=a\n[Install.one]\nPath=/a\n[install.TWO]\nPath=/b\n"
+                      "[Install.one]\nVersion=x\n[Other]\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    const char *names[4];
+    CHECK_INT(dxl_ini_sections(ini, "Install.", names, 4), 2);
+    CHECK_STR(names[0], "Install.one");
+    CHECK_STR(names[1], "install.TWO");
+    CHECK_INT(dxl_ini_sections(ini, "Install.", names, 1), 2);
+    CHECK_INT(dxl_ini_sections(ini, "Nothing", NULL, 0), 0);
+    dxl_ini_free(ini);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_roundtrip_fixtures);
+    RUN(test_sections);
     RUN(test_reads_values);
     RUN(test_repeated_keys);
     RUN(test_set_preserves_everything_else);
