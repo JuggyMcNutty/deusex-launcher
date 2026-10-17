@@ -52,22 +52,19 @@ void dxl_bindings_apply(dxl_ini *user_ini, const dxl_pad_preset *p);
  * parsing does. */
 const dxl_pad_preset *dxl_bindings_detect(const dxl_ini *user_ini);
 
-/* A layout that shipped in an earlier launcher and was since revised: if the
- * ini matches one, the preset that replaced it, else NULL. Lets a revised
- * preset reach players who already had the old one, instead of leaving them
- * on a "custom" layout they never made. */
-const dxl_pad_preset *dxl_bindings_detect_retired(const dxl_ini *user_ini,
-                                                  const char **what_changed);
-
-/* What the physical control is called on the handheld, for a Joy key:
- * "A", "L1", "Left stick (up/down)". */
+/* A pad's kind, by its buttons' labels: the kit's families, in their order. */
+typedef enum { DXL_PAD_KIND_XBOX, DXL_PAD_KIND_PLAYSTATION, DXL_PAD_KIND_NINTENDO, DXL_PAD_KIND_GENERIC } dxl_pad_kind;
+/* What the control of a Joy key is called on a pad of that kind: "A",
+ * "Cross", "ZR", "Left stick up/down". */
+const char *dxl_pad_control_label(dxl_pad_kind kind, const char *key);
+/* Its name on any pad: "South", "R2". */
 const char *dxl_joy_key_label(const char *key);
 
 /* ---- per-button remapping ------------------------------------------- */
 
-/* The buttons a player can remap on this device, in display order: the face
- * buttons, shoulders, triggers, SELECT/START and the d-pad. The sticks are
- * chosen by preset (moves/looks, or swapped), not per axis. */
+/* The buttons a player can remap, in display order: the face buttons, the
+ * shoulders, the triggers, the stick clicks, the middle two, the d-pad. The
+ * sticks are chosen by preset (moves/looks, or swapped), not per axis. */
 size_t      dxl_pad_button_count(void);
 const char *dxl_pad_button_at(size_t i);   /* a Joy key name */
 

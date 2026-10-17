@@ -33,6 +33,8 @@ dxl_test(test_advice)
 dxl_test(test_keys)
 dxl_test(test_engine_sections)
 dxl_test(test_settings)
+dxl_test(test_padcurve)
+dxl_test(test_padmap)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
 
 dxl_test(test_desktop)
