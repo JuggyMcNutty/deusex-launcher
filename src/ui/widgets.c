@@ -63,10 +63,14 @@ float dxl_paragraph(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s, d
 }
 
 int dxl_button(dxl_ui *ui, const char *id, dxl_rect r, const char *label, int flags) {
+    return dxl_button_id(ui, dxl_ui_id(ui, id), r, label, flags);
+}
+
+int dxl_button_id(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int flags) {
     const dxl_theme *t = &ui->theme;
     int disabled = flags & DXL_W_DISABLED;
-    int hits = dxl_ui_focusable(ui, dxl_ui_id(ui, id), r, disabled);
-    if (!disabled) dxl_ui_name(ui, dxl_ui_id(ui, id), label);
+    int hits = dxl_ui_focusable(ui, id, r, disabled);
+    if (!disabled) dxl_ui_name(ui, id, label);
     int lit = hits & (DXL_HIT_FOCUSED | DXL_HIT_HOVERED);
     dxl_bevel_style s;
     if (hits & DXL_HIT_HELD) {

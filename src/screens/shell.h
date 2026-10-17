@@ -71,7 +71,13 @@ typedef struct {
     SDL_JoystickID id;
     SDL_Joystick  *joy;
     int            step;
+    int            learnt;        /* where it rests known */
     int            armed;         /* at rest since the last control taken: the next may come */
+    int            primed;        /* armed once: its rest is known for good */
+    double         opened;        /* when, by the window's clock */
+    double         still_since;   /* before the first step: since when it has not moved */
+    Sint16         still_axis[16];
+    Uint8          still_hat[4];
     int            nbuttons, naxes, nhats;
     Sint16         axis_rest[16];
     Uint8          hat_rest[4];
@@ -160,6 +166,7 @@ typedef struct dxl_shell {
     int          pad_mesh_family;     /* -1 for none built */
     float        pad_yaw, pad_pitch, pad_drag_x, pad_drag_y;
     int          pad_find, pad_chosen;
+    char        *pad_db;              /* gamecontrollerdb.txt's text as last read; NULL, to read */
     dxl_padwizard_state wizard;
     /* A key captured for an action, waiting on the answer to whose it is. */
     int          bind_action, bind_slot;
@@ -245,6 +252,11 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
 /* The mapping wizard for the controller id, and its dialog. */
 void dxl_padwizard_open(dxl_shell *s, SDL_JoystickID id);
 void dxl_padwizard(dxl_shell *s, dxl_rect over, int back);
+/* SDL's mappings as the launcher has them: SDL_GAMECONTROLLERCONFIG's, as
+ * Steam set it, but for the controllers the launcher maps, and then those
+ * of its gamecontrollerdb.txt (core/padmap.h). start: SDL's gamepads
+ * started with them, 0 when they cannot be; else its mappings made again. */
+int  dxl_pad_mappings(const dxl_run *r, int start);
 /* The settings kept: their files written, the stores let go. */
 void dxl_settings_keep(dxl_shell *s);
 /* A page's settings (NULL: every page's) as a new profile has them, the

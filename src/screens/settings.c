@@ -240,7 +240,7 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
         break;
     }
     case DXL_SET_ACTION:
-        if (dxl_button(ui, st->id, r, st->label, DXL_W_LEFT)) dxl_log("settings: %s", st->id);
+        if (dxl_button_id(ui, id, r, st->label, DXL_W_LEFT)) dxl_log("settings: %s", st->id);
         break;
     default:
         break;
@@ -298,7 +298,7 @@ static void captured(dxl_shell *s, int a, int slot) {
     case DXL_CAPTURED_WHEEL: key = dxl_key_from_wheel(ui->in.captured_code); break;
     default: break;
     }
-    if (ui->in.captured == DXL_CAPTURED_PAD) {
+    if (ui->in.captured == DXL_CAPTURED_PAD || ui->in.captured == DXL_CAPTURED_TRIGGER) {
         dxl_shell_toast(s, "A pad's buttons are bound on the Controller page.");
         return;
     }

@@ -86,7 +86,7 @@ static int part_of(const char *key) {
 
 /* What a stick does, by what its across axis is bound to. */
 static const char *stick_does(const dxl_ini *user, int left) {
-    const char *b = dxl_ini_get(user, DXL_INPUT_SECTION, left ? "JoyX" : "JoyU");
+    const char *b = user ? dxl_ini_get(user, DXL_INPUT_SECTION, left ? "JoyX" : "JoyU") : NULL;
     if (!b || !*b) return "Nothing";
     if (dxl_stristr(b, "aStrafe")) return "Moves";
     if (dxl_stristr(b, "aBaseX") || dxl_stristr(b, "aTurn")) return "Looks";
@@ -111,18 +111,20 @@ static void pad_state(SDL_Gamepad *g, dxl_pad3d_state *st) {
     st->rt = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f;
 }
 
-/* Where its mapping comes from: ours, Steam's, SDL's own. */
+/* Where its mapping comes from: ours, which SDL takes over Steam's
+ * (dxl_pad_mappings), Steam's, SDL's own. */
 static const char *mapping_source(dxl_shell *s, SDL_JoystickID id) {
-    char guid[33];
+    char guid[33], bare[33];
     SDL_GUIDToString(SDL_GetJoystickGUIDForID(id), guid, sizeof guid);
-    char *db = dxl_run_pad_db(s->run);
-    char *ours = dxl_padmap_engine_config(NULL, db);
-    free(db);
-    int mine = ours && dxl_stristr(ours, guid) != NULL;
-    free(ours);
-    if (mine) return "the launcher's mapping";
+    if (!s->pad_db) {
+        char *db = dxl_run_pad_db(s->run);
+        s->pad_db = dxl_padmap_db_read(db);
+        free(db);
+    }
+    if (dxl_padmap_db_has(s->pad_db, guid)) return "the launcher's mapping";
     const char *steam = getenv("SDL_GAMECONTROLLERCONFIG");
-    if (steam && dxl_stristr(steam, guid)) return "Steam's mapping";
+    if (steam && (dxl_stristr(steam, guid) || (dxl_padmap_guid_no_crc(guid, bare) && dxl_stristr(steam, bare))))
+        return "Steam's mapping";
     return "SDL's mapping";
 }
 
@@ -465,10 +467,17 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
             if (ui->focus == id)
                 *why = now ? now->description : "A layout of the controller's own: changed button by button.";
         } else if (i == 1) {
-            /* The next button pressed on a controller: its row. */
+            /* The next button pressed, or trigger pulled, on a controller:
+             * its row. */
             int capturing = ui->capture_id == id;
             if (capturing && ui->in.captured == DXL_CAPTURED_PAD) {
-                s->pad_find = DXL_PADPART_OF_BUTTON(ui->in.captured_code);
+                int b = ui->in.captured_code;
+                int part = b >= 0 && b < SDL_GAMEPAD_BUTTON_MISC1 ? (int)DXL_PADPART_OF_BUTTON(b) : -1;
+                if (part >= 0 && key_of(part)) s->pad_find = part;
+                else dxl_shell_toast(s, "The game does not read that button.");
+                dxl_ui_capture_end(ui);
+            } else if (capturing && ui->in.captured == DXL_CAPTURED_TRIGGER) {
+                s->pad_find = ui->in.captured_code ? DXL_PADPART_RTRIGGER : DXL_PADPART_LTRIGGER;
                 dxl_ui_capture_end(ui);
             } else if (capturing && (ui->in.captured || ui->in.back)) {
                 dxl_ui_capture_end(ui);
@@ -483,7 +492,8 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
                       DXL_W_LEFT | DXL_W_MAY_CUT);
             if ((hits & DXL_HIT_ACTIVATED) && !capturing) dxl_ui_capture_begin(ui, id);
             if (ui->focus == id)
-                *why = "The next button pressed on a controller is found in the rows below; Esc stops.";
+                *why = "The next button pressed, or trigger pulled, on a controller is found in the rows below; "
+                       "Esc stops.";
         } else if (i < first + buttons) {
             const char *key = dxl_pad_button_at((size_t)(i - first));
             button_row(s, &l, i, key, kind, rr);
@@ -496,10 +506,10 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
             if (ui->focus == id) *focused = rows[i - first - buttons];
         } else {
             int wizard = n && (!pads[shown].gamepad || g);
-            if (dxl_button(ui, "pad wizard", dxl_inset(rr, 4), "Map this controller...",
-                           n && !pads[shown].gamepad ? DXL_W_PRIMARY : (wizard ? 0 : DXL_W_DISABLED)))
+            if (dxl_button_id(ui, id, dxl_inset(rr, 4), "Map this controller...",
+                              n && !pads[shown].gamepad ? DXL_W_PRIMARY : (wizard ? 0 : DXL_W_DISABLED)))
                 dxl_padwizard_open(s, pads[shown].id);
-            if (ui->focus == dxl_ui_id(ui, "pad wizard"))
+            if (ui->focus == id)
                 *why = "Press each of the controller's buttons and move each stick in turn, as asked: SDL, "
                        "the launcher and the game then know it.";
         }

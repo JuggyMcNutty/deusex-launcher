@@ -215,6 +215,61 @@ static void test_repeat(void) {
     dxl_ui_input_begin(&ui);
 }
 
+/* Frames of 10 ms from t, i to n: the moves down they had. */
+static int downs(double t, int i, int n) {
+    int moves = 0;
+    for (; i <= n; i++) {
+        dxl_ui_input_begin(&ui);
+        dxl_ui_begin(&ui, t + i * 0.01);
+        moves += ui.in.nav[DXL_DIR_DOWN];
+        dxl_ui_end(&ui);
+    }
+    return moves;
+}
+
+/* A slot capturing takes a trigger pulled past half, as the game presses
+ * it. With the pads another's (the mapping wizard's), a held stick stops
+ * repeating: its letting go is not seen. */
+static void test_trigger_and_pads_off(void) {
+    SDL_JoystickID xbox = pad(0x045e, 0x0b12, "Xbox Series X Controller");
+    SDL_Joystick *j = SDL_GetJoystickFromID(xbox);
+    SDL_Gamepad *g = SDL_GetGamepadFromID(xbox);
+    dxl_ui_input_begin(&ui);
+    dxl_ui_capture_begin(&ui, 0x51a7);
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, -20000);
+    pump();
+    CHECK(SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) < 16384);
+    CHECK_INT(ui.in.captured, DXL_CAPTURED_NONE);
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 32767);
+    pump();
+    CHECK_INT(ui.in.captured, DXL_CAPTURED_TRIGGER);
+    CHECK_INT(ui.in.captured_code, 1);
+    dxl_ui_capture_end(&ui);
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, -32768);
+    pump();
+    /* Not capturing, a trigger moves nothing. */
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, 32767);
+    pump();
+    CHECK_INT(ui.in.captured, DXL_CAPTURED_NONE);
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, -32768);
+    pump();
+
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_LEFTY, 30000);
+    pump();
+    CHECK_INT(ui.in.nav[DXL_DIR_DOWN], 1);
+    ui.pads_off = 1;
+    SDL_SetJoystickVirtualAxis(j, SDL_GAMEPAD_AXIS_LEFTY, 0);
+    pump();
+    double t = clock_s;
+    CHECK_INT(downs(t, 1, 100), 0);
+    ui.pads_off = 0;
+    CHECK_INT(downs(t, 101, 150), 0);
+    clock_s = t + 2;
+    dxl_ui_input_begin(&ui);
+}
+
 /* A list longer than its rect: down past the last row in view scrolls to
  * the next; off its end the focus leaves it. */
 static void test_list(void) {
@@ -264,6 +319,7 @@ TEST_MAIN_BEGIN
     RUN(test_mouse);
     RUN(test_pads);
     RUN(test_repeat);
+    RUN(test_trigger_and_pads_off);
     RUN(test_list);
     offscreen_close(&o, &ui);
     TTF_Quit();

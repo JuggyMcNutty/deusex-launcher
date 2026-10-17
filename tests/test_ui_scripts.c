@@ -236,8 +236,9 @@ static void test_recovery(void) {
     close_files(&b);
 }
 
-/* The Controller page: two buttons bound from it, one found by pressing it;
- * a controller mapped by the wizard, kept, and handed to the engine. */
+/* The Controller page: three buttons bound from it, two found by pressing
+ * or pulling them; a pad mapped by the wizard its confirm opened, and a
+ * controller SDL had no mapping for, kept and handed to the engine. */
 static void test_remap_pad(void) {
     CHECK_INT(fresh_home(), 0);
     launch_with("remap_pad.script", "env", "DXL_STUB_ENV=SDL_GAMECONTROLLERCONFIG");
@@ -246,12 +247,19 @@ static void test_remap_pad(void) {
     open_files(&b);
     CHECK_STR(value(b.usr, "Engine.Input", "Joy1"), "QuickSave");
     CHECK_STR(value(b.usr, "Engine.Input", "Joy4"), "QuickLoad");
+    CHECK_STR(value(b.usr, "Engine.Input", "Joy12"), "ToggleScope");
     char *db = read_home("data/dxlauncher/gamecontrollerdb.txt");
-    CHECK(strstr(db, ",A pad of no maker,a:b0,b:b1,x:b2,y:b3,platform:Linux,") != NULL);
+    /* The confirm that opened it not taken for the first step. */
+    CHECK(strstr(db, ",Xbox Series X Controller,a:b2,platform:Linux,") != NULL);
+    /* The trigger resting at the top its whole axis, turned; the d-pad's up
+     * once. */
+    const char *raw = ",A pad of no maker,a:b0,b:b1,x:b2,y:b3,dpup:h0.1,dpdown:h0.4,lefttrigger:a2~,platform:Linux,";
+    CHECK(strstr(db, raw) != NULL);
     free(db);
-    /* What the engine was started with. */
+    /* What the engine was started with: each, and its copy for an older SDL2. */
     char *run = read_home("state/dxlauncher/profiles/default/logs/last-run.log");
-    CHECK(strstr(run, "A pad of no maker,a:b0,b:b1,x:b2,y:b3,platform:Linux,") != NULL);
+    CHECK(strstr(run, raw) != NULL);
+    CHECK(strstr(run, "lefttrigger:a2~,platform:Linux,crc:") != NULL);
     free(run);
     close_files(&b);
 }

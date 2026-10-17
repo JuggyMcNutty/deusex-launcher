@@ -83,6 +83,7 @@ typedef enum {
     SCENE_KEYS,
     /* The other settings pages, by their names in page_scenes. */
     SCENE_CONTROLLER,
+    SCENE_CONTROLLER_END,   /* its rows' list paged to its end */
     SCENE_PADWIZARD,
     SCENE_GRAPHICS,
     SCENE_AUDIO,
@@ -95,12 +96,13 @@ typedef enum {
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "repoint",
     "recovery", "safe", "about", "settings", "pick", "osk", "confirm", "log", "keys",
-    "controller", "padwizard", "graphics", "audio", "gameplay", "multiplayer", "launcher",
+    "controller", "controller-end", "padwizard", "graphics", "audio", "gameplay", "multiplayer", "launcher",
 };
 
 /* The settings page each of those scenes shows. */
 static const struct { scene sc; const char *page; } page_scenes[] = {
-    { SCENE_KEYS, "Keyboard & mouse" }, { SCENE_CONTROLLER, "Controller" }, { SCENE_GRAPHICS, "Graphics" },
+    { SCENE_KEYS, "Keyboard & mouse" }, { SCENE_CONTROLLER, "Controller" }, { SCENE_CONTROLLER_END, "Controller" },
+    { SCENE_GRAPHICS, "Graphics" },
     { SCENE_AUDIO, "Audio" },
     { SCENE_GAMEPLAY, "Gameplay & HUD" }, { SCENE_MULTIPLAYER, "Multiplayer" }, { SCENE_LAUNCHER, "Launcher" },
 };
@@ -331,6 +333,7 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
     }
     case SCENE_KEYS:
     case SCENE_CONTROLLER:
+    case SCENE_CONTROLLER_END:
     case SCENE_GRAPHICS:
     case SCENE_AUDIO:
     case SCENE_GAMEPLAY:
@@ -342,7 +345,8 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
             for (size_t i = 0; page_scenes[p].sc == sc && i < dxl_settings_page_count(); i++)
                 if (!strcmp(dxl_settings_page(i), page_scenes[p].page)) s->settings_tab = (int)i;
         /* The default layout on the pad, as a player who chose it has it. */
-        if (sc == SCENE_CONTROLLER && s->stores.user) dxl_bindings_apply(s->stores.user, dxl_pad_preset_default());
+        if ((sc == SCENE_CONTROLLER || sc == SCENE_CONTROLLER_END) && s->stores.user)
+            dxl_bindings_apply(s->stores.user, dxl_pad_preset_default());
         break;
     case SCENE_PADWIZARD:
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
@@ -477,6 +481,16 @@ static void shoot(scene sc, int si, mode m) {
     double t = 100;
     events(&s);
     frame(&s, t);
+    /* A list's end in view: the focus on its first row, paged to its last. */
+    if (sc == SCENE_CONTROLLER_END) {
+        uint32_t first = dxl_ui_named(&s.ui, "Layout");
+        if (first) dxl_ui_focus(&s.ui, first);
+        dxl_ui_input_begin(&s.ui);
+        frame(&s, t += 0.05);
+        dxl_ui_input_begin(&s.ui);
+        s.ui.in.page_down = 10;
+        frame(&s, t += 0.05);
+    }
     dxl_ui_input_begin(&s.ui);
     act(&s, m);
     frame(&s, t += 0.05);

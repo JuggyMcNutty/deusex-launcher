@@ -13,6 +13,8 @@
 #include "ui/pad3d.h"
 #include "ui/widgets.h"
 
+#include "core/paths.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +23,11 @@
 #define TAKEN 16000
 /* And back within this, the controller is at rest again. */
 #define REST 8000
+/* How long an axis SDL has not read yet is waited for. */
+#define FIRST_READ 0.5
+/* Still this long and not where SDL first read it, before the first step:
+ * where it rests. */
+#define SETTLE 1.0
 
 static const struct {
     int ctl, part, axis;    /* axis: a stick's step, which wants an axis */
@@ -56,6 +63,45 @@ static void rest(dxl_padwizard_state *w) {
     for (int h = 0; h < w->nhats && h < 4; h++) w->hat_rest[h] = SDL_GetJoystickHat(w->joy, h);
 }
 
+/* Where it rests before the first step: each axis as SDL first read it,
+ * the controller as it was before anyone took hold of it -- a stick held
+ * as the wizard opened is not its rest -- and the hats centred. 0 while an
+ * axis is still to be read, for a while: one never moved is read as it is. */
+static int learn_rest(dxl_padwizard_state *w, double now) {
+    int ready = 1;
+    for (int a = 0; a < w->naxes && a < 16; a++) {
+        Sint16 v;
+        if (SDL_GetJoystickAxisInitialState(w->joy, a, &v)) w->axis_rest[a] = v;
+        else if (now - w->opened < FIRST_READ) ready = 0;
+        else w->axis_rest[a] = SDL_GetJoystickAxis(w->joy, a);
+    }
+    for (int h = 0; h < w->nhats && h < 4; h++) w->hat_rest[h] = SDL_HAT_CENTERED;
+    return ready;
+}
+
+/* Before the first step, a first reading that was not its rest -- a
+ * trigger read before it was at rest, an axis that reads as it likes --
+ * given up once the controller has been still a while: where it is now.
+ * Still is no button down, the hats as they were, no axis moved much. */
+static void settle(dxl_padwizard_state *w, double now) {
+    int moved = 0;
+    for (int b = 0; b < w->nbuttons && !moved; b++) moved = SDL_GetJoystickButton(w->joy, b);
+    for (int h = 0; h < w->nhats && h < 4; h++) {
+        Uint8 v = SDL_GetJoystickHat(w->joy, h);
+        if (v != w->still_hat[h]) moved = 1;
+        w->still_hat[h] = v;
+    }
+    for (int a = 0; a < w->naxes && a < 16; a++) {
+        int v = SDL_GetJoystickAxis(w->joy, a);
+        if (v - w->still_axis[a] > REST / 4 || v - w->still_axis[a] < -REST / 4) {
+            moved = 1;
+            w->still_axis[a] = (Sint16)v;
+        }
+    }
+    if (moved) w->still_since = now;
+    else if (now - w->still_since > SETTLE) rest(w);
+}
+
 static int at_rest(const dxl_padwizard_state *w) {
     for (int b = 0; b < w->nbuttons; b++)
         if (SDL_GetJoystickButton(w->joy, b)) return 0;
@@ -71,6 +117,14 @@ static int at_rest(const dxl_padwizard_state *w) {
 static int button_taken(const dxl_padwizard_state *w, int b) {
     for (int c = 0; c < DXL_PADCTL_COUNT; c++)
         if (w->map.src[c].kind == DXL_PADSRC_BUTTON && w->map.src[c].index == b) return 1;
+    return 0;
+}
+
+static int hat_taken(const dxl_padwizard_state *w, int h, int mask) {
+    for (int c = 0; c < DXL_PADCTL_COUNT; c++) {
+        const dxl_padsrc *s = &w->map.src[c];
+        if (s->kind == DXL_PADSRC_HAT && s->index == h && s->hat_mask == mask) return 1;
+    }
     return 0;
 }
 
@@ -93,7 +147,7 @@ static int take(dxl_padwizard_state *w) {
             }
         for (int h = 0; h < w->nhats; h++) {
             Uint8 v = SDL_GetJoystickHat(w->joy, h);
-            if (v != w->hat_rest[h] && (v == 1 || v == 2 || v == 4 || v == 8)) {
+            if (v != w->hat_rest[h] && (v == 1 || v == 2 || v == 4 || v == 8) && !hat_taken(w, h, v)) {
                 *src = (dxl_padsrc){ DXL_PADSRC_HAT, h, v, 0, 0 };
                 return 1;
             }
@@ -108,13 +162,14 @@ static int take(dxl_padwizard_state *w) {
             *src = (dxl_padsrc){ DXL_PADSRC_AXIS, a, 0, 0, d < 0 };
             return 1;
         }
-        /* A trigger resting at one end is its whole axis; else, and a d-pad
-         * on an axis, the half it moved into. */
-        int whole = w->axis_rest[a] < -TAKEN && (steps[w->step].ctl == DXL_PADCTL_LEFTTRIGGER ||
-                                                 steps[w->step].ctl == DXL_PADCTL_RIGHTTRIGGER);
+        /* A trigger resting at either end is its whole axis, turned when it
+         * rests at the top; else, and a d-pad on an axis, the half it moved
+         * into. */
+        int trigger = steps[w->step].ctl == DXL_PADCTL_LEFTTRIGGER || steps[w->step].ctl == DXL_PADCTL_RIGHTTRIGGER;
+        int whole = trigger && (w->axis_rest[a] < -TAKEN || w->axis_rest[a] > TAKEN);
         int half = whole ? 0 : d > 0 ? 1 : -1;
         if (axis_taken(w, a, half)) continue;
-        *src = (dxl_padsrc){ DXL_PADSRC_AXIS, a, 0, half, 0 };
+        *src = (dxl_padsrc){ DXL_PADSRC_AXIS, a, 0, half, whole && w->axis_rest[a] > 0 };
         return 1;
     }
     return 0;
@@ -130,9 +185,36 @@ static void close_wizard(dxl_shell *s) {
     dxl_shell_close_dialog(s);
 }
 
+int dxl_pad_mappings(const dxl_run *r, int start) {
+    char *db = dxl_run_pad_db(r);
+    /* Over the environment's, which SDL takes over any added. */
+    char *theirs = dxl_padmap_without_ours(getenv("SDL_GAMECONTROLLERCONFIG"), db);
+    if (theirs) SDL_SetHintWithPriority(SDL_HINT_GAMECONTROLLERCONFIG, theirs, SDL_HINT_OVERRIDE);
+    free(theirs);
+    int ok = start ? SDL_InitSubSystem(SDL_INIT_GAMEPAD) : SDL_ReloadGamepadMappings();
+    if (ok && dxl_path_exists(db) && SDL_AddGamepadMappingsFromFile(db) < 0)
+        dxl_log("warning: the pad mappings in %s: %s", db, SDL_GetError());
+    free(db);
+    return ok;
+}
+
+/* Whether SDL maps the controller as the wizard did. */
+static int sdl_has(const dxl_padwizard_state *w) {
+    char *now = SDL_GetGamepadMappingForID(w->id);
+    dxl_padmap m;
+    int same = now && dxl_padmap_parse(now, &m) == 0 && dxl_padmap_same(&m, &w->map);
+    SDL_free(now);
+    return same;
+}
+
 /* The mapping made: SDL's at once, kept for the next start and the game. */
 static void finish(dxl_shell *s) {
     dxl_padwizard_state *w = &s->wizard;
+    if (!dxl_padmap_controls(&w->map)) {
+        dxl_shell_toast(s, "Nothing was mapped: the controller is as it was.");
+        close_wizard(s);
+        return;
+    }
     SDL_GUIDToString(SDL_GetJoystickGUIDForID(w->id), w->map.guid, sizeof w->map.guid);
     const char *name = SDL_GetJoystickNameForID(w->id);
     snprintf(w->map.name, sizeof w->map.name, "%s", name && *name ? name : "A controller");
@@ -143,8 +225,18 @@ static void finish(dxl_shell *s) {
     dxl_err e;
     int saved = dxl_padmap_db_put(db, text, &e);
     free(db);
-    if (SDL_AddGamepadMapping(text) < 0) dxl_shell_toast(s, "SDL did not take the mapping: %s", SDL_GetError());
+    free(s->pad_db);
+    s->pad_db = NULL;
+    int added = SDL_AddGamepadMapping(text) >= 0;
+    /* A mapping of it the environment gave, Steam's, holds over one added:
+     * SDL's made again without that one. */
+    if (added && saved == 0 && !sdl_has(w)) {
+        dxl_log("pad mapping: the environment's held, SDL's mappings made again");
+        dxl_pad_mappings(s->run, 0);
+    }
+    if (!added) dxl_shell_toast(s, "SDL did not take the mapping: %s", SDL_GetError());
     else if (saved != 0) dxl_shell_toast(s, "The mapping was not kept: %s", dxl_err_msg(&e));
+    else if (!sdl_has(w)) dxl_shell_toast(s, "%s is mapped for the game; the launcher keeps another mapping of it.", w->map.name);
     else dxl_shell_toast(s, "%s is mapped: the launcher and the game know it.", w->map.name);
     close_wizard(s);
 }
@@ -164,9 +256,10 @@ void dxl_padwizard_open(dxl_shell *s, SDL_JoystickID id) {
     if (w->naxes > 16) w->naxes = 16;
     if (w->nhats > 4) w->nhats = 4;
     w->open = 1;
-    w->armed = 1;
+    /* Armed once it is let go of: a pad's confirm that opened it is still
+     * down. */
+    w->opened = s->ui.now;
     dxl_padmesh_build(&w->mesh, DXL_PADFAMILY_GENERIC);
-    rest(w);
     if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
     s->dialog = DXL_DIALOG_PADWIZARD;
     /* Its own buttons are the ones asked for, not the window's. */
@@ -186,10 +279,18 @@ void dxl_padwizard(dxl_shell *s, dxl_rect over, int back) {
         return;
     }
     /* The controller back at rest, the step asked for armed; taken, the next. */
-    if (!w->armed && at_rest(w)) {
-        w->armed = 1;
+    if (!w->learnt && (w->learnt = learn_rest(w, ui->now))) w->still_since = ui->now;
+    if (!w->learnt) {
+        /* SDL still to read it. */
+    } else if (!w->armed && !w->primed && !at_rest(w)) {
+        settle(w, ui->now);
+    } else if (!w->armed && at_rest(w)) {
+        w->armed = w->primed = 1;
         rest(w);
     } else if (w->armed && take(w)) {
+        char got[16];
+        dxl_padsrc_format(&w->map.src[steps[w->step].ctl], got, sizeof got);
+        dxl_log("pad wizard: %s:%s", dxl_padctl_names[steps[w->step].ctl], got);
         w->armed = 0;
         w->step++;
     }

@@ -1,8 +1,12 @@
 # The Controller page with a virtual Xbox pad: its south button given Quick
-# Save from the list, its north found by pressing it and given Quick Load;
-# then a controller SDL has no mapping for, mapped by the wizard -- its face
-# buttons pressed, the rest skipped -- and Play: test_ui_scripts.c reads
-# User.ini, gamecontrollerdb.txt and what the engine got.
+# Save from the list, its north found by pressing it and given Quick Load,
+# its right trigger found by pulling it and given the scope. The wizard
+# opened by the pad's own south button, which it must not take for the
+# first step: west pressed for it, the rest skipped. Then a controller SDL
+# has no mapping for, its left trigger resting at the top, mapped by the
+# wizard -- the face buttons, the trigger, the d-pad's up twice and its
+# down, the rest skipped -- and Play: test_ui_scripts.c reads User.ini,
+# gamecontrollerdb.txt and what the engine got.
 pad attach xbox
 wait 1.5
 expect home
@@ -34,10 +38,81 @@ expect pick
 find Quick Load
 key Return
 wait 0.3
+expect settings
+find Find a button
+key Return
+wait 0.3
+pad axis 5 1
+wait 0.3
+key Return
+wait 0.3
+expect pick
+find Toggle scope
+key Return
+wait 0.3
+pad axis 5 -1
+wait 0.3
+
+# The wizard by the pad's confirm, held as it opens.
+find Layout
+find Map this controller...
+pad button 0 down
+wait 0.3
+expect padwizard
+pad button 0 up
+wait 0.8
+pad button 2 down
+wait 0.15
+pad button 2 up
+wait 0.3
+find Skip
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+key Return
+wait 0.15
+wait 0.3
+expect settings
 
 # A second controller, SDL's none: chosen above the model, mapped from the
 # rows' end.
 pad attach raw
+pad axis 2 1
 wait 0.5
 find Controller
 key Right
@@ -45,8 +120,11 @@ wait 0.3
 find Layout
 find Map this controller...
 key Return
-wait 0.5
+wait 0.3
 expect padwizard
+# Its trigger first read before it was at the top: the wizard takes where
+# it rests once it has been still a second.
+wait 1.5
 pad button 0 down
 wait 0.15
 pad button 0 up
@@ -65,39 +143,51 @@ pad button 3 up
 wait 0.3
 find Skip
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
+pad axis 2 -1
+wait 0.2
+pad axis 2 1
+wait 0.3
+find Skip
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
+pad hat 0 1
+wait 0.15
+pad hat 0 0
+wait 0.3
+pad hat 0 1
+wait 0.15
+pad hat 0 0
+wait 0.3
+pad hat 0 4
+wait 0.15
+pad hat 0 0
+wait 0.3
+find Skip
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
+wait 0.15
 key Return
-wait 0.1
-key Return
-wait 0.1
-key Return
-wait 0.1
-key Return
-wait 0.1
+wait 0.15
 wait 0.3
 expect settings
 find Done

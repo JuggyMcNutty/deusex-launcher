@@ -36,6 +36,9 @@ float    dxl_paragraph(dxl_ui *ui, dxl_rect r, dxl_font_role role, const char *s
 
 /* 1 when activated: clicked, or Enter or the pad's confirm on it. */
 int      dxl_button(dxl_ui *ui, const char *id, dxl_rect r, const char *label, int flags);
+/* The same by its id: a list's row (dxl_list_row_id), whose Up and Down
+ * the list then takes along its rows. */
+int      dxl_button_id(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int flags);
 
 /* A name and its value on a line of h dp cut off the top of *r: the name
  * in the help colour, name_w wide, the value after it. */

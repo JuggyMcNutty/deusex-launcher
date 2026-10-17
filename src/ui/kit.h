@@ -50,7 +50,7 @@ typedef struct {
     char  text[128];
 
     /* While a slot captures (dxl_ui_capture_begin): the first key, mouse
-     * button, wheel notch or pad button, as it is; Esc is back. */
+     * button, wheel notch, pad button or trigger, as it is; Esc is back. */
     int   captured;            /* DXL_CAPTURED_* */
     int   captured_code;       /* the scancode, button, notch (+1 up) or pad button */
 } dxl_input;
@@ -67,7 +67,8 @@ typedef struct {
 #define DXL_CAPTURED_KEY    1
 #define DXL_CAPTURED_MOUSE  2
 #define DXL_CAPTURED_WHEEL  3
-#define DXL_CAPTURED_PAD    4
+#define DXL_CAPTURED_PAD    4   /* captured_code: SDL's gamepad button */
+#define DXL_CAPTURED_TRIGGER 5  /* a trigger pulled past half: 0 the left, 1 the right */
 
 typedef enum {
     DXL_FONT_TITLE, DXL_FONT_HEADING, DXL_FONT_BUTTON, DXL_FONT_LABEL, DXL_FONT_BODY,
