@@ -27,6 +27,8 @@
 /* A pad there as the window opens is no news. */
 #define PADS_SETTLE_S 1.5
 #define FRAME_NS 16666666ull
+/* The title music's fade as Play closes the window. */
+#define FADE_S 0.35f
 
 struct dxl_window {
     dxl_shell      shell;
@@ -37,6 +39,7 @@ struct dxl_window {
     SDL_Renderer  *renderer;
     int            vsync;
     int            sdl, pads, kit;
+    int            audio_up;       /* SDL's audio subsystem, up with the window */
     Uint32         wake_event, pick_event;
     double         opened;
     int            cursor_hidden;
@@ -334,6 +337,11 @@ static void close_window(dxl_window *w, dxl_run *r) {
         if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     }
     dxl_art_free(&w->shell.art);
+    /* The sound goes with the window: the game opens its own. */
+    dxl_audio_close(w->shell.audio);
+    w->shell.audio = NULL;
+    if (w->audio_up) SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    w->audio_up = 0;
     dxl_ui_detach(&w->shell.ui);
     SDL_DestroyRenderer(w->renderer);
     SDL_DestroyWindow(w->window);
@@ -430,6 +438,10 @@ static int open_window(dxl_window *w, dxl_run *r) {
             w->vsync ? ", VSync" : "", s->ui.w_px, s->ui.h_px, s->ui.scale);
     SDL_ShowWindow(w->window);
     w->opened = now_s();
+    /* Its sound: the title music and the menu's sounds (dxl_shell_sound). */
+    w->audio_up = SDL_InitSubSystem(SDL_INIT_AUDIO);
+    s->audio = w->audio_up ? dxl_audio_open() : NULL;
+    s->audio_given = 0;
     s->window = w;
     s->pick_folder = pick_folder;
     s->desktop = desktop;
@@ -503,6 +515,7 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
         SDL_SetRenderDrawColor(w->renderer, 0, 0, 0, 255);
         SDL_RenderClear(w->renderer);
         dxl_shell_frame(s, now_s());
+        dxl_shell_cue(s, s->ui.cues);
         dxl_uiscript_shoot(w->script, w->renderer);
         SDL_RenderPresent(w->renderer);
         if (s->ui.diag_count != w->diags) {
@@ -516,6 +529,11 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
     }
     listen_stop(w);
     dxl_shell_leave(s);
+    /* Play: the music faded as the window goes. */
+    if (s->result == 1 && s->audio) {
+        dxl_audio_fade(s->audio, FADE_S);
+        SDL_Delay((Uint32)(FADE_S * 1000) + 40);
+    }
     if (s->result == 1 && s->next_run[0]) {
         /* The next run's own words, after the player's. */
         size_t n = strlen(r->words) + strlen(s->next_run) + 2;

@@ -50,6 +50,11 @@ foreach(name test_ui_focus test_ui_text test_ui_input test_ui_controls)
     target_link_libraries(${name} PRIVATE dxl_ui)
     target_compile_definitions(${name} PRIVATE DXL_FONTS="${DXL_ROOT}/data/fonts")
 endforeach()
+# The window's sound, on SDL's dummy output; the install's title music when
+# gamefiles/ has one.
+dxl_test(test_ui_audio)
+target_link_libraries(test_ui_audio PRIVATE dxl_ui)
+target_compile_definitions(test_ui_audio PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System")
 
 # Every page at every size and with every device, without a diagnostic
 # (tools/shots.c): a test for each size, so they run side by side.

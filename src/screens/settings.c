@@ -184,6 +184,7 @@ static void live(dxl_shell *s, const dxl_setting *st) {
     if (!strcmp(st->id, "launcher.ui_scale")) s->ui.user_scale = (float)dxl_setting_number(&s->stores, st);
     else if (!strcmp(st->id, "launcher.reduced_motion")) s->ui.reduced_motion = dxl_setting_bool(&s->stores, st);
     else if (!strcmp(st->id, "hud.menu_theme")) dxl_shell_theme(s);
+    else if (!strcmp(st->id, "launcher.music_volume") || !strcmp(st->id, "launcher.sound_volume")) dxl_shell_volumes(s);
 }
 
 /* The engine's row: its version, or what is wrong with it; its choices. */

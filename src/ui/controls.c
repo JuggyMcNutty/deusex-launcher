@@ -64,6 +64,7 @@ int dxl_toggle(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *on, 
     dxl_bevel(ui, dxl_inset(knob, 1), &ks);
     dxl_rect text = { a.x, a.y, a.w - sw - 12, a.h };
     dxl_label(ui, text, DXL_FONT_LABEL, *on ? "On" : "Off", *on ? t->text_focus : t->help, DXL_W_RIGHT);
+    if (*on != was) ui->cues |= DXL_CUE_SLIDE;
     return *on != was;
 }
 
@@ -108,6 +109,7 @@ int dxl_slider(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, double *v
     dxl_bevel(ui, knob, &ks);
     dxl_rect text = { a.x + a.w - vw, a.y, vw, a.h };
     dxl_label(ui, text, DXL_FONT_LABEL, shown, (hits & DXL_HIT_FOCUSED) ? t->text_focus : t->text, DXL_W_RIGHT);
+    if (*v != was) ui->cues |= DXL_CUE_SLIDE;
     return *v != was;
 }
 
@@ -153,7 +155,10 @@ int dxl_spinner(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *ind
     if (n > 0 && *index >= 0 && *index < n)
         dxl_label(ui, value, DXL_FONT_BODY, labels[*index], (flags & DXL_W_DISABLED) ? t->text_disabled : on,
                   DXL_W_CENTER | (flags & DXL_W_MAY_CUT));
-    if (*index != was) ret = DXL_SPIN_CHANGED;
+    if (*index != was) {
+        ret = DXL_SPIN_CHANGED;
+        ui->cues |= DXL_CUE_SLIDE;
+    }
     return ret;
 }
 

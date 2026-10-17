@@ -534,6 +534,7 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     ui->animating = 0;
     ui->wake = 0;
     ui->text_ready_now = 0;
+    ui->cues = ui->in.back ? DXL_CUE_BACK : 0;
     ui->diag_count = 0;
     ui->focus_moved = 0;
     ui->id_seed = 0;
@@ -571,17 +572,22 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     for (int d = 0; d < 4 && ui->prev.count; d++) {
         for (int n = 0; n < ui->in.nav[d]; n++) {
             uint32_t to = dxl_focus_move(&ui->prev, ui->focus, (dxl_dir)d);
-            if (to != ui->focus) ui->focus_moved = 1;
+            if (to != ui->focus) {
+                ui->focus_moved = 1;
+                ui->cues |= DXL_CUE_FOCUS;
+            }
             ui->focus = to;
         }
     }
     for (int n = 0; n < ui->in.tab && ui->prev.count; n++) {
         ui->focus = dxl_focus_step(&ui->prev, ui->focus, 1);
         ui->focus_moved = 1;
+        ui->cues |= DXL_CUE_FOCUS;
     }
     for (int n = 0; n < ui->in.untab && ui->prev.count; n++) {
         ui->focus = dxl_focus_step(&ui->prev, ui->focus, -1);
         ui->focus_moved = 1;
+        ui->cues |= DXL_CUE_FOCUS;
     }
 }
 
@@ -739,7 +745,10 @@ static int pointer_hits(dxl_ui *ui, uint32_t id, dxl_rect r, int focuses) {
         /* Focus follows the pointer only as it moves, so it does not take
          * the keys' focus from where they put it; and not from a field
          * being edited. */
-        if (focuses && ui->in.pointer_moved && !ui->text_id) ui->focus = id;
+        if (focuses && ui->in.pointer_moved && !ui->text_id && ui->focus != id) {
+            ui->focus = id;
+            ui->cues |= DXL_CUE_FOCUS;
+        }
     }
     if (inside && ui->in.pressed) {
         ui->held = id;
@@ -747,7 +756,10 @@ static int pointer_hits(dxl_ui *ui, uint32_t id, dxl_rect r, int focuses) {
     }
     if (ui->held == id) {
         if (ui->in.released) {
-            if (inside) hits |= DXL_HIT_ACTIVATED;
+            if (inside) {
+                hits |= DXL_HIT_ACTIVATED;
+                ui->cues |= DXL_CUE_PRESS;
+            }
         } else {
             hits |= DXL_HIT_HELD;
         }
@@ -764,6 +776,7 @@ int dxl_ui_focusable(dxl_ui *ui, uint32_t id, dxl_rect r, int disabled) {
         hits |= DXL_HIT_FOCUSED;
         if (ui->in.activate) {
             hits |= DXL_HIT_ACTIVATED;
+            ui->cues |= DXL_CUE_PRESS;
             ui->in.activate = 0;   /* one widget takes it */
         }
     }

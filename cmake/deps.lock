@@ -8,3 +8,4 @@
 sdl3        3.4.18   SDL3-3.4.18.tar.gz       9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3  https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz
 freetype    2.14.3   freetype-2.14.3.tar.xz   36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f  https://download.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz
 sdl3_ttf    3.2.2    SDL3_ttf-3.2.2.tar.gz    63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d  https://github.com/libsdl-org/SDL_ttf/releases/download/release-3.2.2/SDL3_ttf-3.2.2.tar.gz
+xmp_lite    4.7.3    libxmp-lite-4.7.3.tar.gz e199da3f7552f5ac688a091b8d28ea3c9ffd2beb845d15aac17d4d264f851d71  https://github.com/libxmp/libxmp/releases/download/libxmp-4.7.3/libxmp-lite-4.7.3.tar.gz

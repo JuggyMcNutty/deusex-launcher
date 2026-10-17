@@ -131,6 +131,7 @@ typedef struct dxl_ui {
     int             br_valid;
 
     int             animating;   /* something moves: draw again soon */
+    int             cues;        /* what this frame did that a menu sound marks: DXL_CUE_* */
     double          wake;        /* a frame due at this time with nothing else happening (a caret's blink); 0 none */
     unsigned long   frame;
 
@@ -170,6 +171,16 @@ typedef struct dxl_ui {
         struct { uint32_t id; char name[64]; } at[160];
     } names;
 } dxl_ui;
+
+/* What a frame did that a menu sound marks (ui/audio.h): the focus moved,
+ * a control chosen, gone back, a value stepped, a dialog up, play. The
+ * window plays the most telling of a frame's. */
+#define DXL_CUE_FOCUS 0x01
+#define DXL_CUE_PRESS 0x02
+#define DXL_CUE_BACK  0x04
+#define DXL_CUE_SLIDE 0x08
+#define DXL_CUE_OPEN  0x10
+#define DXL_CUE_PLAY  0x20
 
 /* The kit on a renderer (a window's, or a software one on a surface for
  * dxl-shots), its fonts from fonts_dir. -1 when a font is missing. */
