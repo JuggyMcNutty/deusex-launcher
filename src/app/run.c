@@ -1,0 +1,537 @@
+#define _GNU_SOURCE
+#include "app/run.h"
+#include "core/argv.h"
+#include "core/cmdline.h"
+#include "core/engine_args.h"
+#include "core/log.h"
+#include "core/paths.h"
+#include "platform/process.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#define HANDOFF_TIMEOUT_MS 30000   /* the original's SendMessageTimeout */
+#define VERSION_TIMEOUT_MS 5000
+#define PACKAGE "DeusEx"
+
+/* ---- the command line --------------------------------------------- */
+
+static int take(const char *arg, const char *name, const char **value) {
+    size_t n = strlen(name);
+    if (strncmp(arg, name, n) != 0) return 0;
+    if (arg[n] == '=') { *value = arg + n + 1; return 1; }
+    return 0;
+}
+
+int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl_err *err) {
+    memset(opt, 0, sizeof *opt);
+    char **rest = dxl_xmalloc(((size_t)argc + 1) * sizeof *rest);
+    int n = 0;
+    rest[n++] = argc > 0 ? argv[0] : "deusex-launcher";
+    for (int i = 1; i < argc; i++) {
+        const char *a = argv[i];
+        if (strncmp(a, "--", 2) != 0) { rest[n++] = argv[i]; continue; }
+        if (take(a, "--game", &opt->game) || take(a, "--profile", &opt->profile)) continue;
+        if (strcmp(a, "--play") == 0) { opt->play = 1; continue; }
+        if (strcmp(a, "--dry-run") == 0) { opt->dry = 1; continue; }
+        if (strcmp(a, "--print-command") == 0) { opt->print_command = 1; continue; }
+        if (strcmp(a, "--import") == 0) { opt->import_only = 1; continue; }
+        dxl_err_set(err, "no option %s", a);
+        free(rest);
+        return -1;
+    }
+    rest[n] = NULL;
+    *words = dxl_cmdline_join(n, rest);
+    free(rest);
+    return 0;
+}
+
+/* ---- the report of a stop ------------------------------------------ */
+
+static void stop_with(dxl_run *r, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(r->message, sizeof r->message, fmt, ap);
+    va_end(ap);
+    dxl_log("%s", r->message);
+}
+
+/* What a screen with no window says instead: the last run's end on
+ * Recovery, what it wants elsewhere. */
+static void say_view(dxl_run *r, dxl_view v) {
+    char line[600];
+    switch (v) {
+    case DXL_VIEW_RECOVERY:
+        if (r->last.known) {
+            dxl_lastrun_describe(&r->last, line, sizeof line);
+            fprintf(stderr, "The last run of profile %s did not end cleanly: %s.\n",
+                    r->session.profile.id, line);
+        } else {
+            fprintf(stderr, "Safe mode: the Recovery screen is the launcher's window's.\n");
+        }
+        char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
+        char *tail = dxl_lastrun_tail(log, 8);
+        if (tail) fprintf(stderr, "The end of its log, %s:\n%s\n", log, tail);
+        free(tail);
+        free(log);
+        fprintf(stderr, "Its Running.ini is %s: remove it to play again without the Recovery screen.\n",
+                dxl_sentinel_path(&r->sentinel));
+        break;
+    case DXL_VIEW_GRAPHICS:
+        fprintf(stderr, "-changevideo: the Graphics screen is the launcher's window's.\n");
+        break;
+    case DXL_VIEW_FIRST_RUN:
+        fprintf(stderr, "No profile yet: give the game's folder, --game=<dir>.\n");
+        break;
+    default:
+        break;
+    }
+}
+
+/* ---- the engine ------------------------------------------------------ */
+
+/* The engine's --version: refused without the userdir feature. */
+static int check_engine(dxl_run *r, dxl_engine_version *v) {
+    const char *engine = r->session.engine;
+    if (!dxl_path_exists(engine)) {
+        stop_with(r, "no engine at %s", engine);
+        return -1;
+    }
+    char *argv[] = { (char *)engine, "--version", NULL };
+    char out[1024];
+    int status = 0;
+    dxl_err e;
+    if (dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, &status, &e) != 0 ||
+        dxl_engine_version_parse(out, v) != 0) {
+        stop_with(r, "%s is not a VibeEngine that answers --version: refusing it", engine);
+        return -1;
+    }
+    if (!dxl_engine_has(v, DXL_ENGINE_NEEDS)) {
+        stop_with(r, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/SurrealEngine",
+                  engine, v->version, DXL_ENGINE_NEEDS);
+        return -1;
+    }
+    dxl_log("engine: %s, %s; features: %s", engine, v->version, v->features);
+    return 0;
+}
+
+/* The words and the environment the engine is started with. */
+static char **engine_argv(const dxl_run *r) {
+    const dxl_profile *p = &r->session.profile;
+    dxl_engine_command c = {
+        .engine = r->session.engine,
+        .game = r->session.install.root,
+        .ini = p->system_ini,
+        .user_ini = p->user_ini,
+        .user_dir = p->engine_dir,
+        .url = NULL,
+        .extra = getenv("DXL_ENGINE_ARGS"),
+        .cmdline = r->words,
+    };
+    return dxl_engine_argv(&c);
+}
+
+/* SDL2: the display backend with the fork's pad support, unless the player
+ * named one (the fork's ENGINE.md, settings and environment). */
+static char **engine_env(void) {
+    static char *env[2];
+    env[0] = getenv("SURREALWIDGETS_DISPLAY_BACKEND") ? NULL : "SURREALWIDGETS_DISPLAY_BACKEND=SDL2";
+    env[1] = NULL;
+    return env;
+}
+
+static void print_command(const dxl_run *r) {
+    char **argv = engine_argv(r);
+    char *line = dxl_argv_quoted(argv);
+    char **env = engine_env();
+    char *cwd[] = { r->session.install.system_dir, NULL };
+    char *dir = dxl_argv_quoted(cwd);
+    printf("cd %s && %s%s%s\n", dir, env[0] ? env[0] : "", env[0] ? " " : "", line);
+    printf("# and DXL_LAUNCHER_FD, the launcher's line; output into %s/%s\n",
+           r->session.profile.logs_dir, DXL_LASTRUN_LOG);
+    free(dir);
+    free(line);
+    dxl_argv_free(argv);
+}
+
+/* ---- the dry run ------------------------------------------------------ */
+
+static const char *view_name(dxl_view v) {
+    switch (v) {
+    case DXL_VIEW_NONE: return "none: play";
+    case DXL_VIEW_HOME: return "Home";
+    case DXL_VIEW_FIRST_RUN: return "First run";
+    case DXL_VIEW_RECOVERY: return "Recovery";
+    case DXL_VIEW_GRAPHICS: return "Graphics";
+    }
+    return "?";
+}
+
+static void dry_run(dxl_run *r) {
+    dxl_session *s = &r->session;
+    dxl_profile *p = &s->profile;
+    printf("launcher\n");
+    printf("  app folder     %s\n", s->app_dir);
+    printf("  engine         %s\n", s->engine);
+    printf("  command line   \"%s\"\n", r->words);
+    printf("  launcher.ini   %s%s\n", s->ini_path, dxl_path_exists(s->ini_path) ? "" : " (not yet written)");
+    printf("\nprofile %s (%s)\n", p->id, dxl_profile_exists(p) ? "made" : "not made yet");
+    printf("  inis           %s, %s\n", p->system_ini, p->user_ini);
+    printf("  engine folder  %s\n", p->engine_dir);
+    printf("  saves, shots   %s, %s\n", p->save_dir, p->shots_dir);
+    printf("  runs           %s\n", p->state_dir);
+    printf("\ninstall\n");
+    if (s->install.root) {
+        printf("  folder         %s\n", s->install.root);
+        printf("  build          %s%s\n", s->install.build ? s->install.build->version : "unknown",
+               s->install.build ? "" : " (the engine does not play it)");
+        if (s->install.problem[0]) printf("  problem        %s\n", s->install.problem);
+    } else {
+        printf("  none yet%s\n", r->opt.game ? "" : ": --game=<dir> names one");
+    }
+    if (!dxl_profile_exists(p) && s->install.root) {
+        dxl_import im;
+        dxl_err e;
+        if (dxl_profile_import(p, s->install.system_dir, 1, &im, &e) == 0) {
+            printf("\nthe first run would make the profile from\n");
+            printf("  DeusEx.ini     %s\n", im.system_from);
+            printf("  User.ini       %s\n", im.user_from);
+            if (im.engine_from[0]) printf("  engine's own   %s\n", im.engine_from);
+            printf("  saves          %d from %s (never Current)\n", im.saves, im.saves_from);
+            printf("  shots          %d\n", im.shots);
+            if (im.master_replaced) printf("  master server  GameSpy's, closed: 333networks' in its place\n");
+        }
+    }
+    printf("\ndecision\n");
+    printf("  action         %s, %s\n", dxl_action_name(r->decision.action), dxl_screen_name(r->decision.screen));
+    printf("  screen         %s\n", view_name(r->view));
+    printf("  first run      %d (effective)\n", r->decision.effective_first_run);
+    printf("  Running.ini    %s\n", dxl_sentinel_exists(&r->sentinel) ? "present: the last run did not end cleanly" : "absent");
+    if (r->last.known) {
+        char line[600];
+        dxl_lastrun_describe(&r->last, line, sizeof line);
+        printf("  last run       %s\n", line);
+    }
+    if (s->install.root && s->install.ok) {
+        printf("\nthe engine's command\n  ");
+        fflush(stdout);
+        print_command(r);
+    }
+    printf("\nnothing was written.\n");
+}
+
+/* ---- the run ---------------------------------------------------------- */
+
+static void open_log(dxl_run *r) {
+    if (r->opt.dry || r->opt.print_command) {
+        dxl_log_set_to_file(0);
+        dxl_log_set_echo(0);
+        return;
+    }
+    dxl_path_mkdirs(r->session.xdg.state);
+    char *path = dxl_path_join(r->session.xdg.state, "launcher.log");
+    dxl_log_open_new(path);
+    free(path);
+}
+
+/* The first run: a profile made from --game's install, or by the First
+ * run screen. 0 to go on; -1 when the player quit there; else the exit
+ * code to stop with. */
+static int first_run(dxl_run *r, const dxl_run_ui *ui) {
+    if (!r->opt.game) {
+        if (ui && ui->view) {
+            if (!ui->view(ui->ctx, r, DXL_VIEW_FIRST_RUN)) return -1;
+            if (dxl_profile_exists(&r->session.profile)) return 0;
+            stop_with(r, "the First run screen made no profile");
+            return DXL_RUN_EXIT_NOGAME;
+        }
+        say_view(r, DXL_VIEW_FIRST_RUN);
+        dxl_log("no profile yet and no --game");
+        return DXL_RUN_EXIT_SCREEN;
+    }
+    dxl_install in;
+    if (dxl_install_check(r->opt.game, &in) != 0) {
+        stop_with(r, "cannot make a profile from %s: %s", in.root, in.problem);
+        dxl_install_free(&in);
+        return DXL_RUN_EXIT_NOGAME;
+    }
+    if (in.problem[0]) dxl_log("warning: %s", in.problem);
+    dxl_import report;
+    dxl_err e;
+    int rc = dxl_session_make_profile(&r->session, &in, NULL, &report, &e);
+    dxl_install_free(&in);
+    if (rc != 0) {
+        stop_with(r, "cannot make the profile: %s", dxl_err_msg(&e));
+        return DXL_RUN_EXIT_NOGAME;
+    }
+    return 0;
+}
+
+/* --game on a profile that has one: the profile's install is that one now
+ * (the game moved, or another copy of it). */
+static int repoint(dxl_run *r) {
+    dxl_install in;
+    if (dxl_install_check(r->opt.game, &in) != 0) {
+        stop_with(r, "%s is not an install to play: %s", in.root, in.problem);
+        dxl_install_free(&in);
+        return DXL_RUN_EXIT_NOGAME;
+    }
+    char id[96];
+    dxl_session_remember_install(&r->session, &in, id, sizeof id);
+    const char *was = dxl_profile_get(&r->session.profile, "Install");
+    if (!was || strcmp(was, id) != 0) {
+        dxl_profile_set(&r->session.profile, "Install", id);
+        dxl_log("profile %s: install %s (%s)", r->session.profile.id, id, in.root);
+    }
+    dxl_install_free(&in);
+    return 0;
+}
+
+static dxl_view view_of(const dxl_run *r) {
+    switch (r->decision.screen) {
+    case DXL_SCREEN_MAIN_SAFE:
+    case DXL_SCREEN_MAIN_RECOVERY:  return DXL_VIEW_RECOVERY;
+    case DXL_SCREEN_RENDERER_VIDEO: return DXL_VIEW_GRAPHICS;
+    /* The original's first-time renderer page: the first run here is the
+     * launcher's own, done by now. */
+    case DXL_SCREEN_RENDERER_FIRST:
+    case DXL_SCREEN_NONE:           break;
+    }
+    if (r->decision.action != DXL_ACTION_LAUNCH && r->decision.action != DXL_ACTION_SCREEN)
+        return DXL_VIEW_NONE;
+    const char *no_home = getenv("DXL_NO_HOME");
+    if (r->opt.play || (no_home && strcmp(no_home, "1") == 0)) return DXL_VIEW_NONE;
+    return DXL_VIEW_HOME;
+}
+
+static void decide(dxl_run *r) {
+    dxl_policy_input in = {
+        .cmdline = r->words,
+        .first_run = dxl_config_first_run(r->config),
+        .other_instance = r->instance == NULL,
+        .forward_tried = 1,
+        .running_ini_exists = dxl_sentinel_exists(&r->sentinel),
+        .is_client = !dxl_cmd_param(r->words, "server"),
+    };
+    dxl_policy_decide(&in, &r->decision);
+    r->view = view_of(r);
+    dxl_log("decision: %s, %s; FirstRun %d; Running.ini %d; screen %s",
+            dxl_action_name(r->decision.action), dxl_screen_name(r->decision.screen),
+            r->decision.effective_first_run, in.running_ini_exists, view_name(r->view));
+}
+
+/* Saved, FirstRun raised, the sentinel made: after the screens, before the
+ * game, in the original's order (dx-reverse-info/launch-flow.md section
+ * 5). */
+static void commit(dxl_run *r) {
+    dxl_err e;
+    if (dxl_sentinel_create(&r->sentinel, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    dxl_config_clamp_first_run(r->config);
+    if (dxl_config_save(r->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+}
+
+/* The game, and its end recorded. */
+static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
+    char *log = dxl_lastrun_rotate(r->session.profile.logs_dir);
+    char **argv = engine_argv(r);
+    char *line = dxl_argv_quoted(argv);
+    dxl_log("starting the game: %s", line);
+    free(line);
+    dxl_play_request req = {
+        .argv = argv,
+        .env = engine_env(),
+        .workdir = r->session.install.system_dir,
+        .log_path = log,
+        .instance = r->instance,
+        .stop = stop,
+    };
+    if (ui && ui->before_play) ui->before_play(ui->ctx, r);
+    dxl_play_result_free(&r->played);
+    dxl_play(&req, &r->played);
+    if (ui && ui->after_play) ui->after_play(ui->ctx, r);
+    dxl_argv_free(argv);
+
+    dxl_lastrun *last = &r->last;
+    memset(last, 0, sizeof *last);
+    last->known = 1;
+    last->ended = (long)time(NULL);
+    last->status = r->played.started ? r->played.status : 127;
+    last->signal = r->played.signal;
+    last->ready = r->played.ready;
+    last->clean = r->played.clean;
+    if (!r->played.started)
+        snprintf(last->error, sizeof last->error, "%s", r->played.error);
+    else
+        dxl_lastrun_error_line(log, last->error, sizeof last->error);
+    dxl_err e;
+    if (dxl_lastrun_save(last, r->session.profile.state_dir, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    free(log);
+
+    if (r->played.clean) dxl_sentinel_remove(&r->sentinel);
+    else dxl_log("not a clean end: Running.ini stays for the next start");
+    return last->status;
+}
+
+int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop) {
+    dxl_run *r = dxl_xmalloc(sizeof *r);
+    memset(r, 0, sizeof *r);
+    int rc = 0;
+    dxl_err e;
+    if (dxl_run_parse(argc, argv, &r->opt, &r->words, &e) != 0) {
+        fprintf(stderr, "%s\n", dxl_err_msg(&e));
+        free(r);
+        return DXL_RUN_EXIT_USAGE;
+    }
+    if (dxl_session_open(&r->session, r->opt.profile, &e) != 0) {
+        fprintf(stderr, "%s\n", dxl_err_msg(&e));
+        rc = DXL_RUN_EXIT_NOGAME;
+        goto done;
+    }
+    char *id = dxl_session_instance_id(&r->session);
+
+    /* 1. Forwarding, before anything is written. */
+    dxl_policy_input pre = { .cmdline = r->words, .forward_tried = 1 };
+    dxl_decision first;
+    dxl_policy_decide(&pre, &first);
+    int busy = dxl_instance_other_running(id);
+    if (!r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy &&
+        dxl_instance_forward(id, r->words, HANDOFF_TIMEOUT_MS, &e) == 0) {
+        fprintf(stderr, "the launcher already running took this command line\n");
+        free(id);
+        goto done;
+    }
+    open_log(r);
+    dxl_log("Init: command line: %s", r->words);
+    if (!r->opt.dry && !r->opt.print_command) r->instance = dxl_instance_acquire(id);
+    free(id);
+
+    /* 2. The profile, and its install. */
+    if (!dxl_profile_exists(&r->session.profile)) {
+        if (r->opt.dry || r->opt.print_command) {
+            if (r->opt.game) dxl_install_check(r->opt.game, &r->session.install);
+        } else if ((rc = first_run(r, ui)) != 0) {
+            if (rc < 0) rc = 0;   /* the player quit */
+            goto done;
+        }
+    } else if (r->opt.game && !r->opt.dry && !r->opt.print_command) {
+        if ((rc = repoint(r)) != 0) goto done;
+    }
+    if (r->opt.import_only) {
+        if (dxl_session_save(&r->session, &e) != 0) stop_with(r, "%s", dxl_err_msg(&e));
+        printf("profile %s made from %s\n", r->session.profile.id,
+               r->session.install.root ? r->session.install.root : r->opt.game);
+        goto done;
+    }
+    if (dxl_profile_exists(&r->session.profile) && dxl_session_check_install(&r->session) != 0) {
+        if (!r->opt.dry) {
+            stop_with(r, "profile %s has no install to play%s%s", r->session.profile.id,
+                      r->session.install.problem[0] ? ": " : "", r->session.install.problem);
+            rc = DXL_RUN_EXIT_NOGAME;
+            goto done;
+        }
+    }
+    dxl_sentinel_init(&r->sentinel, r->session.profile.state_dir);
+    dxl_lastrun_load(&r->last, r->session.profile.state_dir);
+    if (dxl_profile_exists(&r->session.profile))
+        r->config = dxl_config_open_files(r->session.install.system_dir ? r->session.install.system_dir : ".",
+                                          PACKAGE, r->session.profile.system_ini, r->session.profile.user_ini);
+
+    if (!dxl_profile_exists(&r->session.profile)) r->view = DXL_VIEW_FIRST_RUN;
+    /* A screen the player has just answered with Play: none again for this
+     * game, though its Running.ini is still there. */
+    int answered = 0;
+    for (;;) {
+        /* 3. The decision. */
+        if (r->config) decide(r);
+        if (answered) r->view = DXL_VIEW_NONE;
+        answered = 0;
+        if (r->opt.dry) {
+            dry_run(r);
+            goto done;
+        }
+        if (r->opt.print_command) {
+            if (!r->session.install.ok) {
+                fprintf(stderr, "no install to play: %s\n", r->session.install.problem);
+                rc = DXL_RUN_EXIT_NOGAME;
+            } else {
+                print_command(r);
+            }
+            goto done;
+        }
+        if (r->decision.action == DXL_ACTION_CONSOLE_CMD) {
+            dxl_log("Executing console command %s", r->decision.console_command);
+            goto done;
+        }
+        if (r->decision.action == DXL_ACTION_TEST_RENDEV) {
+            fprintf(stderr, "-testrendev: the renderers this machine runs are dxl-cli --probe's\n");
+            goto done;
+        }
+        if (r->view != DXL_VIEW_NONE) {
+            if (ui && ui->view) {
+                if (!ui->view(ui->ctx, r, r->view)) {
+                    if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+                    goto done;
+                }
+            } else if (r->view != DXL_VIEW_HOME) {
+                say_view(r, r->view);
+                rc = DXL_RUN_EXIT_SCREEN;
+                goto done;
+            }
+        }
+
+        /* 4 and 5. */
+        dxl_engine_version v;
+        if (check_engine(r, &v) != 0) {
+            rc = DXL_RUN_EXIT_NOGAME;
+            goto done;
+        }
+        commit(r);
+        rc = play(r, ui, stop);
+
+        /* 6. The end. */
+        if (!r->played.clean) {
+            char line[600];
+            dxl_lastrun_describe(&r->last, line, sizeof line);
+            fprintf(stderr, "The game did not end cleanly: %s.\n", line);
+            if (ui && ui->view) {
+                r->view = DXL_VIEW_RECOVERY;
+                if (ui->view(ui->ctx, r, DXL_VIEW_RECOVERY)) {
+                    answered = 1;
+                    continue;
+                }
+            } else {
+                char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
+                fprintf(stderr, "Its log: %s\n", log);
+                free(log);
+            }
+            if (rc == 0) rc = 1;
+            goto done;
+        }
+        if (r->played.relaunch) {
+            /* The original's RELAUNCH starts DeusEx.exe again with the line:
+             * a dedicated server (-server), the renderer page
+             * (-changevideo); decided again here, in this process. */
+            dxl_log("relaunch: %s", r->played.relaunch);
+            free(r->words);
+            r->words = dxl_xstrdup(r->played.relaunch);
+            continue;
+        }
+        break;
+    }
+
+done:
+    if (r->message[0] && !r->opt.dry) fprintf(stderr, "%s\n", r->message);
+    dxl_log("Exit (%d)", rc);
+    dxl_log_close();
+    if (r->instance) dxl_instance_release(r->instance);
+    dxl_config_free(r->config);
+    if (r->sentinel.path) dxl_sentinel_free(&r->sentinel);
+    dxl_play_result_free(&r->played);
+    dxl_session_close(&r->session);
+    free(r->words);
+    free(r);
+    return rc;
+}

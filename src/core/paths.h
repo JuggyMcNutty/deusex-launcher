@@ -32,8 +32,7 @@ const char *dxl_path_basename(const char *p);
 
 int  dxl_path_exists(const char *p);
 int  dxl_path_is_dir(const char *p);
-/* Size in bytes, or -1. Mirrors GFileManager->FileSize, which the launcher
- * uses to probe for the splash bitmap. */
+/* Size in bytes, or -1. Mirrors GFileManager->FileSize. */
 long dxl_path_size(const char *p);
 
 /* Resolves <dir>/<leaf> case-insensitively: returns the real path if an entry

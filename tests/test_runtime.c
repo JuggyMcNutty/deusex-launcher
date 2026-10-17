@@ -1,6 +1,5 @@
 #include "test.h"
 #include "core/sentinel.h"
-#include "core/install.h"
 #include "core/instance.h"
 #include "core/paths.h"
 
@@ -52,22 +51,6 @@ static void teardown(void) {
     snprintf(p, sizeof p, "%s/Textures", g_root); rmdir(p);
     snprintf(p, sizeof p, "%s/Maps", g_root);     rmdir(p);
     rmdir(g_root);
-}
-
-/* --- the CD check ------------------------------------------------------- */
-
-/* The shipped CdPath is "..\" -- relative to System/, so it resolves back to
- * the game directory and the check passes. That is why nobody ever saw the
- * insert-CD prompt on a GOG install. */
-static void test_cd_check_with_shipped_path(void) {
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 1);
-    CHECK_INT(dxl_install_cd_ok(g_root, ""), 1);      /* unset: nothing to check */
-    CHECK_INT(dxl_install_cd_ok(g_root, NULL), 1);
-    CHECK_INT(dxl_install_cd_ok(g_root, "Z:\\nope\\"), 0);
-    /* An empty palette file is no disc: the original wants more than 0 bytes. */
-    touch("Textures/Palettes.utx", "");
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 0);
-    touch("Textures/Palettes.utx", "palette");
 }
 
 /* --- the crash sentinel ------------------------------------------------ */
@@ -176,7 +159,6 @@ static void test_lock_without_channel(void) {
 
 TEST_MAIN_BEGIN
     build_install();
-    RUN(test_cd_check_with_shipped_path);
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);
     RUN(test_lock_is_exclusive);

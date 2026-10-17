@@ -15,7 +15,7 @@
     {
       "name": "linux-x86_64",
       "inherits": "port",
-      "displayName": "Linux x86_64 (native; DeusEx, pageshots and the tests)"
+      "displayName": "Linux x86_64 (native; deusex-launcher, dxl-cli and the tests)"
     }
   ],
   "buildPresets": [

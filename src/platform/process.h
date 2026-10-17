@@ -1,17 +1,16 @@
 /* The processes the launcher starts: the game, which it waits for, and
- * the ones it lets go.
+ * the engine asked what it can do (--version).
  *
  * The original's process becomes the game: its launcher code stays for the
  * game's whole run, holding the single-instance mutex and the IsBrowser
  * window a second launch forwards to, and deletes Running.ini once the game
  * ends cleanly (dx-reverse-info/launch-flow.md section 9). Here the engine is
  * a program of its own, so the launcher starts it as a child and stays: the
- * game's output goes to the launcher's log, and a line in each direction
- * runs between the two -- the engine says when it is up (the splash then
- * closes, as the original's does once the engine exists), and the launcher
- * hands it what a second launch forwarded. The engine finds its end of that
- * line through DXL_LAUNCHER_FD in its environment; an engine that never
- * answers on it just runs.
+ * game's output goes to a log of the launcher's, and a line in each
+ * direction runs between the two -- the engine says when it is up, and the
+ * launcher hands it what a second launch forwarded (app/play.h). The engine
+ * finds its end of that line through DXL_LAUNCHER_FD in its environment; an
+ * engine that never answers on it just runs.
  */
 #ifndef DXL_PROCESS_H
 #define DXL_PROCESS_H
@@ -28,18 +27,15 @@ typedef struct {
     char   pending[1024]; /* a line the engine has not finished */
     size_t pending_len;
     int    status;        /* once ended: the exit code, or 128 + the signal */
+    int    signal;        /* once ended: the signal that ended it, or 0 */
     int    ended;
 } dxl_game;
 
-/* Starts exe with flags split into its arguments, in workdir. Its output and
- * errors are appended to log_path (NULL: this process's). */
-int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *workdir,
-                   const char *log_path, dxl_err *err);
-
-/* The same with the words as given, argv[0] the program's path: no shell
- * splits them again, so a quoted word arrives whole. env is NULL or a
- * NULL-terminated list of changes to this process's environment for the
- * game: "NAME=value" sets one, "NAME" alone takes it out. */
+/* Starts argv[0], the program's path, with the words as given -- no shell
+ * splits them again, so a quoted word arrives whole -- in workdir. Its
+ * output and errors are appended to log_path (NULL: this process's). env is
+ * NULL or a NULL-terminated list of changes to this process's environment
+ * for the game: "NAME=value" sets one, "NAME" alone takes it out. */
 int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
                         const char *log_path, dxl_err *err);
 
@@ -59,13 +55,6 @@ void dxl_game_signal(dxl_game *g, int sig);
 
 /* A clean end: the game exited with 0. */
 int dxl_game_clean(const dxl_game *g);
-
-/* Starts exe with flags in workdir and lets it go (the Renderer page's
- * detection run). Reaped by dxl_child_reap. */
-int  dxl_child_start(const char *exe, const char *flags, const char *workdir, pid_t *pid,
-                     dxl_err *err);
-/* 1 when the child has ended (and is gone), 0 while it runs. */
-int  dxl_child_reap(pid_t pid);
 
 /* Opens a URL with the desktop's handler, not waiting for it -- the
  * original's ShellExecute of a web page. */

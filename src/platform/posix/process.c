@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include "platform/process.h"
 
-#include "core/argv.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -110,13 +109,6 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
     return 0;
 }
 
-int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *workdir,
-                   const char *log_path, dxl_err *err) {
-    char **argv = dxl_argv_build(exe, flags);
-    int rc = dxl_game_start_argv(g, argv, NULL, workdir, log_path, err);
-    dxl_argv_free(argv);
-    return rc;
-}
 
 static int reap(dxl_game *g) {
     if (g->ended) return 1;
@@ -125,6 +117,7 @@ static int reap(dxl_game *g) {
     if (r != g->pid) return 0;
     g->ended = 1;
     g->status = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);
+    g->signal = WIFSIGNALED(st) ? WTERMSIG(st) : 0;
     return 1;
 }
 
@@ -189,19 +182,6 @@ void dxl_game_signal(dxl_game *g, int sig) {
 
 int dxl_game_clean(const dxl_game *g) { return g->ended && g->status == 0; }
 
-int dxl_child_start(const char *exe, const char *flags, const char *workdir, pid_t *pid,
-                    dxl_err *err) {
-    char **argv = dxl_argv_build(exe, flags);
-    int rc = spawn(pid, argv, NULL, workdir, -1, NULL, err);
-    dxl_argv_free(argv);
-    return rc;
-}
-
-int dxl_child_reap(pid_t pid) {
-    int st;
-    pid_t r = waitpid(pid, &st, WNOHANG);
-    return r == pid || (r < 0 && errno == ECHILD);
-}
 
 int dxl_open_url(const char *url) {
     /* Two forks, so the opener is nobody's child to wait for. */

@@ -1,28 +1,29 @@
 # Desktop Linux on x86_64 -- sourced by scripts/dx.sh. See README.md.
-PORT_DESC="Desktop Linux, x86_64 (native): main's launcher"
+PORT_DESC="Desktop Linux, x86_64 (native): DXLauncher, the desktop's own launcher"
 PORT_ENGINE=1
-PORT_LAUNCHER=DeusEx
 
 # Nothing to download: the launcher and the engine build against the
-# distro's own libraries. This only says what is missing.
+# distro's own libraries.
 port_deps() {
-    command -v pkg-config >/dev/null || die "pkg-config is needed"
-    pkg-config --exists sdl2 SDL2_ttf || die "install the SDL2 and SDL2_ttf development packages"
-    say "SDL2 $(pkg-config --modversion sdl2), SDL2_ttf $(pkg-config --modversion SDL2_ttf)"
+    say "$PORT: nothing to fetch; the engine's packages are the workspace's docs/DEVELOPMENT.md's"
 }
 
-# DeusEx finds the game by its own folder, as the original DeusEx.exe does,
-# so the staged app -- DeusEx, run-game.sh and the engine's two files -- goes
-# into the System folder of the game beside the repositories, and starts
-# there. While DeusEx is there the original does not start under Wine or
-# Proton; scripts/recreation.sh uninstall takes the four files out.
+# The staged app runs where it is staged, on the gamefiles/ beside the
+# repositories: nothing is copied into the game's folder, and the launcher
+# keeps its files in the home's XDG folders (docs/LAUNCHER.md). --fresh
+# gives it a scratch home instead, build/linux-x86_64/fresh-home, emptied
+# first: a first run from nothing. The rest of the line is the launcher's,
+# after a "--" if one is there.
 port_run() {
-    local sys="$DX_ROOT/gamefiles/System" f
-    [ -f "$sys/DeusEx.exe" ] || die "no Deus Ex in $DX_ROOT/gamefiles (no System/DeusEx.exe)"
-    for f in DeusEx run-game.sh SurrealEngine SurrealEngine.pk3; do
-        [ -f "$APP/$f" ] || die "no $f in $APP -- scripts/dx.sh stage $PORT"
-        cp -p "$APP/$f" "$sys/$f"
-    done
-    say "installed in $sys: DeusEx run-game.sh SurrealEngine SurrealEngine.pk3"
-    exec "$sys/DeusEx" "$@"
+    local game="$DX_ROOT/gamefiles"
+    [ -f "$game/System/DeusEx.exe" ] || die "no Deus Ex in $game (no System/DeusEx.exe)"
+    if [ "${1:-}" = --fresh ]; then
+        shift
+        export DXL_HOME="$BUILD/fresh-home"
+        rm -rf "$DXL_HOME"
+        mkdir -p "$DXL_HOME"
+        say "a fresh home: $DXL_HOME"
+    fi
+    [ "${1:-}" != -- ] || shift
+    exec "$APP/$PORT_LAUNCHER" --game="$game" "$@"
 }

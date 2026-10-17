@@ -2,7 +2,7 @@
 #
 # SDL2, X11 and Wayland; not SDL3. SurrealWidgets builds one SDL backend --
 # SDL3's when both are on -- and only SDL2's has the fork's gamepad support,
-# which run-game.sh picks at run time.
+# which the launcher asks for at run time (SURREALWIDGETS_DISPLAY_BACKEND).
 
 # FORCE: this file is the truth, re-applied on every configure (an initial
 # cache alone never overrides a value already in an existing build).

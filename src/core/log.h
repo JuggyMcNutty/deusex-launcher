@@ -1,10 +1,10 @@
 /* Logging.
  *
  * The original opens a WLog window on every launch and writes DeusEx.log.
- * Here the window is gone (it is a Win32 widget), but the file stays: it is
- * the only way to see what happened once the launcher has handed over to
- * the game. It is <Package>.log, written afresh each run, as the original
- * does, the game's own output appended to it (dxl_log_open_new).
+ * Here the window is gone (it is a Win32 widget), but a file stays, written
+ * afresh each start, as the original's is (dxl_log_open_new): the desktop
+ * launcher's is launcher.log in its state folder, and the engine's own
+ * output goes to the profile's run log beside it (core/lastrun.h).
  */
 #ifndef DXL_LOG_H
 #define DXL_LOG_H
@@ -22,8 +22,8 @@ void dxl_log(const char *fmt, ...);
 void dxl_log_set_echo(int on);
 
 /* Turns the file side off entirely, so dxl_log_open becomes a no-op. --dry-run
- * uses this: a run that promises to write nothing must not create a log in
- * someone's game directory just to say so. */
+ * uses this: a run that promises to write nothing must not create a log just
+ * to say so. */
 void dxl_log_set_to_file(int on);
 
 #endif
