@@ -14,10 +14,12 @@ static const struct {
     int scancode;
     const char *name;
 } scancodes[] = {
-    { 42, "Backspace" }, { 43, "Tab" }, { 156, "OEMClear" }, { 40, "Enter" }, { 118, "Alt" },
+    { 42, "Backspace" }, { 43, "Tab" }, { 156, "OEMClear" }, { 40, "Enter" }, { 88, "Enter" },
+    { 225, "Shift" }, { 229, "Shift" }, { 224, "Ctrl" }, { 228, "Ctrl" }, { 226, "Alt" }, { 230, "Alt" },
+    { 57, "CapsLock" }, { 227, "Unknown5B" }, { 231, "Unknown5C" }, { 101, "Unknown5D" }, { 118, "Unknown5D" },
     { 72, "Pause" }, { 41, "Escape" }, { 44, "Space" }, { 77, "End" }, { 78, "PageDown" },
     { 74, "Home" }, { 75, "PageUp" }, { 80, "Left" }, { 82, "Up" }, { 79, "Right" },
-    { 81, "Down" }, { 119, "Select" }, { 70, "Print" }, { 116, "Execute" }, { 73, "Insert" },
+    { 81, "Down" }, { 119, "Select" }, { 70, "PrintScrn" }, { 116, "Execute" }, { 73, "Insert" },
     { 76, "Delete" }, { 117, "Help" },
     { 39, "0" }, { 30, "1" }, { 31, "2" }, { 32, "3" }, { 33, "4" },
     { 34, "5" }, { 35, "6" }, { 36, "7" }, { 37, "8" }, { 38, "9" },
@@ -27,15 +29,20 @@ static const struct {
     { 25, "V" }, { 26, "W" }, { 27, "X" }, { 28, "Y" }, { 29, "Z" },
     { 98, "NumPad0" }, { 89, "NumPad1" }, { 90, "NumPad2" }, { 91, "NumPad3" }, { 92, "NumPad4" },
     { 93, "NumPad5" }, { 94, "NumPad6" }, { 95, "NumPad7" }, { 96, "NumPad8" }, { 97, "NumPad9" },
-    { 159, "Separator" }, { 99, "NumPadPeriod" },
+    { 85, "GreyStar" }, { 87, "GreyPlus" }, { 159, "Separator" }, { 86, "GreyMinus" }, { 99, "NumPadPeriod" },
+    { 84, "GreySlash" },
     { 58, "F1" }, { 59, "F2" }, { 60, "F3" }, { 61, "F4" }, { 62, "F5" }, { 63, "F6" },
     { 64, "F7" }, { 65, "F8" }, { 66, "F9" }, { 67, "F10" }, { 68, "F11" }, { 69, "F12" },
     { 104, "F13" }, { 105, "F14" }, { 106, "F15" }, { 107, "F16" }, { 108, "F17" }, { 109, "F18" },
     { 110, "F19" }, { 111, "F20" }, { 112, "F21" }, { 113, "F22" }, { 114, "F23" }, { 115, "F24" },
     { 83, "NumLock" }, { 71, "ScrollLock" },
-    { 225, "LShift" }, { 229, "RShift" }, { 224, "LControl" }, { 228, "RControl" },
-    { 53, "Tilde" },
+    { 51, "Semicolon" }, { 46, "Equals" }, { 54, "Comma" }, { 45, "Minus" }, { 55, "Period" }, { 56, "Slash" },
+    { 53, "Tilde" }, { 47, "LeftBracket" }, { 49, "Backslash" }, { 48, "RightBracket" }, { 52, "SingleQuote" },
 };
+
+/* ScancodeToSideKey's: the side's own name of a shift, control or alt,
+ * which the window gives after the one of both. */
+static const char *const sides[] = { "LShift", "RShift", "LControl", "RControl", "UnknownA4", "UnknownA5" };
 
 /* GetMouseButtonKey's three, and the wheel's two. */
 static const char *const mouse[] = { NULL, "LeftMouse", "MiddleMouse", "RightMouse" };
@@ -56,6 +63,8 @@ int dxl_key_seen(const char *name) {
     if (!name || !*name) return 0;
     for (size_t i = 0; i < sizeof scancodes / sizeof *scancodes; i++)
         if (!dxl_stricmp(scancodes[i].name, name)) return 1;
+    for (size_t i = 0; i < sizeof sides / sizeof *sides; i++)
+        if (!dxl_stricmp(sides[i], name)) return 1;
     for (int b = 1; b <= 3; b++)
         if (!dxl_stricmp(mouse[b], name)) return 1;
     if (!dxl_stricmp(name, "MouseWheelUp") || !dxl_stricmp(name, "MouseWheelDown")) return 1;
@@ -76,7 +85,9 @@ static const struct {
     { "GreyStar", "Keypad *" }, { "GreyPlus", "Keypad +" }, { "GreyMinus", "Keypad -" },
     { "GreySlash", "Keypad /" }, { "NumPadPeriod", "Keypad ." }, { "NumLock", "Num Lock" },
     { "ScrollLock", "Scroll Lock" }, { "LShift", "Left Shift" }, { "RShift", "Right Shift" },
-    { "LControl", "Left Ctrl" }, { "RControl", "Right Ctrl" }, { "Semicolon", ";" }, { "Equals", "=" },
+    { "LControl", "Left Ctrl" }, { "RControl", "Right Ctrl" }, { "UnknownA4", "Left Alt" },
+    { "UnknownA5", "Right Alt" }, { "Unknown5B", "Left Super" }, { "Unknown5C", "Right Super" },
+    { "Unknown5D", "Menu key" }, { "Semicolon", ";" }, { "Equals", "=" },
     { "Comma", "," }, { "Minus", "-" }, { "Period", "." }, { "Slash", "/" }, { "Tilde", "~" },
     { "LeftBracket", "[" }, { "Backslash", "\\" }, { "RightBracket", "]" }, { "SingleQuote", "'" },
     { "OEMClear", "Clear" },

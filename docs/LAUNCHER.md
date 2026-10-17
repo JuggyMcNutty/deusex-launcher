@@ -223,9 +223,11 @@ the game's defaults bind besides (the pause menu, the belt's slots, the
 augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A
 slot takes the next key, mouse button or wheel notch; Esc puts it back,
 Delete takes the key away. A key bound to another action asks: that action
-instead, or both (`a|b`), the key then each one's. Keys are named as the engine's window gives them
-(`src/core/keys.c`): a key that window passes on as none is not taken, and
-a binding on one is marked ([known defects](#known-defects)). The game's own
+instead, or both (`a|b`), the key then each one's. Keys are named as the
+engine's window gives them, as the original does (`src/core/keys.c`): a
+shift, control or alt as `Shift`, `Ctrl` or `Alt`, the name of both sides,
+which the engine follows with its side's own (`LShift`); a binding on a name
+that window never gives is marked. The game's own
 key menu refuses Escape, F1 to F18, the digits, Tilde, PrintScrn and Pause,
 whose bindings it does not show; this page shows them, and takes all but
 Escape.
@@ -378,14 +380,6 @@ whatever the install. Changed:
 
 - **Not the player's theme**: the window's colours are the default menu
   theme's, whatever the profile's `MenuThemeName`.
-- **Keys the engine's window does not pass on.** Under SDL2, the window the
-  launcher starts the engine with, the engine has the shifts and controls
-  only as `LShift`, `RShift`, `LControl` and `RControl`, and no Alt, Caps
-  Lock, punctuation (`; = , - . / [ \ ] '`) or keypad operator: the
-  defaults' Shift (walk), Alt (strafe), Caps Lock (walk or run), Comma and
-  Period (strafe), the brackets (scope, laser), Semicolon (reload), the
-  quote (ammunition) and the keypad's quick save, quick load and screenshot
-  reach nothing. The keyboard page marks such a binding.
 - **The finder looks in a few places**: Steam's own library, not the
   others `libraryfolders.vdf` lists; `~/Games/Heroic` and `~/GOG Games`;
   not Lutris, Bottles or Wine prefixes. The folder browser, the system's

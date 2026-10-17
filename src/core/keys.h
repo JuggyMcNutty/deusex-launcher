@@ -4,11 +4,11 @@
  * EInputKey without IK_). Which physical key gives which name is the
  * engine's window's to say: the launcher's capture names a key as
  * SurrealWidgets' SDL2 window does (its ScancodeToInputKey and
- * GetMouseButtonKey), the window the launcher starts the engine with. That
- * window passes on no Alt, Caps Lock, punctuation or keypad operators, and
- * the shifts and controls only as LShift, RShift, LControl and RControl, so
- * a binding the game's defaults make on Shift, Alt, Comma and the like
- * reaches nothing: dxl_key_seen says which.
+ * GetMouseButtonKey), the window the launcher starts the engine with,
+ * which names keys as the original does: a shift, control or alt by the
+ * name of both sides (Shift, Ctrl, Alt: a capture's), then by its side's
+ * own (LShift). A name it never gives (Print, Cancel) reaches nothing:
+ * dxl_key_seen says which.
  *
  * Scancodes are USB HID usage numbers, SDL's own; core takes no SDL.
  */
