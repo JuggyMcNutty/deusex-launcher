@@ -54,6 +54,8 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->dialog = DXL_DIALOG_NONE;
     s->repoint = v == DXL_VIEW_INSTALL;
     s->repoint_back = 0;
+    s->making = 0;
+    if (v == DXL_VIEW_FIRST_RUN) snprintf(s->begin_name, sizeof s->begin_name, "Deus Ex");
     dxl_page p = DXL_PAGE_HOME;
     switch (v) {
     case DXL_VIEW_FIRST_RUN: p = DXL_PAGE_WELCOME; break;
@@ -83,6 +85,7 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
     case DXL_PAGE_RECOVERY: dxl_page_recovery_enter(s); break;
     case DXL_PAGE_SETTINGS: dxl_page_settings_enter(s); break;
     case DXL_PAGE_LOG: dxl_page_log_enter(s); break;
+    case DXL_PAGE_PROFILES: dxl_page_profiles_enter(s); break;
     default: break;
     }
 }
@@ -350,18 +353,22 @@ static const char *page_title(dxl_page p) {
     case DXL_PAGE_ABOUT: return "About";
     case DXL_PAGE_SETTINGS: return "Settings";
     case DXL_PAGE_LOG: return "The log";
+    case DXL_PAGE_PROFILES: return "Profiles";
     default: return "";
     }
 }
 
-/* The first run's three pages, as steps along the head. */
+/* The first run's three pages, as steps along the head; a new profile's
+ * two. */
 static void steps(dxl_shell *s, float right, float y) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
-    static const char *names[3] = { "1  Welcome", "2  The game", "3  Your profile" };
+    static const char *first_run[3] = { "1  Welcome", "2  The game", "3  Your profile" };
+    static const char *making[3] = { "", "1  The game", "2  Your profile" };
+    const char **names = s->making ? making : first_run;
     int at = s->page == DXL_PAGE_WELCOME ? 0 : s->page == DXL_PAGE_FIND ? 1 : 2;
     float x = right;
-    for (int i = 2; i >= 0; i--) {
+    for (int i = 2; i >= (s->making ? 1 : 0); i--) {
         float w = dxl_text_size(ui, DXL_FONT_LABEL, names[i], 0).x;
         x -= w;
         dxl_rect r = { x, y, w + 1, 24 };
@@ -421,7 +428,14 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
     case DXL_PAGE_IMPORT:
     case DXL_PAGE_ABOUT:
     case DXL_PAGE_LOG:
-        it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
+    case DXL_PAGE_PROFILES:
+        if (s->ui.text_id) {
+            n = 0;
+            it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Keep" };
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
+        } else {
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
+        }
         break;
     case DXL_PAGE_SETTINGS:
         if (s->ui.capture_id) {
@@ -555,6 +569,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     case DXL_PAGE_ABOUT: dxl_page_about(s, r); break;
     case DXL_PAGE_SETTINGS: dxl_page_settings(s, r); break;
     case DXL_PAGE_LOG: dxl_page_log(s, r); break;
+    case DXL_PAGE_PROFILES: dxl_page_profiles(s, r); break;
     default: break;
     }
     if (t < 1) {

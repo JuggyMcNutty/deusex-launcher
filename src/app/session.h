@@ -69,6 +69,20 @@ int  dxl_session_make_profile(dxl_session *s, const dxl_install *in, const char 
 int  dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl_pad_preset *layout,
                             dxl_err *err);
 
+/* The active profile id from now on, opened, its install checked;
+ * launcher.ini's Profile once it is made (one not made yet, the first
+ * run's pages make). -1 for an id no profile can have. */
+int  dxl_session_use_profile(dxl_session *s, const char *id, dxl_err *err);
+/* A new profile, a copy of the settings of profile from (core/profile.h's
+ * dxl_profile_copy) named name: its id into id. */
+int  dxl_session_copy_profile(dxl_session *s, const char *from, const char *name, char *id, size_t size,
+                              dxl_err *err);
+/* A profile's name, profile.ini's Name. */
+int  dxl_session_rename_profile(dxl_session *s, const char *id, const char *name, dxl_err *err);
+/* A profile's four folders to the desktop's trash (platform/trash.h), all
+ * or none: never the active profile's. */
+int  dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err);
+
 /* The launcher's own engine, the one beside it. Caller frees. */
 char *dxl_session_own_engine(const dxl_session *s);
 /* The engine played with from now on, launcher.ini's: path, or NULL for the

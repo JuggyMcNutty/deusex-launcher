@@ -80,24 +80,28 @@ static const char *up_now(const dxl_shell *s) {
     case DXL_PAGE_ABOUT: return "about";
     case DXL_PAGE_SETTINGS: return "settings";
     case DXL_PAGE_LOG: return "log";
+    case DXL_PAGE_PROFILES: return "profiles";
     default: return "?";
     }
 }
 
 /* A key down and up, with its scancode: a key the keyboard page captures
- * is named by it. */
-static void push_key(SDL_Keycode k) {
+ * is named by it; held with mod. */
+static void push_key_mod(SDL_Keycode k, SDL_Keymod mod) {
     SDL_Event e;
     SDL_zero(e);
     e.type = SDL_EVENT_KEY_DOWN;
     e.key.key = k;
     e.key.scancode = SDL_GetScancodeFromKey(k, NULL);
+    e.key.mod = mod;
     e.key.down = true;
     SDL_PushEvent(&e);
     e.type = SDL_EVENT_KEY_UP;
     e.key.down = false;
     SDL_PushEvent(&e);
 }
+
+static void push_key(SDL_Keycode k) { push_key_mod(k, SDL_KMOD_NONE); }
 
 /* The script stopped where it failed, and the window closed. */
 static void fail(dxl_uiscript *u, const char *what) {
@@ -235,11 +239,20 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
                 times = atoi(star + 1);
                 for (star--; star >= arg && *star == ' '; star--) *star = '\0';
             }
-            SDL_Keycode k = SDL_GetKeyFromName(arg);
+            /* Ctrl+, Shift+ and Alt+ before the name: held with it. */
+            SDL_Keymod mod = SDL_KMOD_NONE;
+            const char *name = arg;
+            for (;;) {
+                if (!SDL_strncasecmp(name, "Ctrl+", 5)) { mod |= SDL_KMOD_LCTRL; name += 5; }
+                else if (!SDL_strncasecmp(name, "Shift+", 6)) { mod |= SDL_KMOD_LSHIFT; name += 6; }
+                else if (!SDL_strncasecmp(name, "Alt+", 4)) { mod |= SDL_KMOD_LALT; name += 4; }
+                else break;
+            }
+            SDL_Keycode k = SDL_GetKeyFromName(name);
             char what[1000];
             snprintf(what, sizeof what, "no key %s", arg);
             if (k == SDLK_UNKNOWN) fail(u, what);
-            for (int n = 0; k != SDLK_UNKNOWN && n < times; n++) push_key(k);
+            for (int n = 0; k != SDLK_UNKNOWN && n < times; n++) push_key_mod(k, mod);
             /* A frame takes it before the next line moves the focus. */
             return 0;
         } else if (!strcmp(word, "pad")) {
@@ -257,7 +270,10 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
             u->seek_left = SEEK_TRIES;
             u->seek_up = u->seek_still = u->seek_tabs = u->seek_tab_left = 0;
             u->seek_from = 0;
-            if (seek(u, s)) return 0;
+            /* A frame draws the focus where it is before the next line: a
+             * field there takes the typing that follows. */
+            seek(u, s);
+            return 0;
         } else if (!strcmp(word, "expect")) {
             /* "settings <tab>": its tab too. */
             char up[96];

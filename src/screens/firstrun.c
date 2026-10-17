@@ -132,6 +132,10 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
     int dialog = dxl_button(ui, "find system", dxl_cut_left(&buttons, 230), "The system's dialog...", 0);
     int quits = s->repoint && !s->repoint_back;
     int back = dxl_button(ui, "find back", dxl_cut_right(&buttons, 150), quits ? "Quit" : "Back", 0);
+    if (s->making && (back || ui->in.back)) {
+        dxl_shell_making_cancel(s);
+        return;
+    }
 
     if (picked >= 0) {
         const dxl_install *g = &s->found.items[picked].install;
@@ -156,6 +160,24 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
 
 /* ---- Your profile -------------------------------------------------- */
 
+/* A new profile's name kept: its id after the name, the profile not made
+ * yet that one, and what making it will do again. */
+static void renamed(dxl_shell *s) {
+    dxl_session *ss = &s->run->session;
+    char id[DXL_PROFILE_ID_MAX + 1];
+    dxl_profile_new_id(&ss->xdg, s->begin_name, id, sizeof id);
+    if (!strcmp(id, ss->profile.id)) return;
+    dxl_err e;
+    if (dxl_run_use_profile(s->run, id, &e) != 0) {
+        dxl_log("warning: %s", dxl_err_msg(&e));
+        return;
+    }
+    memset(&s->plan, 0, sizeof s->plan);
+    s->plan_error[0] = '\0';
+    if (dxl_profile_import(&ss->profile, s->chosen.system_dir, 1, &s->plan, &e) != 0)
+        snprintf(s->plan_error, sizeof s->plan_error, "%s", dxl_err_msg(&e));
+}
+
 /* A file of the install's, by its path in the install. */
 static const char *in_install(const dxl_shell *s, const char *path, char *buf, size_t size) {
     const char *root = s->chosen.root;
@@ -174,10 +196,12 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     char cut[1100];
     dxl_text_fit_tail(ui, DXL_FONT_BUTTON, title, w - 40, cut, sizeof cut);
     const float nw = 150, ch = 40;
-    /* How it begins, on a line under the fields: the graphics, and with a
-     * pad connected its layout. The fields' lines closer on a short window. */
-    int pad = SDL_HasGamepad(), rows = 7 + (p->master_replaced != 0);
-    float extra = 10 + ch + 10 + dxl_text_line(ui, DXL_FONT_SMALL), room = (r.h - 6 - 133 - extra) / (float)rows;
+    /* How it begins, on lines under the fields: its name, the graphics,
+     * and with a pad connected its layout. The fields' lines closer on a
+     * short window. */
+    int pad = SDL_HasGamepad(), rows = 6 + (p->master_replaced != 0);
+    float extra = 10 + ch + 10 + ch + 10 + dxl_text_line(ui, DXL_FONT_SMALL),
+          room = (r.h - 6 - 133 - extra) / (float)rows;
     float lh = room < 29 ? (room > 22 ? room : 22) : 29;
     float content = s->plan_error[0] ? dxl_text_size(ui, DXL_FONT_BODY, s->plan_error, w - 44).y : rows * lh + extra;
     dxl_rect panel = { r.x, r.y + 6, w, fit(r, content) };
@@ -206,8 +230,19 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         if (p->master_replaced)
             dxl_field(ui, &in, lh, nw, "Master server", "333networks', for GameSpy's, which is closed", t->text,
                       DXL_W_MAY_CUT);
-        dxl_field(ui, &in, lh, nw, "Kept in", dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf), t->text,
-                  DXL_W_TAIL | DXL_W_MAY_CUT);
+        dxl_cut_top(&in, 10);
+        /* Its name; a new profile's folder is named after it. */
+        uint32_t name_id = dxl_ui_id(ui, "import name");
+        int kept = dxl_shell_answer(s, name_id) == 1;
+        int named = dxl_text_field(ui, name_id, dxl_cut_top(&in, ch), "Name", s->begin_name, sizeof s->begin_name,
+                                   NULL, 0);
+        if (named == DXL_TEXT_OSK) dxl_shell_osk(s, name_id, "The profile's name", s->begin_name, sizeof s->begin_name);
+        if (kept || named == DXL_TEXT_DONE) {
+            char *name = dxl_trim(s->begin_name);
+            if (!*name) snprintf(s->begin_name, sizeof s->begin_name, "Deus Ex");
+            else memmove(s->begin_name, name, strlen(name) + 1);
+            if (s->making) renamed(s);
+        }
         dxl_cut_top(&in, 10);
         static const char *looks[8], *layouts[8];
         int nl = 0, nk = 0;
@@ -223,7 +258,10 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
             dxl_spinner(ui, dxl_ui_id(ui, "import layout"), right, "Controller", &s->begin_layout, layouts, nk, 0);
         }
         dxl_cut_top(&in, 10);
-        dxl_paragraph(ui, in, DXL_FONT_SMALL, "Nothing in the game's folder changes.", t->help);
+        char kept_in[1200];
+        snprintf(kept_in, sizeof kept_in, "Nothing in the game's folder changes: the profile is kept in %s.",
+                 dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf));
+        dxl_paragraph(ui, in, DXL_FONT_SMALL, kept_in, t->help);
     }
 
     /* Enter makes it, the choices above it as they are. */
@@ -235,7 +273,7 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     if (make) {
         dxl_import done;
         dxl_err e;
-        if (dxl_session_make_profile(&s->run->session, &s->chosen, NULL, &done, &e) != 0) {
+        if (dxl_session_make_profile(&s->run->session, &s->chosen, s->begin_name, &done, &e) != 0) {
             dxl_shell_message(s, "The profile was not made", "%s", dxl_err_msg(&e));
             return;
         }
@@ -253,8 +291,15 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
                      done.saves ? saves : shots);
         else
             snprintf(s->note, sizeof s->note, "The profile is made.");
+        if (s->making) {
+            /* From the Profiles page: the run's profile this one now, Home. */
+            if (dxl_run_use_profile(s->run, s->run->session.profile.id, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+            s->making = 0;
+            dxl_shell_go(s, DXL_PAGE_HOME);
+            return;
+        }
         s->result = 1;
-    } else if (back || ui->in.back) {
+    } else if (back || (ui->in.back && !ui->text_id)) {
         dxl_shell_go(s, DXL_PAGE_FIND);
     }
 }

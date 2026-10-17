@@ -42,6 +42,9 @@ typedef struct {
     char    *cache_dir;
 } dxl_profile;
 
+/* The longest id. */
+#define DXL_PROFILE_ID_MAX 64
+
 /* The profile's paths, and its profile.ini when there is one. Creates
  * nothing. An id is letters, digits, '-' and '_': -1 for any other. */
 int  dxl_profile_open(dxl_profile *p, const dxl_xdg *x, const char *id, dxl_err *err);
@@ -52,6 +55,29 @@ int  dxl_profile_exists(const dxl_profile *p);
 
 /* Its folders, and engine/Screenshots linked to the shots folder. */
 int  dxl_profile_make_dirs(const dxl_profile *p, dxl_err *err);
+
+/* Its saves: the save folder's SaveNNNN folders and QuickSave. */
+int  dxl_profile_count_saves(const dxl_profile *p);
+
+/* Its four folders, each the profile's alone: <config>/profiles/<id>,
+ * <data>/profiles/<id>, <state>/profiles/<id>, <cache>/profiles/<id>.
+ * Caller frees each. */
+void dxl_profile_folders(const dxl_profile *p, char *out[4]);
+
+/* The ids of the profiles made in the launcher's folders, sorted, at most
+ * max into ids; returns how many there are. */
+size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], size_t max);
+
+/* A new profile's id from its name: its letters and digits, lower case, a
+ * '-' for each run of anything else ("Deus Ex 2" deus-ex-2), "profile" for
+ * none; "-2", "-3"... after it when a profile's folder has it already. */
+void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size);
+
+/* to made a copy of from's settings -- profile.ini, the two inis with to's
+ * own SavePath and CachePath, the engine folder's Settings.json and a
+ * class's own config files -- not its saves, shots, runs or logs. to must
+ * not be made yet. */
+int  dxl_profile_copy(const dxl_profile *from, const dxl_profile *to, dxl_err *err);
 
 /* profile.ini's [Profile] keys: Name, Install (an id of launcher.ini's
  * installs). */

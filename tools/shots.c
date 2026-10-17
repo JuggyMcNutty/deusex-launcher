@@ -76,6 +76,7 @@ typedef enum {
     SCENE_RECOVERY,
     SCENE_SAFE,
     SCENE_ABOUT,
+    SCENE_PROFILES,         /* three: the one in use, a mod's, one whose game is gone */
     SCENE_SETTINGS,
     SCENE_PICK,
     SCENE_OSK,
@@ -97,7 +98,7 @@ typedef enum {
 
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "home-engine", "repoint",
-    "recovery", "safe", "about", "settings", "pick", "osk", "confirm", "log", "keys",
+    "recovery", "safe", "about", "profiles", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
 };
@@ -319,6 +320,26 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         dxl_shell_go(s, DXL_PAGE_ABOUT);
         break;
+    case SCENE_PROFILES: {
+        /* Two more, made up: a mod's, and one whose install has gone. */
+        static const char *const others[][2] = { { "gmdx", "GMDX" }, { "old-copy", "The old copy" } };
+        for (int i = 0; i < 2; i++) {
+            dxl_profile p;
+            dxl_err e;
+            if (dxl_profile_open(&p, &r->session.xdg, others[i][0], &e) != 0) continue;
+            dxl_profile_make_dirs(&p, &e);
+            dxl_profile_set(&p, "Name", others[i][1]);
+            dxl_profile_set(&p, "Install", i ? "1112fm-11111111" : "1112fm-00000000");
+            dxl_profile_save(&p, &e);
+            write_file(p.system_ini, "[Engine.Engine]\n");
+            dxl_profile_free(&p);
+        }
+        /* The install they have, by launcher.ini's list. */
+        dxl_ini_set(r->session.ini, "Install.1112fm-00000000", "Path", r->session.install.root);
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_PROFILES);
+        break;
+    }
     case SCENE_SETTINGS:
     case SCENE_PICK:
     case SCENE_OSK:

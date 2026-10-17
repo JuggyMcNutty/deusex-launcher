@@ -93,12 +93,13 @@ target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
 # What is the platform's: the processes the launcher starts, the game among
-# them (platform/process.h), the crash-isolated GPU probe, and the app
-# menu's entry.
+# them (platform/process.h), the crash-isolated GPU probe, the app menu's
+# entry, and the desktop's trash.
 add_library(dxl_platform STATIC
     src/platform/posix/process.c
     src/platform/posix/gpu_probe.c
     src/platform/posix/desktop.c
+    src/platform/posix/trash.c
 )
 # The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
 # their headers come from the sysroot on a cross build, else the host's.
@@ -149,6 +150,7 @@ add_library(dxl_screens STATIC
     src/screens/log.c
     src/screens/controller.c
     src/screens/padwizard.c
+    src/screens/profiles.c
 )
 target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
 

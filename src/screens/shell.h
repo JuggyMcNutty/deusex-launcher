@@ -14,6 +14,9 @@
  *   Your profile   what the profile will be made from (core/profile.h's
  *               import, shown before it runs), and Make the profile
  *   Recovery    how the last run ended, the end of its log, Play again
+ *   Profiles    every profile, its game, saves and last run: use one, make
+ *               a new one (The game, Your profile), duplicate, rename,
+ *               delete to the trash
  *   About       the launcher, the engine, the folders, the app menu's entry
  *   Settings    the settings (core/settings.h), a tab a page, kept as the
  *               page is left
@@ -48,8 +51,12 @@ typedef enum {
     DXL_PAGE_ABOUT,
     DXL_PAGE_SETTINGS,
     DXL_PAGE_LOG,
+    DXL_PAGE_PROFILES,
     DXL_PAGE_COUNT
 } dxl_page;
+
+/* The most profiles the Profiles page lists. */
+#define DXL_PROFILES_MAX 32
 
 /* The most choices a pick dialog lists: the actions a pad's button takes. */
 #define DXL_PICK_MAX 96
@@ -130,8 +137,25 @@ typedef struct dxl_shell {
     dxl_import   plan;            /* what making it will do */
     char         plan_error[320];
     /* How it begins: a graphics preset's index + 1, 0 the engine's defaults;
-     * with a pad connected, a layout's + 1, 0 the controls as imported. */
+     * with a pad connected, a layout's + 1, 0 the controls as imported. Its
+     * name, as Your profile has it. */
     int          begin_graphics, begin_layout;
+    char         begin_name[96];
+    /* A profile made from the Profiles page, not a first run: the active
+     * profile before it, gone back to if it is not made. */
+    int          making;
+    char         making_before[DXL_PROFILE_ID_MAX + 1];
+
+    /* The Profiles page: each profile as the page opened, the one chosen,
+     * its name as it is edited. */
+    struct {
+        char id[DXL_PROFILE_ID_MAX + 1];
+        char name[96];
+        char detail[300];
+        int  active, ok;
+    } profiles[DXL_PROFILES_MAX];
+    int          profile_count, profile_sel;
+    char         profile_name[96];
 
     /* Home and Recovery. */
     int          saves;           /* the profile's saves, counted as Home opens */
@@ -272,6 +296,11 @@ void dxl_page_import(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery_enter(dxl_shell *s);
 void dxl_page_about(dxl_shell *s, dxl_rect r);
+void dxl_page_profiles(dxl_shell *s, dxl_rect r);
+void dxl_page_profiles_enter(dxl_shell *s);
+/* A new profile not made after all: the one in use before it again, and
+ * the Profiles page. */
+void dxl_shell_making_cancel(dxl_shell *s);
 void dxl_page_settings(dxl_shell *s, dxl_rect r);
 void dxl_page_log(dxl_shell *s, dxl_rect r);
 void dxl_page_log_enter(dxl_shell *s);

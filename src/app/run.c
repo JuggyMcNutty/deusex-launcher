@@ -366,6 +366,22 @@ static void dry_run(dxl_run *r) {
     printf("\nnothing was written.\n");
 }
 
+/* ---- the profile ---------------------------------------------------- */
+
+int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err) {
+    if (dxl_session_use_profile(&r->session, id, err) != 0) return -1;
+    dxl_config_free(r->config);
+    r->config = NULL;
+    if (r->sentinel.path) dxl_sentinel_free(&r->sentinel);
+    dxl_sentinel_init(&r->sentinel, r->session.profile.state_dir);
+    memset(&r->last, 0, sizeof r->last);
+    dxl_lastrun_load(&r->last, r->session.profile.state_dir);
+    if (dxl_profile_exists(&r->session.profile))
+        r->config = dxl_config_open_files(r->session.install.system_dir ? r->session.install.system_dir : ".",
+                                          PACKAGE, r->session.profile.system_ini, r->session.profile.user_ini);
+    return 0;
+}
+
 /* ---- the run ---------------------------------------------------------- */
 
 static void open_log(dxl_run *r) {

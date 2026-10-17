@@ -4,15 +4,15 @@
  *
  *   wait <seconds>    before the next line
  *   key <name> [*<n>] a key pressed, by SDL's name for it: Down, Return, Escape, Tab,
- *                     F5; n times over
+ *                     F5, Ctrl+A, Shift+Left; n times over
  *   type <text>       text typed, as an input method gives it
  *   find <label>      the focus on the control of that label (ui/kit.h's names):
  *                     Down pressed, a frame each, until one is drawn, then Up
  *                     once the focus stays put at the bottom, and at the top
  *                     Tabs, one more each time, into another column, and Down
- *                     again
+ *                     again; a frame draws it focused before the next line
  *   expect <name>     the page or dialog up: home, welcome, find, import, recovery,
- *                     about, settings, log; browser, message, pick, keyboard,
+ *                     about, settings, log, profiles; browser, message, pick, keyboard,
  *                     confirm, padwizard, padtest; "settings <tab>" its tab too.
  *                     Not so: "ui script: FAILED" in the launcher's log and on
  *                     stderr, and the window closes
