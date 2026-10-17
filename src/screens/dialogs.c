@@ -319,6 +319,7 @@ void dxl_dialogs(dxl_shell *s, dxl_rect r, int back) {
     case DXL_DIALOG_OSK: osk(s, r, back); break;
     case DXL_DIALOG_CONFIRM: confirm(s, r, back); break;
     case DXL_DIALOG_PADWIZARD: dxl_padwizard(s, r, back); break;
+    case DXL_DIALOG_PADTEST: dxl_padtest(s, r, back); break;
     default: break;
     }
 }

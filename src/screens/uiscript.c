@@ -68,6 +68,7 @@ static const char *up_now(const dxl_shell *s) {
     case DXL_DIALOG_OSK: return "keyboard";
     case DXL_DIALOG_CONFIRM: return "confirm";
     case DXL_DIALOG_PADWIZARD: return "padwizard";
+    case DXL_DIALOG_PADTEST: return "padtest";
     default: break;
     }
     switch (s->page) {
@@ -258,9 +259,14 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
             u->seek_from = 0;
             if (seek(u, s)) return 0;
         } else if (!strcmp(word, "expect")) {
-            if (strcmp(arg, up_now(s)) != 0) {
-                char what[160];
-                snprintf(what, sizeof what, "expected %.60s, %s is up", arg, up_now(s));
+            /* "settings <tab>": its tab too. */
+            char up[96];
+            snprintf(up, sizeof up, "%s", up_now(s));
+            if (!strncmp(arg, "settings ", 9) && s->page == DXL_PAGE_SETTINGS && s->dialog == DXL_DIALOG_NONE)
+                snprintf(up, sizeof up, "settings %s", dxl_settings_page((size_t)s->settings_tab));
+            if (strcmp(arg, up) != 0) {
+                char what[200];
+                snprintf(what, sizeof what, "expected %.60s, %s is up", arg, up);
                 fail(u, what);
             }
         } else if (!strcmp(word, "shot")) {

@@ -299,6 +299,13 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
         it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
         return n;
     }
+    if (s->dialog == DXL_DIALOG_PADTEST) {
+        /* The pads drive nothing but the model: the keys' Esc, or the
+         * pad's back held. */
+        n = 0;
+        it[n++] = (dxl_hint_item){ DXL_HINT_BACK, s->ui.mode == DXL_INPUT_PAD ? "Hold to stop" : "Stop testing" };
+        return n;
+    }
     if (s->dialog != DXL_DIALOG_NONE) {
         it[n++] = (dxl_hint_item){ DXL_HINT_BACK, s->dialog == DXL_DIALOG_MESSAGE ? "Close" : "Cancel" };
         return n;

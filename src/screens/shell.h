@@ -61,7 +61,8 @@ typedef enum {
     DXL_DIALOG_PICK,      /* one of a setting's choices */
     DXL_DIALOG_OSK,       /* the on-screen keyboard */
     DXL_DIALOG_CONFIRM,   /* a question, two answers */
-    DXL_DIALOG_PADWIZARD  /* a controller's mapping made (screens/padwizard.c) */
+    DXL_DIALOG_PADWIZARD, /* a controller's mapping made (screens/padwizard.c) */
+    DXL_DIALOG_PADTEST    /* a controller tried, its input the model's alone (screens/controller.c) */
 } dxl_dialog;
 
 /* The mapping wizard's state: the controller, the step, where it rests,
@@ -171,6 +172,13 @@ typedef struct dxl_shell {
     int          pad_find, pad_chosen;
     char        *pad_db;              /* gamecontrollerdb.txt's text as last read; NULL, to read */
     dxl_padwizard_state wizard;
+    /* The controller's test: the one tried, since when its back button is
+     * held (-1 not held), whether its triggers rumble it. */
+    struct {
+        SDL_JoystickID id;
+        double         held_since;
+        int            rumbling;
+    } pad_test;
     /* A key captured for an action, waiting on the answer to whose it is. */
     int          bind_action, bind_slot;
     char         bind_key[32];
@@ -255,6 +263,11 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
 /* The mapping wizard for the controller id, and its dialog. */
 void dxl_padwizard_open(dxl_shell *s, SDL_JoystickID id);
 void dxl_padwizard(dxl_shell *s, dxl_rect over, int back);
+/* The controller id tried, and its dialog: every pad's input drives the
+ * model alone, until the controller's back button is held a second, Esc,
+ * or Stop. */
+void dxl_padtest_open(dxl_shell *s, SDL_JoystickID id);
+void dxl_padtest(dxl_shell *s, dxl_rect over, int back);
 /* SDL's mappings as the launcher has them: SDL_GAMECONTROLLERCONFIG's, as
  * Steam set it, but for the controllers the launcher maps, and then those
  * of its gamecontrollerdb.txt (core/padmap.h). start: SDL's gamepads

@@ -270,6 +270,20 @@ static void test_remap_pad(void) {
     close_files(&b);
 }
 
+/* The controller's test: the pad drove the model alone till its back was
+ * held -- Start played nothing, the back let go of left nothing -- and Esc
+ * ended it again; tried twice, done twice. */
+static void test_pad_test(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch("pad_test.script", "ready");
+    script_ok();
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "pad test: Xbox Series X Controller"), 2);
+    CHECK_INT(count(log, "pad test: done"), 2);
+    CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+}
+
 /* A first run from nothing on the script, a controller connected: the
  * graphics preset and the pad layout the profile was made with, by their
  * ids ("" for none of them). */
@@ -337,6 +351,7 @@ int main(void) {
     RUN(test_settings_roundtrip);
     RUN(test_recovery);
     RUN(test_remap_pad);
+    RUN(test_pad_test);
     RUN(test_first_run);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);
