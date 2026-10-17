@@ -47,6 +47,7 @@ void dxl_shell_free(dxl_shell *s) {
     s->themes = NULL;
     s->theme_count = 0;
     s->themes_from[0] = '\0';
+    dxl_art_free(&s->art);
 }
 
 void dxl_shell_theme(dxl_shell *s) {
@@ -458,7 +459,12 @@ static float head(dxl_shell *s, float m, float shift) {
     float x = m + shift, w = ui->w - 2 * m;
     dxl_label(ui, (dxl_rect){ x, 24, w, 22 }, DXL_FONT_LABEL, "DXLAUNCHER", t->accent, DXL_W_LEFT);
     if (s->page == DXL_PAGE_HOME) {
-        dxl_label(ui, (dxl_rect){ x, 44, w, 58 }, DXL_FONT_TITLE, "DEUS EX", t->title_text, DXL_W_LEFT);
+        /* The game's own "Deus Ex", from its logo, where the install has
+         * it; else ours. */
+        const dxl_install *in = s->run ? &s->run->session.install : NULL;
+        dxl_art_load(&s->art, ui, in && in->ok ? in->root : NULL);
+        if (!dxl_art_wordmark(ui, &s->art, (dxl_rect){ x - 4, 46, w, 56 }))
+            dxl_label(ui, (dxl_rect){ x, 44, w, 58 }, DXL_FONT_TITLE, "DEUS EX", t->title_text, DXL_W_LEFT);
         dxl_fill(ui, (dxl_rect){ x, 106, 64, 2 }, t->accent);
         return 132;
     }

@@ -333,6 +333,7 @@ static void close_window(dxl_window *w, dxl_run *r) {
         dxl_err e;
         if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     }
+    dxl_art_free(&w->shell.art);
     dxl_ui_detach(&w->shell.ui);
     SDL_DestroyRenderer(w->renderer);
     SDL_DestroyWindow(w->window);

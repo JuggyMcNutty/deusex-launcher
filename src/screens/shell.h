@@ -38,6 +38,7 @@
 #include "core/padmap.h"
 #include "core/settings.h"
 #include "core/theme_colors.h"
+#include "ui/art.h"
 #include "ui/glyphs.h"
 #include "ui/kit.h"
 #include "ui/osk.h"
@@ -239,6 +240,9 @@ typedef struct dxl_shell {
     dxl_menu_theme *themes;
     int          theme_count;
     char         themes_from[1024];
+    /* The install's art the window wears (ui/art.h): its renderer's
+     * textures, let go with the window. */
+    dxl_art      art;
 
     /* The GPU this machine has, as dxl-cli --probe --ini answers in the
      * window's worker (start_probe): 0 not asked, 1 asked, 2 known; and
