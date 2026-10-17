@@ -124,6 +124,9 @@ typedef struct dxl_ui {
     int             scope;       /* the scope focusables are added to */
     int             focus_moved; /* by the keys or the pad this frame */
     uint32_t        hot, held;   /* under the pointer; pressed on */
+    double          focus_since; /* when the focus came to where it is */
+    uint32_t        focus_seen;  /* ...as the last frame ended */
+    double          typed_until; /* text begun typing before this is shown whole: a key or a click skipped it */
 
     /* The brackets, tweened to the focused rect. */
     dxl_box         br_from, br_to, br_now;
@@ -283,6 +286,11 @@ dxl_rect dxl_centered(dxl_rect within, float w, float h);
 
 /* A diagnostic for the frame (printf-like). */
 void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...);
+
+/* How much of a text begun typing itself in at since shows now, 0 to 1:
+ * TYPE_CPS characters a second, the whole of it once a key or a click has
+ * come since it began, or under reduced motion. */
+float dxl_ui_typed(dxl_ui *ui, double since, const char *text);
 
 /* The colours drawn with from now on: the backdrop drawn again in them. */
 void dxl_ui_set_theme(dxl_ui *ui, const dxl_theme *t);

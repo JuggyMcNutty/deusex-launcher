@@ -115,8 +115,9 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
 
     /* Under it what the first run did, or why the engine is refused, whole. */
     dxl_rect note = { px, panel.y + panel.h + 14, pw, r.y + r.h - (panel.y + panel.h + 14) };
-    if (!s->engine_ok && s->engine_problem[0]) dxl_paragraph(ui, note, DXL_FONT_SMALL, s->engine_problem, t->bad);
-    else if (s->note[0]) dxl_paragraph(ui, note, DXL_FONT_SMALL, s->note, t->good);
+    if (!s->engine_ok && s->engine_problem[0])
+        dxl_paragraph_typed(ui, note, DXL_FONT_SMALL, s->engine_problem, t->bad, s->page_since);
+    else if (s->note[0]) dxl_paragraph_typed(ui, note, DXL_FONT_SMALL, s->note, t->good, s->page_since);
 
     if (game_fix) dxl_shell_repoint(s, DXL_PAGE_HOME);
     else if (play || (ui->in.start && playable)) s->result = 1;

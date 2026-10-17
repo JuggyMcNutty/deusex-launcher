@@ -184,7 +184,7 @@ static void message(dxl_shell *s, dxl_rect over, int back) {
     float h = 5 + 32 + 16 + text + 16 + 46 + 20;
     dxl_rect in = dxl_dialog_begin(ui, over, w, h, s->message_title);
     dxl_rect buttons = dxl_cut_bottom(&in, 46);
-    dxl_paragraph(ui, in, DXL_FONT_BODY, s->message, t->text);
+    dxl_paragraph_typed(ui, in, DXL_FONT_BODY, s->message, t->text, s->dialog_since);
     int ok = dxl_button(ui, "message ok", dxl_cut_right(&buttons, 150), "OK", DXL_W_PRIMARY);
     dxl_dialog_end(ui);
     if (ok || back) dxl_shell_close_dialog(s);
@@ -194,6 +194,7 @@ static void message(dxl_shell *s, dxl_rect over, int back) {
 
 static void ask(dxl_shell *s, dxl_dialog d, uint32_t id) {
     if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
+    s->dialog_since = s->ui.now;
     s->dialog = d;
     s->asked_for = id;
     s->answered = 0;
@@ -303,7 +304,7 @@ static void confirm(dxl_shell *s, dxl_rect over, int back) {
     float text = dxl_text_size(ui, DXL_FONT_BODY, s->message, w - 44).y;
     dxl_rect in = dxl_dialog_begin(ui, over, w, 5 + 32 + 16 + text + 16 + 46 + 20, s->ask_title);
     dxl_rect buttons = dxl_cut_bottom(&in, 46);
-    dxl_paragraph(ui, in, DXL_FONT_BODY, s->message, ui->theme.text);
+    dxl_paragraph_typed(ui, in, DXL_FONT_BODY, s->message, ui->theme.text, s->dialog_since);
     int no = dxl_button(ui, "confirm no", dxl_cut_right(&buttons, 170), s->ask_no, 0);
     dxl_cut_right(&buttons, 12);
     int third = 0;
