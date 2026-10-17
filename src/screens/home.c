@@ -67,6 +67,19 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     int play = dxl_button(ui, "home play", dxl_cut_top(&menu, 48), "Play",
                           DXL_W_PRIMARY | DXL_W_LEFT | (playable ? 0 : DXL_W_DISABLED));
     dxl_cut_top(&menu, 10);
+    /* What keeps it from playing, put right from here: the first focus. */
+    uint32_t engine_id = dxl_ui_id(ui, "home engine");
+    int game_fix = 0;
+    if (!ss->install.ok) {
+        game_fix = dxl_button(ui, "home game", dxl_cut_top(&menu, 48), "The game's folder...", DXL_W_LEFT);
+        dxl_cut_top(&menu, 10);
+    }
+    if (!s->engine_ok) {
+        dxl_shell_engine_answer(s, engine_id);
+        if (dxl_button_id(ui, engine_id, dxl_cut_top(&menu, 48), "The engine...", DXL_W_LEFT))
+            dxl_shell_engine_pick(s, engine_id);
+        dxl_cut_top(&menu, 10);
+    }
     int settings = dxl_button(ui, "home settings", dxl_cut_top(&menu, 48), "Settings", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
     int about = dxl_button(ui, "home about", dxl_cut_top(&menu, 48), "About", DXL_W_LEFT);
@@ -95,7 +108,7 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
         if (ss->install.problem[0]) c = t->warn;
     }
     dxl_field(ui, &in, lh, nw, "Build", v, c, DXL_W_MAY_CUT);
-    dxl_field(ui, &in, lh, nw, "Engine", s->engine_ok ? s->engine_version : s->engine_problem,
+    dxl_field(ui, &in, lh, nw, "Engine", s->engine_ok ? s->engine_version : s->engine_brief,
               s->engine_ok ? t->text : t->bad, DXL_W_MAY_CUT);
     if (s->saves) snprintf(v, sizeof v, "%d", s->saves);
     else snprintf(v, sizeof v, "none yet");
@@ -103,12 +116,13 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     c = last_run(s, v, sizeof v);
     dxl_field(ui, &in, lh, nw, "Last run", v, c, DXL_W_MAY_CUT);
 
-    if (s->note[0]) {
-        dxl_rect note = { px, panel.y + panel.h + 14, pw, r.y + r.h - (panel.y + panel.h + 14) };
-        dxl_paragraph(ui, note, DXL_FONT_SMALL, s->note, t->good);
-    }
+    /* Under it what the first run did, or why the engine is refused, whole. */
+    dxl_rect note = { px, panel.y + panel.h + 14, pw, r.y + r.h - (panel.y + panel.h + 14) };
+    if (!s->engine_ok && s->engine_problem[0]) dxl_paragraph(ui, note, DXL_FONT_SMALL, s->engine_problem, t->bad);
+    else if (s->note[0]) dxl_paragraph(ui, note, DXL_FONT_SMALL, s->note, t->good);
 
-    if (play || (ui->in.start && playable)) s->result = 1;
+    if (game_fix) dxl_shell_repoint(s, DXL_PAGE_HOME);
+    else if (play || (ui->in.start && playable)) s->result = 1;
     else if (settings) dxl_shell_go(s, DXL_PAGE_SETTINGS);
     else if (about) dxl_shell_go(s, DXL_PAGE_ABOUT);
     else if (quit) s->result = 0;

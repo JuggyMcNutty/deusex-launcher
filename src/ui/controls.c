@@ -157,6 +157,19 @@ int dxl_spinner(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *ind
     return ret;
 }
 
+int dxl_value_row(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, const char *value, dxl_rgba c, int flags) {
+    const dxl_theme *t = &ui->theme;
+    int hits;
+    dxl_rect a = row(ui, id, r, label, flags, &hits);
+    const float box = 28;
+    dxl_rect go = { a.x + a.w - box, a.y + (a.h - box) / 2, box, box };
+    dxl_rect v = { a.x, a.y, a.w - box - 8, a.h };
+    dxl_label(ui, v, DXL_FONT_BODY, value, (flags & DXL_W_DISABLED) ? t->text_disabled : c,
+              DXL_W_RIGHT | DXL_W_TAIL | DXL_W_MAY_CUT);
+    arrow(ui, go, 1, (flags & DXL_W_DISABLED) ? t->text_disabled : (hits & DXL_HIT_FOCUSED) ? t->text_focus : t->text);
+    return !(flags & DXL_W_DISABLED) && (hits & DXL_HIT_ACTIVATED);
+}
+
 /* ---- text ----------------------------------------------------------- */
 
 /* The field being edited -- one at a time -- as its edit began and where

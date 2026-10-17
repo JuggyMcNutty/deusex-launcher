@@ -86,12 +86,17 @@ typedef struct {
     dxl_padmesh    mesh;
 } dxl_padwizard_state;
 
+/* What a folder is chosen for, by the browser or the system's dialog. */
+#define DXL_BROWSE_GAME   0   /* an install: the first run's, or the profile's from now on */
+#define DXL_BROWSE_ENGINE 1   /* the engine's: VibeEngine or SurrealEngine in it */
+
 typedef struct {
     char  *dir;          /* the folder shown */
     char **names;        /* the folders in it, sorted */
     int    count;
     int    hidden;       /* those whose names start with a dot listed too */
-    char   note[400];    /* why the folder last tried is not an install */
+    int    mode;         /* DXL_BROWSE_* */
+    char   note[400];    /* why the folder last tried is not what is wanted */
 } dxl_browser;
 
 #define DXL_TOASTS 4
@@ -107,14 +112,17 @@ typedef struct dxl_shell {
     double       page_since;      /* when it came up; -1 until the next frame */
     uint32_t     focus[DXL_PAGE_COUNT];   /* each page's focus, for coming back to it */
 
-    /* The engine's --version, asked once. */
+    /* The engine's --version, asked once: what is wrong in a few words, and
+     * the whole of it. */
     int          engine_asked;
     int          engine_ok;
-    char         engine_version[160], engine_features[256], engine_problem[512];
+    char         engine_version[160], engine_features[256], engine_brief[160], engine_problem[700];
 
     /* The first run, and a profile's install found again. */
     int          repoint;         /* The game is for the profile's install, not a first run */
-    int          repoint_back;    /* ...asked for from Recovery, which its Back goes to */
+    int          repoint_back;    /* ...asked for from a page, which its Back goes to: */
+    dxl_page     repoint_to;
+    int          pick_for;        /* what the system's folder dialog is for: DXL_BROWSE_* */
     int          looked;          /* the finder has run */
     dxl_found_list found;
     dxl_install  chosen;          /* the install the profile is to be made from */
@@ -231,8 +239,22 @@ const char *dxl_shell_tilde(const char *path, char *buf, size_t size);
 /* The engine's --version, into s->engine_*: once. */
 void        dxl_shell_ask_engine(dxl_shell *s);
 /* The install chosen: on the first run the profile to be made from it, on
- * Your profile; else the profile pointed at it, and the screen done. */
+ * Your profile; else the profile pointed at it, and the screen done -- or,
+ * asked for from a page but Recovery, that page again. */
 void        dxl_shell_choose(dxl_shell *s, const dxl_install *in);
+/* The game page for the profile's install from now on, its Back to page. */
+void        dxl_shell_repoint(dxl_shell *s, dxl_page back_to);
+/* An engine from path, a folder with it or its program: checked and taken,
+ * launcher.ini's from now on, 1; else 0, and brief and why say why not. */
+int         dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief, size_t brief_size, char *why,
+                                    size_t why_size);
+/* The engine's choices, a pick for the control id -- the launcher's own,
+ * another by the browser, by the system's dialog -- and, read on id's
+ * frames, its answer done. */
+void        dxl_shell_engine_pick(dxl_shell *s, uint32_t id);
+void        dxl_shell_engine_answer(dxl_shell *s, uint32_t id);
+/* A folder the system's dialog gave, for what s->pick_for says. */
+void        dxl_shell_folder_picked(dxl_shell *s, const char *path);
 /* A folder or file with the desktop's handler. */
 void        dxl_shell_open(dxl_shell *s, const char *path);
 /* The GPU probe asked for, once: renderers.ini's list loaded now, resolved
@@ -303,7 +325,7 @@ int  dxl_shell_answer(dxl_shell *s, uint32_t id);
 
 /* The dialogs: over r, the window less its foot; back is the Esc or the
  * pad's back the dialog takes. */
-void dxl_browser_open(dxl_shell *s, const char *dir);
+void dxl_browser_open(dxl_shell *s, const char *dir, int mode);
 void dxl_browser_free(dxl_browser *b);
 void dxl_dialogs(dxl_shell *s, dxl_rect r, int back);
 

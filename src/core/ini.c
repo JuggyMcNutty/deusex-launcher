@@ -413,6 +413,20 @@ void dxl_ini_empty_section(dxl_ini *ini, const char *section) {
     }
 }
 
+void dxl_ini_remove(dxl_ini *ini, const char *section, const char *key) {
+    size_t header = find_section(ini, section);
+    if (header == (size_t)-1) return;
+    size_t i = header + 1;
+    while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
+        if (ini->lines[i].kind == LINE_PAIR && dxl_stricmp(ini->lines[i].name, key) == 0) {
+            line_remove(ini, i);
+            ini->dirty = 1;
+        } else {
+            i++;
+        }
+    }
+}
+
 int dxl_ini_dirty(const dxl_ini *ini) { return ini->dirty; }
 void dxl_ini_clean(dxl_ini *ini) { ini->dirty = 0; }
 

@@ -184,6 +184,48 @@ static void live(dxl_shell *s, const dxl_setting *st) {
     else if (!strcmp(st->id, "launcher.reduced_motion")) s->ui.reduced_motion = dxl_setting_bool(&s->stores, st);
 }
 
+/* The engine's row: its version, or what is wrong with it; its choices. */
+static void engine_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect r) {
+    dxl_ui *ui = &s->ui;
+    dxl_shell_ask_engine(s);
+    dxl_shell_engine_answer(s, id);
+    if (dxl_value_row(ui, id, r, st->label, s->engine_ok ? s->engine_version : s->engine_brief,
+                      s->engine_ok ? ui->theme.text : ui->theme.bad, 0))
+        dxl_shell_engine_pick(s, id);
+}
+
+/* The profile's game: its folder, or what is wrong with it; The game page
+ * for another. */
+static void game_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect r) {
+    dxl_ui *ui = &s->ui;
+    const dxl_install *in = &s->run->session.install;
+    char shown[1024];
+    const char *value = in->root ? dxl_shell_tilde(in->root, shown, sizeof shown) : "none";
+    if (dxl_value_row(ui, id, r, st->label, in->ok ? value : (in->problem[0] ? in->problem : value),
+                      in->ok ? ui->theme.text : ui->theme.bad, 0))
+        dxl_shell_repoint(s, DXL_PAGE_SETTINGS);
+}
+
+/* The help line of the engine's and the game's rows: what they are now. */
+static void row_why(dxl_shell *s, const dxl_setting *st, char *out, size_t size) {
+    char shown[1024];
+    const dxl_session *ss = &s->run->session;
+    if (!strcmp(st->id, "launcher.engine")) {
+        if (!s->engine_ok) snprintf(out, size, "%s", s->engine_problem);
+        else snprintf(out, size, "%s: %s, with %s.%s", dxl_shell_tilde(ss->engine, shown, sizeof shown),
+                      s->engine_version, s->engine_features,
+                      ss->engine_by_env ? " DXL_ENGINE names it, over the one chosen here." : "");
+    } else if (!strcmp(st->id, "profile.game")) {
+        const dxl_install *in = &ss->install;
+        if (in->ok)
+            snprintf(out, size, "Deus Ex %s (%s), in %s. %s", in->build->version, in->build->edition,
+                     dxl_shell_tilde(in->root, shown, sizeof shown), st->help);
+        else snprintf(out, size, "%s", st->help);
+    } else {
+        out[0] = '\0';
+    }
+}
+
 /* One row: the control for its kind, the change kept in the stores. */
 void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect r) {
     dxl_ui *ui = &s->ui;
@@ -240,7 +282,9 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
         break;
     }
     case DXL_SET_ACTION:
-        if (dxl_button_id(ui, id, r, st->label, DXL_W_LEFT)) dxl_log("settings: %s", st->id);
+        if (!strcmp(st->id, "launcher.engine")) engine_row(s, st, id, r);
+        else if (!strcmp(st->id, "profile.game")) game_row(s, st, id, r);
+        else if (dxl_button_id(ui, id, r, st->label, DXL_W_LEFT)) dxl_log("settings: %s", st->id);
         break;
     default:
         break;
@@ -431,6 +475,11 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
         }
     }
     if (!pad_page) dxl_list_end(ui, &l);
+    char now[1200] = "";
+    if (!why && focused && focused->kind == DXL_SET_ACTION) {
+        row_why(s, focused, now, sizeof now);
+        if (now[0]) why = now;
+    }
     if (why) dxl_paragraph(ui, help_r, DXL_FONT_SMALL, why, t->help);
     else help(s, focused, help_r);
     int conflict = dxl_shell_answer(s, dxl_ui_id(ui, "keys conflict"));

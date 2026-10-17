@@ -33,6 +33,11 @@ int dxl_spinner(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *ind
 int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char *buf, size_t size,
                    const char *placeholder, int flags);
 
+/* A label and a value, the row a button for a choice made elsewhere (a
+ * dialog, a page): the value's end kept when it is cut (a path), an arrow
+ * after it. 1 when activated. */
+int dxl_value_row(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, const char *value, dxl_rgba c, int flags);
+
 /* A key's slot: its name, or a dash; activated, it captures the next key,
  * mouse button or wheel notch (dxl_ui_capture_begin) and returns
  * DXL_SLOT_CAPTURED with it in ui->in.captured; Esc gives

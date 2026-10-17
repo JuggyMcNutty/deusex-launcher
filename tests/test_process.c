@@ -1,5 +1,7 @@
 #include "test.h"
 #include "scratch.h"
+#include "app/run.h"
+#include "app/session.h"
 #include "core/engine_args.h"
 #include "platform/process.h"
 
@@ -147,7 +149,7 @@ static void test_capture(void) {
     char out[512];
     int status = -1;
     char *version[] = { DXL_STUB_ENGINE, "--version", NULL };
-    CHECK_INT(dxl_run_capture(version, 3000, out, sizeof out, &status, NULL), 0);
+    CHECK_INT(dxl_run_capture(version, 3000, out, sizeof out, NULL, 0, &status, NULL), 0);
     CHECK_INT(status, 0);
     dxl_engine_version v;
     CHECK_INT(dxl_engine_version_parse(out, &v), 0);
@@ -156,12 +158,106 @@ static void test_capture(void) {
     setenv("DXL_STUB", "stubborn", 1);
     char *hang[] = { DXL_STUB_ENGINE, NULL };
     dxl_err e;
-    CHECK_INT(dxl_run_capture(hang, 300, out, sizeof out, &status, &e), -1);
+    CHECK_INT(dxl_run_capture(hang, 300, out, sizeof out, NULL, 0, &status, &e), -1);
     CHECK_INT(status, 128 + SIGKILL);
     unsetenv("DXL_STUB");
 
+    /* Its errors, when asked for: a loader's that stopped it, which did
+     * not run. */
+    char errs[512];
+    setenv("DXL_STUB_VERSION_ERR", "stub: version `GLIBC_2.99' not found", 1);
+    CHECK_INT(dxl_run_capture(version, 3000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
+    CHECK_INT(status, 127);
+    CHECK_STR(out, "");
+    CHECK(strstr(errs, "GLIBC_2.99") != NULL);
+    unsetenv("DXL_STUB_VERSION_ERR");
+
     char *none[] = { "/nonexistent/engine", "--version", NULL };
-    CHECK_INT(dxl_run_capture(none, 1000, out, sizeof out, &status, &e), -1);
+    CHECK_INT(dxl_run_capture(none, 1000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
+    CHECK(strstr(errs, "/nonexistent/engine") != NULL);
+}
+
+/* The engine asked as the launcher asks it, and why it is refused said:
+ * not there, one the loader cannot start (a glibc newer than this one's, a
+ * library this system lacks), one without the userdir feature. */
+static void test_engine_check(void) {
+    dxl_engine_version v;
+    char brief[160], why[700];
+    CHECK_INT(dxl_engine_check("/nonexistent/SurrealEngine", &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK_STR(brief, "not there");
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), 0);
+    CHECK(strstr(v.version, "stub000") != NULL);
+
+    setenv("DXL_STUB_VERSION_ERR", "x: /lib64/libm.so.6: version `GLIBC_2.99' not found (required by x)", 1);
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK(strncmp(brief, "needs glibc 2.99, this system has ", 34) == 0);
+    CHECK(strstr(why, "built on a newer system") != NULL);
+    setenv("DXL_STUB_VERSION_ERR",
+           "x: error while loading shared libraries: libSDL2-2.0.so.0: cannot open shared object file: No such file", 1);
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK_STR(brief, "needs libSDL2-2.0.so.0");
+    unsetenv("DXL_STUB_VERSION_ERR");
+
+    setenv("DXL_STUB_FEATURES", "other", 1);
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK(strstr(brief, "without --userdir") != NULL);
+    unsetenv("DXL_STUB_FEATURES");
+
+    /* In a folder: VibeEngine's program over SurrealEngine's. */
+    const char *dir = scratch_dir("engine-in");
+    CHECK(dxl_engine_in(dir) == NULL);
+    scratch_write(dir, "SurrealEngine", "#!/bin/sh\n");
+    char *p = scratch_path(dir, "SurrealEngine");
+    chmod(p, 0755);
+    char *found = dxl_engine_in(dir);
+    CHECK(found && strcmp(found, p) == 0);
+    free(found);
+    free(p);
+    scratch_write(dir, "VibeEngine", "#!/bin/sh\n");
+    p = scratch_path(dir, "VibeEngine");
+    chmod(p, 0755);
+    found = dxl_engine_in(dir);
+    CHECK(found && strcmp(found, p) == 0);
+    free(found);
+    free(p);
+}
+
+/* The engine chosen is launcher.ini's, the launcher's own its absence;
+ * DXL_ENGINE's over both. */
+static void test_engine_chosen(void) {
+    const char *home = scratch_dir("engine-home");
+    setenv("DXL_HOME", home, 1);
+    unsetenv("DXL_ENGINE");
+    dxl_session s;
+    dxl_err e;
+    CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
+    char *own = dxl_session_own_engine(&s);
+    CHECK_STR(s.engine, own);
+    dxl_session_set_engine(&s, "/x/VibeEngine");
+    CHECK_STR(s.engine, "/x/VibeEngine");
+    CHECK_INT(dxl_session_save(&s, &e), 0);
+    dxl_session_close(&s);
+    CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
+    CHECK_STR(s.engine, "/x/VibeEngine");
+    dxl_session_set_engine(&s, NULL);
+    CHECK_STR(s.engine, own);
+    CHECK(dxl_ini_get(s.ini, "Launcher", "Engine") == NULL);
+    dxl_session_set_engine(&s, "/x/VibeEngine");
+    dxl_session_save(&s, &e);
+    dxl_session_close(&s);
+    setenv("DXL_ENGINE", "/y/SurrealEngine", 1);
+    CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
+    CHECK_STR(s.engine, "/y/SurrealEngine");
+    CHECK_INT(s.engine_by_env, 1);
+    dxl_session_set_engine(&s, NULL);
+    CHECK_STR(s.engine, "/y/SurrealEngine");
+    dxl_session_close(&s);
+    unsetenv("DXL_ENGINE");
+    unsetenv("DXL_HOME");
+    free(own);
+    char cmd[300];
+    snprintf(cmd, sizeof cmd, "rm -rf '%s'", home);
+    CHECK_INT(system(cmd), 0);
 }
 
 TEST_MAIN_BEGIN
@@ -172,4 +268,6 @@ TEST_MAIN_BEGIN
     RUN(test_crash);
     RUN(test_cannot_run);
     RUN(test_capture);
+    RUN(test_engine_check);
+    RUN(test_engine_chosen);
 TEST_MAIN_END

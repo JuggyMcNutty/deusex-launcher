@@ -140,14 +140,15 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
         else dxl_shell_message(s, "Not one to play", "%s: %s.", dxl_shell_tilde(g->root, shown, sizeof shown), g->problem);
     } else if (browse) {
         const char *start = s->has_chosen ? s->chosen.root : getenv("HOME");
-        dxl_browser_open(s, start ? start : "/");
+        dxl_browser_open(s, start ? start : "/", DXL_BROWSE_GAME);
     } else if (dialog) {
+        s->pick_for = DXL_BROWSE_GAME;
         if (s->pick_folder) s->pick_folder(s);
     } else if (quits) {
         if (back) s->result = 0;
     } else if (s->repoint && (back || ui->in.back)) {
         s->repoint = s->repoint_back = 0;
-        dxl_shell_go(s, DXL_PAGE_RECOVERY);
+        dxl_shell_go(s, s->repoint_to);
     } else if (back || ui->in.back) {
         dxl_shell_go(s, DXL_PAGE_WELCOME);
     }

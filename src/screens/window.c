@@ -168,7 +168,9 @@ static void SDLCALL on_pick(void *ctx, const char *const *files, int filter) {
 
 static void pick_folder(dxl_shell *s) {
     dxl_window *w = s->window;
-    SDL_ShowOpenFolderDialog(on_pick, w, w->window, getenv("HOME"), false);
+    char *dir = s->pick_for == DXL_BROWSE_ENGINE && s->run ? dxl_path_dirname(s->run->session.engine) : NULL;
+    SDL_ShowOpenFolderDialog(on_pick, w, w->window, dir ? dir : getenv("HOME"), false);
+    free(dir);
 }
 
 static void picked(dxl_window *w) {
@@ -180,12 +182,7 @@ static void picked(dxl_window *w) {
     w->pick_state = 0;
     SDL_UnlockMutex(w->pick_lock);
     if (state == 1 && path) {
-        dxl_install in;
-        dxl_install_check(path, &in);
-        char shown[1024];
-        if (in.ok) dxl_shell_choose(s, &in);
-        else dxl_shell_message(s, "Not one to play", "%s: %s.", dxl_shell_tilde(in.root, shown, sizeof shown), in.problem);
-        dxl_install_free(&in);
+        dxl_shell_folder_picked(s, path);
     } else if (state == 3) {
         dxl_log("no system folder dialog: %s", w->pick_error);
         dxl_shell_message(s, "No folder dialog", "The system has none to show here (%s). Browse... finds the folder "
@@ -202,7 +199,7 @@ static int SDLCALL probe_main(void *p) {
     char out[4096];
     int status = 0;
     dxl_err e;
-    if (dxl_run_capture(argv, 10000, out, sizeof out, &status, &e) != 0 ||
+    if (dxl_run_capture(argv, 10000, out, sizeof out, NULL, 0, &status, &e) != 0 ||
         dxl_gpu_probe_from_ini(out, &w->probe_result) != 0) {
         memset(&w->probe_result, 0, sizeof w->probe_result);
         snprintf(w->probe_result.note, sizeof w->probe_result.note, "%s --probe gave no answer", w->cli);

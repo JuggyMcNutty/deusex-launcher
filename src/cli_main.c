@@ -45,8 +45,9 @@ static void usage(FILE *f) {
         "\n"
         "Files: the launcher's own under $XDG_CONFIG_HOME, $XDG_DATA_HOME, $XDG_STATE_HOME\n"
         "and $XDG_CACHE_HOME, each in dxlauncher/ (DXL_HOME=<dir>: all four under <dir>);\n"
-        "nothing in the game's folder. DXL_ENGINE=<path> runs another engine, and\n"
-        "DXL_ENGINE_ARGS more of its own options.\n");
+        "nothing in the game's folder. The engine is the launcher's own, beside it, or\n"
+        "launcher.ini's [Launcher] Engine; DXL_ENGINE=<path> runs another over both, and\n"
+        "DXL_ENGINE_ARGS adds more of its own options.\n");
 }
 
 static int probe(int as_ini) {

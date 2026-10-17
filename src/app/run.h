@@ -97,8 +97,23 @@ char *dxl_run_pad_db(const dxl_run *r);
  * (caller frees). -1 for one it does not know, named in err. */
 int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl_err *err);
 
-/* The session's engine asked for its --version: 0 when it is a VibeEngine
- * with the userdir feature, else -1 and why. */
-int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *why, size_t size);
+/* The engine at path asked for its --version: 0 when it is a VibeEngine
+ * with the userdir feature, else -1, brief what is wrong in a few words
+ * ("needs glibc 2.44, this system has 2.43") and why the whole of it: an
+ * engine not there, one this system cannot start and the loader's reason
+ * (a library it lacks, a glibc newer than its own), one that is no
+ * VibeEngine, or one without the userdir feature. */
+int dxl_engine_check(const char *path, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
+                     size_t size);
+/* The same for the session's engine. */
+int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
+                         size_t size);
+/* The engine's program in a folder: VibeEngine, else SurrealEngine; NULL
+ * for neither. Caller frees. */
+char *dxl_engine_in(const char *dir);
+/* Whether the engine at path finds its SurrealEngine.pk3: beside it, or
+ * where the engine looks after (/usr/share/surrealengine, the data home's
+ * surrealengine, ~/.surrealengine). */
+int dxl_engine_pk3_found(const char *path);
 
 #endif
