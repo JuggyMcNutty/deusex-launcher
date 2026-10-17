@@ -223,6 +223,12 @@ static int fold_bindings(dxl_ini *usr, int fold) {
     return (int)m;
 }
 
+dxl_ini *dxl_profile_user_preview(const char *path) {
+    dxl_ini *usr = path && *path ? dxl_ini_load(path, NULL) : NULL;
+    if (usr) fold_bindings(usr, 1);
+    return usr;
+}
+
 void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini **user) {
     char *def_ini = dxl_path_resolve_ci(game_system_dir, "Default.ini");
     char *def_user = dxl_path_resolve_ci(game_system_dir, "DefUser.ini");

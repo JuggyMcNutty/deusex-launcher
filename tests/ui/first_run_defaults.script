@@ -1,0 +1,17 @@
+# A first run from nothing, a controller connected, Your profile's choices
+# as they come: test_ui_scripts.c finds the engine's graphics and, over the
+# game's own three buttons, the Modern layout.
+pad attach xbox
+wait 2
+expect welcome
+key Return
+wait 1
+expect find
+key Return
+wait 1
+expect import
+key Return
+wait 1.5
+expect home
+find Quit
+key Return

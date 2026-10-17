@@ -120,6 +120,9 @@ typedef struct dxl_shell {
     int          has_chosen;
     dxl_import   plan;            /* what making it will do */
     char         plan_error[320];
+    /* How it begins: a graphics preset's index + 1, 0 the engine's defaults;
+     * with a pad connected, a layout's + 1, 0 the controls as imported. */
+    int          begin_graphics, begin_layout;
 
     /* Home and Recovery. */
     int          saves;           /* the profile's saves, counted as Home opens */

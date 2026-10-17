@@ -12,7 +12,9 @@
 #include "core/ini.h"
 #include "core/keys.h"
 #include "core/paths.h"
+#include "core/bindings.h"
 #include "core/profile.h"
+#include "core/settings.h"
 #include "core/xdg.h"
 
 #include <math.h>
@@ -264,6 +266,47 @@ static void test_remap_pad(void) {
     close_files(&b);
 }
 
+/* A first run from nothing on the script, a controller connected: the
+ * graphics preset and the pad layout the profile was made with, by their
+ * ids ("" for none of them). */
+static void first_run(const char *script, char *looks, char *layout) {
+    looks[0] = layout[0] = '\0';
+    sh("rm -rf '%s' && mkdir -p '%s'", home, home);
+    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready DXL_UI_SCRIPT='%s/%s' "
+                 "'%s/deusex-launcher' --game='%s' >>'%s/out.txt' 2>&1",
+                 home, DXL_STUB_ENGINE, DXL_UI_SCRIPTS, script, app, DXL_GAME, home),
+              0);
+    script_ok();
+    profile_files b;
+    open_files(&b);
+    CHECK(b.sys && b.usr && b.es);
+    if (b.sys && b.usr && b.es) {
+        dxl_stores st;
+        memset(&st, 0, sizeof st);
+        st.system = b.sys;
+        st.user = b.usr;
+        st.engine = b.es;
+        const dxl_preset *p = dxl_preset_matching(&st);
+        const dxl_pad_preset *l = dxl_bindings_detect(b.usr);
+        snprintf(looks, 32, "%s", p ? p->id : "");
+        snprintf(layout, 32, "%s", l ? l->id : "");
+    }
+    close_files(&b);
+}
+
+/* Your profile's quick setup: as chosen; and as it comes, the engine's own
+ * graphics -- a preset of none of ours -- and Modern over the game's three
+ * buttons. */
+static void test_first_run(void) {
+    char looks[32], layout[32];
+    first_run("first_run.script", looks, layout);
+    CHECK_STR(looks, "enhanced");
+    CHECK_STR(layout, "southpaw");
+    first_run("first_run_defaults.script", looks, layout);
+    CHECK_STR(looks, "");
+    CHECK_STR(layout, "modern");
+}
+
 int dxl_test_failures = 0;
 const char *dxl_test_current = "(none)";
 
@@ -290,6 +333,7 @@ int main(void) {
     RUN(test_settings_roundtrip);
     RUN(test_recovery);
     RUN(test_remap_pad);
+    RUN(test_first_run);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);
     if (dxl_test_failures) {
