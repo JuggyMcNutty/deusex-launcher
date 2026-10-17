@@ -1,0 +1,192 @@
+#include "test.h"
+#include "scratch.h"
+#include "app/play.h"
+#include "core/instance.h"
+
+#include <signal.h>
+#include <time.h>
+
+/* The stub engine (tests/stub_engine.c), built beside the tests. */
+#ifndef DXL_STUB_ENGINE
+#define DXL_STUB_ENGINE "stub_engine"
+#endif
+
+typedef struct {
+    char *dir;
+    char *log;
+} scratch_run;
+
+static void play_stub(scratch_run *s, const char *tag, char *const env[], dxl_instance *inst,
+                      volatile int *stop, dxl_play_result *out) {
+    s->dir = dxl_xstrdup(scratch_dir(tag));
+    s->log = scratch_path(s->dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, "--no-launcher", "/games/Deus Ex",
+                     "--cmdline=INI=\"My Mod.ini\" -nosound", NULL };
+    dxl_play_request req = {
+        .argv = argv, .env = env, .workdir = s->dir, .log_path = s->log,
+        .instance = inst, .stop = stop,
+    };
+    dxl_play(&req, out);
+}
+
+static void done(scratch_run *s, dxl_play_result *r) {
+    dxl_play_result_free(r);
+    scratch_remove(s->dir);
+    free(s->dir);
+    free(s->log);
+}
+
+/* hello, ready, exit 0: clean. */
+static void test_clean(void) {
+    char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=100", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    play_stub(&s, "play-clean", env, NULL, NULL, &r);
+    CHECK_INT(r.started, 1);
+    CHECK_INT(r.hello, 1);
+    CHECK_INT(r.ready, 1);
+    CHECK_INT(r.status, 0);
+    CHECK_INT(r.clean, 1);
+    CHECK(r.relaunch == NULL);
+    done(&s, &r);
+}
+
+/* exit 0 with no ready: the engine found no game, which is no clean end. */
+static void test_no_game(void) {
+    char *env[] = { "DXL_STUB=nogame", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    play_stub(&s, "play-nogame", env, NULL, NULL, &r);
+    CHECK_INT(r.status, 0);
+    CHECK_INT(r.ready, 0);
+    CHECK_INT(r.clean, 0);
+    done(&s, &r);
+}
+
+/* exit 1 after the engine's error line. */
+static void test_failed(void) {
+    char *env[] = { "DXL_STUB=fail", "DXL_STUB_LINE=Could not open /g/Maps/.dx", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    play_stub(&s, "play-fail", env, NULL, NULL, &r);
+    CHECK_INT(r.status, 1);
+    CHECK_INT(r.clean, 0);
+    char *text = slurp(s.log, NULL);
+    CHECK(text && strstr(text, "SurrealEngine error: Could not open /g/Maps/.dx") != NULL);
+    free(text);
+    done(&s, &r);
+}
+
+static void test_crash(void) {
+    char *env[] = { "DXL_STUB=crash", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    play_stub(&s, "play-crash", env, NULL, NULL, &r);
+    CHECK_INT(r.ready, 1);
+    CHECK_INT(r.signal, SIGSEGV);
+    CHECK_INT(r.status, 128 + SIGSEGV);
+    CHECK_INT(r.clean, 0);
+    done(&s, &r);
+}
+
+/* A RELAUNCH, kept for after a clean end. */
+static void test_relaunch(void) {
+    char *env[] = { "DXL_STUB=relaunch", "DXL_STUB_LINE=DX.dx?Name=JC -server", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    play_stub(&s, "play-relaunch", env, NULL, NULL, &r);
+    CHECK_INT(r.clean, 1);
+    CHECK_STR(r.relaunch, "DX.dx?Name=JC -server");
+    done(&s, &r);
+}
+
+/* The quotes of a word arrive as they were given. */
+static void test_quotes_kept(void) {
+    char *env[] = { "DXL_STUB=args", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    play_stub(&s, "play-args", env, NULL, NULL, &r);
+    char *text = slurp(s.log, NULL);
+    CHECK(text && strstr(text, "[--cmdline=INI=\"My Mod.ini\" -nosound]\n") != NULL);
+    CHECK(text && strstr(text, "[/games/Deus Ex]\n") != NULL);
+    free(text);
+    done(&s, &r);
+}
+
+/* A game that takes no notice of SIGTERM is killed when its time is up. */
+static volatile int stop_now;
+static void test_stop_then_kill(void) {
+    char *env[] = { "DXL_STUB=stubborn", NULL };
+    stop_now = 1;   /* stopped as soon as it runs */
+    scratch_run s;
+    dxl_play_result r;
+    time_t t0 = time(NULL);
+    play_stub(&s, "play-stubborn", env, NULL, &stop_now, &r);
+    time_t t1 = time(NULL);
+    CHECK_INT(r.stopped, 1);
+    CHECK_INT(r.killed, 1);
+    CHECK_INT(r.signal, SIGKILL);
+    CHECK_INT(r.clean, 0);
+    CHECK((t1 - t0) >= DXL_PLAY_KILL_AFTER_MS / 1000 - 1 && (t1 - t0) <= DXL_PLAY_KILL_AFTER_MS / 1000 + 3);
+    stop_now = 0;
+    done(&s, &r);
+}
+
+/* A line a second launch forwards: TakeFocus and Open for its URL once the
+ * engine is up; one sent before then is dropped, as the original's log
+ * window takes one only once it has the engine. */
+static char forward_id[64];
+static void forward_on_ready(void *ctx) {
+    (void)ctx;
+    CHECK_INT(dxl_instance_forward(forward_id, "127.0.0.1:7790 -log", 1000, NULL), 0);
+}
+
+static void test_forwarded(void) {
+    snprintf(forward_id, sizeof forward_id, "dxl-test-play-%d", (int)getpid());
+    dxl_instance *inst = dxl_instance_acquire(forward_id);
+    CHECK(inst != NULL);
+    CHECK_INT(dxl_instance_forward(forward_id, "too-early", 1000, NULL), 0);
+    char *dir = dxl_xstrdup(scratch_dir("play-forward"));
+    char *log = scratch_path(dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=800", NULL };
+    dxl_play_request req = {
+        .argv = argv, .env = env, .workdir = dir, .log_path = log, .instance = inst,
+        .on_ready = forward_on_ready,
+    };
+    dxl_play_result r;
+    dxl_play(&req, &r);
+    CHECK_INT(r.clean, 1);
+    char *text = slurp(log, NULL);
+    CHECK(text && strstr(text, "line: TakeFocus\nline: Open 127.0.0.1:7790\n") != NULL);
+    CHECK(text && strstr(text, "too-early") == NULL);
+    free(text);
+    dxl_play_result_free(&r);
+    dxl_instance_release(inst);
+    scratch_remove(dir);
+    free(log);
+    free(dir);
+}
+
+static void test_cannot_start(void) {
+    char *argv[] = { "/nonexistent/SurrealEngine", NULL };
+    dxl_play_request req = { .argv = argv };
+    dxl_play_result r;
+    dxl_play(&req, &r);
+    CHECK_INT(r.started, 0);
+    CHECK(strstr(r.error, "cannot run") != NULL);
+    dxl_play_result_free(&r);
+}
+
+TEST_MAIN_BEGIN
+    signal(SIGPIPE, SIG_IGN);
+    RUN(test_clean);
+    RUN(test_no_game);
+    RUN(test_failed);
+    RUN(test_crash);
+    RUN(test_relaunch);
+    RUN(test_quotes_kept);
+    RUN(test_stop_then_kill);
+    RUN(test_forwarded);
+    RUN(test_cannot_start);
+TEST_MAIN_END

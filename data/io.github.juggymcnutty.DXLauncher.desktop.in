@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=DXLauncher
+GenericName=Deus Ex launcher
+Comment=Play Deus Ex on VibeEngine
+Exec=@EXEC@
+Icon=io.github.juggymcnutty.DXLauncher
+Terminal=false
+Categories=Game;ActionGame;
+Keywords=Deus Ex;DX;VibeEngine;
+StartupWMClass=io.github.juggymcnutty.DXLauncher

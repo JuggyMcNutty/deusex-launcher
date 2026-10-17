@@ -1,7 +1,6 @@
 # Linux on aarch64 with an ordinary distro -- sourced by scripts/dx.sh.
 # See README.md.
-PORT_DESC="Linux aarch64, ordinary distros: main's launcher (cross-built, or native)"
-PORT_LAUNCHER=DeusEx
+PORT_DESC="Linux aarch64, ordinary distros: DXLauncher (cross-built, or native)"
 
 native() { [ "$(uname -m)" = aarch64 ] || [ "$(uname -m)" = arm64 ]; }
 
@@ -12,15 +11,22 @@ if native; then PORT_ENGINE=1; else PORT_ENGINE=0; fi
 
 port_deps() {
     if native; then
-        pkg-config --exists sdl2 SDL2_ttf || die "install the SDL2 and SDL2_ttf development packages"
-        say "native build: SDL2 $(pkg-config --modversion sdl2)"
+        if pkg-config --exists 'sdl3 >= 3.2' 'sdl3-ttf >= 3.2' 2>/dev/null; then
+            say "native build: SDL3 $(pkg-config --modversion sdl3) and SDL3_ttf $(pkg-config --modversion sdl3-ttf), the distro's"
+        else
+            say "native build: no SDL3 and SDL3_ttf 3.2 or newer from the distro: their sources, built with the launcher"
+            dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf
+        fi
         return 0
     fi
     dx_fetch_bootlin aarch64--glibc--stable-2020.08-1 2.31
+    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf
 
-    # SDL2 and SDL2_ttf from Debian bookworm arm64, only for linking: at run
-    # time the device's own libraries are used.
-    local sys="$DX_DEPS/sysroots/linux-aarch64" recipe="linux-aarch64 sysroot 2"
+    # What SDL3's backends are built against, from Debian bookworm arm64:
+    # each library's headers, and the library itself, whose soname SDL3
+    # opens at run time; Vulkan's and EGL's headers for the GPU probe. Only
+    # for building: at run time the device's own libraries are used.
+    local sys="$DX_DEPS/sysroots/linux-aarch64" recipe="linux-aarch64 sysroot 3"
     if [ "$(cat "$sys/.dx-recipe" 2>/dev/null)" = "$recipe" ]; then
         say "sysroot present: $sys"
         return 0
@@ -28,30 +34,36 @@ port_deps() {
     local tmp; tmp="$(mktemp -d)"
     say "fetching Debian bookworm arm64 packages ..."
     dx_fetch_debs "$tmp" bookworm arm64 \
-        libsdl2-2.0-0 libsdl2-dev libsdl2-ttf-2.0-0 libsdl2-ttf-dev
-    rm -rf "$sys"; mkdir -p "$sys/lib"
-    cp -a "$tmp/usr/include" "$sys/include"
-    # Debian keeps SDL's generated config header in the multiarch directory,
-    # beside symlinks back to the ordinary headers: copy what it adds only.
-    cp -rnL "$tmp/usr/include/aarch64-linux-gnu/." "$sys/include/"
-    cp -a "$tmp/usr/lib/aarch64-linux-gnu/." "$sys/lib/"
+        libx11-dev libx11-6 x11proto-dev libxext-dev libxext6 libxrandr-dev libxrandr2 \
+        libxrender-dev libxrender1 libxcursor-dev libxcursor1 libxi-dev libxi6 libxfixes-dev libxfixes3 \
+        libxss-dev libxss1 libxtst-dev libxtst6 libxcb1-dev libxcb1 libxau-dev libxdmcp-dev \
+        libwayland-dev libwayland-client0 libwayland-cursor0 libwayland-egl1 libxkbcommon-dev libxkbcommon0 \
+        libdecor-0-dev libdecor-0-0 \
+        libasound2-dev libasound2 libpulse-dev libpulse0 libpipewire-0.3-dev libpipewire-0.3-0 libspa-0.2-dev \
+        libudev-dev libudev1 libdbus-1-dev libdbus-1-3 libusb-1.0-0-dev libusb-1.0-0 \
+        libegl-dev libegl1 libgles-dev libgles2 libgl-dev libgl1 libglx-dev libdrm-dev libdrm2 libgbm-dev libgbm1 \
+        libffi-dev libffi8 libvulkan-dev
+    rm -rf "$sys"; mkdir -p "$(dirname "$sys")"
+    cp -a "$tmp" "$sys"
     rm -rf "$tmp"
     printf '%s\n' "$recipe" > "$sys/.dx-recipe"
     say "sysroot ready: $sys"
 }
 
-# Natively, as linux-x86_64's: DeusEx finds the game by its own folder, so
-# the staged app -- DeusEx, run-game.sh and the engine's two files -- goes
-# into the System folder of the game beside the repositories, and starts
-# there. scripts/recreation.sh uninstall takes the four files out.
+# Natively, as linux-x86_64's: the staged app runs where it is staged, on the
+# gamefiles/ beside the repositories, its files in the home's XDG folders;
+# --fresh gives it a scratch home, build/linux-aarch64/fresh-home.
 port_run() {
     native || die "a cross build runs on the device: copy $APP there"
-    local sys="$DX_ROOT/gamefiles/System" f
-    [ -f "$sys/DeusEx.exe" ] || die "no Deus Ex in $DX_ROOT/gamefiles (no System/DeusEx.exe)"
-    for f in DeusEx run-game.sh SurrealEngine SurrealEngine.pk3; do
-        [ -f "$APP/$f" ] || die "no $f in $APP -- scripts/dx.sh stage $PORT"
-        cp -p "$APP/$f" "$sys/$f"
-    done
-    say "installed in $sys: DeusEx run-game.sh SurrealEngine SurrealEngine.pk3"
-    exec "$sys/DeusEx" "$@"
+    local game="$DX_ROOT/gamefiles"
+    [ -f "$game/System/DeusEx.exe" ] || die "no Deus Ex in $game (no System/DeusEx.exe)"
+    if [ "${1:-}" = --fresh ]; then
+        shift
+        export DXL_HOME="$BUILD/fresh-home"
+        rm -rf "$DXL_HOME"
+        mkdir -p "$DXL_HOME"
+        say "a fresh home: $DXL_HOME"
+    fi
+    [ "${1:-}" != -- ] || shift
+    exec "$APP/$PORT_LAUNCHER" --game="$game" "$@"
 }

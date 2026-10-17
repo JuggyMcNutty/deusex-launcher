@@ -15,7 +15,7 @@
     {
       "name": "linux-x86_64",
       "inherits": "port",
-      "displayName": "Linux x86_64 (native: the host build, DeusEx, pageshots and the tests)"
+      "displayName": "Linux x86_64 (native: the host build, deusex-launcher, dxl-cli, dxl-shots and the tests)"
     },
     {
       "name": "linux-aarch64",
@@ -32,7 +32,8 @@
     {
       "name": "linux-x86_64",
       "configurePreset": "linux-x86_64",
-      "output": { "outputOnFailure": true }
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 8 }
     }
   ]
 }

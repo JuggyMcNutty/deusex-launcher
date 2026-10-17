@@ -13,17 +13,23 @@ add_compile_options(-Wall -Wextra -Wshadow -Wvla -Wno-unused-parameter)
 
 set(DXL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# The port, one of Port Ex Machina's (its docs/PORTING.md): main's launcher,
-# with the port around it. ports/<DXL_PORT>/port.cmake says where SDL2 comes
-# from -- the system's through pkg-config, or a cross build's sysroot -- and
-# a cross build's glibc ceiling, checked after each build: a binary that
-# needs a newer glibc than the device has will not load there.
+# The port, one of Port Ex Machina's (its docs/PORTING.md): DXLauncher, the
+# desktop's launcher, with the port around it. ports/<DXL_PORT>/port.cmake
+# says where a cross build's headers come from, and its glibc ceiling,
+# checked after each build: a binary that needs a newer glibc than the
+# device has will not load there.
 set(DXL_PORT "linux-x86_64" CACHE STRING "Port to build for: a directory under ports/")
-set(DXL_PORT_SDL system)        # system: pkg-config; sysroot: DXL_PORT_SYSROOT
 set(DXL_PORT_SYSROOT "")        # headers and libraries of the device, when cross
+set(DXL_PORT_INCLUDE_DIRS "")   # the sysroot's header folders, for the GPU probe's Vulkan and EGL
 set(DXL_PORT_GLIBC_MAX "")      # e.g. 2.31: fail the build on any newer symbol
-set(DXL_PORT_LINK_OPTIONS "")   # extra link options for DeusEx
+set(DXL_PORT_LINK_OPTIONS "")   # extra link options for the programs
+set(DXL_PORT_DEPS_DEFAULT "auto")   # where SDL3 and SDL3_ttf come from: auto, system, vendored
+set(DXL_PORT_DEPS_ENV "")       # VAR=value words for the vendored libraries' configure steps
+set(DXL_PORT_DEPS_C_FLAGS "")   # and their C flags
 include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
+set(DXL_PORT_DEPS "${DXL_PORT_DEPS_DEFAULT}" CACHE STRING
+    "Where SDL3 and SDL3_ttf come from: auto, system or vendored (cmake/deps.cmake)")
+include("${DXL_ROOT}/cmake/deps.cmake")
 
 function(dxl_check_abi target)
     if(DXL_PORT_GLIBC_MAX)
@@ -33,13 +39,22 @@ function(dxl_check_abi target)
     endif()
 endfunction()
 
+# The launcher's version, for --version: the branch's commit at configure
+# time (run cmake again after a commit to refresh it).
+execute_process(COMMAND git describe --always --dirty --tags
+                WORKING_DIRECTORY "${DXL_ROOT}"
+                OUTPUT_VARIABLE DXL_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
+if(NOT DXL_VERSION)
+    set(DXL_VERSION "unversioned")
+endif()
+
 # ---------------------------------------------------------------------------
-# core -- the original launcher's behaviour, recreated: its ini handling, its
-# three command-line parsers, the FirstRun gates and the entry tree, the crash
-# sentinel, the single-instance handoff, the CD check, the .int strings, the
-# save migration, safe mode's flags, the Renderer list and the Detail
-# settings. No SDL, no platform assumptions. dx-reverse-info has the original
-# it follows.
+# core -- no SDL, no platform: the original's command-line rules, inis,
+# decision, crash sentinel and single instance, kept from main's launcher;
+# Settings.json, the pad's bindings and the renderer list, the Smart Pro's;
+# and DXLauncher's own: its folders, profiles, the game's builds and
+# installs, the engine's command line, the last run. docs/LAUNCHER.md.
 # ---------------------------------------------------------------------------
 add_library(dxl_core STATIC
     src/core/common.c
@@ -49,85 +64,110 @@ add_library(dxl_core STATIC
     src/core/config.c
     src/core/policy.c
     src/core/sentinel.c
-    src/core/install.c
     src/core/instance.c
     src/core/argv.c
     src/core/log.c
     src/core/localize.c
-    src/core/migrate.c
-    src/core/safemode.c
-    src/core/renderdev.c
-    src/core/detail.c
     src/core/peicon.c
+    src/core/json.c
+    src/core/engine_settings.c
+    src/core/bindings.c
+    src/core/renderers.c
+    src/core/xdg.c
+    src/core/sha1.c
+    src/core/gamedb.c
+    src/core/install.c
+    src/core/profile.c
+    src/core/engine_args.c
+    src/core/lastrun.c
+    src/core/finder.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
-# What is the platform's: replacing this process with another
-# (src/platform/launch.h -- safe mode's relaunch), the game the launcher
-# starts and stays with, as the original's
-# process stays with its engine (process.h), and the machine the Detail page
-# asks about (machine.h).
+# What is the platform's: the processes the launcher starts, the game among
+# them (platform/process.h), the crash-isolated GPU probe, and the app
+# menu's entry.
 add_library(dxl_platform STATIC
-    src/platform/posix/launch.c
     src/platform/posix/process.c
-    src/platform/posix/machine.c
+    src/platform/posix/gpu_probe.c
+    src/platform/posix/desktop.c
 )
-target_link_libraries(dxl_platform PUBLIC dxl_core)
-
-# The original's run, WinMain and InitEngine in their order, with the screens
-# behind a table of functions (src/launch/launch.h).
-add_library(dxl_launch STATIC src/launch/launch.c)
-target_link_libraries(dxl_launch PUBLIC dxl_platform)
-
-# ---------------------------------------------------------------------------
-# DeusEx -- the launcher itself, with the original's screens drawn in SDL2:
-# the look (src/gui), the wizard (src/wizard), and main (src/launch/winmain.c).
-# Installed into the game's System/, beside DeusEx.exe:
-#   cmake --install <build> --prefix <GameDir>/System
-# ---------------------------------------------------------------------------
-option(DXL_SCREENS "Build DeusEx and its screens (needs SDL2 and SDL2_ttf)" ON)
-if(DXL_SCREENS)
-    add_library(dxl_sdl INTERFACE)
-    if(DXL_PORT_SDL STREQUAL "sysroot")
-        if(NOT EXISTS "${DXL_PORT_SYSROOT}/include/SDL2/SDL.h")
-            message(FATAL_ERROR "no SDL2 in ${DXL_PORT_SYSROOT} -- run scripts/dx.sh deps ${DXL_PORT}")
-        endif()
-        target_include_directories(dxl_sdl INTERFACE "${DXL_PORT_SYSROOT}/include" "${DXL_PORT_SYSROOT}/include/SDL2")
-        target_link_directories(dxl_sdl INTERFACE "${DXL_PORT_SYSROOT}/lib")
-        target_link_libraries(dxl_sdl INTERFACE SDL2 SDL2_ttf)
-        target_link_options(dxl_sdl INTERFACE ${DXL_PORT_LINK_OPTIONS})
-    else()
-        find_package(PkgConfig REQUIRED)
-        pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2 SDL2_ttf)
-        target_link_libraries(dxl_sdl INTERFACE PkgConfig::SDL2)
-    endif()
-
-    add_library(dxl_gui STATIC
-        src/gui/gui.c
-        src/gui/dialog.c
-        src/gui/msgbox.c
-        src/gui/splash.c
-        src/wizard/wizard.c
-    )
-    target_link_libraries(dxl_gui PUBLIC dxl_platform dxl_sdl)
-
-    add_executable(DeusEx src/launch/winmain.c)
-    target_link_libraries(DeusEx PRIVATE dxl_launch dxl_gui)
-    dxl_check_abi(DeusEx)
-    install(TARGETS DeusEx RUNTIME DESTINATION .)
-    # What DeusEx starts the game with: the engine installed beside it.
-    install(PROGRAMS system/run-game.sh DESTINATION .)
-
-    # Every screen drawn into a .bmp with no display, to lay beside the
-    # original's (tools/pageshots.c).
-    add_executable(pageshots tools/pageshots.c)
-    target_link_libraries(pageshots PRIVATE dxl_gui)
+# The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
+# their headers come from the sysroot on a cross build, else the host's.
+if(DXL_PORT_INCLUDE_DIRS)
+    target_include_directories(dxl_platform PRIVATE ${DXL_PORT_INCLUDE_DIRS})
 endif()
+target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS})
+
+# One start of the launcher and the game it plays (src/app/run.h), shared
+# by both programs.
+add_library(dxl_app STATIC
+    src/app/session.c
+    src/app/play.c
+    src/app/run.c
+)
+target_link_libraries(dxl_app PUBLIC dxl_platform)
+
+# The window's UI kit, on SDL3's renderer and SDL3_ttf (src/ui/kit.h):
+# focus and navigation, the theme, text, drawing, the widgets, the hints'
+# glyphs, the icon.
+add_library(dxl_ui STATIC
+    src/ui/focus.c
+    src/ui/theme.c
+    src/ui/kit.c
+    src/ui/text.c
+    src/ui/draw.c
+    src/ui/widgets.c
+    src/ui/glyphs.c
+    src/ui/icon.c
+)
+target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
+
+# The window and its pages (src/screens/shell.h).
+add_library(dxl_screens STATIC
+    src/screens/shell.c
+    src/screens/home.c
+    src/screens/firstrun.c
+    src/screens/recovery.c
+    src/screens/about.c
+    src/screens/dialogs.c
+    src/screens/window.c
+    src/screens/uiscript.c
+)
+target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
+
+# deusex-launcher, the launcher; dxl-cli, the same with no window, for
+# scripts and for looking.
+add_executable(deusex-launcher src/main.c)
+target_link_libraries(deusex-launcher PRIVATE dxl_screens)
+add_executable(dxl-cli src/cli_main.c)
+target_link_libraries(dxl-cli PRIVATE dxl_app)
+foreach(program deusex-launcher dxl-cli)
+    target_compile_definitions(${program} PRIVATE DXL_VERSION="${DXL_VERSION}")
+    if(DXL_PORT_LINK_OPTIONS)
+        target_link_options(${program} PRIVATE ${DXL_PORT_LINK_OPTIONS})
+    endif()
+    dxl_check_abi(${program})
+endforeach()
+
+# dxl-shots: every page drawn offscreen, for review and for the tests
+# (tools/shots.c). Not part of the app.
+add_executable(dxl-shots tools/shots.c)
+target_link_libraries(dxl-shots PRIVATE dxl_screens)
+target_compile_definitions(dxl-shots PRIVATE DXL_SHOTS_FONTS="${DXL_ROOT}/data/fonts")
+
+# The app as it ships, one flat folder (cmake --install <build> --prefix
+# <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
+# programs, data/ and the notices of what is in them.
+install(TARGETS deusex-launcher dxl-cli RUNTIME DESTINATION .)
+install(FILES data/renderers.ini data/engine-settings.json.default
+              data/io.github.juggymcnutty.DXLauncher.desktop.in DESTINATION data)
+install(DIRECTORY data/fonts DESTINATION data)
+install(FILES THIRD-PARTY.md DESTINATION .)
 
 # ---------------------------------------------------------------------------
-# tests -- native builds only; the core has no graphics dependency, so they
-# need no display.
+# tests -- native builds only; none needs a display.
 # ---------------------------------------------------------------------------
 if(NOT CMAKE_CROSSCOMPILING)
     enable_testing()

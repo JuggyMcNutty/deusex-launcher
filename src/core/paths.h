@@ -32,8 +32,7 @@ const char *dxl_path_basename(const char *p);
 
 int  dxl_path_exists(const char *p);
 int  dxl_path_is_dir(const char *p);
-/* Size in bytes, or -1. Mirrors GFileManager->FileSize, which the launcher
- * uses to probe for the splash bitmap. */
+/* Size in bytes, or -1. Mirrors GFileManager->FileSize. */
 long dxl_path_size(const char *p);
 
 /* Resolves <dir>/<leaf> case-insensitively: returns the real path if an entry
@@ -47,6 +46,21 @@ int  dxl_path_mkdirs(const char *p);
 /* Copies a file byte for byte, replacing to. A failed copy removes the
  * partial destination rather than leaving half a config behind. */
 int  dxl_path_copy(const char *from, const char *to, dxl_err *err);
+
+/* Copies the files of a folder into another, made if missing, and its
+ * folders' in turn; a file already there is replaced. Counts the files
+ * copied into *copied (may be NULL). */
+int  dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *err);
+
+/* Seconds since the epoch the file was last changed; -1 when it is not
+ * there. */
+long dxl_path_mtime(const char *p);
+
+/* Replaces path with data whole or not at all: written to a temporary file
+ * beside it (mkstemp), synced, given the old file's mode (0644 for a new
+ * one), renamed over it, and the folder synced. A crash or a power cut
+ * leaves the old file or the new one, never half of either. */
+int  dxl_path_write_atomic(const char *path, const void *data, size_t len, dxl_err *err);
 
 /* Full path of the running executable, for the safe-mode re-exec
  * (GModuleFilename in the original). Caller frees; NULL if undeterminable. */

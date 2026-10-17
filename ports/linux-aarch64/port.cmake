@@ -2,18 +2,22 @@
 # ROCKNIX-style handheld images...).
 #
 # Built natively on an aarch64 machine it is the same as linux-x86_64. Cross
-# built from a PC, it links SDL2 from a sysroot made of Debian bookworm arm64
-# packages (port.sh) with the glibc 2.31 toolchain, so the binary loads on a
-# distro with glibc 2.31, SDL2 2.0.16 and SDL2_ttf 2.0.18 or later.
+# built from a PC, with the glibc 2.31 toolchain, SDL3, FreeType and
+# SDL3_ttf are built in from cmake/deps.lock's sources, SDL3's window and
+# audio backends opened at run time: the programs need only the C library,
+# glibc 2.31 or newer, and the device's own X11 or Wayland, ALSA, PulseAudio
+# or PipeWire. The backends are built against the headers of Debian bookworm
+# arm64's packages in deps/sysroots/linux-aarch64 (port.sh), whose
+# libraries give them the names to open.
 if(CMAKE_CROSSCOMPILING)
-    set(DXL_PORT_SDL       sysroot)
-    set(DXL_PORT_SYSROOT   "${DXL_ROOT}/deps/sysroots/linux-aarch64")
-    set(DXL_PORT_GLIBC_MAX 2.31)
-    # The sysroot has SDL2 and SDL2_ttf but not the libraries they link,
-    # which the device has: those stay unresolved at link time.
-    set(DXL_PORT_LINK_OPTIONS
-        -Wl,--unresolved-symbols=ignore-in-shared-libs
-        -Wl,-rpath-link,${DXL_PORT_SYSROOT}/lib)
-else()
-    set(DXL_PORT_SDL system)
+    set(DXL_PORT_SYSROOT      "${DXL_ROOT}/deps/sysroots/linux-aarch64")
+    set(DXL_PORT_GLIBC_MAX    2.31)
+    set(DXL_PORT_INCLUDE_DIRS "${DXL_PORT_SYSROOT}/usr/include" "${DXL_PORT_SYSROOT}/usr/include/aarch64-linux-gnu")
+    set(DXL_PORT_DEPS_DEFAULT vendored)
+    # Debian's .pc files name /usr: pkg-config puts the sysroot before each
+    # -I and -L.
+    set(DXL_PORT_DEPS_ENV
+        "PKG_CONFIG_LIBDIR=${DXL_PORT_SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig:${DXL_PORT_SYSROOT}/usr/share/pkgconfig"
+        "PKG_CONFIG_SYSROOT_DIR=${DXL_PORT_SYSROOT}")
+    set(DXL_PORT_DEPS_C_FLAGS "-I${DXL_PORT_SYSROOT}/usr/include/aarch64-linux-gnu")
 endif()

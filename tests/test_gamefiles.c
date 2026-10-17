@@ -1,9 +1,15 @@
 #include "test.h"
+#include "scratch.h"
+#include "app/run.h"
 #include "core/ini.h"
+#include "core/install.h"
 #include "core/localize.h"
-#include "core/renderdev.h"
+#include "core/paths.h"
 #include "core/peicon.h"
+#include "core/profile.h"
 
+#include <signal.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* The checks tests/fixtures can only stand in for, run against a real install
@@ -83,24 +89,125 @@ static void test_strings(void) {
     dxl_loc_free(l);
 }
 
-/* The Renderer page's registry: the five devices the game registers, in the
- * order the original met them under wine (dx-reverse-info/wizard.md, "Observed under wine"). */
-static void test_render_devices(void) {
-    dxl_loc *l = dxl_loc_open(DXL_GAMEFILES, NULL);
-    dxl_renderdev_list r;
-    dxl_renderdev_load(&r, DXL_GAMEFILES, l, NULL, NULL);
-    CHECK_INT(r.count, 5);
-    size_t idx[8];
-    int sel;
-    size_t n = dxl_renderdev_shown(&r, 1, idx, 8, &sel);
-    const char *want[] = { "3dfx Glide for Windows", "Direct3D Support", "OpenGL Support",
-                           "S3 MeTaL for Windows", "Software Rendering" };
-    CHECK_INT(n, 5);
-    for (size_t i = 0; i < n && i < 5; i++) CHECK_STR(r.items[idx[i]].caption, want[i]);
-    /* Nothing certified: the software renderer. */
-    CHECK_INT(sel, 4);
-    dxl_renderdev_free(&r);
-    dxl_loc_free(l);
+/* The install: a build the engine plays, nothing missing. */
+static void test_install(void) {
+    dxl_install in;
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    CHECK_INT(dxl_install_check(root, &in), 0);
+    CHECK_INT(in.found, 1);
+    CHECK(in.build != NULL);
+    if (in.build) CHECK_STR(in.build->version, "1112fm");
+    CHECK_STR(in.missing, "");
+    dxl_install_free(&in);
+    free(root);
+}
+
+/* What a first run would make of the install, nothing written. */
+static void test_import_plan(void) {
+    setenv("DXL_HOME", "/nonexistent/dxl-home", 1);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    dxl_import r;
+    CHECK_INT(dxl_profile_import(&p, DXL_GAMEFILES, 1, &r, NULL), 0);
+    CHECK(strstr(r.system_from, "DeusEx.ini") || strstr(r.system_from, "Default.ini"));
+    CHECK(r.user_from[0] != '\0');
+    CHECK_INT(dxl_path_exists("/nonexistent/dxl-home"), 0);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    unsetenv("DXL_HOME");
+}
+
+/* Every file under the game's folder changed since mark: none may be. The
+ * IDA databases beside the game's binaries are not the game's, and an IDA
+ * session may write them at any time. */
+static int changed_since(const char *mark) {
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    char cmd[1200];
+    snprintf(cmd, sizeof cmd,
+             "find '%s' -newer '%s' ! -name '*.i64' ! -name '*.id[0-2]' ! -name '*.nam' ! -name '*.til'"
+             " -print | head -5", root, mark);
+    FILE *f = popen(cmd, "r");
+    int n = 0;
+    char line[600];
+    while (f && fgets(line, sizeof line, f)) {
+        fprintf(stderr, "  changed: %s", line);
+        n++;
+    }
+    if (f) pclose(f);
+    free(root);
+    return n;
+}
+
+static int run_launcher(const char *game, const char *word) {
+    char opt[700];
+    snprintf(opt, sizeof opt, "--game=%s", game);
+    char *argv[] = { "deusex-launcher", opt, (char *)word, NULL };
+    static volatile int stop;
+    return dxl_run_main(word ? 3 : 2, argv, NULL, &stop);
+}
+
+/* A whole start with no window, the stub in the engine's place, in a
+ * scratch home: the first run makes the profile from the install and plays;
+ * a crash leaves Running.ini, and the next start stops at Recovery, which
+ * has no window. Nothing is written to the game's folder. */
+static void test_headless_run(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-run"));
+    char *mark = scratch_path(home, "mark");
+    scratch_write(home, "mark", "");
+    sleep(1);   /* the mark older than anything the run could write */
+    setenv("DXL_HOME", home, 1);
+    setenv("DXL_ENGINE", DXL_STUB_ENGINE, 1);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+
+    setenv("DXL_STUB", "ready", 1);
+    setenv("DXL_STUB_MS", "200", 1);
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    CHECK_INT(dxl_profile_exists(&p), 1);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+    CHECK_INT(dxl_path_exists(sentinel), 0);
+    dxl_lastrun last;
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), 0);
+    CHECK_INT(last.clean, 1);
+    /* The engine's line: the profile's files, the game's folder. */
+    char *log = dxl_path_join(p.logs_dir, DXL_LASTRUN_LOG);
+    CHECK_INT(dxl_path_exists(log), 1);
+
+    setenv("DXL_STUB", "crash", 1);
+    CHECK_INT(run_launcher(root, NULL), 128 + SIGSEGV);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    dxl_lastrun_load(&last, p.state_dir);
+    CHECK_INT(last.signal, SIGSEGV);
+
+    setenv("DXL_STUB", "ready", 1);
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_SCREEN);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    /* An engine without the userdir feature is refused. */
+    unlink(sentinel);
+    setenv("DXL_STUB_FEATURES", "loadgame-url", 1);
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_NOGAME);
+    unsetenv("DXL_STUB_FEATURES");
+
+    CHECK_INT(changed_since(mark), 0);
+
+    free(log);
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    unsetenv("DXL_STUB");
+    unsetenv("DXL_STUB_MS");
+    unsetenv("DXL_ENGINE");
+    unsetenv("DXL_HOME");
+    free(mark);
+    scratch_remove(home);
+    free(home);
 }
 
 /* dx-reverse-info/wizard.md, the frame: the wizard's icon is DeusEx.exe's
@@ -135,6 +242,8 @@ TEST_MAIN_BEGIN
     RUN(test_roundtrip);
     RUN(test_default_ini_matches_the_spec);
     RUN(test_strings);
-    RUN(test_render_devices);
     RUN(test_exe_icon);
+    RUN(test_install);
+    RUN(test_import_plan);
+    RUN(test_headless_run);
 TEST_MAIN_END

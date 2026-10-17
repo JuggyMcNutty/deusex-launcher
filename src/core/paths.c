@@ -2,6 +2,8 @@
 #include "core/paths.h"
 
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -129,6 +131,90 @@ int dxl_path_mkdirs(const char *p) {
         }
     }
     free(buf);
+    return rc;
+}
+
+int dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *err) {
+    DIR *d = opendir(from);
+    if (!d) {
+        dxl_err_set(err, "cannot read %s", from);
+        return -1;
+    }
+    if (dxl_path_mkdirs(to) != 0) {
+        closedir(d);
+        dxl_err_set(err, "cannot create %s", to);
+        return -1;
+    }
+    int rc = 0;
+    struct dirent *e;
+    while (rc == 0 && (e = readdir(d)) != NULL) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        char *src = dxl_path_join(from, e->d_name);
+        char *dst = dxl_path_join(to, e->d_name);
+        if (dxl_path_is_dir(src)) {
+            rc = dxl_path_copy_dir(src, dst, copied, err);
+        } else {
+            rc = dxl_path_copy(src, dst, err);
+            if (rc == 0 && copied) (*copied)++;
+        }
+        free(src);
+        free(dst);
+    }
+    closedir(d);
+    return rc;
+}
+
+long dxl_path_mtime(const char *p) {
+    struct stat st;
+    return stat(p, &st) == 0 ? (long)st.st_mtime : -1;
+}
+
+int dxl_path_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
+    char *dir = dxl_path_dirname(path);
+    size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 16;
+    char *tmp = dxl_xmalloc(n);
+    snprintf(tmp, n, "%s/.%s.XXXXXX", dir, dxl_path_basename(path));
+
+    int rc = -1;
+    int fd = mkostemp(tmp, O_CLOEXEC);
+    if (fd < 0) {
+        dxl_err_set(err, "cannot write in %s: %s", dir, strerror(errno));
+        goto out;
+    }
+    const char *p = data;
+    size_t left = len;
+    while (left > 0) {
+        ssize_t w = write(fd, p, left);
+        if (w < 0 && errno == EINTR) continue;
+        if (w <= 0) break;
+        p += w;
+        left -= (size_t)w;
+    }
+    struct stat old;
+    mode_t mode = stat(path, &old) == 0 ? (old.st_mode & 07777) : 0644;
+    int ok = left == 0 && fchmod(fd, mode) == 0 && fsync(fd) == 0;
+    ok = close(fd) == 0 && ok;
+    if (!ok) {
+        dxl_err_set(err, "cannot write %s: %s", tmp, strerror(errno));
+        unlink(tmp);
+        goto out;
+    }
+    if (rename(tmp, path) != 0) {
+        dxl_err_set(err, "cannot replace %s: %s", path, strerror(errno));
+        unlink(tmp);
+        goto out;
+    }
+    /* The rename itself is in the folder: synced too, or a power cut can
+     * lose it. */
+    int dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd >= 0) {
+        fsync(dfd);
+        close(dfd);
+    }
+    rc = 0;
+out:
+    free(tmp);
+    free(dir);
     return rc;
 }
 

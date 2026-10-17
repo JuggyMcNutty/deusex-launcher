@@ -1,4 +1,5 @@
 #include "core/ini.h"
+#include "core/paths.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -182,28 +183,23 @@ char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
 int dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err) {
     size_t len;
     char *text = dxl_ini_render(ini, &len);
-
-    /* Write-and-rename, so an interrupted save cannot leave a truncated
-     * config behind -- this file is the engine's only persistent state. */
-    char *tmp = dxl_xmalloc(strlen(path) + 8);
-    sprintf(tmp, "%s.tmpXXX", path);
-
-    FILE *f = fopen(tmp, "wb");
-    if (!f) { dxl_err_set(err, "cannot write %s", tmp); free(text); free(tmp); return -1; }
-    size_t wrote = len ? fwrite(text, 1, len, f) : 0;
-    int bad = (wrote != len) || fflush(f) != 0;
-    fclose(f);
+    /* Whole or not at all: this file is the engine's only persistent state. */
+    int rc = dxl_path_write_atomic(path, text, len, err);
     free(text);
+    return rc;
+}
 
-    if (bad) { remove(tmp); dxl_err_set(err, "short write on %s", tmp); free(tmp); return -1; }
-    if (rename(tmp, path) != 0) {
-        remove(tmp);
-        dxl_err_set(err, "cannot replace %s", path);
-        free(tmp);
-        return -1;
+void dxl_ini_set_eol(dxl_ini *ini, const char *eol) {
+    for (size_t i = 0; i < ini->count; i++) {
+        ini_line *l = ini->lines + i;
+        if (!l->eol[0] && i + 1 == ini->count) continue;   /* an unterminated last line stays so */
+        if (strcmp(l->eol, eol) == 0) continue;
+        free(l->eol);
+        l->eol = dxl_xstrdup(eol);
+        ini->dirty = 1;
     }
-    free(tmp);
-    return 0;
+    free(ini->eol);
+    ini->eol = dxl_xstrdup(eol);
 }
 
 /* ---- lookup --------------------------------------------------------- */
@@ -361,8 +357,32 @@ void dxl_ini_set_bool(dxl_ini *ini, const char *section, const char *key, int va
     dxl_ini_set(ini, section, key, value ? "True" : "False");
 }
 
+void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section) {
+    size_t header = find_section(src, section);
+    if (header == (size_t)-1) return;
+    size_t end = section_end(src, header);
+    ensure_section(dst, section);
+    dst->dirty = 1;
+    for (size_t i = header + 1; i < end; i++)
+        if (src->lines[i].kind == LINE_PAIR)
+            dxl_ini_append(dst, section, src->lines[i].name, src->lines[i].value);
+}
+
 int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
     return find_section(ini, section) != (size_t)-1;
+}
+
+size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out, size_t max) {
+    size_t n = 0, plen = strlen(prefix);
+    for (size_t i = 0; i < ini->count; i++) {
+        const ini_line *l = &ini->lines[i];
+        if (l->kind != LINE_SECTION || dxl_strnicmp(l->name, prefix, plen) != 0) continue;
+        /* A section written twice is one section to its lookups. */
+        if (find_section(ini, l->name) != i) continue;
+        if (out && n < max) out[n] = l->name;
+        n++;
+    }
+    return n;
 }
 
 void dxl_ini_empty_section(dxl_ini *ini, const char *section) {

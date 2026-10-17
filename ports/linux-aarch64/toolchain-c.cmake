@@ -4,7 +4,10 @@
 # the same preset works both ways.
 #
 # Bootlin stable-2020.08-1 (GCC 9.3, glibc 2.31). Its glibc is the floor the
-# binary needs, so an old one reaches the most distros. SDL2 comes from deps/sysroots/linux-aarch64 (port.sh).
+# binary needs, so an old one reaches the most distros. The headers and
+# libraries SDL3's backends are built against are Debian's, in
+# deps/sysroots/linux-aarch64 (port.sh), laid out as Debian lays them out:
+# found under it in their multiarch folders.
 if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
     return()
 endif()
@@ -29,6 +32,7 @@ set(CMAKE_STRIP        "${A64_TOOLCHAIN}/bin/aarch64-linux-strip"   CACHE FILEPA
 set(CMAKE_SYSROOT "${A64_TOOLCHAIN}/aarch64-buildroot-linux-gnu/sysroot")
 
 list(APPEND CMAKE_FIND_ROOT_PATH "${A64_SYSROOT}")
+set(CMAKE_LIBRARY_ARCHITECTURE aarch64-linux-gnu)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

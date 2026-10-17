@@ -1,0 +1,281 @@
+#define _GNU_SOURCE
+#include "core/profile.h"
+#include "core/paths.h"
+
+#include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+/* The engine's own sections of the system ini, which it reads once they are
+ * there (the fork's ENGINE.md, gameplay: the audio and render devices). */
+static const char *const engine_sections[] = {
+    "Engine.SurrealClient", "Engine.SurrealAudioDevice", "Engine.SurrealRenderDevice",
+    "Engine.SurrealWindowSystem",
+};
+
+/* The game's master server for its Join screen is GameSpy's, which closed;
+ * 333networks' answers in its place. */
+#define DEAD_MASTER "master0.gamespy.com"
+#define LIVE_MASTER "master.333networks.com"
+
+static int id_valid(const char *id) {
+    if (!id || !*id || strlen(id) > 64) return 0;
+    for (const char *c = id; *c; c++)
+        if (!isalnum((unsigned char)*c) && *c != '-' && *c != '_') return 0;
+    return 1;
+}
+
+static char *join3(const char *a, const char *b, const char *c) {
+    char *ab = dxl_path_join(a, b);
+    char *abc = dxl_path_join(ab, c);
+    free(ab);
+    return abc;
+}
+
+int dxl_profile_open(dxl_profile *p, const dxl_xdg *x, const char *id, dxl_err *err) {
+    memset(p, 0, sizeof *p);
+    if (!id_valid(id)) {
+        dxl_err_set(err, "a profile's id is letters, digits, '-' and '_': not \"%s\"", id ? id : "");
+        return -1;
+    }
+    p->id = dxl_xstrdup(id);
+    p->dir = join3(x->config, "profiles", id);
+    p->ini_path = dxl_path_join(p->dir, "profile.ini");
+    p->ini = dxl_ini_load(p->ini_path, NULL);
+    if (!p->ini) {
+        p->ini = dxl_ini_new();
+        dxl_ini_set_eol(p->ini, "\n");
+    }
+    p->system_ini = dxl_path_join(p->dir, "DeusEx.ini");
+    p->user_ini = dxl_path_join(p->dir, "User.ini");
+    p->engine_dir = dxl_path_join(p->dir, "engine");
+    char *data = join3(x->data, "profiles", id);
+    p->save_dir = dxl_path_join(data, "Save");
+    p->shots_dir = dxl_path_join(data, "Screenshots");
+    free(data);
+    p->state_dir = join3(x->state, "profiles", id);
+    p->logs_dir = dxl_path_join(p->state_dir, "logs");
+    char *cache = join3(x->cache, "profiles", id);
+    p->cache_dir = dxl_path_join(cache, "Cache");
+    free(cache);
+    return 0;
+}
+
+void dxl_profile_free(dxl_profile *p) {
+    if (!p) return;
+    dxl_ini_free(p->ini);
+    free(p->id); free(p->dir); free(p->ini_path); free(p->system_ini); free(p->user_ini);
+    free(p->engine_dir); free(p->save_dir); free(p->shots_dir); free(p->state_dir);
+    free(p->logs_dir); free(p->cache_dir);
+    memset(p, 0, sizeof *p);
+}
+
+int dxl_profile_exists(const dxl_profile *p) {
+    return dxl_path_exists(p->ini_path) && dxl_path_exists(p->system_ini);
+}
+
+int dxl_profile_make_dirs(const dxl_profile *p, dxl_err *err) {
+    const char *dirs[] = { p->dir, p->engine_dir, p->save_dir, p->shots_dir, p->state_dir,
+                           p->logs_dir, p->cache_dir };
+    for (size_t i = 0; i < sizeof dirs / sizeof *dirs; i++) {
+        if (dxl_path_mkdirs(dirs[i]) != 0) {
+            dxl_err_set(err, "cannot create %s", dirs[i]);
+            return -1;
+        }
+    }
+    /* The engine writes its shots into its folder's Screenshots (--userdir):
+     * a link to the profile's own. */
+    char *link = dxl_path_join(p->engine_dir, "Screenshots");
+    int rc = 0;
+    if (!dxl_path_exists(link) && symlink(p->shots_dir, link) != 0) {
+        dxl_err_set(err, "cannot link %s to %s: %s", link, p->shots_dir, strerror(errno));
+        rc = -1;
+    }
+    free(link);
+    return rc;
+}
+
+const char *dxl_profile_get(const dxl_profile *p, const char *key) {
+    return dxl_ini_get(p->ini, DXL_PROFILE_SECTION, key);
+}
+
+void dxl_profile_set(dxl_profile *p, const char *key, const char *value) {
+    dxl_ini_set(p->ini, DXL_PROFILE_SECTION, key, value);
+}
+
+int dxl_profile_save(dxl_profile *p, dxl_err *err) {
+    if (dxl_path_mkdirs(p->dir) != 0) {
+        dxl_err_set(err, "cannot create %s", p->dir);
+        return -1;
+    }
+    return dxl_ini_save(p->ini, p->ini_path, err);
+}
+
+/* ---- the import ------------------------------------------------------ */
+
+static void copy_str(char *dst, size_t size, const char *src) {
+    snprintf(dst, size, "%s", src ? src : "");
+}
+
+/* The newer of two files that may be missing; NULL when both are. */
+static const char *newer(const char *a, const char *b) {
+    if (!a) return b;
+    if (!b) return a;
+    return dxl_path_mtime(b) > dxl_path_mtime(a) ? b : a;
+}
+
+/* The game's save folder: SavePath of the ini the profile is made from,
+ * relative to System as the engine resolves it. */
+static char *game_save_dir(const char *system_dir, const dxl_ini *sys_ini) {
+    const char *v = dxl_ini_get(sys_ini, "Core.System", "SavePath");
+    char *rel = dxl_path_from_ini(v && *v ? v : "../Save");
+    char *dir;
+    if (rel[0] == '/') {
+        dir = dxl_xstrdup(rel);
+    } else {
+        char *joined = dxl_path_join(system_dir, rel);
+        dir = realpath(joined, NULL);
+        if (!dir) dir = joined;
+        else free(joined);
+    }
+    free(rel);
+    return dir;
+}
+
+static int is_shot(const char *name) {
+    size_t n = strlen(name);
+    return n > 8 && dxl_strnicmp(name, "Shot", 4) == 0 && dxl_stricmp(name + n - 4, ".bmp") == 0;
+}
+
+/* The saves to carry over: every folder of the game's but Current, the
+ * level the player is in, which the engine makes again from a save. */
+static int each_save(const char *save_dir, const char *to, dxl_err *err) {
+    DIR *d = opendir(save_dir);
+    if (!d) return 0;
+    int n = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.' || dxl_stricmp(e->d_name, "Current") == 0) continue;
+        char *src = dxl_path_join(save_dir, e->d_name);
+        if (dxl_path_is_dir(src)) {
+            if (to) {
+                char *dst = dxl_path_join(to, e->d_name);
+                int rc = dxl_path_copy_dir(src, dst, NULL, err);
+                free(dst);
+                if (rc != 0) { free(src); closedir(d); return -1; }
+            }
+            n++;
+        }
+        free(src);
+    }
+    closedir(d);
+    return n;
+}
+
+static int each_shot(const char *system_dir, const char *to, dxl_err *err) {
+    DIR *d = opendir(system_dir);
+    if (!d) return 0;
+    int n = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (!is_shot(e->d_name)) continue;
+        if (to) {
+            char *src = dxl_path_join(system_dir, e->d_name);
+            char *dst = dxl_path_join(to, e->d_name);
+            int rc = dxl_path_copy(src, dst, err);
+            free(src);
+            free(dst);
+            if (rc != 0) { closedir(d); return -1; }
+        }
+        n++;
+    }
+    closedir(d);
+    return n;
+}
+
+int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
+                       dxl_err *err) {
+    memset(r, 0, sizeof *r);
+    int rc = -1;
+    char *game_ini = dxl_path_resolve_ci(game_system_dir, "DeusEx.ini");
+    char *def_ini = dxl_path_resolve_ci(game_system_dir, "Default.ini");
+    char *se_ini = dxl_path_resolve_ci(game_system_dir, "SE-DeusEx.ini");
+    char *user = dxl_path_resolve_ci(game_system_dir, "User.ini");
+    char *se_user = dxl_path_resolve_ci(game_system_dir, "SE-User.ini");
+    char *def_user = dxl_path_resolve_ci(game_system_dir, "DefUser.ini");
+    dxl_ini *sys = NULL, *usr = NULL, *se = NULL;
+    char *saves = NULL;
+
+    /* DeusEx.ini: the game's own, else Default.ini; one with no Paths (a
+     * stub the engine cannot start from) is Default.ini with its values. */
+    const char *sys_from = game_ini ? game_ini : def_ini;
+    sys = sys_from ? dxl_ini_load(sys_from, err) : NULL;
+    if (!sys) {
+        if (!sys_from) dxl_err_set(err, "no DeusEx.ini or Default.ini in %s", game_system_dir);
+        goto out;
+    }
+    if (!dxl_ini_get(sys, "Core.System", "Paths") && def_ini && sys_from != def_ini) {
+        dxl_ini *base = dxl_ini_load(def_ini, err);
+        if (!base) goto out;
+        dxl_ini_overlay(base, sys);
+        dxl_ini_free(sys);
+        sys = base;
+    }
+    copy_str(r->system_from, sizeof r->system_from, sys_from);
+
+    /* The engine's own sections: from SE-DeusEx.ini, the file the engine
+     * writes without --ini, for each the game's ini lacks. */
+    se = se_ini ? dxl_ini_load(se_ini, NULL) : NULL;
+    for (size_t i = 0; se && i < sizeof engine_sections / sizeof *engine_sections; i++) {
+        if (dxl_ini_has_section(sys, engine_sections[i]) || !dxl_ini_has_section(se, engine_sections[i]))
+            continue;
+        copy_str(r->engine_from, sizeof r->engine_from, se_ini);
+        if (!dry) dxl_ini_copy_section(sys, se, engine_sections[i]);
+    }
+
+    /* User.ini: the newer of the game's and the engine's own, else
+     * DefUser.ini. */
+    const char *user_from = newer(user, se_user);
+    if (!user_from) user_from = def_user;
+    usr = user_from ? dxl_ini_load(user_from, err) : NULL;
+    if (!usr) {
+        if (!user_from) dxl_err_set(err, "no User.ini or DefUser.ini in %s", game_system_dir);
+        goto out;
+    }
+    copy_str(r->user_from, sizeof r->user_from, user_from);
+
+    saves = game_save_dir(game_system_dir, sys);
+    copy_str(r->saves_from, sizeof r->saves_from, saves);
+    r->saves = each_save(saves, NULL, NULL);
+    r->shots = each_shot(game_system_dir, NULL, NULL);
+    const char *master = dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
+    r->master_replaced = master && dxl_stricmp(master, DEAD_MASTER) == 0;
+    if (dry) {
+        rc = 0;
+        goto out;
+    }
+
+    dxl_ini_set(sys, "Core.System", "SavePath", p->save_dir);
+    dxl_ini_set(sys, "Core.System", "CachePath", p->cache_dir);
+    if (r->master_replaced) dxl_ini_set(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", LIVE_MASTER);
+    dxl_ini_set_eol(sys, "\n");
+    dxl_ini_set_eol(usr, "\n");
+
+    if (dxl_profile_make_dirs(p, err) != 0) goto out;
+    if (dxl_ini_save(sys, p->system_ini, err) != 0) goto out;
+    if (dxl_ini_save(usr, p->user_ini, err) != 0) goto out;
+    if (each_save(saves, p->save_dir, err) < 0) goto out;
+    if (each_shot(game_system_dir, p->shots_dir, err) < 0) goto out;
+    rc = 0;
+out:
+    dxl_ini_free(sys);
+    dxl_ini_free(usr);
+    dxl_ini_free(se);
+    free(game_ini); free(def_ini); free(se_ini); free(user); free(se_user); free(def_user);
+    free(saves);
+    return rc;
+}

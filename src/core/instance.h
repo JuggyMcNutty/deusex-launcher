@@ -27,9 +27,9 @@
 
 typedef struct dxl_instance dxl_instance;
 
-/* Becomes the primary instance for this install. NULL if another already is.
- * id should identify the install (the game directory); different installs must
- * not lock each other out. */
+/* Becomes the primary instance for id. NULL if another already is. The
+ * desktop launcher's id is its home's (app/session.h): one launcher for a
+ * home, whatever the install. */
 dxl_instance *dxl_instance_acquire(const char *id);
 /* The lock alone, with no channel to forward to: an instance nothing should
  * hand a command line to -- the original's -server, whose log window is

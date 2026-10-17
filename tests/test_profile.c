@@ -1,0 +1,239 @@
+#include "test.h"
+#include "scratch.h"
+#include "core/ini.h"
+#include "core/paths.h"
+#include "core/profile.h"
+
+#include <sys/stat.h>
+#include <time.h>
+#include <utime.h>
+
+/* A fake install, written for the test: the few lines of each file the
+ * import reads, the game's CRLF, and a save, a shot and a Current folder.
+ * Made read-only before the import: nothing may be written to it. */
+static char *make_install(void) {
+    char *g = dxl_xstrdup(scratch_dir("profile-game"));
+    scratch_write(g, "System/DeusEx.exe", "not the game");
+    scratch_write(g, "System/Default.ini",
+                  "[URL]\r\nLocalMap=DX.dx\r\n\r\n[Core.System]\r\nSavePath=..\\Save\r\n"
+                  "CachePath=..\\Cache\r\nPaths=..\\System\\*.u\r\nPaths=..\\Maps\\*.dx\r\n\r\n"
+                  "[DeusEx.MenuScreenJoinGame]\r\nMasterServerAddress=master0.gamespy.com\r\n");
+    scratch_write(g, "System/DeusEx.ini",
+                  "[FirstRun]\r\nFirstRun=1100\r\n\r\n[Core.System]\r\nSavePath=..\\Save\r\n"
+                  "CachePath=..\\Cache\r\nPaths=..\\System\\*.u\r\nPaths=..\\Maps\\*.dx\r\n\r\n"
+                  "[DeusEx.MenuScreenJoinGame]\r\nMasterServerAddress=master0.gamespy.com\r\n");
+    scratch_write(g, "System/SE-DeusEx.ini",
+                  "[Engine.SurrealClient]\nBrightness=0.7\nStartupFullscreen=False\n\n"
+                  "[Engine.SurrealAudioDevice]\nMusicVolume=128\n");
+    scratch_write(g, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
+    scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=Older\r\n");
+    scratch_write(g, "System/SE-User.ini", "[Engine.Input]\nF1=Newer\n");
+    scratch_write(g, "System/Shot0003.bmp", "BM");
+    scratch_write(g, "System/Running.ini", "");   /* main's launcher's sentinel: ignored */
+    scratch_write(g, "Save/Save0010/SaveInfo.dxs", "info");
+    scratch_write(g, "Save/Save0010/01_NYC_UNATCOIsland.dxs", "level");
+    scratch_write(g, "Save/QuickSave/SaveInfo.dxs", "quick");
+    scratch_write(g, "Save/Current/01_NYC_UNATCOIsland.dxs", "current");
+    scratch_write(g, "Maps/DX.dx", "map");
+    /* User.ini older than SE-User.ini, as the engine's own runs leave them. */
+    char *user = scratch_path(g, "System/User.ini");
+    struct utimbuf old = { .actime = time(NULL) - 3600, .modtime = time(NULL) - 3600 };
+    utime(user, &old);
+    free(user);
+    return g;
+}
+
+static void set_writable(const char *dir, int on) {
+    char cmd[600];
+    snprintf(cmd, sizeof cmd, "chmod -R %s '%s'", on ? "u+w" : "a-w", dir);
+    CHECK_INT(system(cmd), 0);
+}
+
+/* Every file of the install, its size and time: to compare after. */
+static char *listing(const char *dir) {
+    char cmd[600];
+    snprintf(cmd, sizeof cmd, "cd '%s' && find . -printf '%%p %%s %%T@\\n' | sort", dir);
+    FILE *f = popen(cmd, "r");
+    dxl_buf b;
+    dxl_buf_init(&b);
+    char line[1024];
+    while (f && fgets(line, sizeof line, f)) dxl_buf_puts(&b, line);
+    if (f) pclose(f);
+    if (!b.data) dxl_buf_add(&b, "", 0);
+    return b.data;
+}
+
+static void test_paths(void) {
+    setenv("DXL_HOME", "/tmp/dxl-home", 1);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    CHECK_STR(p.dir, "/tmp/dxl-home/config/dxlauncher/profiles/default");
+    CHECK_STR(p.system_ini, "/tmp/dxl-home/config/dxlauncher/profiles/default/DeusEx.ini");
+    CHECK_STR(p.engine_dir, "/tmp/dxl-home/config/dxlauncher/profiles/default/engine");
+    CHECK_STR(p.save_dir, "/tmp/dxl-home/data/dxlauncher/profiles/default/Save");
+    CHECK_STR(p.shots_dir, "/tmp/dxl-home/data/dxlauncher/profiles/default/Screenshots");
+    CHECK_STR(p.state_dir, "/tmp/dxl-home/state/dxlauncher/profiles/default");
+    CHECK_STR(p.logs_dir, "/tmp/dxl-home/state/dxlauncher/profiles/default/logs");
+    CHECK_STR(p.cache_dir, "/tmp/dxl-home/cache/dxlauncher/profiles/default/Cache");
+    CHECK_INT(dxl_profile_exists(&p), 0);
+    dxl_profile_free(&p);
+    /* Ids are names for folders: nothing that walks out of one. */
+    CHECK_INT(dxl_profile_open(&p, &x, "../escape", NULL), -1);
+    CHECK_INT(dxl_profile_open(&p, &x, "", NULL), -1);
+    CHECK_INT(dxl_profile_open(&p, &x, "a b", NULL), -1);
+    dxl_xdg_free(&x);
+    unsetenv("DXL_HOME");
+}
+
+static void test_import(void) {
+    char *game = make_install();
+    char *home = dxl_xstrdup(scratch_dir("profile-home"));
+    setenv("DXL_HOME", home, 1);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *system_dir = scratch_path(game, "System");
+
+    set_writable(game, 0);
+    char *before = listing(game);
+
+    /* What it would do, first: nothing written anywhere. */
+    dxl_import r;
+    dxl_err e;
+    CHECK_INT(dxl_profile_import(&p, system_dir, 1, &r, &e), 0);
+    CHECK(strstr(r.system_from, "System/DeusEx.ini") != NULL);
+    CHECK(strstr(r.user_from, "System/SE-User.ini") != NULL);
+    CHECK(strstr(r.engine_from, "System/SE-DeusEx.ini") != NULL);
+    CHECK_INT(r.saves, 2);
+    CHECK_INT(r.shots, 1);
+    CHECK_INT(r.master_replaced, 1);
+    CHECK_INT(dxl_path_exists(p.dir), 0);
+
+    CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, &e), 0);
+    if (dxl_err_msg(&e)[0] && !dxl_path_exists(p.system_ini)) fprintf(stderr, "  %s\n", dxl_err_msg(&e));
+
+    /* The install is as it was. */
+    char *after = listing(game);
+    CHECK_STR(after, before);
+    free(after);
+    free(before);
+    set_writable(game, 1);
+
+    /* DeusEx.ini: the game's, LF, the save and cache paths the profile's,
+     * the Paths as they were, the master 333networks', and the engine's
+     * sections from SE-DeusEx.ini. */
+    dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
+    CHECK(sys != NULL);
+    if (sys) {
+        CHECK_INT(dxl_ini_get_int(sys, "FirstRun", "FirstRun", 0), 1100);
+        CHECK_STR(dxl_ini_get(sys, "Core.System", "SavePath"), p.save_dir);
+        CHECK_STR(dxl_ini_get(sys, "Core.System", "CachePath"), p.cache_dir);
+        CHECK_INT(dxl_ini_get_all(sys, "Core.System", "Paths", NULL, 0), 2);
+        CHECK_STR(dxl_ini_get(sys, "Core.System", "Paths"), "..\\System\\*.u");
+        CHECK_STR(dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"),
+                  "master.333networks.com");
+        CHECK_STR(dxl_ini_get(sys, "Engine.SurrealClient", "Brightness"), "0.7");
+        CHECK_STR(dxl_ini_get(sys, "Engine.SurrealAudioDevice", "MusicVolume"), "128");
+        dxl_ini_free(sys);
+    }
+    size_t len = 0;
+    char *text = slurp(p.system_ini, &len);
+    CHECK(text && !strchr(text, '\r'));
+    free(text);
+    /* User.ini: the newer, SE-User.ini, LF. */
+    dxl_ini *usr = dxl_ini_load(p.user_ini, NULL);
+    CHECK(usr && strcmp(dxl_ini_get(usr, "Engine.Input", "F1"), "Newer") == 0);
+    dxl_ini_free(usr);
+
+    /* The saves but Current, and the shot; the shots folder is the engine's
+     * through its link. */
+    char *f = dxl_path_join(p.save_dir, "Save0010/01_NYC_UNATCOIsland.dxs");
+    CHECK_INT(dxl_path_exists(f), 1);
+    free(f);
+    f = dxl_path_join(p.save_dir, "QuickSave/SaveInfo.dxs");
+    CHECK_INT(dxl_path_exists(f), 1);
+    free(f);
+    f = dxl_path_join(p.save_dir, "Current");
+    CHECK_INT(dxl_path_exists(f), 0);
+    free(f);
+    f = dxl_path_join(p.shots_dir, "Shot0003.bmp");
+    CHECK_INT(dxl_path_exists(f), 1);
+    free(f);
+    f = dxl_path_join(p.engine_dir, "Screenshots/Shot0003.bmp");
+    CHECK_INT(dxl_path_exists(f), 1);
+    free(f);
+    /* main's launcher's Running.ini is no crash of this profile's. */
+    f = dxl_path_join(p.state_dir, "Running.ini");
+    CHECK_INT(dxl_path_exists(f), 0);
+    free(f);
+
+    /* profile.ini. */
+    dxl_profile_set(&p, "Name", "Deus Ex");
+    CHECK_INT(dxl_profile_save(&p, NULL), 0);
+    CHECK_INT(dxl_profile_exists(&p), 1);
+    dxl_profile q;
+    dxl_profile_open(&q, &x, "default", NULL);
+    CHECK_STR(dxl_profile_get(&q, "Name"), "Deus Ex");
+    dxl_profile_free(&q);
+
+    dxl_profile_free(&p);
+    free(system_dir);
+    dxl_xdg_free(&x);
+    unsetenv("DXL_HOME");
+    scratch_remove(home);
+    scratch_remove(game);
+    free(home);
+    free(game);
+}
+
+/* A DeusEx.ini with no Paths is a stub the engine cannot start from: the
+ * profile's is Default.ini with the stub's values over it. With no
+ * SE-User.ini or User.ini, DefUser.ini. */
+static void test_import_from_defaults(void) {
+    char *game = dxl_xstrdup(scratch_dir("profile-stub"));
+    scratch_write(game, "System/DeusEx.exe", "x");
+    scratch_write(game, "System/Default.ini",
+                  "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n\r\n"
+                  "[Engine.Engine]\r\nGameRenderDevice=GlideDrv.GlideRenderDevice\r\n");
+    scratch_write(game, "System/DeusEx.ini", "[Engine.Engine]\r\nGameRenderDevice=D3DDrv.D3DRenderDevice\r\n");
+    scratch_write(game, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
+    char *home = dxl_xstrdup(scratch_dir("profile-stub-home"));
+    setenv("DXL_HOME", home, 1);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *system_dir = scratch_path(game, "System");
+    dxl_import r;
+    CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, NULL), 0);
+    CHECK_STR(r.engine_from, "");
+    CHECK_INT(r.saves, 0);
+    CHECK_INT(r.master_replaced, 0);
+    dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
+    CHECK(sys != NULL);
+    if (sys) {
+        CHECK_STR(dxl_ini_get(sys, "Core.System", "Paths"), "..\\System\\*.u");
+        CHECK_STR(dxl_ini_get(sys, "Engine.Engine", "GameRenderDevice"), "D3DDrv.D3DRenderDevice");
+        dxl_ini_free(sys);
+    }
+    dxl_ini *usr = dxl_ini_load(p.user_ini, NULL);
+    CHECK(usr && strcmp(dxl_ini_get(usr, "Engine.Input", "F1"), "Default") == 0);
+    dxl_ini_free(usr);
+    dxl_profile_free(&p);
+    free(system_dir);
+    dxl_xdg_free(&x);
+    unsetenv("DXL_HOME");
+    scratch_remove(home);
+    scratch_remove(game);
+    free(home);
+    free(game);
+}
+
+TEST_MAIN_BEGIN
+    RUN(test_paths);
+    RUN(test_import);
+    RUN(test_import_from_defaults);
+TEST_MAIN_END

@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include "platform/process.h"
 
-#include "core/argv.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -15,15 +14,24 @@
 #include <unistd.h>
 
 /* In the child, after fork: exec, or report why not through report_fd. */
-static void exec_child(const char *exe, const char *flags, const char *workdir, int report_fd) {
+static void exec_child(char *const argv[], char *const env[], const char *workdir, int report_fd) {
+    for (size_t i = 0; env && env[i]; i++) {
+        const char *eq = strchr(env[i], '=');
+        if (!eq) {
+            unsetenv(env[i]);
+            continue;
+        }
+        char name[256];
+        snprintf(name, sizeof name, "%.*s", (int)(eq - env[i]), env[i]);
+        setenv(name, eq + 1, 1);
+    }
     if (workdir && *workdir && chdir(workdir) != 0) {
         int e = errno;
         ssize_t w = write(report_fd, &e, sizeof e);
         (void)w;
         _exit(127);
     }
-    char **argv = dxl_argv_build(exe, flags);
-    execv(exe, argv);
+    execv(argv[0], argv);
     int e = errno;
     ssize_t w = write(report_fd, &e, sizeof e);
     (void)w;
@@ -31,8 +39,9 @@ static void exec_child(const char *exe, const char *flags, const char *workdir, 
 }
 
 /* fork, exec, and 0 once exec has happened; -1 with the reason if it did not. */
-static int spawn(pid_t *pid, const char *exe, const char *flags, const char *workdir,
+static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *workdir,
                  int keep_fd, const char *log_path, dxl_err *err) {
+    const char *exe = argv[0];
     int report[2];
     if (pipe2(report, O_CLOEXEC) != 0) {
         dxl_err_set(err, "pipe: %s", strerror(errno));
@@ -65,7 +74,7 @@ static int spawn(pid_t *pid, const char *exe, const char *flags, const char *wor
         } else {
             unsetenv(DXL_LAUNCHER_FD_ENV);
         }
-        exec_child(exe, flags, workdir, report[1]);
+        exec_child(argv, env, workdir, report[1]);
     }
     close(report[1]);
     if (log_fd >= 0) close(log_fd);
@@ -81,8 +90,8 @@ static int spawn(pid_t *pid, const char *exe, const char *flags, const char *wor
     return 0;
 }
 
-int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *workdir,
-                   const char *log_path, dxl_err *err) {
+int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                        const char *log_path, dxl_err *err) {
     memset(g, 0, sizeof *g);
     g->channel = -1;
     int sv[2];
@@ -90,7 +99,7 @@ int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *
         dxl_err_set(err, "socketpair: %s", strerror(errno));
         return -1;
     }
-    if (spawn(&g->pid, exe, flags, workdir, sv[1], log_path, err) != 0) {
+    if (spawn(&g->pid, argv, env, workdir, sv[1], log_path, err) != 0) {
         close(sv[0]); close(sv[1]);
         return -1;
     }
@@ -100,6 +109,7 @@ int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *
     return 0;
 }
 
+
 static int reap(dxl_game *g) {
     if (g->ended) return 1;
     int st;
@@ -107,6 +117,7 @@ static int reap(dxl_game *g) {
     if (r != g->pid) return 0;
     g->ended = 1;
     g->status = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);
+    g->signal = WIFSIGNALED(st) ? WTERMSIG(st) : 0;
     return 1;
 }
 
@@ -171,16 +182,6 @@ void dxl_game_signal(dxl_game *g, int sig) {
 
 int dxl_game_clean(const dxl_game *g) { return g->ended && g->status == 0; }
 
-int dxl_child_start(const char *exe, const char *flags, const char *workdir, pid_t *pid,
-                    dxl_err *err) {
-    return spawn(pid, exe, flags, workdir, -1, NULL, err);
-}
-
-int dxl_child_reap(pid_t pid) {
-    int st;
-    pid_t r = waitpid(pid, &st, WNOHANG);
-    return r == pid || (r < 0 && errno == ECHILD);
-}
 
 int dxl_open_url(const char *url) {
     /* Two forks, so the opener is nobody's child to wait for. */
@@ -194,5 +195,61 @@ int dxl_open_url(const char *url) {
         _exit(0);
     }
     waitpid(pid, NULL, 0);
+    return 0;
+}
+
+int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, int *status,
+                    dxl_err *err) {
+    if (size) out[0] = '\0';
+    int pipefd[2];
+    if (pipe2(pipefd, O_CLOEXEC) != 0) {
+        dxl_err_set(err, "pipe: %s", strerror(errno));
+        return -1;
+    }
+    pid_t pid = fork();
+    if (pid < 0) {
+        dxl_err_set(err, "fork: %s", strerror(errno));
+        close(pipefd[0]); close(pipefd[1]);
+        return -1;
+    }
+    if (pid == 0) {
+        dup2(pipefd[1], STDOUT_FILENO);
+        int null = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null >= 0) { dup2(null, STDIN_FILENO); dup2(null, STDERR_FILENO); }
+        unsetenv(DXL_LAUNCHER_FD_ENV);
+        execv(argv[0], argv);
+        _exit(127);
+    }
+    close(pipefd[1]);
+    size_t got = 0;
+    int ms = timeout_ms, timed_out = 0;
+    for (;;) {
+        struct pollfd p = { pipefd[0], POLLIN, 0 };
+        int r = poll(&p, 1, ms > 100 ? 100 : ms);
+        if (r > 0) {
+            char chunk[512];
+            ssize_t n = read(pipefd[0], chunk, sizeof chunk);
+            if (n <= 0) break;   /* the end of its output */
+            for (ssize_t i = 0; i < n && got + 1 < size; i++) out[got++] = chunk[i];
+            if (size) out[got] = '\0';
+            continue;
+        }
+        if (r < 0 && errno == EINTR) continue;
+        if ((ms -= 100) <= 0) { timed_out = 1; break; }
+    }
+    close(pipefd[0]);
+    if (timed_out) kill(pid, SIGKILL);
+    int st = 0;
+    while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}
+    int code = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);
+    if (status) *status = code;
+    if (timed_out) {
+        dxl_err_set(err, "%s gave no answer in %d ms", argv[0], timeout_ms);
+        return -1;
+    }
+    if (code == 127 && got == 0) {
+        dxl_err_set(err, "cannot run %s", argv[0]);
+        return -1;
+    }
     return 0;
 }

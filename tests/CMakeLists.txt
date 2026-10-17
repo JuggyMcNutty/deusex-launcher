@@ -1,4 +1,5 @@
-# Host-only. The core has no graphics dependency, so these need no display.
+# Host-only. Nothing here needs a display: the UI's tests draw with SDL's
+# software renderer on a surface.
 set(DXL_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 
 function(dxl_test name)
@@ -16,25 +17,51 @@ dxl_test(test_argv)
 dxl_test(test_config)
 dxl_test(test_runtime)
 dxl_test(test_localize)
-dxl_test(test_migrate)
-dxl_test(test_safemode)
-dxl_test(test_renderdev)
-dxl_test(test_detail)
+dxl_test(test_json)
+dxl_test(test_engine_settings)
+dxl_test(test_renderers)
+dxl_test(test_bindings)
+dxl_test(test_xdg)
+dxl_test(test_gamedb)
+dxl_test(test_install)
+dxl_test(test_profile)
+dxl_test(test_engine_args)
+dxl_test(test_lastrun)
+dxl_test(test_finder)
 
-# The whole run, with stand-ins for the screens and the game.
-dxl_test(test_launch)
-target_link_libraries(test_launch PRIVATE dxl_launch)
+dxl_test(test_desktop)
+target_link_libraries(test_desktop PRIVATE dxl_platform)
+
+# The UI kit: focus and navigation, text, input from the keyboard, the
+# mouse and virtual pads.
+foreach(name test_ui_focus test_ui_text test_ui_input)
+    dxl_test(${name})
+    target_link_libraries(${name} PRIVATE dxl_ui)
+    target_compile_definitions(${name} PRIVATE DXL_FONTS="${DXL_ROOT}/data/fonts")
+endforeach()
+
+# Every page at every size and with every device, without a diagnostic
+# (tools/shots.c): a test for each size, so they run side by side.
+foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600-)
+    string(REPLACE "-" "" name "${size}")
+    add_test(NAME test_ui_shots_${name} COMMAND dxl-shots --only=${size})
+endforeach()
+
+# The processes the launcher starts and the game's run, with a stand-in for
+# the engine (stub_engine.c) in its place.
+add_executable(stub_engine stub_engine.c)
+foreach(name test_process test_play)
+    dxl_test(${name})
+    target_link_libraries(${name} PRIVATE dxl_app)
+    target_compile_definitions(${name} PRIVATE DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
+    add_dependencies(${name} stub_engine)
+endforeach()
 
 # The same checks against the real game files, which this repository does not
 # carry: skipped unless gamefiles/ holds an install.
 dxl_test(test_gamefiles)
-target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System")
+target_link_libraries(test_gamefiles PRIVATE dxl_app)
+target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System"
+                           DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
+add_dependencies(test_gamefiles stub_engine)
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
-
-# The wizard clicked through, drawn into surfaces: no display, but a font
-# (skipped without one).
-if(TARGET dxl_gui)
-    dxl_test(test_wizard)
-    target_link_libraries(test_wizard PRIVATE dxl_gui)
-    set_tests_properties(test_wizard PROPERTIES SKIP_RETURN_CODE 77)
-endif()

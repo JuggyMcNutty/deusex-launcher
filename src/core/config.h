@@ -5,8 +5,7 @@
  *   <Package>.ini   DeusEx.ini. The launcher's contract keys live here
  *                   ([FirstRun], CdPath, GameRenderDevice) exactly as
  *                   dx-reverse-info/ini-keys.md says.
- *   User.ini        The player's settings; the save migration writes its
- *                   slot names here.
+ *   User.ini        The player's settings: the keys, the pad's bindings.
  *
  * A missing <Package>.ini is created from Default.ini, and a missing User.ini
  * from DefUser.ini -- what UE1's Core does at startup before the original
@@ -59,8 +58,8 @@ const char *dxl_config_user_path(const dxl_config *c);
 int  dxl_config_first_run(const dxl_config *c);
 /* Clamps up to DXL_FIRSTRUN_CURRENT, never down. The original clamps the
  * value it holds (0x1090B997), which -firstrun has set to 0 -- so under
- * -firstrun it writes 1100 back even over a higher stored value, as main's
- * launch sequence does with its own (launch/launch.c); this keeps the higher. */
+ * -firstrun it writes 1100 back even over a higher stored value; this keeps
+ * the higher. */
 void dxl_config_clamp_first_run(dxl_config *c);
 
 const char *dxl_config_render_device(const dxl_config *c);

@@ -31,7 +31,13 @@ void     dxl_ini_free(dxl_ini *ini);
 
 /* Serialises to a freshly allocated buffer; caller frees. Never fails. */
 char *dxl_ini_render(const dxl_ini *ini, size_t *out_len);
+/* Whole or not at all (dxl_path_write_atomic). */
 int   dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err);
+
+/* Every line's terminator, and new lines', made eol ("\n" or "\r\n"); an
+ * unterminated last line stays unterminated. The desktop launcher writes
+ * its profiles' inis LF, as the engine writes them back. */
+void  dxl_ini_set_eol(dxl_ini *ini, const char *eol);
 
 /* First value for key, or NULL. The returned pointer is owned by the ini and
  * is invalidated by the next dxl_ini_set* on the same object. */
@@ -58,7 +64,15 @@ void dxl_ini_append  (dxl_ini *ini, const char *section, const char *key, const 
  * values a partial file already carried. */
 void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src);
 
+/* Appends every line of src's section to dst's, repeated keys and all,
+ * creating the section in dst if it has none. */
+void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section);
+
 int  dxl_ini_has_section(const dxl_ini *ini, const char *section);
+/* The names of the sections that start with prefix (any case), in file
+ * order, each once. Returns the count; writes at most max into out. The
+ * names are the ini's, valid until it changes. */
+size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out, size_t max);
 /* Removes every key line in the section, keeping the header. Mirrors
  * FConfigCache::EmptySection. */
 void dxl_ini_empty_section(dxl_ini *ini, const char *section);
