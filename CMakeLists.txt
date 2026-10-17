@@ -22,7 +22,13 @@ set(DXL_PORT "linux-x86_64" CACHE STRING "Port to build for: a directory under p
 set(DXL_PORT_SYSROOT "")        # headers and libraries of the device, when cross
 set(DXL_PORT_GLIBC_MAX "")      # e.g. 2.31: fail the build on any newer symbol
 set(DXL_PORT_LINK_OPTIONS "")   # extra link options for the programs
+set(DXL_PORT_DEPS_DEFAULT "auto")   # where SDL3 and SDL3_ttf come from: auto, system, vendored
+set(DXL_PORT_DEPS_ENV "")       # VAR=value words for the vendored libraries' configure steps
+set(DXL_PORT_DEPS_C_FLAGS "")   # and their C flags
 include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
+set(DXL_PORT_DEPS "${DXL_PORT_DEPS_DEFAULT}" CACHE STRING
+    "Where SDL3 and SDL3_ttf come from: auto, system or vendored (cmake/deps.cmake)")
+include("${DXL_ROOT}/cmake/deps.cmake")
 
 function(dxl_check_abi target)
     if(DXL_PORT_GLIBC_MAX)
@@ -99,6 +105,21 @@ add_library(dxl_app STATIC
 )
 target_link_libraries(dxl_app PUBLIC dxl_platform)
 
+# The window's UI kit, on SDL3's renderer and SDL3_ttf (src/ui/kit.h):
+# focus and navigation, the theme, text, drawing, the widgets, the hints'
+# glyphs, the icon.
+add_library(dxl_ui STATIC
+    src/ui/focus.c
+    src/ui/theme.c
+    src/ui/kit.c
+    src/ui/text.c
+    src/ui/draw.c
+    src/ui/widgets.c
+    src/ui/glyphs.c
+    src/ui/icon.c
+)
+target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
+
 # deusex-launcher, the launcher; dxl-cli, the same with no window, for
 # scripts and for looking.
 add_executable(deusex-launcher src/main.c)
@@ -114,9 +135,11 @@ endforeach()
 
 # The app as it ships, one flat folder (cmake --install <build> --prefix
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
-# programs, and data/.
+# programs, data/ and the notices of what is in them.
 install(TARGETS deusex-launcher dxl-cli RUNTIME DESTINATION .)
 install(FILES data/renderers.ini data/engine-settings.json.default DESTINATION data)
+install(DIRECTORY data/fonts DESTINATION data)
+install(FILES THIRD-PARTY.md DESTINATION .)
 
 # ---------------------------------------------------------------------------
 # tests -- native builds only; none needs a display.

@@ -1,4 +1,5 @@
-# Host-only. Nothing here needs a display.
+# Host-only. Nothing here needs a display: the UI's tests draw with SDL's
+# software renderer on a surface.
 set(DXL_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 
 function(dxl_test name)
@@ -26,6 +27,14 @@ dxl_test(test_install)
 dxl_test(test_profile)
 dxl_test(test_engine_args)
 dxl_test(test_lastrun)
+
+# The UI kit: focus and navigation, text, input from the keyboard, the
+# mouse and virtual pads.
+foreach(name test_ui_focus test_ui_text test_ui_input)
+    dxl_test(${name})
+    target_link_libraries(${name} PRIVATE dxl_ui)
+    target_compile_definitions(${name} PRIVATE DXL_FONTS="${DXL_ROOT}/data/fonts")
+endforeach()
 
 # The processes the launcher starts and the game's run, with a stand-in for
 # the engine (stub_engine.c) in its place.

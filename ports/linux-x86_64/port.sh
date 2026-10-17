@@ -2,10 +2,16 @@
 PORT_DESC="Desktop Linux, x86_64 (native): DXLauncher, the desktop's own launcher"
 PORT_ENGINE=1
 
-# Nothing to download: the launcher and the engine build against the
-# distro's own libraries.
+# The launcher and the engine build against the distro's own libraries;
+# a distro with no SDL3 and SDL3_ttf 3.2 or newer gets the window's sources
+# instead, for a build of its own (cmake/deps.lock).
 port_deps() {
-    say "$PORT: nothing to fetch; the engine's packages are the workspace's docs/DEVELOPMENT.md's"
+    if pkg-config --exists 'sdl3 >= 3.2' 'sdl3-ttf >= 3.2' 2>/dev/null; then
+        say "$PORT: nothing to fetch: SDL3 $(pkg-config --modversion sdl3) and SDL3_ttf $(pkg-config --modversion sdl3-ttf) are the distro's; the engine's packages are the workspace's docs/DEVELOPMENT.md's"
+    else
+        say "$PORT: no SDL3 and SDL3_ttf 3.2 or newer from the distro: their sources, built with the launcher"
+        dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf
+    fi
 }
 
 # The staged app runs where it is staged, on the gamefiles/ beside the
