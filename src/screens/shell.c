@@ -175,6 +175,22 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
     dxl_err e;
     if (dxl_profile_import(&ss->profile, s->chosen.system_dir, 1, &s->plan, &e) != 0)
         snprintf(s->plan_error, sizeof s->plan_error, "%s", dxl_err_msg(&e));
+    /* The engine's own drawing; the Modern layout over the game's own three
+     * buttons, or none, else the controls as they are: a layout of the
+     * player's, or one of ours already. */
+    s->begin_graphics = 0;
+    s->begin_layout = 1;
+    dxl_ini *usr = s->plan_error[0] ? NULL : dxl_profile_user_preview(s->plan.user_from);
+    if (usr) {
+        const dxl_pad_preset *now = dxl_bindings_detect(usr);
+        int bound = 0;
+        for (size_t k = 0; k < DXL_JOY_KEY_COUNT; k++) {
+            const char *b = dxl_ini_get(usr, DXL_INPUT_SECTION, dxl_joy_keys[k]);
+            bound += b && *b;
+        }
+        if (bound && (!now || strcmp(now->id, "classic") != 0)) s->begin_layout = 0;
+        dxl_ini_free(usr);
+    }
     s->focus[DXL_PAGE_IMPORT] = 0;
     dxl_shell_go(s, DXL_PAGE_IMPORT);
 }

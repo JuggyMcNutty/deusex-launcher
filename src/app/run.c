@@ -16,7 +16,7 @@
 
 #define HANDOFF_TIMEOUT_MS 30000   /* the original's SendMessageTimeout */
 #define VERSION_TIMEOUT_MS 5000
-#define PACKAGE "DeusEx"
+#define PACKAGE DXL_GAME_PACKAGE
 
 /* ---- the command line --------------------------------------------- */
 

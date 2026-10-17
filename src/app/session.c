@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include "app/session.h"
+#include "core/config.h"
+#include "core/engine_settings.h"
 #include "core/log.h"
 #include "core/paths.h"
 
@@ -114,6 +116,34 @@ int dxl_session_make_profile(dxl_session *s, const dxl_install *in, const char *
             report->shots);
     dxl_session_check_install(s);   /* what the screens say of it; the profile is made either way */
     return 0;
+}
+
+int dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl_pad_preset *layout,
+                           dxl_err *err) {
+    if (!graphics && !layout) return 0;
+    dxl_config *c = dxl_config_open_files(s->install.system_dir ? s->install.system_dir : ".", DXL_GAME_PACKAGE,
+                                          s->profile.system_ini, s->profile.user_ini);
+    char *json = dxl_path_join(s->profile.engine_dir, "Settings.json");
+    char *def = dxl_path_join(s->data_dir, "engine-settings.json.default");
+    dxl_stores st;
+    memset(&st, 0, sizeof st);
+    st.system = dxl_config_ini(c);
+    st.user = dxl_config_user_ini(c);
+    st.launcher = s->ini;
+    st.profile = s->profile.ini;
+    st.engine = dxl_es_open(json, def);
+    if (graphics) dxl_preset_apply(&st, graphics);
+    if (layout && st.user) dxl_bindings_apply(st.user, layout);
+    int rc = dxl_config_save(c, err);
+    if (rc == 0 && st.engine && dxl_es_dirty(st.engine)) rc = dxl_es_save(st.engine, err);
+    dxl_es_free(st.engine);
+    dxl_config_free(c);
+    free(json);
+    free(def);
+    if (rc == 0)
+        dxl_log("profile %s begun with %s graphics and %s", s->profile.id, graphics ? graphics->label : "the engine's",
+                layout ? layout->label : "the controls as imported");
+    return rc;
 }
 
 char *dxl_session_instance_id(const dxl_session *s) {

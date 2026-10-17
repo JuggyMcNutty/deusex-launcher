@@ -4,6 +4,7 @@
 #include "screens/shell.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "ui/controls.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
 
@@ -171,9 +172,13 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     snprintf(title, sizeof title, "From %s", dxl_shell_tilde(s->chosen.root, shown, sizeof shown));
     char cut[1100];
     dxl_text_fit_tail(ui, DXL_FONT_BUTTON, title, w - 40, cut, sizeof cut);
-    const float nw = 150, lh = 29;
-    float content = s->plan_error[0] ? dxl_text_size(ui, DXL_FONT_BODY, s->plan_error, w - 44).y
-                                     : (7 + (p->master_replaced != 0)) * lh + 10 + dxl_text_line(ui, DXL_FONT_SMALL);
+    const float nw = 150, ch = 40;
+    /* How it begins, on a line under the fields: the graphics, and with a
+     * pad connected its layout. The fields' lines closer on a short window. */
+    int pad = SDL_HasGamepad(), rows = 7 + (p->master_replaced != 0);
+    float extra = 10 + ch + 10 + dxl_text_line(ui, DXL_FONT_SMALL), room = (r.h - 6 - 133 - extra) / (float)rows;
+    float lh = room < 29 ? (room > 22 ? room : 22) : 29;
+    float content = s->plan_error[0] ? dxl_text_size(ui, DXL_FONT_BODY, s->plan_error, w - 44).y : rows * lh + extra;
     dxl_rect panel = { r.x, r.y + 6, w, fit(r, content) };
     dxl_rect in = dxl_window(ui, panel, cut);
     dxl_rect buttons = button_row(&in);
@@ -203,9 +208,25 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         dxl_field(ui, &in, lh, nw, "Kept in", dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf), t->text,
                   DXL_W_TAIL | DXL_W_MAY_CUT);
         dxl_cut_top(&in, 10);
+        static const char *looks[8], *layouts[8];
+        int nl = 0, nk = 0;
+        looks[nl++] = "The engine's defaults";
+        for (size_t i = 0; i < dxl_preset_count() && nl < 8; i++) looks[nl++] = dxl_preset_at(i)->label;
+        dxl_rect line = dxl_cut_top(&in, ch), left = line, right = line;
+        left.w = right.w = (line.w - 16) / 2;
+        right.x = left.x + left.w + 16;
+        dxl_spinner(ui, dxl_ui_id(ui, "import graphics"), left, "Graphics", &s->begin_graphics, looks, nl, 0);
+        if (pad) {
+            layouts[nk++] = "As imported";
+            for (size_t i = 0; i < dxl_pad_preset_count() && nk < 8; i++) layouts[nk++] = dxl_pad_preset_at(i)->label;
+            dxl_spinner(ui, dxl_ui_id(ui, "import layout"), right, "Controller", &s->begin_layout, layouts, nk, 0);
+        }
+        dxl_cut_top(&in, 10);
         dxl_paragraph(ui, in, DXL_FONT_SMALL, "Nothing in the game's folder changes.", t->help);
     }
 
+    /* Enter makes it, the choices above it as they are. */
+    if (!ui->focus && !s->plan_error[0]) ui->focus = dxl_ui_id(ui, "import make");
     int make = dxl_button(ui, "import make", dxl_cut_left(&buttons, 230), "Make the profile",
                           DXL_W_PRIMARY | (s->plan_error[0] ? DXL_W_DISABLED : 0));
     int back = dxl_button(ui, "import back", dxl_cut_right(&buttons, 150), "Back", 0);
@@ -217,6 +238,10 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
             dxl_shell_message(s, "The profile was not made", "%s", dxl_err_msg(&e));
             return;
         }
+        const dxl_preset *looks_with = s->begin_graphics > 0 ? dxl_preset_at((size_t)s->begin_graphics - 1) : NULL;
+        const dxl_pad_preset *layout = pad && s->begin_layout > 0 ? dxl_pad_preset_at((size_t)s->begin_layout - 1) : NULL;
+        if (dxl_session_begin_with(&s->run->session, looks_with, layout, &e) != 0)
+            dxl_log("warning: the profile's graphics and layout: %s", dxl_err_msg(&e));
         char saves[32], shots[40];
         snprintf(saves, sizeof saves, done.saves == 1 ? "1 save" : "%d saves", done.saves);
         snprintf(shots, sizeof shots, done.shots == 1 ? "1 screenshot" : "%d screenshots", done.shots);

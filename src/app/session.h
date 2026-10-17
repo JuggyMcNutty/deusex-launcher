@@ -14,11 +14,16 @@
 #ifndef DXL_SESSION_H
 #define DXL_SESSION_H
 
+#include "core/bindings.h"
 #include "core/common.h"
 #include "core/ini.h"
 #include "core/install.h"
 #include "core/profile.h"
+#include "core/settings.h"
 #include "core/xdg.h"
+
+/* The game's ini by its package: DeusEx.ini. */
+#define DXL_GAME_PACKAGE "DeusEx"
 
 typedef struct {
     dxl_xdg      xdg;
@@ -54,6 +59,11 @@ int  dxl_session_check_install(dxl_session *s);
  * at it and made active (core/profile.h's import). */
 int  dxl_session_make_profile(dxl_session *s, const dxl_install *in, const char *name,
                               dxl_import *report, dxl_err *err);
+/* And how it begins, as the first run's quick setup has it: a graphics
+ * preset, NULL for the engine's defaults as made, and a pad layout, NULL
+ * for the controls as imported; its files written. */
+int  dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl_pad_preset *layout,
+                            dxl_err *err);
 
 /* An id for the single-instance lock: one launcher for a home, a scratch
  * one (DXL_HOME) apart from the real one. Caller frees. */

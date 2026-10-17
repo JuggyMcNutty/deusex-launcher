@@ -1,0 +1,25 @@
+# A first run from nothing, a controller connected: Welcome, the game the
+# finder found, Your profile begun with the Enhanced graphics and the Modern
+# layout with its sticks swapped, then Home: test_ui_scripts.c reads the
+# profile it made.
+pad attach xbox
+wait 2
+expect welcome
+key Return
+wait 1
+expect find
+key Return
+wait 1
+expect import
+find Graphics
+key Left *3
+key Right *2
+find Controller
+key Left *3
+key Right *2
+find Make the profile
+key Return
+wait 1.5
+expect home
+find Quit
+key Return

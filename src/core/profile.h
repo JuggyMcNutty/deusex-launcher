@@ -77,6 +77,10 @@ typedef struct {
  * Nothing is written to the game's folder. */
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err);
+/* The User.ini the import makes from the file at path (dxl_import's
+ * user_from), in memory: the bindings the original saved folded in as the
+ * import folds them. NULL when it cannot be read. */
+dxl_ini *dxl_profile_user_preview(const char *path);
 
 /* The settings a profile has before any is changed, as the import makes
  * them of the install's defaults: Default.ini, GameSpy's master given
