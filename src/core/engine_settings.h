@@ -1,22 +1,24 @@
-/* Surreal Engine's own settings: <HOME>/.config/SurrealEngine/Settings.json.
+/* VibeEngine's own settings: Settings.json in its folder, the profile's
+ * engine folder (--userdir), which the engine reads once, as its window
+ * opens, and never writes (its LauncherSettings.cpp).
  *
- * This file, not DeusEx.ini, is where the engine takes its renderer from:
- * Surreal Engine overrides [Engine.Engine] GameRenderDevice with its own
- * device class (Engine.cpp, "Override the ini file for things that are
- * internal in Surreal Engine") and reads RenderDevice.Type from here instead.
- * So everything the launcher offers about rendering lands in this file.
+ * The engine takes its renderer from here (RenderDevice.Type), and the
+ * fork's own choices: anti-aliasing, lighting, the gamma curve, VSync,
+ * bloom, HDR, the pad, the render scale. The rest of the game's display
+ * settings are the inis' (core/settings_table.c).
  *
  * Every field is described by a table entry -- its JSON location, kind,
  * allowed values and range -- so the UI can build its rows from the table
- * instead of hard-coding each one. Values are the engine's own spellings
- * (LauncherSettings.cpp): "MSAA4x", "OneX", "XOpenGL", ...
+ * instead of hard-coding each one. Values are the engine's own spellings,
+ * exact case (LauncherSettings.cpp): "MSAA4x", "OneX", "XOpenGL", ...
  *
  * The engine parses the file inside a catch-all, so a file it cannot read
- * costs every setting at once, and a member it cannot find reads as empty,
- * false or 0. That is why a save always writes every member of every section
- * here, and why an unreadable file is replaced rather than left alone. A
- * member the file lacks takes the packaged default, so a field added later
- * reaches an existing install with the port's value.
+ * costs every setting at once; a RenderDevice bool or number it cannot
+ * find reads as false or 0, the rest as the engine's default. That is why
+ * a save always writes every member of every section here, and why an
+ * unreadable file is replaced rather than left alone. A member the file
+ * lacks takes the packaged default, so a field added later reaches an
+ * existing install with the port's value.
  */
 #ifndef DXL_ENGINE_SETTINGS_H
 #define DXL_ENGINE_SETTINGS_H

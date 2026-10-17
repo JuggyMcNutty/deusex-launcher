@@ -160,3 +160,49 @@ int dxl_renderers_first_selectable(const dxl_renderer_list *l) {
 int dxl_gpu_msaa_broken(const dxl_gpu_probe *g) {
     return g->probed && strstr(g->vulkan_device, "PowerVR") != NULL;
 }
+
+#define PROBE "Probe"
+
+char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p) {
+    dxl_ini *ini = dxl_ini_new();
+    dxl_ini_set_eol(ini, "\n");
+    dxl_ini_set_bool(ini, PROBE, "Probed", p->probed);
+    dxl_ini_set_bool(ini, PROBE, "Vulkan", p->vulkan);
+    dxl_ini_set(ini, PROBE, "VulkanDevice", p->vulkan_device);
+    dxl_ini_set(ini, PROBE, "VulkanVersion", p->vulkan_version);
+    dxl_ini_set_bool(ini, PROBE, "GLES", p->gles);
+    dxl_ini_set(ini, PROBE, "GLESVersion", p->gles_version);
+    dxl_ini_set(ini, PROBE, "GLESRenderer", p->gles_renderer);
+    dxl_ini_set_bool(ini, PROBE, "GL", p->gl);
+    dxl_ini_set(ini, PROBE, "Note", p->note);
+    size_t len = 0;
+    char *text = dxl_ini_render(ini, &len);
+    dxl_ini_free(ini);
+    return text;
+}
+
+static void copy_key(const dxl_ini *ini, const char *key, char *out, size_t size) {
+    const char *v = dxl_ini_get(ini, PROBE, key);
+    snprintf(out, size, "%s", v ? v : "");
+}
+
+int dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out) {
+    memset(out, 0, sizeof *out);
+    dxl_ini *ini = text ? dxl_ini_parse(text, strlen(text)) : NULL;
+    if (!ini || !dxl_ini_has_section(ini, PROBE)) {
+        dxl_ini_free(ini);
+        snprintf(out->note, sizeof out->note, "the probe gave no answer");
+        return -1;
+    }
+    out->probed = dxl_ini_get_bool(ini, PROBE, "Probed", 0);
+    out->vulkan = dxl_ini_get_bool(ini, PROBE, "Vulkan", 0);
+    copy_key(ini, "VulkanDevice", out->vulkan_device, sizeof out->vulkan_device);
+    copy_key(ini, "VulkanVersion", out->vulkan_version, sizeof out->vulkan_version);
+    out->gles = dxl_ini_get_bool(ini, PROBE, "GLES", 0);
+    copy_key(ini, "GLESVersion", out->gles_version, sizeof out->gles_version);
+    copy_key(ini, "GLESRenderer", out->gles_renderer, sizeof out->gles_renderer);
+    out->gl = dxl_ini_get_bool(ini, PROBE, "GL", 0);
+    copy_key(ini, "Note", out->note, sizeof out->note);
+    dxl_ini_free(ini);
+    return 0;
+}

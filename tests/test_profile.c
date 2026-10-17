@@ -27,7 +27,11 @@ static char *make_install(void) {
                   "[Engine.SurrealAudioDevice]\nMusicVolume=128\n");
     scratch_write(g, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
     scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=Older\r\n");
-    scratch_write(g, "System/SE-User.ini", "[Engine.Input]\nF1=Newer\n");
+    /* The bindings the original saved: its key names as it spells them, and
+     * its key 0. */
+    scratch_write(g, "System/SE-User.ini",
+                  "[Engine.Input]\nF1=Newer\nHome=None\n\n"
+                  "[Extension.InputExt]\nhome=Jump\nperiod=Duck\nStrProperty0=\n");
     scratch_write(g, "System/Shot0003.bmp", "BM");
     scratch_write(g, "System/Running.ini", "");   /* main's launcher's sentinel: ignored */
     scratch_write(g, "Save/Save0010/SaveInfo.dxs", "info");
@@ -110,6 +114,7 @@ static void test_import(void) {
     CHECK_INT(r.saves, 2);
     CHECK_INT(r.shots, 1);
     CHECK_INT(r.master_replaced, 1);
+    CHECK_INT(r.bindings_folded, 2);
     CHECK_INT(dxl_path_exists(p.dir), 0);
 
     CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, &e), 0);
@@ -143,10 +148,18 @@ static void test_import(void) {
     char *text = slurp(p.system_ini, &len);
     CHECK(text && !strchr(text, '\r'));
     free(text);
-    /* User.ini: the newer, SE-User.ini, LF. */
+    /* User.ini: the newer, SE-User.ini, LF, the original's bindings in
+     * [Engine.Input]. */
     dxl_ini *usr = dxl_ini_load(p.user_ini, NULL);
-    CHECK(usr && strcmp(dxl_ini_get(usr, "Engine.Input", "F1"), "Newer") == 0);
-    dxl_ini_free(usr);
+    CHECK(usr != NULL);
+    if (usr) {
+        CHECK_STR(dxl_ini_get(usr, "Engine.Input", "F1"), "Newer");
+        CHECK_STR(dxl_ini_get(usr, "Engine.Input", "Home"), "Jump");
+        CHECK_STR(dxl_ini_get(usr, "Engine.Input", "Period"), "Duck");
+        CHECK(dxl_ini_get(usr, "Engine.Input", "StrProperty0") == NULL);
+        CHECK_INT(dxl_ini_pairs(usr, "Extension.InputExt", NULL, NULL, 0), 0);
+        dxl_ini_free(usr);
+    }
 
     /* The saves but Current, and the shot; the shots folder is the engine's
      * through its link. */

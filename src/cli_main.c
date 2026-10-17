@@ -4,7 +4,7 @@
  *   dxl-cli --print-command [...]     the engine's command line, nothing run
  *   dxl-cli --import --game=<dir> [--profile=<id>]
  *   dxl-cli --play [...]              play, no Home (app/run.h)
- *   dxl-cli --probe                   the GPU this machine has
+ *   dxl-cli --probe [--ini]           the GPU this machine has; --ini, for a program
  *
  * The words are the original's command line (-safe, -changevideo, a map
  * with -hax0r, ...), as deusex-launcher takes them.
@@ -15,6 +15,7 @@
 
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef DXL_VERSION
@@ -37,7 +38,8 @@ static void usage(FILE *f) {
         "  --print-command  the engine's command line for this profile; nothing is run\n"
         "  --import         a profile made from --game's install, nothing run\n"
         "  --play           play, with no Home screen; a screen that is due is a message\n"
-        "  --probe          the Vulkan, OpenGL ES and OpenGL this machine offers\n"
+        "  --probe [--ini]  the Vulkan, OpenGL ES and OpenGL this machine offers; --ini as\n"
+        "                   the [Probe] section the launcher's window reads\n"
         "  --game=<dir>     the game's folder: the first run's, or the profile's from now on\n"
         "  --profile=<id>   another profile than launcher.ini's (default: default)\n"
         "\n"
@@ -47,9 +49,16 @@ static void usage(FILE *f) {
         "DXL_ENGINE_ARGS more of its own options.\n");
 }
 
-static int probe(void) {
+static int probe(int as_ini) {
     dxl_gpu_probe p;
-    if (dxl_gpu_probe_run(&p, 4000) != 0) {
+    int rc = dxl_gpu_probe_run(&p, 4000);
+    if (as_ini) {
+        char *text = dxl_gpu_probe_to_ini(&p);
+        fputs(text, stdout);
+        free(text);
+        return rc != 0;
+    }
+    if (rc != 0) {
         printf("probe failed: %s\n", p.note);
         return 1;
     }
@@ -69,7 +78,10 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) { usage(stdout); return 0; }
         if (strcmp(argv[i], "--version") == 0) { printf("dxl-cli %s\n", DXL_VERSION); return 0; }
-        if (strcmp(argv[i], "--probe") == 0) return probe();
+        if (strcmp(argv[i], "--probe") == 0) {
+            int as_ini = i + 1 < argc && strcmp(argv[i + 1], "--ini") == 0;
+            return probe(as_ini);
+        }
         if (!strcmp(argv[i], "--dry-run") || !strcmp(argv[i], "--print-command") ||
             !strcmp(argv[i], "--import") || !strcmp(argv[i], "--play"))
             mode = 1;

@@ -249,7 +249,8 @@ const char *dxl_pad_button_at(size_t i) { return i < N(remappable) ? remappable[
 
 /* The labels are the game's own (DeusEx.int, [MenuScreenCustomizeKeys]
  * FunctionText) where it has one; the commands are the ones that menu binds
- * (its MenuValues in DeusEx.u), in the same order within each group. */
+ * (its MenuValues in DeusEx.u), and those the game's defaults bind that it
+ * does not show: the pause menu, the belt's slots, the augmentations' keys. */
 static const dxl_pad_action actions[] = {
     { "",                         "Nothing",                              "" },
 
@@ -280,12 +281,14 @@ static const dxl_pad_action actions[] = {
     { "LeanRight",                "Lean right",                           "Movement" },
     { "Walking",                  "Walk (hold)",                          "Movement" },
     { "ToggleWalk",               "Toggle walk/run",                      "Movement" },
+    { "Strafe",                   "Strafe (hold)",                        "Movement" },
     { "MoveForward",              "Move forward",                         "Movement" },
     { "MoveBackward",             "Move backward",                        "Movement" },
     { "StrafeLeft",               "Strafe left",                          "Movement" },
     { "StrafeRight",              "Strafe right",                         "Movement" },
     { "TurnLeft",                 "Turn left",                            "Movement" },
     { "TurnRight",                "Turn right",                           "Movement" },
+    { "Look",                     "Mouse look (hold)",                    "Movement" },
     { "LookUp",                   "Look up",                              "Movement" },
     { "LookDown",                 "Look down",                            "Movement" },
     { "CenterView",               "Center view",                          "Movement" },
@@ -323,6 +326,12 @@ static const dxl_pad_action actions[] = {
     { "ToggleObjectBelt",         "Toggle object belt",                   "Display" },
     { "ToggleAmmoDisplay",        "Toggle ammo display",                  "Display" },
     { "Shot",                     "Take screenshot",                      "Display" },
+
+    { "ShowScores",               "Show multiplayer scores",              "Multiplayer" },
+    { "TeamTalk",                 "Send message to team",                 "Multiplayer" },
+    { "Talk",                     "Send message to all",                  "Multiplayer" },
+    { "BuySkills",                "Multiplayer skill menu",               "Multiplayer" },
+    { "KillerProfile",            "Multiplayer kill details",             "Multiplayer" },
 };
 
 size_t dxl_pad_action_count(void) { return N(actions); }

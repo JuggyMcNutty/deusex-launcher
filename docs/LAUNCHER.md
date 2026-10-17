@@ -27,7 +27,7 @@ scratch home:
 | Folder | What is in it |
 |---|---|
 | `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
-| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json`, a class's own config files, the engine's log and crash reports |
+| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json`, a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` (`~/.local/share`) | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
@@ -75,9 +75,13 @@ writing nothing there:
   `Default.ini` with its values over it. The engine's own sections
   (`Engine.SurrealClient`, `SurrealAudioDevice`, `SurrealRenderDevice`,
   `SurrealWindowSystem`) come from `SE-DeusEx.ini`, which the engine writes
-  when no launcher names an ini, for each the game's lacks.
+  when no launcher names an ini, for each the game's lacks; then each key
+  of them they lack is written, as the engine would take it
+  (`src/core/engine_sections.h`).
 - **`User.ini`**: the newer of `User.ini` and `SE-User.ini`, else
-  `DefUser.ini`.
+  `DefUser.ini`. The bindings the original game saved, in
+  `[Extension.InputExt]`, put in `[Engine.Input]`, the one section of them
+  the engine reads, and taken out of the other.
 - `SavePath` and `CachePath` the profile's; GameSpy's closed master server
   (`[DeusEx.MenuScreenJoinGame] MasterServerAddress=master0.gamespy.com`)
   given 333networks', `master.333networks.com`.
@@ -107,13 +111,15 @@ then on.
    screen of its own here: the first run is the launcher's. `--play` and
    `DXL_NO_HOME=1` skip Home, not the others.
 4. **Before the game**, after the screens, as the original does it: the
-   inis saved, `FirstRun` raised to 1100, `Running.ini` made.
+   inis saved, `FirstRun` raised to 1100, `Running.ini` made; and any key
+   of the engine's sections they lack written.
 5. **The engine** asked what it can do (`--version`), and started.
-6. **The end**: a clean one (exit 0, with the engine's "ready" seen) takes
-   `Running.ini` away and runs a `RELAUNCH` the engine passed on, decided
-   again in this process: `-server` a dedicated server, `-changevideo`
-   Graphics. One that is not clean leaves `Running.ini`, and says how the
-   run ended.
+6. **The end**: the inis read again, as the engine left them. A clean end
+   (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
+   runs a `RELAUNCH` the engine passed on, decided again in this process:
+   `-server` a dedicated server, `-changevideo` Graphics; with none, Home
+   again when `[Launcher] ReturnAfterPlaying` is on. One that is not clean
+   leaves `Running.ini`, and says how the run ended.
 
 The launcher's own options start with `--` (`--game=`, `--profile=`,
 `--play`); every other word is the original's command line, the player's,
@@ -182,7 +188,8 @@ between them (`src/core/engine_args.c`, `src/platform/posix/process.c`):
 ```
 <app>/SurrealEngine --no-launcher <game> --ini=<profile>/DeusEx.ini
     --userini=<profile>/User.ini --userdir=<profile>/engine
-    [--url=<url>] [DXL_ENGINE_ARGS's words] --cmdline=<the original's command line>
+    [--url=<url>] [profile.ini's EngineArgs] [DXL_ENGINE_ARGS's words]
+    --cmdline=<the original's command line>
 ```
 
 in the game's `System` folder, its output into the profile's
@@ -220,12 +227,16 @@ exits 3.
 | `--print-command` | the engine's command line for the profile; nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run |
 | `--play` | the start, with no Home |
-| `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`) |
+| `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 
 ## How it is tested
 
 `scripts/dx.sh test` runs the host tests, with no display, side by side.
-The stand-in
+`test_settings` takes the registry's rows through each codec, both
+generations of the system ini, the sizes, the next run's words,
+`Settings.json`, the presets and a new profile's defaults; `test_keys` the
+key names, bindings and their reset; `test_engine_sections` the keys
+written; `test_advice` the advice. The stand-in
 engine `tests/stub_engine.c` answers `--version` and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, `test_play`). `test_profile` imports from a fake

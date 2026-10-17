@@ -45,6 +45,13 @@ typedef struct {
     char note[192];           /* why a probe failed or timed out */
 } dxl_gpu_probe;
 
+/* The probe as text and back: an ini of one section, [Probe], which
+ * dxl-cli --probe --ini prints for a launcher that runs it as a program of
+ * its own (a process with threads must not fork to load drivers). The
+ * text is malloc'd; caller frees. Parse returns 0 when it read a probe. */
+char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p);
+int   dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out);
+
 /* The PowerVR GE8300's multisample resolve turns partially covered pixels to
  * speckle (found on the TrimUI Smart Pro; its README). Keyed on
  * the GPU, not the device, so any PowerVR is treated the same until shown

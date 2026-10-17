@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "core/profile.h"
+#include "core/engine_sections.h"
 #include "core/paths.h"
 
 #include <ctype.h>
@@ -197,6 +198,46 @@ static int each_shot(const char *system_dir, const char *to, dxl_err *err) {
     return n;
 }
 
+/* [Extension.InputExt]'s keys over [Engine.Input]'s, but its key 0 (the
+ * original writes it StrProperty0), and its own lines then removed: the
+ * bindings in one place, the one the engine reads. With fold 0 only
+ * counted. Returns how many. */
+static int fold_bindings(dxl_ini *usr, int fold) {
+    enum { MAX = 600 };
+    const char **k = dxl_xmalloc(sizeof *k * MAX), **v = dxl_xmalloc(sizeof *v * MAX);
+    size_t n = dxl_ini_pairs(usr, "Extension.InputExt", k, v, MAX);
+    char (*keys)[32] = dxl_xmalloc(sizeof *keys * MAX), (*values)[256] = dxl_xmalloc(sizeof *values * MAX);
+    size_t m = 0;
+    for (size_t i = 0; i < n && i < MAX; i++) {
+        if (!dxl_stricmp(k[i], "StrProperty0")) continue;
+        snprintf(keys[m], sizeof keys[m], "%s", k[i]);
+        snprintf(values[m], sizeof values[m], "%s", v[i]);
+        m++;
+    }
+    for (size_t i = 0; fold && i < m; i++) dxl_ini_set(usr, "Engine.Input", keys[i], values[i]);
+    if (fold && n) dxl_ini_empty_section(usr, "Extension.InputExt");
+    free(keys);
+    free(values);
+    free(k);
+    free(v);
+    return (int)m;
+}
+
+void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini **user) {
+    char *def_ini = dxl_path_resolve_ci(game_system_dir, "Default.ini");
+    char *def_user = dxl_path_resolve_ci(game_system_dir, "DefUser.ini");
+    *system = def_ini ? dxl_ini_load(def_ini, NULL) : NULL;
+    *user = def_user ? dxl_ini_load(def_user, NULL) : NULL;
+    if (*system) {
+        const char *master = dxl_ini_get(*system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
+        if (master && dxl_stricmp(master, DEAD_MASTER) == 0)
+            dxl_ini_set(*system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", LIVE_MASTER);
+        dxl_engine_sections_seed(*system);
+    }
+    free(def_ini);
+    free(def_user);
+}
+
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err) {
     memset(r, 0, sizeof *r);
@@ -236,6 +277,8 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
         copy_str(r->engine_from, sizeof r->engine_from, se_ini);
         if (!dry) dxl_ini_copy_section(sys, se, engine_sections[i]);
     }
+    /* Every key of them there before the first run (core/engine_sections.h). */
+    if (!dry) dxl_engine_sections_seed(sys);
 
     /* User.ini: the newer of the game's and the engine's own, else
      * DefUser.ini. */
@@ -254,10 +297,16 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
     r->shots = each_shot(game_system_dir, NULL, NULL);
     const char *master = dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
     r->master_replaced = master && dxl_stricmp(master, DEAD_MASTER) == 0;
+    /* The bindings the original game wrote: its input object is
+     * Extension.InputExt, which it reads over [Engine.Input] and saves to
+     * its own section -- the engine reads [Engine.Input] alone. */
+    r->bindings_folded = fold_bindings(usr, 0);
     if (dry) {
         rc = 0;
         goto out;
     }
+
+    fold_bindings(usr, 1);
 
     dxl_ini_set(sys, "Core.System", "SavePath", p->save_dir);
     dxl_ini_set(sys, "Core.System", "CachePath", p->cache_dir);

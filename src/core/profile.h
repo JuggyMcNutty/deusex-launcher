@@ -69,6 +69,7 @@ typedef struct {
     int  saves;              /* save folders (SaveNNNN, QuickSave) to copy, or copied */
     int  shots;              /* System/Shot*.bmp */
     int  master_replaced;    /* GameSpy's dead master server given 333networks' */
+    int  bindings_folded;    /* [Extension.InputExt]'s keys, the original's, put in [Engine.Input] */
 } dxl_import;
 
 /* Makes the profile's inis from the files of the game's System folder, and
@@ -76,5 +77,11 @@ typedef struct {
  * Nothing is written to the game's folder. */
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err);
+
+/* The settings a profile has before any is changed, as the import makes
+ * them of the install's defaults: Default.ini, GameSpy's master given
+ * 333networks', the engine's sections seeded from its own (core/
+ * engine_sections.h); and DefUser.ini. NULL for a file the install lacks. */
+void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini **user);
 
 #endif

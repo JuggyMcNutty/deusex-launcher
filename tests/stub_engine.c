@@ -8,6 +8,9 @@
  *   env         prints the value of the variable DXL_STUB_ENV names
  *   ready       hello, ready, then prints each line the launcher sends,
  *               exiting 0 at "quit" or after DXL_STUB_MS (default 5000)
+ *   rewrite     ready's, having written to its --userini as the engine does
+ *               at a clean end ([DXL.Stub] Wrote=1), and added an x to the
+ *               file DXL_STUB_COUNT names
  *   crash       hello, ready, then SIGSEGV
  *   fail        hello, then "SurrealEngine error: <DXL_STUB_LINE>", exit 1
  *   relaunch    hello, ready, "relaunch <DXL_STUB_LINE>", exit 0
@@ -87,6 +90,23 @@ int main(int argc, char **argv) {
     if (strcmp(mode, "stubborn") == 0) {
         signal(SIGTERM, SIG_IGN);
         for (;;) pause();
+    }
+
+    if (strcmp(mode, "rewrite") == 0) {
+        for (int i = 1; i < argc; i++) {
+            if (strncmp(argv[i], "--userini=", 10) != 0) continue;
+            FILE *f = fopen(argv[i] + 10, "a");
+            if (f) {
+                fputs("\n[DXL.Stub]\nWrote=1\n", f);
+                fclose(f);
+            }
+        }
+        const char *count = getenv("DXL_STUB_COUNT");
+        FILE *c = count ? fopen(count, "a") : NULL;
+        if (c) {
+            fputc('x', c);
+            fclose(c);
+        }
     }
 
     /* ready: the launcher's lines, until quit or the time is up. */

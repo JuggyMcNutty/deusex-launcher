@@ -155,7 +155,28 @@ static void test_msaa_broken_on_powervr_only(void) {
     CHECK_INT(dxl_gpu_msaa_broken(&p), 0);
 }
 
+/* The probe through dxl-cli --probe --ini and back, as the window reads it. */
+static void test_probe_ini(void) {
+    dxl_gpu_probe p = smart_pro(), q;
+    snprintf(p.note, sizeof p.note, "a note = with an equals sign");
+    char *text = dxl_gpu_probe_to_ini(&p);
+    CHECK(strstr(text, "[Probe]") != NULL);
+    CHECK_INT(dxl_gpu_probe_from_ini(text, &q), 0);
+    CHECK_INT(q.probed, 1);
+    CHECK_INT(q.vulkan, p.vulkan);
+    CHECK_STR(q.vulkan_device, p.vulkan_device);
+    CHECK_INT(q.gles, p.gles);
+    CHECK_STR(q.gles_version, p.gles_version);
+    CHECK_INT(q.gl, p.gl);
+    CHECK_STR(q.note, p.note);
+    free(text);
+    CHECK_INT(dxl_gpu_probe_from_ini("nothing here", &q), -1);
+    CHECK_INT(q.probed, 0);
+    CHECK_INT(dxl_gpu_probe_from_ini(NULL, &q), -1);
+}
+
 TEST_MAIN_BEGIN
+    RUN(test_probe_ini);
     RUN(test_loads_in_order);
     RUN(test_resolve_on_the_handheld);
     RUN(test_engine_has_it_device_does_not);

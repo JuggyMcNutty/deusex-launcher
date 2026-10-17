@@ -3,6 +3,7 @@
 #include "core/argv.h"
 #include "core/cmdline.h"
 #include "core/engine_args.h"
+#include "core/engine_sections.h"
 #include "core/log.h"
 #include "core/paths.h"
 #include "platform/process.h"
@@ -128,9 +129,15 @@ static int check_engine(dxl_run *r, dxl_engine_version *v) {
     return 0;
 }
 
-/* The words and the environment the engine is started with. */
+/* The words and the environment the engine is started with: the
+ * profile's extra words (profile.ini's EngineArgs), then
+ * DXL_ENGINE_ARGS's. */
 static char **engine_argv(const dxl_run *r) {
     const dxl_profile *p = &r->session.profile;
+    const char *mine = dxl_profile_get(p, "EngineArgs"), *env = getenv("DXL_ENGINE_ARGS");
+    char extra[2048];
+    snprintf(extra, sizeof extra, "%s%s%s", mine ? mine : "", mine && *mine && env && *env ? " " : "",
+             env ? env : "");
     dxl_engine_command c = {
         .engine = r->session.engine,
         .game = r->session.install.root,
@@ -138,7 +145,7 @@ static char **engine_argv(const dxl_run *r) {
         .user_ini = p->user_ini,
         .user_dir = p->engine_dir,
         .url = NULL,
-        .extra = getenv("DXL_ENGINE_ARGS"),
+        .extra = extra,
         .cmdline = r->words,
     };
     return dxl_engine_argv(&c);
@@ -302,6 +309,12 @@ static int repoint(dxl_run *r) {
     return 0;
 }
 
+/* Home, unless --play or DXL_NO_HOME=1 asked for none. */
+static int home_wanted(const dxl_run *r) {
+    const char *no_home = getenv("DXL_NO_HOME");
+    return !r->opt.play && !(no_home && strcmp(no_home, "1") == 0);
+}
+
 static dxl_view view_of(const dxl_run *r) {
     switch (r->decision.screen) {
     case DXL_SCREEN_MAIN_SAFE:
@@ -314,9 +327,7 @@ static dxl_view view_of(const dxl_run *r) {
     }
     if (r->decision.action != DXL_ACTION_LAUNCH && r->decision.action != DXL_ACTION_SCREEN)
         return DXL_VIEW_NONE;
-    const char *no_home = getenv("DXL_NO_HOME");
-    if (r->opt.play || (no_home && strcmp(no_home, "1") == 0)) return DXL_VIEW_NONE;
-    return DXL_VIEW_HOME;
+    return home_wanted(r) ? DXL_VIEW_HOME : DXL_VIEW_NONE;
 }
 
 static void decide(dxl_run *r) {
@@ -340,6 +351,9 @@ static void decide(dxl_run *r) {
  * 5). */
 static void commit(dxl_run *r) {
     dxl_err e;
+    /* The engine's own sections whole before it runs, a profile made by an
+     * earlier launcher's too (core/engine_sections.h). */
+    if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");
     if (dxl_sentinel_create(&r->sentinel, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     dxl_config_clamp_first_run(r->config);
     if (dxl_config_save(r->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
@@ -461,12 +475,13 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     if (!dxl_profile_exists(&r->session.profile)) r->view = DXL_VIEW_FIRST_RUN;
     /* A screen the player has just answered with Play: none again for this
      * game, though its Running.ini is still there. */
-    int answered = 0;
+    int answered = 0, back_home = 0;
     for (;;) {
         /* 3. The decision. */
         if (r->config) decide(r);
         if (answered) r->view = DXL_VIEW_NONE;
-        answered = 0;
+        if (back_home) r->view = DXL_VIEW_HOME;
+        answered = back_home = 0;
         if (r->opt.dry) {
             dry_run(r);
             goto done;
@@ -509,6 +524,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         }
         commit(r);
         rc = play(r, ui, stop);
+        /* The inis as the engine left them: it writes them whole at a clean
+         * end, the game's own changes in them. */
+        if (r->config) dxl_config_reload(r->config);
 
         /* 6. The end. */
         if (!r->played.clean) {
@@ -536,6 +554,14 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             dxl_log("relaunch: %s", r->played.relaunch);
             free(r->words);
             r->words = dxl_xstrdup(r->played.relaunch);
+            continue;
+        }
+        /* Back to Home after a clean end, when the player asked for it:
+         * Home whatever the line asks for (-safe, -changevideo), where Home
+         * is shown at all. */
+        if (ui && ui->view && home_wanted(r) && dxl_ini_get_bool(r->session.ini, "Launcher", "ReturnAfterPlaying", 0)) {
+            dxl_log("back to Home after playing");
+            back_home = 1;
             continue;
         }
         break;

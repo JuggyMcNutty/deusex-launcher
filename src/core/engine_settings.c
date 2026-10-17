@@ -6,9 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Types the engine knows (LauncherSettings.cpp). An unknown Type makes the
- * engine keep its default (Vulkan), so writing one would be a silent no-op. */
-static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", "D3D11", NULL };
+/* The types the engine has on Linux (LauncherSettings.cpp; D3D11 there
+ * stops it: "Render API not available on this platform"). An unknown Type
+ * keeps its default, Vulkan. */
+static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", NULL };
 static const char *const aa_modes[]     = { "Off", "MSAA2x", "MSAA4x", NULL };
 static const char *const light_modes[]  = { "Normal", "OneX", "BrighterActors", NULL };
 static const char *const gamma_modes[]  = { "D3D9", "XOpenGL", NULL };
@@ -19,9 +20,10 @@ static const char *const pad_layouts[]  = { "modern", "southpaw", "classic", "cu
 #define GP "Gamepad"
 #define PF "Performance"
 
-/* Defaults are the port's, not the engine's: Antialias is Off because the
- * PowerVR GE8300 resolves MSAA to speckle, and VSync is off because the game
- * runs below the panel's 60 Hz and vsync would quantise it to 30 or 20. */
+/* The defaults where the packaged engine-settings.json.default has none
+ * (it has the engine's own for every member but RenderScale). These are
+ * the Smart Pro's, where they were made: Antialias Off, as the PowerVR
+ * GE8300 resolves MSAA to speckle, and VSync off. */
 static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_RENDER_TYPE]       = { RD, "Type",                    DXL_ES_CHOICE, render_types, "Vulkan", 0, 0, 0, 0 },
     [DXL_ES_VSYNC]             = { RD, "UseVSync",                DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },

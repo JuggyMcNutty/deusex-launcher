@@ -219,6 +219,27 @@ static void test_reload_reads_what_another_wrote(void) {
     scrub(dir);
 }
 
+/* Saved, a config is clean: saving it again writes nothing over what
+ * another wrote since (the engine, at its clean end). */
+static void test_saved_is_clean(void) {
+    char *dir = scratch_install("clean");
+    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_ini_set_int(dxl_config_ini(c), "D3DDrv.D3DRenderDevice", "DescFlags", 1);
+    dxl_err e;
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    CHECK_INT(dxl_config_dirty(c), 0);
+    dxl_config *other = dxl_config_open(dir, "DeusEx");
+    dxl_ini_set_int(dxl_config_ini(other), "D3DDrv.D3DRenderDevice", "DescFlags", 2);
+    CHECK_INT(dxl_config_save(other, &e), 0);
+    dxl_config_free(other);
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    dxl_config *after = dxl_config_open(dir, "DeusEx");
+    CHECK_INT(dxl_ini_get_int(dxl_config_ini(after), "D3DDrv.D3DRenderDevice", "DescFlags", 0), 2);
+    dxl_config_free(after);
+    dxl_config_free(c);
+    scrub(dir);
+}
+
 /* The files INI= and USERINI= name: from System/ in any case, or absolute;
  * one not there starts from Default.ini, as <Package>.ini would. */
 static void test_open_named_files(void) {
@@ -256,5 +277,6 @@ TEST_MAIN_BEGIN
     RUN(test_missing_ini_is_created_from_default);
     RUN(test_missing_user_ini_is_created_from_defuser);
     RUN(test_reload_reads_what_another_wrote);
+    RUN(test_saved_is_clean);
     RUN(test_open_named_files);
 TEST_MAIN_END
