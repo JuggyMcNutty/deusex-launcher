@@ -154,12 +154,20 @@ int dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl
 int dxl_session_use_profile(dxl_session *s, const char *id, dxl_err *err) {
     dxl_profile next;
     if (dxl_profile_open(&next, &s->xdg, id, err) != 0) return -1;
+    /* launcher.ini names a made one first: when it cannot, nothing changes. */
+    if (dxl_profile_exists(&next)) {
+        char was[DXL_PROFILE_ID_MAX + 1];
+        const char *old = dxl_ini_get(s->ini, LAUNCHER, "Profile");
+        snprintf(was, sizeof was, "%s", old ? old : "");
+        dxl_ini_set(s->ini, LAUNCHER, "Profile", next.id);
+        if (dxl_session_save(s, err) != 0) {
+            if (was[0]) dxl_ini_set(s->ini, LAUNCHER, "Profile", was);
+            dxl_profile_free(&next);
+            return -1;
+        }
+    }
     dxl_profile_free(&s->profile);
     s->profile = next;
-    if (dxl_profile_exists(&s->profile)) {
-        dxl_ini_set(s->ini, LAUNCHER, "Profile", s->profile.id);
-        if (dxl_session_save(s, err) != 0) return -1;
-    }
     dxl_session_check_install(s);
     dxl_log("profile %s: in use%s", s->profile.id, dxl_profile_exists(&s->profile) ? "" : ", to be made");
     return 0;
@@ -205,16 +213,27 @@ int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
     char *dirs[4];
     dxl_profile_folders(&p, dirs);
     dxl_profile_free(&p);
-    int rc = 0;
-    /* All of them, or none: each checked before any goes. */
+    int rc = 0, gone = 0;
+    char names[4][512];
+    /* All of them, or none: each checked before any goes, and those gone
+     * put back when a later one cannot go. */
     for (int i = 0; i < 4 && rc == 0; i++)
         if (dxl_path_exists(dirs[i]) && !dxl_trash_can(dirs[i], s->xdg.data_home)) {
             dxl_err_set(err, "%s is not on the trash's filesystem: nothing was deleted", dirs[i]);
             rc = -1;
         }
-    for (int i = 0; i < 4 && rc == 0; i++)
-        if (dxl_path_exists(dirs[i])) rc = dxl_trash(dirs[i], s->xdg.data_home, err);
-    if (rc == 0) dxl_log("profile %s: to the trash", id);
+    for (; gone < 4 && rc == 0; gone++) {
+        names[gone][0] = '\0';
+        if (dxl_path_exists(dirs[gone]))
+            rc = dxl_trash(dirs[gone], s->xdg.data_home, names[gone], sizeof names[gone], err);
+    }
+    if (rc != 0) {
+        for (int i = gone - 2; i >= 0; i--)
+            if (names[i][0] && dxl_trash_undo(s->xdg.data_home, names[i], dirs[i], NULL) != 0)
+                dxl_log("warning: %s stays in the trash as %s", dirs[i], names[i]);
+    } else {
+        dxl_log("profile %s: to the trash", id);
+    }
     for (int i = 0; i < 4; i++) free(dirs[i]);
     return rc;
 }
@@ -228,8 +247,12 @@ void dxl_session_set_engine(dxl_session *s, const char *path) {
     else dxl_ini_remove(s->ini, LAUNCHER, "Engine");
     if (!s->engine_by_env) {
         free(s->engine);
-        s->engine = theirs ? dxl_xstrdup(path) : own;
-        own = NULL;
+        if (theirs) {
+            s->engine = dxl_xstrdup(path);
+        } else {
+            s->engine = own;
+            own = NULL;
+        }
     }
     free(own);
     dxl_log("engine: %s", theirs ? path : "the launcher's own");

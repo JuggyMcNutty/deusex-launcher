@@ -146,8 +146,7 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
         const char *start = s->has_chosen ? s->chosen.root : getenv("HOME");
         dxl_browser_open(s, start ? start : "/", DXL_BROWSE_GAME);
     } else if (dialog) {
-        s->pick_for = DXL_BROWSE_GAME;
-        if (s->pick_folder) s->pick_folder(s);
+        dxl_shell_pick_folder(s, DXL_BROWSE_GAME);
     } else if (quits) {
         if (back) s->result = 0;
     } else if (s->repoint && (back || ui->in.back)) {
@@ -292,9 +291,11 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         else
             snprintf(s->note, sizeof s->note, "The profile is made.");
         if (s->making) {
-            /* From the Profiles page: the run's profile this one now, Home. */
+            /* From the Profiles page: the run's profile this one now, Home;
+             * the next run's words were the other's. */
             if (dxl_run_use_profile(s->run, s->run->session.profile.id, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
             s->making = 0;
+            s->next_run[0] = '\0';
             dxl_shell_go(s, DXL_PAGE_HOME);
             return;
         }

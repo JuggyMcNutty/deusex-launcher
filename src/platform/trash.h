@@ -18,7 +18,10 @@
  * filesystem. */
 int dxl_trash_can(const char *path, const char *data_home);
 
-/* path into data_home's trash. 0, or -1 and why, with nothing moved. */
-int dxl_trash(const char *path, const char *data_home, dxl_err *err);
+/* path into data_home's trash, under the name put in name (may be NULL).
+ * 0, or -1 and why, with nothing moved. */
+int dxl_trash(const char *path, const char *data_home, char *name, size_t name_size, dxl_err *err);
+/* What went to the trash under name back at path, its .trashinfo gone. */
+int dxl_trash_undo(const char *data_home, const char *name, const char *path, dxl_err *err);
 
 #endif

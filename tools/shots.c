@@ -635,8 +635,8 @@ int main(int argc, char **argv) {
     dxl_log_set_to_file(0);
     make_home();
 
-    /* No real pad in the way of the virtual ones: SDL's controllers theirs
-     * alone. */
+    /* No real pad in the way of the virtual ones: SDL's controllers of
+     * their makes and models alone. */
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT,
                 "0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1");

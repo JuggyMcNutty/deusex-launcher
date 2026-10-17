@@ -346,6 +346,9 @@ static size_t edge_at(dxl_ui *ui, const char *buf, float x) {
 }
 
 static void begin_edit(dxl_ui *ui, uint32_t id, dxl_rect box, const char *buf, size_t caret, size_t anchor) {
+    /* Another field's edit under way: kept, as its field says when it is
+     * drawn -- before this one, or after. */
+    if (ui->text_id && ui->text_id != id) ui->text_lost = ui->text_id;
     snprintf(ed.original, sizeof ed.original, "%s", buf);
     ed.caret = caret;
     ed.anchor = anchor;
@@ -418,7 +421,6 @@ int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char 
             begin_edit(ui, id, box, buf, strlen(buf), 0);
             editing = 1;
         }
-        if (!editing && (hits & DXL_HIT_FOCUSED) && ui->mode != DXL_INPUT_PAD) dxl_ui_text_ready(ui, id, box);
         if (editing) {
             if (pressed) press_at(ui, buf, ui->in.px - text_x);
             else if (ed.dragging && ui->held == id && !ui->in.pressed) {
@@ -442,6 +444,9 @@ int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char 
                 editing = 0;
             }
         }
+        /* With the focus and not edited -- an edit just kept too -- it takes
+         * the keys' typing. */
+        if (!editing && (hits & DXL_HIT_FOCUSED) && ui->mode != DXL_INPUT_PAD) dxl_ui_text_ready(ui, id, box);
     }
     dxl_well(ui, box);
     float lh = dxl_text_line(ui, DXL_FONT_BODY), ty = box.y + (box.h - lh) / 2;

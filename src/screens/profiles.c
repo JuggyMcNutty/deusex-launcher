@@ -215,13 +215,25 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     if (use >= 0 || (b_use && sel >= 0)) {
         int i = use >= 0 ? use : sel;
         dxl_err e;
-        if (!s->profiles[i].active && dxl_run_use_profile(s->run, s->profiles[i].id, &e) != 0) {
+        if (s->profiles[i].active) {
+            dxl_shell_go(s, DXL_PAGE_HOME);
+            return;
+        }
+        if (dxl_run_use_profile(s->run, s->profiles[i].id, &e) != 0) {
             dxl_shell_message(s, "Not changed", "%s", dxl_err_msg(&e));
             return;
         }
-        s->note[0] = '\0';
+        /* Another profile's start: the next run's words were the other's,
+         * and one whose last run left its Running.ini opens on Recovery, as
+         * a start of it does. */
+        s->note[0] = s->next_run[0] = '\0';
         dxl_shell_toast(s, "The profile is %s.", s->profiles[i].name);
-        dxl_shell_go(s, DXL_PAGE_HOME);
+        if (dxl_sentinel_exists(&s->run->sentinel)) {
+            s->run->decision.screen = DXL_SCREEN_MAIN_RECOVERY;
+            dxl_shell_go(s, DXL_PAGE_RECOVERY);
+        } else {
+            dxl_shell_go(s, DXL_PAGE_HOME);
+        }
     } else if (b_new) {
         start_new(s);
     } else if (b_copy && sel >= 0) {

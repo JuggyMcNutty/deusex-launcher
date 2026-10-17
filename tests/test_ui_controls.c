@@ -349,6 +349,88 @@ static void test_text_mouse(void) {
     CHECK_INT(ui.diag_count, 0);
 }
 
+/* Two fields, the second under the first; each's DXL_TEXT_*. */
+static void two_fields(uint32_t a, char *x, uint32_t b, char *y, size_t size, int *ra, int *rb) {
+    begin();
+    *ra = dxl_text_field(&ui, a, (dxl_rect){ 20, 20, 600, 44 }, "First", x, size, NULL, 0);
+    *rb = dxl_text_field(&ui, b, (dxl_rect){ 20, 80, 600, 44 }, "Second", y, size, NULL, 0);
+    end();
+}
+
+/* A click on another field keeps the edit under way -- the field below
+ * it or above -- and that field's edit begins; a key right after an edit
+ * kept with Enter is still the field's, Backspace no page's back. */
+static void test_text_two_fields(void) {
+    char x[32] = "one", y[32] = "two";
+    uint32_t a = dxl_ui_id(&ui, "first"), b = dxl_ui_id(&ui, "second");
+    int ra, rb;
+    dxl_ui_forget(&ui);
+    ui.mode = DXL_INPUT_MOUSE;
+    float tx = 20 + dxl_control_label_w(600) + 8 + 10 + 2;
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    /* The second, by a click, typed in. */
+    mouse(SDL_EVENT_MOUSE_MOTION, tx, 102, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, tx, 102, 1);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, tx, 102, 1);
+    text("x");
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(ui.text_id, b);
+    CHECK_STR(y, "xtwo");
+    /* The first, drawn before it, clicked: the second's edit kept. */
+    mouse(SDL_EVENT_MOUSE_MOTION, tx, 42, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, tx, 42, 1);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(rb, DXL_TEXT_DONE);
+    CHECK_INT(ui.text_id, a);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, tx, 42, 1);
+    text("y");
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_STR(x, "yone");
+    /* And back to the second, drawn after it: the first's kept. */
+    mouse(SDL_EVENT_MOUSE_MOTION, tx, 102, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, tx, 102, 1);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(ra, DXL_TEXT_DONE);
+    CHECK_INT(ui.text_id, b);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, tx, 102, 1);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    /* Kept with Enter, then Backspace at once: the field's edit again. */
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(rb, DXL_TEXT_DONE);
+    CHECK_INT(ui.text_ready, b);
+    key(SDLK_BACKSPACE, SDL_SCANCODE_BACKSPACE);
+    CHECK_INT(ui.in.back, 0);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(ui.text_id, b);
+    key(SDLK_ESCAPE, SDL_SCANCODE_ESCAPE);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_STR(y, "xtwo");
+    /* Ctrl+Space, which types nothing, begins the edit; a space typed
+     * after is kept. A frame for each key, as a player types. */
+    dxl_ui_focus(&ui, a);
+    ui.mode = DXL_INPUT_KEYBOARD;
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    key_mod(SDLK_SPACE, SDL_KMOD_LCTRL);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(ui.text_id, a);
+    key(SDLK_A, SDL_SCANCODE_A);
+    text("a");
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    key(SDLK_SPACE, SDL_SCANCODE_SPACE);
+    text(" ");
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    key(SDLK_B, SDL_SCANCODE_B);
+    text("b");
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_STR(x, "yonea b");
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    two_fields(a, x, b, y, sizeof x, &ra, &rb);
+    CHECK_INT(ra, DXL_TEXT_DONE);
+    CHECK_INT(ui.diag_count, 0);
+}
+
 /* A slot takes the next key as it is, Esc cancels, Delete empties. */
 static void test_key_slot(void) {
     uint32_t id = dxl_ui_id(&ui, "slot");
@@ -462,6 +544,7 @@ TEST_MAIN_BEGIN
     RUN(test_text_select);
     RUN(test_text_typed_on);
     RUN(test_text_mouse);
+    RUN(test_text_two_fields);
     RUN(test_key_slot);
     RUN(test_tabs);
     RUN(test_osk);

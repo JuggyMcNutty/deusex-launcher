@@ -27,7 +27,9 @@ static void test_trash(void) {
     char *save = scratch_path(dir, "stuff/Save0001"), *file = scratch_path(dir, "stuff/a file");
     char *again = scratch_path(dir, "again/Save0001");
     CHECK_INT(dxl_trash_can(save, data), 1);
-    CHECK_INT(dxl_trash(save, data, NULL), 0);
+    char name[256];
+    CHECK_INT(dxl_trash(save, data, name, sizeof name, NULL), 0);
+    CHECK_STR(name, "Save0001");
     CHECK(!scratch_exists(dir, "stuff/Save0001"));
     CHECK(scratch_exists(dir, "home/data/Trash/files/Save0001/SaveInfo.dxs"));
     char *info = info_of(data, "Save0001");
@@ -35,19 +37,25 @@ static void test_trash(void) {
     CHECK(info && strstr(info, "/stuff/Save0001\n") != NULL);
     CHECK(info && strstr(info, "\nDeletionDate=") != NULL);
     free(info);
-    CHECK_INT(dxl_trash(again, data, NULL), 0);
+    CHECK_INT(dxl_trash(again, data, name, sizeof name, NULL), 0);
+    CHECK_STR(name, "Save0001.2");
     CHECK(scratch_exists(dir, "home/data/Trash/files/Save0001.2/SaveInfo.dxs"));
     info = info_of(data, "Save0001.2");
     CHECK(info && strstr(info, "/again/Save0001\n") != NULL);
     free(info);
+    /* Put back: where it was, its .trashinfo gone; then again. */
+    CHECK_INT(dxl_trash_undo(data, "Save0001.2", again, NULL), 0);
+    CHECK(scratch_exists(dir, "again/Save0001/SaveInfo.dxs"));
+    CHECK(!scratch_exists(dir, "home/data/Trash/info/Save0001.2.trashinfo"));
+    CHECK_INT(dxl_trash_undo(data, "Save0001.2", again, NULL), -1);
     /* Its name escaped as a URL's. */
-    CHECK_INT(dxl_trash(file, data, NULL), 0);
+    CHECK_INT(dxl_trash(file, data, NULL, 0, NULL), 0);
     info = info_of(data, "a file");
     CHECK(info && strstr(info, "/stuff/a%20file\n") != NULL);
     free(info);
     /* What is not there stays not there. */
     dxl_err e;
-    CHECK_INT(dxl_trash(save, data, &e), -1);
+    CHECK_INT(dxl_trash(save, data, NULL, 0, &e), -1);
     CHECK_INT(dxl_trash_can("/nonexistent", data), 0);
     free(data);
     free(save);

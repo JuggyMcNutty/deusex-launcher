@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 /* In the child, after fork: exec, or report why not through report_fd. */
@@ -209,20 +210,44 @@ static int take_pipe(int fd, char *buf, size_t size, size_t *got) {
     return 1;
 }
 
+/* The time now, in ms, by the clock no one sets. */
+static long long now_ms(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+
 int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
                     int *status, dxl_err *err) {
     if (size) out[0] = '\0';
     if (errs && errs_size) errs[0] = '\0';
     int pipefd[2], errfd[2] = { -1, -1 };
-    if (pipe2(pipefd, O_CLOEXEC) != 0 || (errs && pipe2(errfd, O_CLOEXEC) != 0)) {
+    if (pipe2(pipefd, O_CLOEXEC) != 0) {
         dxl_err_set(err, "pipe: %s", strerror(errno));
         return -1;
     }
+    if (errs && pipe2(errfd, O_CLOEXEC) != 0) {
+        dxl_err_set(err, "pipe: %s", strerror(errno));
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return -1;
+    }
+    /* Its environment this one's but the launcher's line, made before the
+     * fork: after it the child calls nothing but what is safe there. */
+    extern char **environ;
+    size_t ne = 0;
+    while (environ[ne]) ne++;
+    char **envp = dxl_xmalloc((ne + 1) * sizeof *envp);
+    size_t k = 0, fd_len = strlen(DXL_LAUNCHER_FD_ENV);
+    for (size_t i = 0; i < ne; i++)
+        if (strncmp(environ[i], DXL_LAUNCHER_FD_ENV, fd_len) != 0 || environ[i][fd_len] != '=') envp[k++] = environ[i];
+    envp[k] = NULL;
     pid_t pid = fork();
     if (pid < 0) {
         dxl_err_set(err, "fork: %s", strerror(errno));
         close(pipefd[0]); close(pipefd[1]);
         if (errfd[0] >= 0) { close(errfd[0]); close(errfd[1]); }
+        free(envp);
         return -1;
     }
     if (pid == 0) {
@@ -231,8 +256,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         if (null >= 0) dup2(null, STDIN_FILENO);
         if (errfd[1] >= 0) dup2(errfd[1], STDERR_FILENO);
         else if (null >= 0) dup2(null, STDERR_FILENO);
-        unsetenv(DXL_LAUNCHER_FD_ENV);
-        execv(argv[0], argv);
+        execve(argv[0], argv, envp);
         /* Why, as a shell says it, on the errors' line: write alone, the
          * launcher's other threads' locks being anyone's after the fork. */
         const char *why = errno == ENOENT ? ": No such file or directory\n"
@@ -241,22 +265,27 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         if (write(STDERR_FILENO, argv[0], strlen(argv[0])) < 0 || write(STDERR_FILENO, why, strlen(why)) < 0) {}
         _exit(127);
     }
+    free(envp);
     close(pipefd[1]);
     if (errfd[1] >= 0) close(errfd[1]);
     size_t got = 0, got_err = 0;
-    int open_out = 1, open_err = errfd[0] >= 0;
-    int ms = timeout_ms, timed_out = 0;
+    int open_out = 1, open_err = errfd[0] >= 0, timed_out = 0;
+    /* A deadline, not a count of quiet polls: a program that talks on and
+     * on is stopped at it too. */
+    long long deadline = now_ms() + timeout_ms;
     while (open_out || open_err) {
+        long long left = deadline - now_ms();
+        if (left <= 0) {
+            timed_out = 1;
+            break;
+        }
         struct pollfd p[2] = { { open_out ? pipefd[0] : -1, POLLIN, 0 }, { open_err ? errfd[0] : -1, POLLIN, 0 } };
-        int r = poll(p, 2, ms > 100 ? 100 : ms);
+        int r = poll(p, 2, left > 100 ? 100 : (int)left);
         if (r > 0) {
             if (open_out && (p[0].revents & (POLLIN | POLLHUP | POLLERR))) open_out = take_pipe(pipefd[0], out, size, &got);
             if (open_err && (p[1].revents & (POLLIN | POLLHUP | POLLERR)))
                 open_err = take_pipe(errfd[0], errs, errs_size, &got_err);
-            continue;
         }
-        if (r < 0 && errno == EINTR) continue;
-        if ((ms -= 100) <= 0) { timed_out = 1; break; }
     }
     close(pipefd[0]);
     if (errfd[0] >= 0) close(errfd[0]);

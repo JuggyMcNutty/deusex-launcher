@@ -233,7 +233,8 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
         *off -= ui->in.wheel * row_h * 2;
         ui->in.wheel = 0;
     }
-    if (l->scrollable) bar_input(ui, l, off);
+    /* Nothing scrolls under an edit: its field would go from view. */
+    if (l->scrollable && !ui->text_id) bar_input(ui, l, off);
     float max = count * row_h - r.h;
     if (flags & DXL_LIST_WHOLE_ROWS) {
         /* A whole number of rows scrolled, the focused one all in view. */
