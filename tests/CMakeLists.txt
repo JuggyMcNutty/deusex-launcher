@@ -20,6 +20,10 @@ dxl_test(test_migrate)
 dxl_test(test_safemode)
 dxl_test(test_renderdev)
 dxl_test(test_detail)
+dxl_test(test_json)
+dxl_test(test_engine_settings)
+dxl_test(test_renderers)
+dxl_test(test_bindings)
 
 # The whole run, with stand-ins for the screens and the game.
 dxl_test(test_launch)

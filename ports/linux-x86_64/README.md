@@ -56,7 +56,11 @@ The engine also starts on its own, straight into a map
 Beside them, at the branch's root: the port's preset in `CMakePresets.json`,
 and its block in `CMakeLists.txt` with the `scripts/check-abi.sh` it runs,
 both linux-aarch64's too: where SDL2 comes from, and a cross build's glibc
-ceiling, checked after each build; this port has none. The rest is `main`'s.
+ceiling, checked after each build; this port has none. The rest is `main`'s,
+but for the trimui-smartpro branch's settings, pad bindings, renderer list
+and GPU probe (`src/core/json.c`, `engine_settings.c`, `bindings.c`,
+`renderers.c`, `src/platform/posix/gpu_probe.c`, `data/`), copied for the
+desktop's own launcher, which nothing uses yet.
 
 ## Verified
 

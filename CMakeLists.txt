@@ -59,6 +59,12 @@ add_library(dxl_core STATIC
     src/core/renderdev.c
     src/core/detail.c
     src/core/peicon.c
+    # From trimui-smartpro, for the desktop's own launcher: Settings.json,
+    # the pad's bindings and the renderer list.
+    src/core/json.c
+    src/core/engine_settings.c
+    src/core/bindings.c
+    src/core/renderers.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
@@ -72,8 +78,14 @@ add_library(dxl_platform STATIC
     src/platform/posix/launch.c
     src/platform/posix/process.c
     src/platform/posix/machine.c
+    src/platform/posix/gpu_probe.c
 )
-target_link_libraries(dxl_platform PUBLIC dxl_core)
+# The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
+# their headers come from the sysroot on a cross build, else the host's.
+if(DXL_PORT_SYSROOT)
+    target_include_directories(dxl_platform PRIVATE "${DXL_PORT_SYSROOT}/include")
+endif()
+target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS})
 
 # The original's run, WinMain and InitEngine in their order, with the screens
 # behind a table of functions (src/launch/launch.h).
