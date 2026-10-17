@@ -14,7 +14,7 @@ It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
 `deusex-launcher`'s screens are a window of its own, drawn with SDL3 and
-SDL3_ttf: Home, the first run, Settings, Recovery, the log, About
+SDL3_ttf: Home, the first run, Settings, Profiles, Recovery, the log, About
 ([the window](#the-window)).
 
 ## Where everything lives
@@ -26,12 +26,13 @@ scratch home:
 
 | Folder | What is in it |
 |---|---|
-| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
+| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
+| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, to be put back from the file manager ([profiles](#profiles)) |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. `SavePath` and
@@ -45,7 +46,10 @@ it (`SurrealEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
 window's type (`data/fonts`), the app menu's entry
 ([the app menu](#the-app-menu)), the engine's renderers and what each needs
 of the machine (`renderers.ini`), and `Settings.json`'s defaults
-(`engine-settings.json.default`). `DXL_ENGINE=<path>` runs another engine.
+(`engine-settings.json.default`). That engine is the one played with
+unless another is chosen, on Settings' Launcher page or Home's The
+engine..., `launcher.ini`'s `[Launcher] Engine`; `DXL_ENGINE=<path>` names
+one over both.
 
 ## An install
 
@@ -62,11 +66,11 @@ start without, in any case: `System`'s `Core.u`, `Engine.u`, `Extension.u`,
 
 With no profile yet, the first run makes `default`, in three pages:
 Welcome; The game, the install it is made from; Your profile, what will be
-made, before anything is, and how it begins: its graphics, the engine's
-defaults or one of [Graphics'](#settings) presets, and with a controller
-connected its [layout](#the-controller), Modern over the game's own three
-buttons or none, else the controls as imported, a layout of the player's
-(`src/app/session.c`). The game lists what the finder found
+made, before anything is, and how it begins: its name, its graphics, the
+engine's defaults or one of [Graphics'](#settings) presets, and with a
+controller connected its [layout](#the-controller), Modern over the game's
+own three buttons or none, else the controls as imported, a layout of the
+player's (`src/app/session.c`). The game lists what the finder found
 (`src/core/finder.c`), each folder once and checked: the folder
 `--game=<dir>` names, the installs `launcher.ini` lists, the game in
 Steam's own library, as Steam's distro package, its Flatpak and its Snap
@@ -97,9 +101,33 @@ writing nothing there:
 
 `dxl-cli --dry-run --game=<dir>` says what it would make, before anything
 is made. `--game=<dir>` on a profile that has one points it at that install
-from then on. A profile whose install is not there to play any more (moved,
-or deleted) opens on The game: the one chosen there is its install from
-then on.
+from then on, as Settings' Launcher page's The game's folder does, and
+Home's The game's folder... when the install is not there to play: The
+game, the one chosen its install from then on, and back to the page it came
+from. A profile whose install is not there to play any more (moved, or
+deleted) opens on The game.
+
+## Profiles
+
+Each profile is one way to play: its own settings, keys, controller,
+saves and screenshots, and its install. Profiles, from Home
+(`src/screens/profiles.c`), lists each, its game, its saves and its last
+run, the one in use marked; its buttons act on the one chosen, the row
+last focused:
+
+- **Use this one**, or the row chosen: the profile played from now on,
+  `launcher.ini`'s `Profile` (`dxl_run_use_profile`, `src/app/run.c`: the
+  run's inis, `Running.ini` and last run its own).
+- **New profile...**: The game, then Your profile, as the first run makes
+  one, its folders named after its name (`Deus Ex 2`, `deus-ex-2`); Back
+  out of them leaves the one in use as it was. Made, it is the one in use.
+- **Duplicate**: a new profile with the chosen one's settings, keys and
+  controller -- `profile.ini`, the inis with its own `SavePath` and
+  `CachePath`, the engine folder's `Settings.json` and a class's config
+  files -- and none of its saves, shots or logs (`dxl_profile_copy`).
+- **Name**, under the list: the chosen one's, edited in place.
+- **Delete...**: the chosen one's four folders to the desktop's trash, all
+  or none (`src/platform/posix/trash.c`); never the one in use.
 
 ## One start
 
@@ -119,7 +147,10 @@ then on.
 4. **Before the game**, after the screens, as the original does it: the
    inis saved, `FirstRun` raised to 1100, `Running.ini` made; and any key
    of the engine's sections they lack written.
-5. **The engine** asked what it can do (`--version`), and started.
+5. **The engine** asked what it can do (`--version`), and started: or
+   refused, saying why -- not there, one this system cannot start (a glibc
+   newer than its own, a library it lacks: the loader's words, which the
+   launcher keeps), no VibeEngine, or one without `userdir`.
 6. **The end**: the inis read again, as the engine left them. A clean end
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
    runs a `RELAUNCH` the engine passed on, decided again in this process:
@@ -142,9 +173,10 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 | Page | What it has |
 |---|---|
-| Home | Play, Settings, About, Quit; the profile's game, its build, the engine, its saves, its last run |
+| Home | Play, Settings, Profiles, About, Quit; the profile's game, its build, the engine, its saves, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
+| Profiles | [the profiles](#profiles): use one, a new one, a copy, a name, delete one |
 | Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
 | The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
@@ -166,14 +198,28 @@ which the display's scale makes pixels, so it is as sharp at any size: for
 chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
 Up and Page Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs,
 F5 plays. The mouse: the pointer focuses
-what it moves onto, a click chooses, the wheel scrolls a list. A pad: the
-d-pad or the left stick moves (held, again after 350 ms and then every
-90), its confirm button chooses and its back button goes back -- south and
+what it moves onto, a click chooses, the wheel scrolls a list and a list's
+scroll bar drags by its thumb or pages by its track, the back button goes
+back. A pad: the d-pad or the left stick moves (held, again 350 ms after
+the frame that took it and then every 90), its confirm button chooses and
+its back button goes back -- south and
 east, or on a Nintendo pad, whose A is east, east and south -- its
-shoulders change tabs, and Start plays. The foot of each page shows what to press on the device last used,
-keycaps or the pad's own buttons as SDL names them, drawn as shapes of our
-own, no maker's logo; a hint clicked does what its key does. The pointer
-hides while a pad is used.
+shoulders change tabs, and Start plays. The foot of each page shows what to
+press on the device last used, keycaps or the pad's own buttons as SDL
+names them, drawn as shapes of our own, no maker's logo; a hint clicked
+does what its key does. The pointer hides while a pad is used.
+
+**Text** (a text row, a profile's name) is edited in place as a desktop's
+fields are (`src/ui/controls.c`): a click puts the caret where it is, a
+drag or a Shift-click selects, a double click takes a word and a triple
+all; Shift with the arrows, Home and End selects, Ctrl moves and erases by
+words, Ctrl+A, C, X and V work the clipboard. A field with the focus takes
+typing at once, what is typed in its place -- W, A, S and D too -- and
+Backspace begins its edit; Enter begins it with the caret at the end. Enter
+keeps the edit, Esc puts it back, Tab, Up and Down keep it and move on, a
+click elsewhere keeps it. While it is edited the pointer takes no focus and
+nothing scrolls. A pad's confirm opens the on-screen keyboard
+(`src/ui/osk.c`).
 
 Idle, it costs nothing: it waits on its events and draws only while
 something moves, VSync-paced. A second start while it is up hands it its
@@ -193,7 +239,7 @@ takes (`src/core/settings.c`):
 | `DeusEx.ini` | the engine's sections, `[Engine.SurrealClient]`, `SurrealAudioDevice`, `SurrealRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
-| `launcher.ini`, `profile.ini` | the launcher's own: its size, reduced motion, Home after playing, its renderer; the engine's extra words |
+| `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, reduced motion, Home after playing, its renderer; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
 `[Engine.SurrealAudioDevice]` has a key, else the retail ones
@@ -238,10 +284,16 @@ key menu refuses Escape, F1 to F18, the digits, Tilde, PrintScrn and Pause,
 whose bindings it does not show; this page shows them, and takes all but
 Escape.
 
-**A text row** takes the keyboard's text, Enter keeping it and Esc putting
-it back, or a pad's through the on-screen keyboard (`src/ui/osk.c`). Your
-name keeps what the game takes in a name, letters, digits and `[ ] ( )`,
-and is `Player` when nothing of it is left.
+**Launcher** begins with the engine and the game's folder. The engine:
+its version, or what is wrong with it, and as its choices the launcher's
+own or another, in a folder shown by the launcher's browser or the
+system's dialog, VibeEngine or SurrealEngine in it, checked before it is
+taken (one that finds no `SurrealEngine.pk3` where the engine looks is said
+to). The game's folder: the profile's install, another chosen on The game.
+
+**A text row** is edited as [the window's text](#the-window) is. Your name
+keeps what the game takes in a name, letters, digits and `[ ] ( )`, and is
+`Player` when nothing of it is left.
 
 **The next run's words**, `-nosound`, `-nohard -noddraw` (a window),
 `-defaultres` (640 x 480) and `-nojoy`, are Launcher's advanced rows and
@@ -279,14 +331,22 @@ it -- the launcher's, Steam's, SDL's own -- and whether the game takes it.
 
 On its right, the rows: Layout, a preset -- Modern, Modern with the sticks
 swapped, Original Deus Ex, the game's own -- or Custom once a button is
-changed by itself (`src/core/bindings.c`); Find a button, the next button
-pressed or trigger pulled then its row, as a click on the model's is; a
+changed by itself (`src/core/bindings.c`); Test the controller...; Find a
+button, the next button pressed or trigger pulled then its row, as a click
+on the model's is; a
 row for each of the sixteen buttons, named as the controller's maker names
 it (the bottom face button A on an Xbox pad, Cross on a PlayStation pad, B
 on a Nintendo pad), whose choice is Keyboard & mouse's actions; the dead
 zone, the look speeds, inverted looking, the pointer's speed in the game's
 menus and, advanced, whether the game reads the controller at all,
 `Settings.json`'s `Gamepad`; Map this controller....
+
+**Test the controller...** shows the controller's model larger, and while
+it is up every pad's input drives the model alone, none of the window: each
+control pressed lit and its line's label with it, the sticks no longer
+turning the view, the triggers rumbling the controller as far as they are
+pulled, each its own motor. Its back button held a second ends it, as do
+Esc, Stop testing and the controller going.
 
 **Map this controller...** learns a controller SDL has no mapping for, or
 one it maps wrongly: each of SDL's controls asked for in turn -- the face
@@ -389,10 +449,14 @@ layouts, labels and actions; `test_padcurve` its sticks and triggers as the
 engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`
 and what the engine is given; `test_engine_sections` the keys written;
 `test_advice` the advice. The stand-in
-engine `tests/stub_engine.c` answers `--version` and talks on the line as
+engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
+that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
-ends (`test_process`, `test_play`). `test_profile` imports from a fake
-install made read-only, which it leaves as it was; `test_gamefiles`, on a
+ends (`test_process`, which has the engine's refusals and its choice too,
+`test_play`). `test_profile` imports from a fake
+install made read-only, which it leaves as it was, and makes, lists and
+copies profiles; `test_trash` puts folders in a scratch trash;
+`test_gamefiles`, on a
 real install in `gamefiles/`, plays the stub from a scratch home through a
 first run, a crash and the Recovery that follows, and checks that nothing
 in the game's folder changed.
@@ -424,10 +488,16 @@ binds three buttons of a virtual Xbox pad, two found by pressing or pulling
 them, maps that pad with the wizard its own confirm opened, and a
 controller SDL has no mapping for, its trigger resting at the top and first
 read before it was, and finds the bindings in `User.ini`, the mappings in
-`gamecontrollerdb.txt` and in the engine's environment; `first_run` and
+`gamecontrollerdb.txt` and in the engine's environment; `pad_test` tries
+a virtual pad, whose buttons move nothing of the window until its back is
+held; `engine_and_game` starts with an engine this system cannot start,
+puts another in its place from Home, and the game's folder from Settings;
+`profiles` makes a profile, duplicates one, renames and deletes the copy to
+the trash, and uses the first again; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
-with Your profile's choices made and as they come. It is skipped with no
-display or no install.
+with Your profile's choices made and as they come. SDL's controllers in
+each are the virtual ones alone (`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT`),
+whatever pad is plugged in. It is skipped with no display or no install.
 
 ## What it changes from the original
 
