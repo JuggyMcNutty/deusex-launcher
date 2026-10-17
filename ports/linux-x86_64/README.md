@@ -8,8 +8,8 @@ changes run here.
 
 The launcher is DXLauncher, the desktop's own
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)): a window with Home, the first
-run, Recovery and About, which makes a profile from the game's files and
-plays it. The engine runs the game, not yet fully playable
+run, Settings, Recovery, the log and About, which makes a profile from the
+game's files, keeps its settings and plays it. The engine runs the game, not yet fully playable
 ([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
 ## Build and run
@@ -36,10 +36,11 @@ the game's folder, and the launcher's files go in the home's XDG folders
 emptied first: a first run from nothing. `-- --play` skips Home.
 
 The game's settings are the profile's inis, made from the game's own on the
-first run. The engine takes its renderer and the fork's own settings from
-`Settings.json` in the profile's engine folder, which the launcher does not
-write yet: without one, from the engine's own defaults
-([settings and environment](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-and-environment)).
+first run, and `Settings.json` in the profile's engine folder, the engine's
+renderer and the fork's own drawing settings
+([settings and environment](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#settings-and-environment)):
+the launcher's Settings keeps the three
+([Settings](../../docs/LAUNCHER.md#settings)).
 
 The engine also starts on its own, straight into a map
 ([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
@@ -66,8 +67,11 @@ checked after each build; this port has neither.
   clean end, and the launcher exits, with nothing newer in `gamefiles/` or
   `~/.config/SurrealEngine`; a crashing stand-in engine brings the window
   back on Recovery, the next start opens on it, and a second start while it
-  is up is handed over. Unattended engine runs drive saves, loads and hub
-  travel
+  is up is handed over. Settings, by `tests/ui/settings_roundtrip.script`:
+  a row of each kind changed on each page, then the engine played on them
+  in a window of the size chosen to a clean end, each value kept through
+  its rewrite of the profile's files. Unattended engine runs drive saves,
+  loads and hub travel
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas
