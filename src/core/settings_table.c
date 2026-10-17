@@ -255,7 +255,7 @@ const dxl_setting dxl_settings_table[] = {
       .help = "How fast a stick moves the pointer in the game's menus and screens.", .kind = DXL_SET_NUMBER,
       .min = 0.25, .max = 3, .step = 0.25, .format = "%.2fx", .shown_scale = 1, .def = "1",
       .at = { JSON(DXL_ES_PAD_CURSOR_SPEED) } },
-    { .id = "pad.enabled", .page = "Controller", .label = "The game reads the controller",
+    { .id = "pad.enabled", .page = "Controller", .label = "Controller in the game",
       .help = "Off, the engine reads no pad, and SDL gives its buttons as keys instead: the d-pad the arrows, "
               "the south button Enter. The sticks then do nothing.",
       .kind = DXL_SET_BOOL, .def = "1", .at = { JSON(DXL_ES_PAD_ENABLED) }, .flags = DXL_SET_ADVANCED },

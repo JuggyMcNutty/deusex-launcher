@@ -265,6 +265,18 @@ static void pad_button(dxl_ui *ui, const SDL_GamepadButtonEvent *b) {
     }
 }
 
+/* A trigger pulled past half, as the game presses it, while a slot captures. */
+static void pad_trigger(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
+    if (a->axis != SDL_GAMEPAD_AXIS_LEFT_TRIGGER && a->axis != SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) return;
+    if (a->value <= 16383 || ui->in.captured) return;
+    ui->mode = DXL_INPUT_PAD;
+    ui->pad = a->which;
+    ui->pad_family = dxl_ui_pad_family(pad_of(a->which));
+    ui->in.any = 1;
+    ui->in.captured = DXL_CAPTURED_TRIGGER;
+    ui->in.captured_code = a->axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
+}
+
 static void pad_axis(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
     if (a->axis != SDL_GAMEPAD_AXIS_LEFTX && a->axis != SDL_GAMEPAD_AXIS_LEFTY) return;
     SDL_Gamepad *g = pad_of(a->which);
@@ -364,7 +376,9 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
             held_dir = -1;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-        if (!ui->capture_id && !ui->pads_off) pad_axis(ui, &e->gaxis);
+        if (ui->pads_off) break;
+        if (ui->capture_id) pad_trigger(ui, &e->gaxis);
+        else pad_axis(ui, &e->gaxis);
         break;
     case SDL_EVENT_TEXT_INPUT:
         if (ui->text_id && e->text.text) {
@@ -402,7 +416,9 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     ui->clip_count = 0;
     measure(ui);
 
-    /* A pad's held direction repeats. */
+    /* A pad's held direction repeats; none while the pads are another's,
+     * whose letting go it would not see. */
+    if (ui->pads_off) held_dir = stick_dir = -1;
     if (held_dir >= 0 && now >= held_next) {
         ui->in.nav[held_dir]++;
         held_next = now + REPEAT_NEXT;

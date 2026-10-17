@@ -41,11 +41,15 @@ void dxl_shell_free(dxl_shell *s) {
     if (s->wizard.joy) SDL_CloseJoystick(s->wizard.joy);
     dxl_padmesh_free(&s->wizard.mesh);
     memset(&s->wizard, 0, sizeof s->wizard);
+    free(s->pad_db);
+    s->pad_db = NULL;
 }
 
 void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->run = r;
     s->view = v;
+    free(s->pad_db);
+    s->pad_db = NULL;
     s->result = -1;
     s->dialog = DXL_DIALOG_NONE;
     s->repoint = v == DXL_VIEW_INSTALL;

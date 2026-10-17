@@ -15,12 +15,15 @@ struct dxl_uiscript {
     const char *seek;     /* a find's label, sought frame by frame */
     int      seek_left;   /* the moves it has left */
     int      seek_up;     /* going up, the bottom met */
+    int      seek_tabs;   /* times the top was met too */
+    int      seek_tab_left;   /* Tabs to press before Down again */
     int      seek_still;  /* moves in a row the focus stayed put */
     uint32_t seek_from;   /* the focus before the last move */
     SDL_Joystick *pad;    /* a virtual controller's, pad attach's */
 };
 
-#define SEEK_TRIES 300
+#define SEEK_TRIES 600
+#define SEEK_TABS  12
 
 dxl_uiscript *dxl_uiscript_open(void) {
     const char *path = getenv("DXL_UI_SCRIPT");
@@ -142,6 +145,9 @@ static void pad(dxl_uiscript *u, const char *arg) {
         SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
         u->pad = id ? SDL_OpenJoystick(id) : NULL;
         if (!u->pad) fail(u, "no virtual controller");
+        /* Where it rests, read at once, as a real one's is when SDL opens
+         * it: a virtual controller's axes are read only once one moves. */
+        else SDL_SetJoystickVirtualAxis(u->pad, 0, 0);
         return;
     }
     if (!u->pad) {
@@ -169,7 +175,9 @@ static void pad(dxl_uiscript *u, const char *arg) {
 }
 
 /* A find under way: the control focused once it is drawn, else one more
- * Down, or once the focus stays put at the bottom, Up. 1 while it goes on. */
+ * Down, or once the focus stays put at the bottom, Up; at the top too,
+ * Tabs -- one more each time -- to a control in another column, and Down
+ * again. 1 while it goes on. */
 static int seek(dxl_uiscript *u, dxl_shell *s) {
     uint32_t id = dxl_ui_named(&s->ui, u->seek);
     if (id) {
@@ -178,16 +186,27 @@ static int seek(dxl_uiscript *u, dxl_shell *s) {
         u->seek = NULL;
         return 0;
     }
-    u->seek_still = s->ui.focus == u->seek_from ? u->seek_still + 1 : 0;
-    if (u->seek_still >= 2 && !u->seek_up) {
-        u->seek_up = 1;
-        u->seek_still = 0;
-    }
-    if (u->seek_left-- <= 0 || (u->seek_still >= 2 && u->seek_up)) {
+    if (u->seek_left-- <= 0 || u->seek_tabs > SEEK_TABS) {
         char what[160];
         snprintf(what, sizeof what, "no %s on %s", u->seek, up_now(s));
         fail(u, what);
         return 0;
+    }
+    if (!u->seek_tab_left) {
+        u->seek_still = s->ui.focus == u->seek_from ? u->seek_still + 1 : 0;
+        if (u->seek_still >= 2 && !u->seek_up) {
+            u->seek_up = 1;
+            u->seek_still = 0;
+        } else if (u->seek_still >= 2) {
+            u->seek_up = u->seek_still = 0;
+            u->seek_tab_left = ++u->seek_tabs;
+        }
+    }
+    if (u->seek_tab_left) {
+        u->seek_tab_left--;
+        u->seek_from = 0;
+        push_key(SDLK_TAB);
+        return 1;
     }
     u->seek_from = s->ui.focus;
     push_key(u->seek_up ? SDLK_UP : SDLK_DOWN);
@@ -235,7 +254,7 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
         } else if (!strcmp(word, "find")) {
             u->seek = rest;
             u->seek_left = SEEK_TRIES;
-            u->seek_up = u->seek_still = 0;
+            u->seek_up = u->seek_still = u->seek_tabs = u->seek_tab_left = 0;
             u->seek_from = 0;
             if (seek(u, s)) return 0;
         } else if (!strcmp(word, "expect")) {
