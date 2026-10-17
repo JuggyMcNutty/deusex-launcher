@@ -13,8 +13,9 @@
  *                     again
  *   expect <name>     the page or dialog up: home, welcome, find, import, recovery,
  *                     about, settings, log; browser, message, pick, keyboard,
- *                     confirm, padwizard. Not so: "ui script: FAILED" in the
- *                     launcher's log and on stderr, and the window closes
+ *                     confirm, padwizard, padtest; "settings <tab>" its tab too.
+ *                     Not so: "ui script: FAILED" in the launcher's log and on
+ *                     stderr, and the window closes
  *   pad attach <kind> a virtual controller: xbox, dualsense, switchpro or generic,
  *                     as SDL knows them, or raw, one it has no mapping for (13
  *                     buttons, 6 axes, a hat), at rest, as SDL first reads it;

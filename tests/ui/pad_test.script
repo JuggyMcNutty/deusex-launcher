@@ -1,0 +1,51 @@
+# The controller's test from the Controller page with a virtual Xbox pad:
+# its back button pressed and let go, the d-pad, the shoulders and Start
+# move nothing of the window -- the test stays up, on the same tab -- until
+# the back button is held a second; its letting go after goes back nowhere.
+# Then the test again, and Esc from the keys.
+pad attach xbox
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+find Controller
+key Return
+wait 0.5
+expect settings Controller
+find Test the controller...
+key Return
+wait 0.3
+expect padtest
+pad button 1 down
+wait 0.2
+pad button 1 up
+wait 0.2
+pad button 12 down
+wait 0.5
+pad button 12 up
+pad button 10 down
+wait 0.1
+pad button 10 up
+pad button 6 down
+wait 0.1
+pad button 6 up
+pad axis 5 1
+wait 0.3
+pad axis 5 -1
+wait 0.3
+expect padtest
+pad button 1 down
+wait 1.4
+expect settings Controller
+pad button 1 up
+wait 0.4
+expect settings Controller
+find Test the controller...
+key Return
+wait 0.3
+expect padtest
+key Escape
+wait 0.3
+expect settings Controller
+quit

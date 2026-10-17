@@ -2,9 +2,15 @@
  * one chosen as a model (ui/pad3d.h), live, each control naming what it
  * does on a leader line, the sticks and the triggers under it as the engine
  * reads them (core/padcurve.h); on the right its rows: the layout's preset,
- * each button's action (core/bindings.h, User.ini's Joy lines), the
- * tuning's rows (Settings.json's Gamepad), and the mapping wizard for a
- * controller SDL has no mapping for (screens/padwizard.c). */
+ * the controller's test, each button's action (core/bindings.h, User.ini's
+ * Joy lines), the tuning's rows (Settings.json's Gamepad), and the mapping
+ * wizard for a controller SDL has no mapping for (screens/padwizard.c).
+ *
+ * The test is a dialog of the same model, larger, while which every pad's
+ * input drives it alone (the kit's pads_off): the controls pressed lit and
+ * their leaders' labels with them, the triggers rumbling the controller as
+ * far as they are pulled; its back button held a second, Esc or Stop ends
+ * it. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/bindings.h"
@@ -205,8 +211,9 @@ static int by_y(const void *a, const void *b) {
 }
 
 /* Each control's line out to what it does, the labels down each side,
- * apart. */
-static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, const dxl_pad3d_spot *spots, int chosen) {
+ * apart; the chosen control's lit, and under a test those pressed. */
+static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, const dxl_pad3d_spot *spots, int chosen,
+                    const int *pressed) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
     leader side[2][DXL_PADPART_COUNT];
@@ -229,11 +236,11 @@ static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, cons
             snprintf(l->text, sizeof l->text, "%s", what);
     }
     for (int k = 0; k < 2; k++) {
-        /* A side's labels taller than the panel: the chosen control's alone. */
+        /* A side's labels taller than the panel: the lit controls' alone. */
         if (count[k] && (count[k] - 1) * LEADER_GAP + 16 > r.h) {
             int kept = 0;
             for (int i = 0; i < count[k]; i++)
-                if (side[k][i].part == chosen) side[k][kept++] = side[k][i];
+                if (side[k][i].part == chosen || (pressed && pressed[side[k][i].part])) side[k][kept++] = side[k][i];
             count[k] = kept;
         }
         qsort(side[k], (size_t)count[k], sizeof side[k][0], by_y);
@@ -248,7 +255,7 @@ static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, cons
         }
         for (int i = 0; i < count[k]; i++) {
             const leader *l = &side[k][i];
-            int lit = l->part == chosen;
+            int lit = l->part == chosen || (pressed && pressed[l->part]);
             dxl_rgba c = lit ? t->text_focus : dxl_rgba_fade(t->help, 0.9f);
             float edge = k ? model_r : model_l;
             dxl_line(ui, spots[l->part].x, spots[l->part].y, edge, l->y, 1, dxl_rgba_fade(c, 0.7f));
@@ -260,9 +267,10 @@ static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, cons
     }
 }
 
-/* The model and its meters, the controller chosen above them. */
+/* The model and its meters, the controller chosen above them; testing,
+ * the one tried, its controls pressed lit. */
 static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, int shown, int game,
-                       dxl_pad_kind kind, int chosen) {
+                       dxl_pad_kind kind, int chosen, int testing) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
     dxl_well(ui, r);
@@ -270,7 +278,7 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
 
     /* Which controller: a choice when there are several. */
     dxl_rect top = dxl_cut_top(&in, 30);
-    if (n > 1) {
+    if (n > 1 && !testing) {
         static const char *names[16];
         int count = n < 16 ? n : 16, index = shown;
         for (int i = 0; i < count; i++) names[i] = pads[i].name;
@@ -284,7 +292,7 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
             dxl_ui_animate(ui);
         }
     } else {
-        dxl_label(ui, top, DXL_FONT_LABEL, n ? pads[0].name : "No controller connected", n ? t->text : t->help,
+        dxl_label(ui, top, DXL_FONT_LABEL, n ? pads[shown].name : "No controller connected", n ? t->text : t->help,
                   DXL_W_LEFT | DXL_W_MAY_CUT);
     }
     char line[400] = "The layout as an Xbox pad's: connect a controller to see its own.";
@@ -310,10 +318,11 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
         in.h = need;
         strip.y -= spare / 2;
     }
-    /* The view: turned a little, swaying, dragged round, or by the right stick. */
+    /* The view: turned a little, swaying, dragged round, or by the right
+     * stick -- but under a test, whose stick is the model's. */
     float sway = ui->reduced_motion ? 0 : (float)sin(ui->now * 0.6) * 0.14f;
     if (!ui->reduced_motion) dxl_ui_animate(ui);
-    uint32_t model_id = dxl_ui_id(ui, "pad model");
+    uint32_t model_id = dxl_ui_id(ui, testing ? "pad test model" : "pad model");
     int hits = dxl_ui_clickable(ui, model_id, in);
     if (ui->held == model_id) {
         s->pad_yaw += (ui->in.px - s->pad_drag_x) * 0.01f;
@@ -321,7 +330,7 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
     }
     s->pad_drag_x = ui->in.px;
     s->pad_drag_y = ui->in.py;
-    if (g && !ui->capture_id && !ui->text_id) {
+    if (g && !ui->capture_id && !ui->text_id && !ui->pads_off) {
         float rx = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHTX) / 32767.0f;
         if (fabsf(rx) > 0.3f) {
             s->pad_yaw += rx * ui->dt * 1.5f;
@@ -342,7 +351,14 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
     }
     dxl_pad3d_spot spots[DXL_PADPART_COUNT];
     dxl_pad3d_draw(ui, &s->pad_mesh, model, &st, spots);
-    leaders(s, in, model.x, model.x + model.w, spots, chosen);
+    /* Under a test, what is pressed, pulled or pushed. */
+    int pressed[DXL_PADPART_COUNT];
+    memcpy(pressed, st.down, sizeof pressed);
+    pressed[DXL_PADPART_LTRIGGER] = st.lt > DXL_PAD_TRIGGER_RELEASE;
+    pressed[DXL_PADPART_RTRIGGER] = st.rt > DXL_PAD_TRIGGER_RELEASE;
+    pressed[DXL_PADPART_LSTICK] |= fabsf(st.lx) > 0.3f || fabsf(st.ly) > 0.3f;
+    pressed[DXL_PADPART_RSTICK] |= fabsf(st.rx) > 0.3f || fabsf(st.ry) > 0.3f;
+    leaders(s, in, model.x, model.x + model.w, spots, chosen, testing ? pressed : NULL);
     /* A control clicked on the model: its row. */
     if (hits & DXL_HIT_ACTIVATED) {
         int p = dxl_pad3d_hit(&s->pad_mesh, spots, ui->in.px, ui->in.py);
@@ -431,11 +447,11 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
     float lw = area.w * 0.56f;
     dxl_rect left = { area.x, area.y, lw, area.h }, right = { area.x + lw + 12, area.y, area.w - lw - 12, area.h };
 
-    /* The rows: the layout, finding a button, the buttons, the tuning, the
-     * wizard. */
+    /* The rows: the layout, the test, finding a button, the buttons, the
+     * tuning, the wizard. */
     const dxl_setting *rows[16];
     int tuning = dxl_settings_rows("Controller", rows, 16);
-    int buttons = (int)dxl_pad_button_count(), first = 2, count = first + buttons + tuning + 1;
+    int buttons = (int)dxl_pad_button_count(), first = 3, count = first + buttons + tuning + 1;
     dxl_well(ui, right);
     dxl_list l;
     dxl_list_begin(ui, &l, "pad rows", dxl_inset(right, 4), count, ROW_H, DXL_LIST_WHOLE_ROWS);
@@ -467,6 +483,18 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
             if (ui->focus == id)
                 *why = now ? now->description : "A layout of the controller's own: changed button by button.";
         } else if (i == 1) {
+            /* Never disabled: a row in a list's middle that takes no focus
+             * would break the rows' up and down. */
+            if (dxl_button_id(ui, id, dxl_inset(rr, 4), "Test the controller...", 0)) {
+                if (g) dxl_padtest_open(s, pads[shown].id);
+                else if (n) dxl_shell_toast(s, "SDL knows no mapping for %s: map it first, at the end of the rows.",
+                                            pads[shown].name);
+                else dxl_shell_toast(s, "No controller is connected.");
+            }
+            if (ui->focus == id)
+                *why = "Every button, stick and trigger on the model, and nothing else in the launcher moving with "
+                       "them; the triggers rumble it.";
+        } else if (i == 2) {
             /* The next button pressed, or trigger pulled, on a controller:
              * its row. */
             int capturing = ui->capture_id == id;
@@ -521,5 +549,103 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
         s->pad_chosen = chosen;
         if (g && chosen >= 0) SDL_RumbleGamepad(g, 0x2400, 0x4800, 90);
     }
-    left_panel(s, left, pads, n, shown, game, kind, chosen);
+    left_panel(s, left, pads, n, shown, game, kind, chosen, 0);
+}
+
+/* ---- the test --------------------------------------------------------- */
+
+#define HOLD_S 1.0          /* the back button held this long ends the test */
+
+/* The pad's back button: east, but south on a Nintendo pad, whose A is
+ * east; and its name. */
+static SDL_GamepadButton back_button(SDL_Gamepad *g) {
+    return dxl_ui_pad_family(g) == DXL_PADFAMILY_NINTENDO ? SDL_GAMEPAD_BUTTON_SOUTH : SDL_GAMEPAD_BUTTON_EAST;
+}
+
+static const char *back_name(SDL_Gamepad *g, dxl_pad_kind kind) {
+    return dxl_pad_control_label(kind, back_button(g) == SDL_GAMEPAD_BUTTON_SOUTH ? "Joy1" : "Joy2");
+}
+
+static void test_close(dxl_shell *s) {
+    SDL_Gamepad *g = SDL_GetGamepadFromID(s->pad_test.id);
+    if (g && s->pad_test.rumbling) SDL_RumbleGamepad(g, 0, 0, 0);
+    s->pad_test.rumbling = 0;
+    s->ui.pads_off = 0;
+    dxl_log("pad test: done");
+    dxl_shell_close_dialog(s);
+}
+
+void dxl_padtest_open(dxl_shell *s, SDL_JoystickID id) {
+    s->pad_test.id = id;
+    s->pad_test.held_since = -1;
+    s->pad_test.rumbling = 0;
+    if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
+    s->dialog = DXL_DIALOG_PADTEST;
+    /* The pads are the model's now, not the window's. */
+    s->ui.pads_off = 1;
+    dxl_log("pad test: %s", SDL_GetGamepadNameForID(id));
+}
+
+void dxl_padtest(dxl_shell *s, dxl_rect over, int back) {
+    dxl_ui *ui = &s->ui;
+    const dxl_theme *t = &ui->theme;
+    SDL_Gamepad *g = SDL_GetGamepadFromID(s->pad_test.id);
+    if (!g) {
+        test_close(s);
+        dxl_shell_toast(s, "The controller went as it was tried.");
+        return;
+    }
+    /* Its back held: the hold's share of a second; the whole, the end. */
+    float hold = 0;
+    if (SDL_GetGamepadButton(g, back_button(g))) {
+        if (s->pad_test.held_since < 0) s->pad_test.held_since = ui->now;
+        hold = (float)((ui->now - s->pad_test.held_since) / HOLD_S);
+    } else {
+        s->pad_test.held_since = -1;
+    }
+    if (hold >= 1) {
+        test_close(s);
+        return;
+    }
+    /* The triggers rumble it, each its own motor, as far as they are
+     * pulled. */
+    float lt = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32767.0f;
+    float rt = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f;
+    if (lt > 0.05f || rt > 0.05f) {
+        SDL_RumbleGamepad(g, (Uint16)(fminf(lt, 1) * 0xffff), (Uint16)(fminf(rt, 1) * 0xffff), 250);
+        s->pad_test.rumbling = 1;
+    } else if (s->pad_test.rumbling) {
+        SDL_RumbleGamepad(g, 0, 0, 0);
+        s->pad_test.rumbling = 0;
+    }
+    dxl_ui_animate(ui);
+
+    pad_entry pads[16];
+    int n = pads_now(pads, 16), shown = 0, game = -1;
+    for (int i = 0; i < n; i++) {
+        if (pads[i].id == s->pad_test.id) shown = i;
+        if (game < 0 && pads[i].gamepad) game = i;
+    }
+    dxl_pad_kind kind = kind_of(&pads[shown]);
+    dxl_rect in = dxl_dialog_begin(ui, over, 1000, 680, "Testing the controller");
+    char line[300];
+    snprintf(line, sizeof line,
+             "Every button, stick and trigger shows on the model, and moves nothing else; the triggers rumble it. "
+             "Hold %s a second, or press Esc, to stop.",
+             back_name(g, kind));
+    float h = dxl_paragraph(ui, in, DXL_FONT_SMALL, line, t->help);
+    dxl_cut_top(&in, h + 6);
+    /* The hold, as it fills. */
+    dxl_rect bar = dxl_cut_top(&in, 4);
+    if (hold > 0) {
+        dxl_fill(ui, bar, dxl_rgba_fade(t->panel_light, 0.2f));
+        dxl_fill(ui, (dxl_rect){ bar.x, bar.y, bar.w * hold, bar.h }, t->accent);
+    }
+    dxl_cut_top(&in, 8);
+    dxl_rect buttons = dxl_cut_bottom(&in, 46);
+    dxl_cut_bottom(&in, 10);
+    left_panel(s, in, pads, n, shown, game, kind, -1, 1);
+    int stop = dxl_button(ui, "test stop", dxl_cut_right(&buttons, 170), "Stop testing", DXL_W_PRIMARY);
+    dxl_dialog_end(ui);
+    if (stop || back) test_close(s);
 }

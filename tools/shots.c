@@ -85,6 +85,7 @@ typedef enum {
     SCENE_CONTROLLER,
     SCENE_CONTROLLER_END,   /* its rows' list paged to its end */
     SCENE_PADWIZARD,
+    SCENE_PADTEST,          /* the controller tried: its north button and right trigger held */
     SCENE_GRAPHICS,
     SCENE_AUDIO,
     SCENE_GAMEPLAY,
@@ -96,7 +97,8 @@ typedef enum {
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "repoint",
     "recovery", "safe", "about", "settings", "pick", "osk", "confirm", "log", "keys",
-    "controller", "controller-end", "padwizard", "graphics", "audio", "gameplay", "multiplayer", "launcher",
+    "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
+    "launcher",
 };
 
 /* The settings page each of those scenes shows. */
@@ -356,6 +358,15 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         dxl_page_settings_enter(s);
         if (raw_id) dxl_padwizard_open(s, raw_id);
         break;
+    case SCENE_PADTEST:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_SETTINGS);
+        for (size_t i = 0; i < dxl_settings_page_count(); i++)
+            if (!strcmp(dxl_settings_page(i), "Controller")) s->settings_tab = (int)i;
+        dxl_page_settings_enter(s);
+        if (s->stores.user) dxl_bindings_apply(s->stores.user, dxl_pad_preset_default());
+        dxl_padtest_open(s, pad_ids[0]);
+        break;
     case SCENE_LOG:
         crashed(r);
         dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
@@ -475,8 +486,18 @@ static void shoot(scene sc, int si, mode m) {
     s.ui = kit;
     dxl_run r;
     set_up(sc, &r, &s);
-    /* The Controller page shows the pad the shot's mode uses. */
+    /* The Controller page shows the pad the shot's mode uses; the test
+     * tries it, its north button (no pad's back) and right trigger held. */
     if (m >= MODE_XBOX) s.pad_id = pad_ids[m - MODE_XBOX];
+    SDL_Joystick *tried = NULL;
+    if (sc == SCENE_PADTEST) {
+        if (m >= MODE_XBOX) s.pad_test.id = pad_ids[m - MODE_XBOX];
+        tried = SDL_GetJoystickFromID(s.pad_test.id);
+        if (tried) {
+            SDL_SetJoystickVirtualButton(tried, SDL_GAMEPAD_BUTTON_NORTH, true);
+            SDL_SetJoystickVirtualAxis(tried, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 32767);
+        }
+    }
     s.page_since = 0;   /* the page up long since: no slide in the frames below */
     double t = 100;
     events(&s);
@@ -510,7 +531,13 @@ static void shoot(scene sc, int si, mode m) {
         if (SDL_SavePNG(surface, path)) saved++;
         else fprintf(stderr, "dxl-shots: %s: %s\n", path, SDL_GetError());
     }
+    if (tried) {
+        SDL_SetJoystickVirtualButton(tried, SDL_GAMEPAD_BUTTON_NORTH, false);
+        SDL_SetJoystickVirtualAxis(tried, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, -32768);
+        events(&s);
+    }
     /* The kit goes on to the next shot, its texts and textures with it. */
+    s.ui.pads_off = 0;
     kit = s.ui;
     if (s.settings_open) {
         dxl_es_free(s.engine_settings);
@@ -577,8 +604,11 @@ int main(int argc, char **argv) {
     dxl_log_set_to_file(0);
     make_home();
 
-    /* No real pad in the way of the virtual ones. */
+    /* No real pad in the way of the virtual ones: SDL's controllers theirs
+     * alone. */
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
+    SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT,
+                "0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1");
     if (!SDL_Init(SDL_INIT_GAMEPAD) || !TTF_Init()) {
         fprintf(stderr, "dxl-shots: %s\n", SDL_GetError());
         return 1;
