@@ -1,0 +1,37 @@
+# Recovery after a crash: the log read, the next run in a window, another
+# renderer, Play, a crash again, Quit: test_ui_scripts.c reads the runs'
+# command lines and the renderer chosen.
+wait 1.5
+expect home
+find Play
+key Return
+wait 2.5
+expect recovery
+wait 1.5
+
+find Read the log
+key Return
+wait 0.5
+expect log
+find Back
+key Return
+wait 0.5
+expect recovery
+
+find In a window
+key Return
+find Another renderer...
+key Return
+wait 0.5
+expect pick
+key Down
+key Return
+wait 0.5
+expect recovery
+
+find Play
+key Return
+wait 2.5
+expect recovery
+find Quit
+key Return

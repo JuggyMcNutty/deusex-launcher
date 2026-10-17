@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/paths.h"
+#include "ui/osk.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
 
@@ -121,7 +122,7 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     int up = strcmp(b->dir, "/") != 0;
     int rows = b->count + up;
     dxl_list l;
-    dxl_list_begin(ui, &l, "browser", dxl_inset(in, 4), rows, 36);
+    dxl_list_begin(ui, &l, "browser", dxl_inset(in, 4), rows, 36, 0);
     int open = -1;
     for (int i = 0; i < rows; i++) {
         const char *name = up && i == 0 ? ".. (the folder above)" : b->names[i - up];
@@ -182,10 +183,132 @@ static void message(dxl_shell *s, dxl_rect over, int back) {
     if (ok || back) dxl_shell_close_dialog(s);
 }
 
+/* ---- the asking dialogs ------------------------------------------------ */
+
+static void ask(dxl_shell *s, dxl_dialog d, uint32_t id) {
+    if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
+    s->dialog = d;
+    s->asked_for = id;
+    s->answered = 0;
+    s->answer = -1;
+}
+
+static void answer(dxl_shell *s, int a) {
+    s->answer = a;
+    s->answered = 1;
+    dxl_shell_close_dialog(s);
+}
+
+void dxl_shell_pick(dxl_shell *s, uint32_t id, const char *title, const char *const *labels, int n, int current) {
+    ask(s, DXL_DIALOG_PICK, id);
+    snprintf(s->ask_title, sizeof s->ask_title, "%s", title);
+    if (n > DXL_PICK_MAX) n = DXL_PICK_MAX;
+    for (int i = 0; i < n; i++) {
+        snprintf(s->pick_text[i], sizeof s->pick_text[i], "%s", labels && labels[i] ? labels[i] : "");
+        s->pick_labels[i] = s->pick_text[i];
+    }
+    s->pick_count = n;
+    s->pick_current = current;
+}
+
+const char *dxl_shell_picked(const dxl_shell *s, int answer) {
+    return answer >= 0 && answer < s->pick_count ? s->pick_text[answer] : NULL;
+}
+
+void dxl_shell_osk(dxl_shell *s, uint32_t id, const char *title, char *buf, size_t size) {
+    ask(s, DXL_DIALOG_OSK, id);
+    snprintf(s->ask_title, sizeof s->ask_title, "%s", title);
+    s->osk_buf = buf;
+    s->osk_size = size;
+    dxl_osk_open(&s->osk, buf);
+}
+
+void dxl_shell_confirm(dxl_shell *s, uint32_t id, const char *title, const char *text, const char *yes,
+                       const char *no) {
+    ask(s, DXL_DIALOG_CONFIRM, id);
+    snprintf(s->ask_title, sizeof s->ask_title, "%s", title);
+    snprintf(s->message, sizeof s->message, "%s", text);
+    snprintf(s->ask_yes, sizeof s->ask_yes, "%s", yes);
+    snprintf(s->ask_no, sizeof s->ask_no, "%s", no);
+    s->ask_third[0] = '\0';
+}
+
+void dxl_shell_confirm3(dxl_shell *s, uint32_t id, const char *title, const char *text, const char *yes,
+                        const char *third, const char *no) {
+    dxl_shell_confirm(s, id, title, text, yes, no);
+    snprintf(s->ask_third, sizeof s->ask_third, "%s", third);
+}
+
+int dxl_shell_answer(dxl_shell *s, uint32_t id) {
+    if (!s->answered || s->asked_for != id) return -1;
+    s->answered = 0;
+    s->asked_for = 0;
+    return s->answer;
+}
+
+static void pick(dxl_shell *s, dxl_rect over, int back) {
+    dxl_ui *ui = &s->ui;
+    float rows = (float)(s->pick_count < 9 ? s->pick_count : 9);
+    dxl_rect in = dxl_dialog_begin(ui, over, 520, 5 + 32 + 16 + rows * 40 + 8 + 20, s->ask_title);
+    dxl_well(ui, in);
+    dxl_list l;
+    dxl_list_begin(ui, &l, "pick", dxl_inset(in, 4), s->pick_count, 40, DXL_LIST_WHOLE_ROWS);
+    if (ui->focus == 0 || s->pick_current >= 0) {
+        dxl_list_focus(ui, &l, s->pick_current);
+        s->pick_current = -1;
+    }
+    int chosen = -1;
+    for (int i = 0; i < s->pick_count; i++)
+        if (dxl_list_row(ui, &l, i, s->pick_labels[i], NULL, ui->theme.help, 0) & DXL_HIT_ACTIVATED) chosen = i;
+    dxl_list_end(ui, &l);
+    dxl_dialog_end(ui);
+    if (chosen >= 0) answer(s, chosen);
+    else if (back) {
+        s->answered = 0;
+        s->asked_for = 0;
+        dxl_shell_close_dialog(s);
+    }
+}
+
+static void osk(dxl_shell *s, dxl_rect over, int back) {
+    int r = dxl_osk(&s->ui, &s->osk, over, s->ask_title, s->osk_buf, s->osk_size, back);
+    if (r > 0) answer(s, 1);
+    else if (r < 0) {
+        s->answered = 0;
+        s->asked_for = 0;
+        dxl_shell_close_dialog(s);
+    }
+}
+
+static void confirm(dxl_shell *s, dxl_rect over, int back) {
+    dxl_ui *ui = &s->ui;
+    float w = 620;
+    if (w > over.w - 32) w = over.w - 32;
+    float text = dxl_text_size(ui, DXL_FONT_BODY, s->message, w - 44).y;
+    dxl_rect in = dxl_dialog_begin(ui, over, w, 5 + 32 + 16 + text + 16 + 46 + 20, s->ask_title);
+    dxl_rect buttons = dxl_cut_bottom(&in, 46);
+    dxl_paragraph(ui, in, DXL_FONT_BODY, s->message, ui->theme.text);
+    int no = dxl_button(ui, "confirm no", dxl_cut_right(&buttons, 170), s->ask_no, 0);
+    dxl_cut_right(&buttons, 12);
+    int third = 0;
+    if (s->ask_third[0]) {
+        third = dxl_button(ui, "confirm third", dxl_cut_right(&buttons, 170), s->ask_third, 0);
+        dxl_cut_right(&buttons, 12);
+    }
+    int yes = dxl_button(ui, "confirm yes", dxl_cut_right(&buttons, 170), s->ask_yes, DXL_W_PRIMARY);
+    dxl_dialog_end(ui);
+    if (yes) answer(s, 1);
+    else if (third) answer(s, 2);
+    else if (no || back) answer(s, 0);
+}
+
 void dxl_dialogs(dxl_shell *s, dxl_rect r, int back) {
     switch (s->dialog) {
     case DXL_DIALOG_BROWSER: browser(s, r, back); break;
     case DXL_DIALOG_MESSAGE: message(s, r, back); break;
+    case DXL_DIALOG_PICK: pick(s, r, back); break;
+    case DXL_DIALOG_OSK: osk(s, r, back); break;
+    case DXL_DIALOG_CONFIRM: confirm(s, r, back); break;
     default: break;
     }
 }

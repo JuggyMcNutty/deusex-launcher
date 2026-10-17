@@ -3,16 +3,22 @@
  * event queue, as a player's would, into the same loop and pages.
  *
  *   wait <seconds>    before the next line
- *   key <name>        a key pressed, by SDL's name for it: Down, Return, Escape, Tab, F5
+ *   key <name> [*<n>] a key pressed, by SDL's name for it: Down, Return, Escape, Tab,
+ *                     F5; n times over
+ *   type <text>       text typed, as an input method gives it
+ *   find <label>      the focus on the control of that label (ui/kit.h's names):
+ *                     Down pressed, a frame each, until one is drawn
  *   expect <name>     the page or dialog up: home, welcome, find, import, recovery,
- *                     about; browser, message. Not so: "ui script: FAILED" in the
- *                     launcher's log and on stderr, and the window closes
+ *                     about, settings, log; browser, message, pick, keyboard,
+ *                     confirm. Not so: "ui script: FAILED" in the launcher's log and
+ *                     on stderr, and the window closes
  *   shot <file>       the window's next frame as a PNG
  *   quit              the window's close
  *
  * Blank lines and those starting with # are skipped. The script runs on
  * across the window's screens -- the first run, Home, the game, Recovery --
- * a wait counting from the line before.
+ * a wait counting from the line before; a frame takes each key and text
+ * before the next line runs.
  */
 #ifndef DXL_UISCRIPT_H
 #define DXL_UISCRIPT_H

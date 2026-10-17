@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "core/paths.h"
 #include "platform/desktop.h"
+#include "platform/process.h"
 #include "ui/icon.h"
 #include "ui/text.h"
 
@@ -41,11 +42,19 @@ struct dxl_window {
     int            cursor_hidden;
     int            diags;          /* the kit's diagnostics last logged */
     dxl_uiscript  *script;         /* DXL_UI_SCRIPT's input, or NULL */
+    char          *words_before;   /* the command line as it was before a run's own words */
 
     /* The thread that waits on a second start's line and on signals. */
     SDL_Thread    *listener;
     int            quit_pipe[2];
     SDL_Semaphore *drained;
+
+    /* The GPU probe, dxl-cli --probe --ini in a worker. */
+    SDL_Thread    *probe_thread;
+    SDL_AtomicInt  probe_done;
+    dxl_gpu_probe  probe_result;
+    char          *cli;
+    Uint32         job_event;
 
     /* The system's folder dialog's answer, from its thread. */
     SDL_Mutex     *pick_lock;
@@ -185,6 +194,45 @@ static void picked(dxl_window *w) {
     free(path);
 }
 
+/* ---- the GPU probe ----------------------------------------------------- */
+
+static int SDLCALL probe_main(void *p) {
+    dxl_window *w = p;
+    char *argv[] = { w->cli, "--probe", "--ini", NULL };
+    char out[4096];
+    int status = 0;
+    dxl_err e;
+    if (dxl_run_capture(argv, 10000, out, sizeof out, &status, &e) != 0 ||
+        dxl_gpu_probe_from_ini(out, &w->probe_result) != 0) {
+        memset(&w->probe_result, 0, sizeof w->probe_result);
+        snprintf(w->probe_result.note, sizeof w->probe_result.note, "%s --probe gave no answer", w->cli);
+    }
+    SDL_SetAtomicInt(&w->probe_done, 1);
+    SDL_Event ev;
+    SDL_zero(ev);
+    ev.type = w->job_event;
+    SDL_PushEvent(&ev);
+    return 0;
+}
+
+static void start_probe(dxl_shell *s) {
+    dxl_window *w = s->window;
+    if (w->probe_thread || !w->run) return;
+    free(w->cli);
+    w->cli = dxl_path_join(w->run->session.app_dir, "dxl-cli");
+    SDL_SetAtomicInt(&w->probe_done, 0);
+    w->probe_thread = SDL_CreateThread(probe_main, "dxl-probe", w);
+    if (!w->probe_thread) dxl_log("no probe thread: %s", SDL_GetError());
+}
+
+/* The probe's answer, once it is in. */
+static void probe_collect(dxl_window *w) {
+    if (!w->probe_thread || !SDL_GetAtomicInt(&w->probe_done)) return;
+    SDL_WaitThread(w->probe_thread, NULL);
+    w->probe_thread = NULL;
+    dxl_shell_probed(&w->shell, &w->probe_result);
+}
+
 /* ---- the app menu's entry ------------------------------------------------- */
 
 static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
@@ -319,8 +367,9 @@ static int open_window(dxl_window *w, dxl_run *r) {
             SDL_Quit();
             return -1;
         }
-        w->wake_event = SDL_RegisterEvents(2);
+        w->wake_event = SDL_RegisterEvents(3);
         w->pick_event = w->wake_event + 1;
+        w->job_event = w->wake_event + 2;
         w->sdl = 1;
     }
     if (!w->pads) w->pads = SDL_InitSubSystem(SDL_INIT_GAMEPAD);
@@ -336,8 +385,14 @@ static int open_window(dxl_window *w, dxl_run *r) {
         SDL_SetWindowIcon(w->window, icon);
         SDL_DestroySurface(icon);
     }
-    /* SDL_RENDER_DRIVER names one; the software renderer when none starts. */
-    w->renderer = SDL_CreateRenderer(w->window, NULL);
+    /* launcher.ini's RenderDriver, else SDL_RENDER_DRIVER's or SDL's own
+     * choice; the software renderer when none starts. */
+    const char *driver = dxl_ini_get(r->session.ini, "Launcher", "RenderDriver");
+    w->renderer = SDL_CreateRenderer(w->window, driver && *driver ? driver : NULL);
+    if (!w->renderer && driver && *driver) {
+        dxl_log("no %s renderer (%s)", driver, SDL_GetError());
+        w->renderer = SDL_CreateRenderer(w->window, NULL);
+    }
     if (!w->renderer) {
         dxl_log("no renderer (%s): the software one", SDL_GetError());
         w->renderer = SDL_CreateRenderer(w->window, SDL_SOFTWARE_RENDERER);
@@ -351,7 +406,17 @@ static int open_window(dxl_window *w, dxl_run *r) {
     w->vsync = SDL_SetRenderVSync(w->renderer, 1);
     char fonts[1100];
     snprintf(fonts, sizeof fonts, "%s/fonts", r->session.data_dir);
-    int rc = w->kit ? dxl_ui_attach(&s->ui, w->window, w->renderer) : dxl_ui_init(&s->ui, w->window, w->renderer, fonts, 1);
+    const char *scale = dxl_ini_get(r->session.ini, "Launcher", "UIScale");
+    float user_scale = scale ? (float)atof(scale) : 1;
+    if (user_scale < 0.5f || user_scale > 3) user_scale = 1;
+    int rc;
+    if (w->kit) {
+        s->ui.user_scale = user_scale;
+        rc = dxl_ui_attach(&s->ui, w->window, w->renderer);
+    } else {
+        rc = dxl_ui_init(&s->ui, w->window, w->renderer, fonts, user_scale);
+    }
+    s->ui.reduced_motion = dxl_ini_get_bool(r->session.ini, "Launcher", "ReducedMotion", 0);
     if (rc != 0) {
         fprintf(stderr, "DXLauncher cannot draw: %s\n", SDL_GetError());
         dxl_ui_detach(&s->ui);
@@ -369,6 +434,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->window = w;
     s->pick_folder = pick_folder;
     s->desktop = desktop;
+    s->start_probe = start_probe;
     s->desktop_entry = dxl_desktop_installed(r->session.xdg.data_home);
     return 0;
 }
@@ -387,6 +453,8 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         take_lines(w);
     } else if (e->type == w->pick_event) {
         picked(w);
+    } else if (e->type == w->job_event) {
+        probe_collect(w);
     }
 }
 
@@ -415,6 +483,7 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
     w->run = r;
     if (open_window(w, r) != 0) return 0;
     dxl_shell_enter(s, r, which);
+    probe_collect(w);
     listen_start(w);
     while (s->result < 0) {
         dxl_ui_input_begin(&s->ui);
@@ -447,6 +516,18 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
         }
     }
     listen_stop(w);
+    dxl_shell_leave(s);
+    if (s->result == 1 && s->next_run[0]) {
+        /* The next run's own words, after the player's. */
+        size_t n = strlen(r->words) + strlen(s->next_run) + 2;
+        char *words = dxl_xmalloc(n);
+        snprintf(words, n, "%s%s%s", r->words, r->words[0] ? " " : "", s->next_run);
+        free(w->words_before);
+        w->words_before = r->words;
+        r->words = words;
+        dxl_log("this run's words: %s", s->next_run);
+        s->next_run[0] = '\0';
+    }
     dxl_log("%s: %s", view_name(which), s->result ? "play" : "quit");
     /* A quit is the run's end: the window goes now, while the run is. */
     if (!s->result) close_window(w, r);
@@ -459,9 +540,14 @@ static void before_play(void *ctx, dxl_run *r) {
 }
 
 static void after_play(void *ctx, dxl_run *r) {
-    /* The window comes back with the next screen, if there is one. */
-    (void)ctx;
-    (void)r;
+    /* The window comes back with the next screen, if there is one; the
+     * command line as it was before this run's own words. */
+    dxl_window *w = ctx;
+    if (w->words_before && r) {
+        free(r->words);
+        r->words = w->words_before;
+        w->words_before = NULL;
+    }
 }
 
 dxl_window *dxl_window_new(const char *version, volatile int *stop) {
@@ -480,6 +566,8 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
 void dxl_window_free(dxl_window *w) {
     if (!w) return;
     listen_stop(w);
+    if (w->probe_thread) SDL_WaitThread(w->probe_thread, NULL);
+    free(w->cli);
     close_window(w, NULL);
     if (w->kit) dxl_ui_free(&w->shell.ui);
     dxl_shell_free(&w->shell);
@@ -489,6 +577,7 @@ void dxl_window_free(dxl_window *w) {
     }
     SDL_DestroyMutex(w->pick_lock);
     dxl_uiscript_free(w->script);
+    free(w->words_before);
     free(w->picked);
     free(w);
 }

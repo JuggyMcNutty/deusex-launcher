@@ -18,6 +18,7 @@
 #define DXL_W_RIGHT    0x10
 #define DXL_W_MAY_CUT  0x20   /* text that may be cut short with "...", no diagnostic */
 #define DXL_W_TAIL     0x40   /* cut keeping the end: a path */
+#define DXL_W_WARN     0x80   /* its text in the warning colour */
 
 /* A steel panel. */
 void     dxl_panel(dxl_ui *ui, dxl_rect r);
@@ -53,10 +54,20 @@ typedef struct {
     float    offset;        /* dp scrolled */
     int      focused;       /* the row with the focus, or -1 */
     int      scrollable;    /* more rows than fit: a scroll bar, the rows narrower by it */
+    int      flags;
 } dxl_list;
 
-void     dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int count, float row_h);
+/* Scrolled by whole rows, none ever shown in part: a list of controls. */
+#define DXL_LIST_WHOLE_ROWS 1
+
+void     dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int count, float row_h, int flags);
 uint32_t dxl_list_row_id(const dxl_list *l, int i);
+/* The id of row i's focusable in column col (0 to 3), for rows of more
+ * than one: up and down keep the column. Column 0's is the row's id. */
+uint32_t dxl_list_cell_id(const dxl_list *l, int i, int col);
+/* Row i's rect, for a control of the caller's with dxl_list_row_id's id:
+ * 1 when it is all in view (with DXL_LIST_WHOLE_ROWS, the rows to draw). */
+int      dxl_list_rect(const dxl_list *l, int i, dxl_rect *out);
 /* Row i, drawn: a title, and a detail under it in detail_c (or none). The
  * DXL_HIT_*s that happened to it; 0 for a row out of view. */
 int      dxl_list_row(dxl_ui *ui, dxl_list *l, int i, const char *title, const char *detail, dxl_rgba detail_c,

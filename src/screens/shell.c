@@ -26,12 +26,14 @@ void dxl_shell_init(dxl_shell *s, const char *version) {
 }
 
 void dxl_shell_free(dxl_shell *s) {
+    dxl_renderers_free(&s->renderers);
     dxl_found_list_free(&s->found);
     if (s->has_chosen) dxl_install_free(&s->chosen);
     s->has_chosen = 0;
     dxl_browser_free(&s->browser);
     free(s->log_tail);
     s->log_tail = NULL;
+    dxl_page_log_free(s);
 }
 
 void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
@@ -40,12 +42,13 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->result = -1;
     s->dialog = DXL_DIALOG_NONE;
     s->repoint = v == DXL_VIEW_INSTALL;
+    s->repoint_back = 0;
     dxl_page p = DXL_PAGE_HOME;
     switch (v) {
     case DXL_VIEW_FIRST_RUN: p = DXL_PAGE_WELCOME; break;
     case DXL_VIEW_INSTALL: p = DXL_PAGE_FIND; break;
     case DXL_VIEW_RECOVERY: p = DXL_PAGE_RECOVERY; break;
-    case DXL_VIEW_GRAPHICS: dxl_log("-changevideo: Home, as there is no Graphics page"); break;
+    case DXL_VIEW_GRAPHICS: p = DXL_PAGE_SETTINGS; s->settings_tab = 1; break;
     default: break;
     }
     s->page = p;
@@ -57,6 +60,7 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
     if (s->page != p) {
         s->focus[s->page] = s->ui.focus;
         s->from = s->page;
+        if (s->page == DXL_PAGE_SETTINGS) dxl_settings_keep(s);
     }
     s->page = p;
     s->page_since = -1;   /* from the next frame's start */
@@ -66,8 +70,14 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
     case DXL_PAGE_HOME: dxl_page_home_enter(s); break;
     case DXL_PAGE_FIND: dxl_page_find_enter(s); break;
     case DXL_PAGE_RECOVERY: dxl_page_recovery_enter(s); break;
+    case DXL_PAGE_SETTINGS: dxl_page_settings_enter(s); break;
+    case DXL_PAGE_LOG: dxl_page_log_enter(s); break;
     default: break;
     }
+}
+
+void dxl_shell_leave(dxl_shell *s) {
+    if (s->page == DXL_PAGE_SETTINGS) dxl_settings_keep(s);
 }
 
 void dxl_shell_toast(dxl_shell *s, const char *fmt, ...) {
@@ -140,6 +150,7 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
             return;
         }
         dxl_log("profile %s: install %s (%s)", ss->profile.id, id, in->root);
+        dxl_session_check_install(ss);
         s->result = 1;
         return;
     }
@@ -173,6 +184,28 @@ void dxl_shell_open(dxl_shell *s, const char *path) {
     if (dxl_open_url(url) != 0) dxl_shell_toast(s, "Nothing opened %s", path);
 }
 
+void dxl_shell_probe(dxl_shell *s) {
+    if (s->probe_state || !s->run) return;
+    char *path = dxl_path_join(s->run->session.data_dir, "renderers.ini");
+    dxl_renderers_free(&s->renderers);
+    dxl_renderers_load(&s->renderers, path);
+    free(path);
+    /* Unresolved, every renderer the engine has stays offered. */
+    dxl_gpu_probe none;
+    memset(&none, 0, sizeof none);
+    dxl_renderers_resolve(&s->renderers, &none);
+    s->probe_state = 1;
+    if (s->start_probe) s->start_probe(s);
+}
+
+void dxl_shell_probed(dxl_shell *s, const dxl_gpu_probe *p) {
+    s->probe = *p;
+    s->probe_state = 2;
+    dxl_renderers_resolve(&s->renderers, &s->probe);
+    dxl_log("probe: Vulkan %d (%s), OpenGL ES %d (%s), OpenGL %d%s%s", p->vulkan, p->vulkan_device, p->gles,
+            p->gles_version, p->gl, p->note[0] ? "; " : "", p->note);
+}
+
 /* ---- the frame ------------------------------------------------------ */
 
 static float margin(const dxl_ui *ui) {
@@ -190,6 +223,8 @@ static const char *page_title(dxl_page p) {
     case DXL_PAGE_IMPORT: return "Your profile";
     case DXL_PAGE_RECOVERY: return "Recovery";
     case DXL_PAGE_ABOUT: return "About";
+    case DXL_PAGE_SETTINGS: return "Settings";
+    case DXL_PAGE_LOG: return "The log";
     default: return "";
     }
 }
@@ -231,6 +266,12 @@ static float head(dxl_shell *s, float m, float shift) {
 static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
     int n = 0;
     it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Select" };
+    if (s->dialog == DXL_DIALOG_OSK) {
+        it[n++] = (dxl_hint_item){ DXL_HINT_CLEAR, "Erase" };
+        it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Done" };
+        it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
+        return n;
+    }
     if (s->dialog != DXL_DIALOG_NONE) {
         it[n++] = (dxl_hint_item){ DXL_HINT_BACK, s->dialog == DXL_DIALOG_MESSAGE ? "Close" : "Cancel" };
         return n;
@@ -243,11 +284,25 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
         it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
         break;
     case DXL_PAGE_FIND:
-        if (!s->repoint) it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
+        if (!s->repoint || s->repoint_back) it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
         break;
     case DXL_PAGE_IMPORT:
     case DXL_PAGE_ABOUT:
+    case DXL_PAGE_LOG:
         it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
+        break;
+    case DXL_PAGE_SETTINGS:
+        if (s->ui.capture_id) {
+            n = 0;
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
+        } else if (s->ui.text_id) {
+            n = 0;
+            it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Keep" };
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
+        } else {
+            it[n++] = (dxl_hint_item){ DXL_HINT_TAB_NEXT, "Next page" };
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Done" };
+        }
         break;
     default:
         break;
@@ -270,6 +325,7 @@ static void foot(dxl_shell *s, dxl_rect r, float m) {
     if (hit == DXL_HINT_CONFIRM) ui->in.activate++;
     else if (hit == DXL_HINT_BACK) ui->in.back++;
     else if (hit == DXL_HINT_PLAY) ui->in.start++;
+    else if (hit == DXL_HINT_CLEAR) ui->in.clear++;
 
     char status[400];
     const dxl_run *run = s->run;
@@ -345,6 +401,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     foot(s, bottom, m);
     dxl_ui_scope(ui, 0);
     int back = ui->in.back;
+    int start = ui->in.start;
     if (dialog) {
         /* The dialog's; the page's own are its widgets', under it. */
         ui->in.back = 0;
@@ -362,14 +419,20 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     case DXL_PAGE_IMPORT: dxl_page_import(s, r); break;
     case DXL_PAGE_RECOVERY: dxl_page_recovery(s, r); break;
     case DXL_PAGE_ABOUT: dxl_page_about(s, r); break;
+    case DXL_PAGE_SETTINGS: dxl_page_settings(s, r); break;
+    case DXL_PAGE_LOG: dxl_page_log(s, r); break;
     default: break;
     }
     if (t < 1) {
         const dxl_theme *th = &ui->theme;
         dxl_gradient(ui, above, dxl_rgba_fade(th->backdrop_top, 1 - t), dxl_rgba_fade(th->backdrop_bottom, 1 - t));
     }
-    if (dialog && s->dialog != DXL_DIALOG_NONE) dxl_dialogs(s, above, back);
-    else if (s->dialog != DXL_DIALOG_NONE) dxl_dialogs(s, above, 0);
+    if (dialog && s->dialog != DXL_DIALOG_NONE) {
+        ui->in.start = start;
+        dxl_dialogs(s, above, back);
+    } else if (s->dialog != DXL_DIALOG_NONE) {
+        dxl_dialogs(s, above, 0);
+    }
     toasts(s, m);
     dxl_ui_end(ui);
 }

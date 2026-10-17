@@ -1,0 +1,88 @@
+# Settings, a row of each kind in each of their files, then Play: test_ui_scripts.c
+# reads what each change wrote. From Home on a profile just made.
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+
+# Display: a toggle and a size in DeusEx.ini, a slider in User.ini.
+find Full screen
+key Return
+find The window's size
+key Right
+find Field of view
+key Right *5
+
+# Graphics: a choice in Settings.json.
+find Graphics
+key Return
+wait 0.3
+find Anti-aliasing
+key Left
+
+# Audio: a volume, a byte in DeusEx.ini.
+find Audio
+key Return
+wait 0.3
+find Music
+key Left *2
+
+# Keyboard & mouse: J captured for Jump's second key; C, Turn right's, for
+# its first as well as Turn right's; Crouch's first key taken away.
+find Keyboard & mouse
+key Return
+wait 0.3
+find Jump, key 2
+key Return
+wait 0.3
+key J
+wait 0.3
+find Jump, key 1
+key Return
+wait 0.3
+key C
+wait 0.3
+expect confirm
+find Both
+key Return
+wait 0.3
+find Crouch, key 1
+key Delete
+wait 0.3
+
+# Gameplay & HUD: a toggle and a theme in User.ini.
+find Gameplay & HUD
+key Return
+wait 0.3
+find Subtitles
+key Return
+find The menus' colours
+key Right
+
+# Multiplayer: the name, typed, the characters the game takes kept.
+find Multiplayer
+key Return
+wait 0.3
+find Your name
+key Return
+wait 0.2
+key Backspace *40
+type JC (Denton)!
+key Return
+wait 0.3
+
+# Launcher: the next run alone in a window.
+find Launcher
+key Return
+wait 0.3
+find Next run: in a window
+key Return
+
+find Done
+key Return
+wait 0.5
+expect home
+find Play
+key Return

@@ -90,13 +90,18 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
     dxl_rect buttons = button_row(&in);
 
     if (s->repoint) {
-        /* The profile's game, gone: the one it had, and why. */
+        /* The profile's game: gone, the one it had and why; or the one it
+         * plays, which another chosen here takes the place of. */
         const dxl_install *was = &s->run->session.install;
         char shown[1024], line[1600];
-        snprintf(line, sizeof line, "The profile's game is not there to play: %s%s%s.",
-                 was->root ? dxl_shell_tilde(was->root, shown, sizeof shown) : "it has none",
-                 was->problem[0] ? ", " : "", was->problem);
-        float h = dxl_paragraph(ui, in, DXL_FONT_BODY, line, t->warn);
+        if (s->repoint_back && was->ok)
+            snprintf(line, sizeof line, "The profile plays the game in %s. A folder chosen here is its game "
+                     "from now on.", dxl_shell_tilde(was->root, shown, sizeof shown));
+        else
+            snprintf(line, sizeof line, "The profile's game is not there to play: %s%s%s.",
+                     was->root ? dxl_shell_tilde(was->root, shown, sizeof shown) : "it has none",
+                     was->problem[0] ? ", " : "", was->problem);
+        float h = dxl_paragraph(ui, in, DXL_FONT_BODY, line, s->repoint_back && was->ok ? t->text : t->warn);
         dxl_cut_top(&in, h + 10);
     }
     int picked = -1;
@@ -110,7 +115,7 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
         dxl_cut_top(&in, hint + 8);
         dxl_well(ui, in);
         dxl_list l;
-        dxl_list_begin(ui, &l, "found", dxl_inset(in, 4), s->found.count, 54);
+        dxl_list_begin(ui, &l, "found", dxl_inset(in, 4), s->found.count, 54, 0);
         for (int i = 0; i < s->found.count; i++) {
             char path[1024], detail[800];
             dxl_rgba c = describe(s, &s->found.items[i], detail, sizeof detail);
@@ -124,7 +129,8 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
                             s->found.count ? 0 : DXL_W_PRIMARY);
     dxl_cut_left(&buttons, 12);
     int dialog = dxl_button(ui, "find system", dxl_cut_left(&buttons, 230), "The system's dialog...", 0);
-    int back = dxl_button(ui, "find back", dxl_cut_right(&buttons, 150), s->repoint ? "Quit" : "Back", 0);
+    int quits = s->repoint && !s->repoint_back;
+    int back = dxl_button(ui, "find back", dxl_cut_right(&buttons, 150), quits ? "Quit" : "Back", 0);
 
     if (picked >= 0) {
         const dxl_install *g = &s->found.items[picked].install;
@@ -136,8 +142,11 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
         dxl_browser_open(s, start ? start : "/");
     } else if (dialog) {
         if (s->pick_folder) s->pick_folder(s);
-    } else if (s->repoint) {
+    } else if (quits) {
         if (back) s->result = 0;
+    } else if (s->repoint && (back || ui->in.back)) {
+        s->repoint = s->repoint_back = 0;
+        dxl_shell_go(s, DXL_PAGE_RECOVERY);
     } else if (back || ui->in.back) {
         dxl_shell_go(s, DXL_PAGE_WELCOME);
     }

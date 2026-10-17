@@ -176,6 +176,22 @@ static float dpad(dxl_ui *ui, float x, float cy, float s, int draw) {
     return s;
 }
 
+/* A shoulder: a tab with its family's name for it. */
+static float shoulder(dxl_ui *ui, int right, float x, float cy, float s, int draw) {
+    static const char *const names[4][2] = { { "LB", "RB" }, { "L1", "R1" }, { "L", "R" }, { "L1", "R1" } };
+    const char *name = names[ui->pad_family][right];
+    float w = dxl_text_size(ui, DXL_FONT_SMALL, name, 0).x + 14;
+    if (w < s * 1.3f) w = s * 1.3f;
+    if (!draw) return w;
+    const dxl_theme *t = &ui->theme;
+    float h = s * 0.78f;
+    dxl_rect r = { x, cy - h / 2, w, h };
+    dxl_bevel_style st = { t->face_top, t->face_bottom, t->panel_light, t->panel_shadow, h * 0.32f };
+    dxl_bevel(ui, r, &st);
+    centred_text(ui, DXL_FONT_SMALL, name, x + w / 2, cy, t->text_focus);
+    return w;
+}
+
 float dxl_glyph(dxl_ui *ui, dxl_hint h, float x, float cy, float size, int draw) {
     if (ui->mode == DXL_INPUT_PAD) {
         switch (h) {
@@ -183,6 +199,9 @@ float dxl_glyph(dxl_ui *ui, dxl_hint h, float x, float cy, float size, int draw)
         case DXL_HINT_BACK: return face_button(ui, face_of(ui, h), x, cy, size, draw);
         case DXL_HINT_PLAY: return start_button(ui, x, cy, size, draw);
         case DXL_HINT_MOVE: return dpad(ui, x, cy, size, draw);
+        case DXL_HINT_TAB_PREV: return shoulder(ui, 0, x, cy, size, draw);
+        case DXL_HINT_TAB_NEXT: return shoulder(ui, 1, x, cy, size, draw);
+        case DXL_HINT_CLEAR: return face_button(ui, SDL_GAMEPAD_BUTTON_WEST, x, cy, size, draw);
         default: return 0;
         }
     }
@@ -191,6 +210,9 @@ float dxl_glyph(dxl_ui *ui, dxl_hint h, float x, float cy, float size, int draw)
     case DXL_HINT_BACK: return keycap(ui, "Esc", x, cy, size, draw);
     case DXL_HINT_PLAY: return keycap(ui, "F5", x, cy, size, draw);
     case DXL_HINT_MOVE: return keycap(ui, NULL, x, cy, size, draw);
+    case DXL_HINT_TAB_PREV: return keycap(ui, "Ctrl+Shift+Tab", x, cy, size, draw);
+    case DXL_HINT_TAB_NEXT: return keycap(ui, "Ctrl+Tab", x, cy, size, draw);
+    case DXL_HINT_CLEAR: return keycap(ui, "Delete", x, cy, size, draw);
     default: return 0;
     }
 }
