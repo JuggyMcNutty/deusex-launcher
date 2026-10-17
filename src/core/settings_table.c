@@ -7,7 +7,7 @@
 #include "core/settings.h"
 
 const char *const dxl_settings_pages[] = {
-    "Display", "Graphics", "Audio", "Keyboard & mouse", "Gameplay & HUD", "Multiplayer", "Launcher",
+    "Display", "Graphics", "Audio", "Keyboard & mouse", "Controller", "Gameplay & HUD", "Multiplayer", "Launcher",
 };
 const size_t dxl_settings_pages_count = sizeof dxl_settings_pages / sizeof *dxl_settings_pages;
 
@@ -237,6 +237,28 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "mouse.smoothing", .page = "Keyboard & mouse", .label = "Mouse smoothing",
       .help = "The mouse's moves smoothed over frames.", .kind = DXL_SET_BOOL, .def = "0",
       .at = { PAWN("bMaxMouseSmoothing", DXL_CODEC_BOOL) } },
+
+    /* ---- Controller (its buttons' rows the page's own) ----------------------- */
+    { .id = "pad.dead_zone", .page = "Controller", .label = "Dead zone",
+      .help = "How far a stick moves before it counts, round its middle, so a diagonal stays one.",
+      .kind = DXL_SET_NUMBER, .min = 0.05, .max = 0.5, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
+      .def = "0.2", .at = { JSON(DXL_ES_PAD_DEADZONE) } },
+    { .id = "pad.look_x", .page = "Controller", .label = "Looking across",
+      .help = "How fast the stick that looks turns you.", .kind = DXL_SET_NUMBER, .min = 0.25, .max = 3,
+      .step = 0.25, .format = "%.2fx", .shown_scale = 1, .def = "1", .at = { JSON(DXL_ES_PAD_LOOK_X) } },
+    { .id = "pad.look_y", .page = "Controller", .label = "Looking up and down",
+      .help = "How fast the stick that looks tips you up and down.", .kind = DXL_SET_NUMBER, .min = 0.25, .max = 3,
+      .step = 0.25, .format = "%.2fx", .shown_scale = 1, .def = "1", .at = { JSON(DXL_ES_PAD_LOOK_Y) } },
+    { .id = "pad.invert_y", .page = "Controller", .label = "Invert looking", .help = "Forward on the stick looks down.",
+      .kind = DXL_SET_BOOL, .def = "0", .at = { JSON(DXL_ES_PAD_INVERT_Y) } },
+    { .id = "pad.cursor_speed", .page = "Controller", .label = "Pointer speed in menus",
+      .help = "How fast a stick moves the pointer in the game's menus and screens.", .kind = DXL_SET_NUMBER,
+      .min = 0.25, .max = 3, .step = 0.25, .format = "%.2fx", .shown_scale = 1, .def = "1",
+      .at = { JSON(DXL_ES_PAD_CURSOR_SPEED) } },
+    { .id = "pad.enabled", .page = "Controller", .label = "The game reads the controller",
+      .help = "Off, the engine reads no pad, and SDL gives its buttons as keys instead: the d-pad the arrows, "
+              "the south button Enter. The sticks then do nothing.",
+      .kind = DXL_SET_BOOL, .def = "1", .at = { JSON(DXL_ES_PAD_ENABLED) }, .flags = DXL_SET_ADVANCED },
 
     /* ---- Gameplay & HUD ------------------------------------------------------ */
     { .id = "game.subtitles", .page = "Gameplay & HUD", .label = "Subtitles",

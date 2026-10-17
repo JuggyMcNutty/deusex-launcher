@@ -13,33 +13,49 @@ const char *const dxl_joy_keys[DXL_JOY_KEY_COUNT] = {
 
 /* Joy numbering follows the XInput order UE1 ports conventionally use
  * (A=Joy1 ... R3=Joy10), with the triggers as Joy11/Joy12 when pressed past
- * half travel. The fork's SDL2 backend produces exactly these. */
-static const struct { const char *key, *label; } physical[] = {
-    { "Joy1", "A" },            { "Joy2", "B" },
-    { "Joy3", "X" },            { "Joy4", "Y" },
-    { "Joy5", "L1" },           { "Joy6", "R1" },
-    { "Joy7", "SELECT" },       { "Joy8", "START" },
-    { "Joy9", "L3" },           { "Joy10", "R3" },
-    { "Joy11", "L2" },          { "Joy12", "R2" },
-    { "JoyX", "Left stick left/right" },  { "JoyY", "Left stick up/down" },
-    { "JoyU", "Right stick left/right" }, { "JoyV", "Right stick up/down" },
-    { "JoyZ", "L2 (analog)" },  { "JoyR", "R2 (analog)" },
-    { "JoyPovUp", "D-pad up" }, { "JoyPovDown", "D-pad down" },
-    { "JoyPovLeft", "D-pad left" }, { "JoyPovRight", "D-pad right" },
+ * half travel; the buttons by their place, the south one Joy1 on every pad.
+ * The fork's SDL2 backend produces exactly these. Each control's name on an
+ * Xbox pad, a PlayStation one, a Nintendo one (whose south button is B) and
+ * any other. */
+static const struct { const char *key, *label[4]; } controls[] = {
+    { "Joy1",  { "A", "Cross", "B", "South" } },
+    { "Joy2",  { "B", "Circle", "A", "East" } },
+    { "Joy3",  { "X", "Square", "Y", "West" } },
+    { "Joy4",  { "Y", "Triangle", "X", "North" } },
+    { "Joy5",  { "LB", "L1", "L", "L1" } },
+    { "Joy6",  { "RB", "R1", "R", "R1" } },
+    { "Joy7",  { "View", "Create", "Minus", "Select" } },
+    { "Joy8",  { "Menu", "Options", "Plus", "Start" } },
+    { "Joy9",  { "LS", "L3", "LS", "L3" } },
+    { "Joy10", { "RS", "R3", "RS", "R3" } },
+    { "Joy11", { "LT", "L2", "ZL", "L2" } },
+    { "Joy12", { "RT", "R2", "ZR", "R2" } },
+    { "JoyX",  { "Left stick left/right", "Left stick left/right", "Left stick left/right", "Left stick left/right" } },
+    { "JoyY",  { "Left stick up/down", "Left stick up/down", "Left stick up/down", "Left stick up/down" } },
+    { "JoyU",  { "Right stick left/right", "Right stick left/right", "Right stick left/right", "Right stick left/right" } },
+    { "JoyV",  { "Right stick up/down", "Right stick up/down", "Right stick up/down", "Right stick up/down" } },
+    { "JoyZ",  { "LT (analog)", "L2 (analog)", "ZL (analog)", "L2 (analog)" } },
+    { "JoyR",  { "RT (analog)", "R2 (analog)", "ZR (analog)", "R2 (analog)" } },
+    { "JoyPovUp",    { "D-pad up", "D-pad up", "D-pad up", "D-pad up" } },
+    { "JoyPovDown",  { "D-pad down", "D-pad down", "D-pad down", "D-pad down" } },
+    { "JoyPovLeft",  { "D-pad left", "D-pad left", "D-pad left", "D-pad left" } },
+    { "JoyPovRight", { "D-pad right", "D-pad right", "D-pad right", "D-pad right" } },
 };
 
-const char *dxl_joy_key_label(const char *key) {
-    for (size_t i = 0; i < sizeof physical / sizeof *physical; i++)
-        if (dxl_stricmp(physical[i].key, key) == 0) return physical[i].label;
+const char *dxl_pad_control_label(dxl_pad_kind kind, const char *key) {
+    int k = kind >= DXL_PAD_KIND_XBOX && kind <= DXL_PAD_KIND_GENERIC ? (int)kind : DXL_PAD_KIND_GENERIC;
+    for (size_t i = 0; i < sizeof controls / sizeof *controls; i++)
+        if (dxl_stricmp(controls[i].key, key) == 0) return controls[i].label[k];
     return key;
 }
 
+const char *dxl_joy_key_label(const char *key) { return dxl_pad_control_label(DXL_PAD_KIND_GENERIC, key); }
+
 /* ---- presets --------------------------------------------------------- */
 
-/* The Smart Pro has digital L2/R2 and no stick clicks (no L3/R3), so the
- * layout uses A/B/X/Y, L1/R1, L2/R2, SELECT, START and the d-pad. Every
- * command is one the game's own key menu offers (MenuScreenCustomizeKeys in
- * DeusEx.u). Walk/run is left out: a half-pushed stick already walks. */
+/* Every command is one the game's own key menu offers (MenuScreenCustomizeKeys
+ * in DeusEx.u), but the pause menu, which its defaults bind to Escape.
+ * Walk/run is left out: a half-pushed stick already walks. */
 static const dxl_binding modern[] = {
     { "Joy1",  "Jump" },
     { "Joy2",  "Duck" },
@@ -49,6 +65,8 @@ static const dxl_binding modern[] = {
     { "Joy6",  "NextBeltItem" },
     { "Joy7",  "ShowMainMenu" },
     { "Joy8",  "ShowMainMenu" },
+    { "Joy9",  "DropItem" },
+    { "Joy10", "ToggleLaser" },
     { "Joy11", "ParseRightClick" },
     { "Joy12", "ParseLeftClick|Fire" },
     { "JoyX",  "Axis aStrafe Speed=3.75" },
@@ -71,6 +89,8 @@ static const dxl_binding southpaw[] = {
     { "Joy6",  "NextBeltItem" },
     { "Joy7",  "ShowMainMenu" },
     { "Joy8",  "ShowMainMenu" },
+    { "Joy9",  "DropItem" },
+    { "Joy10", "ToggleLaser" },
     { "Joy11", "ParseRightClick" },
     { "Joy12", "ParseLeftClick|Fire" },
     { "JoyX",  "Axis aBaseX Speed=3.75" },
@@ -81,32 +101,6 @@ static const dxl_binding southpaw[] = {
     { "JoyPovDown",  "SwitchAmmo" },
     { "JoyPovLeft",  "LeanLeft" },
     { "JoyPovRight", "LeanRight" },
-};
-
-/* Retired layouts: what earlier launchers applied, so players who have one
- * are moved to its replacement rather than stranded on "custom".
- *
- * v2 (2026-09-22): SELECT opened the augmentations screen, which Y's
- * inventory already reaches as a tab; SELECT became the pause menu. */
-static const dxl_binding modern_v2[] = {
-    { "Joy1", "Jump" }, { "Joy2", "Duck" }, { "Joy3", "ReloadWeapon" },
-    { "Joy4", "ShowInventoryWindow" }, { "Joy5", "PrevBeltItem" }, { "Joy6", "NextBeltItem" },
-    { "Joy7", "ShowAugmentationsWindow" }, { "Joy8", "ShowMainMenu" },
-    { "Joy11", "ParseRightClick" }, { "Joy12", "ParseLeftClick|Fire" },
-    { "JoyX", "Axis aStrafe Speed=3.75" }, { "JoyY", "Axis aBaseY Speed=3.75" },
-    { "JoyU", "Axis aBaseX Speed=3.75" }, { "JoyV", "Axis aLookUp Speed=2.25" },
-    { "JoyPovUp", "ToggleScope" }, { "JoyPovDown", "SwitchAmmo" },
-    { "JoyPovLeft", "LeanLeft" }, { "JoyPovRight", "LeanRight" },
-};
-static const dxl_binding southpaw_v2[] = {
-    { "Joy1", "Jump" }, { "Joy2", "Duck" }, { "Joy3", "ReloadWeapon" },
-    { "Joy4", "ShowInventoryWindow" }, { "Joy5", "PrevBeltItem" }, { "Joy6", "NextBeltItem" },
-    { "Joy7", "ShowAugmentationsWindow" }, { "Joy8", "ShowMainMenu" },
-    { "Joy11", "ParseRightClick" }, { "Joy12", "ParseLeftClick|Fire" },
-    { "JoyX", "Axis aBaseX Speed=3.75" }, { "JoyY", "Axis aLookUp Speed=2.25" },
-    { "JoyU", "Axis aStrafe Speed=3.75" }, { "JoyV", "Axis aBaseY Speed=3.75" },
-    { "JoyPovUp", "ToggleScope" }, { "JoyPovDown", "SwitchAmmo" },
-    { "JoyPovLeft", "LeanLeft" }, { "JoyPovRight", "LeanRight" },
 };
 
 /* Exactly what DefUser.ini ships. Kept so an untouched install is recognised
@@ -124,10 +118,11 @@ static const dxl_binding classic[] = {
 #define N(a) (sizeof a / sizeof *a)
 static const dxl_pad_preset presets[] = {
     { "modern", "Modern",
-      "Left stick moves, right stick looks. R2 fires, L2 uses and picks up. "
-      "A jumps, B crouches, X reloads, Y opens the inventory. SELECT or START "
-      "pauses (save, load). L1/R1 cycle the belt. D-pad: up scope, down ammo, "
-      "left/right lean.",
+      "Left stick moves, right stick looks. The right trigger fires, the left uses and picks up. "
+      "The bottom face button jumps, the right one crouches, the left reloads, the top opens the "
+      "inventory. Either middle button pauses (save, load). The shoulders cycle the belt. D-pad: up "
+      "the scope, down the ammunition, left and right lean. A click of the left stick drops what is "
+      "in hand, of the right the laser sight.",
       modern, N(modern) },
     { "southpaw", "Modern, sticks swapped",
       "As Modern, but the left stick looks and the right stick moves.",
@@ -197,34 +192,6 @@ const dxl_pad_preset *dxl_bindings_detect(const dxl_ini *ini) {
     return NULL;
 }
 
-static const char *const v2_change =
-    "SELECT now opens the pause menu (save, load). The augmentations screen is a "
-    "tab of the inventory (Y).";
-
-static const struct {
-    dxl_pad_preset old;
-    size_t replaced_by;          /* index into presets[] */
-    const char *what_changed;    /* shown to the player once */
-} retired[] = {
-    { { "modern-v2", "Modern (2026-09-22)", "", modern_v2, N(modern_v2) }, 0, v2_change },
-    { { "southpaw-v2", "Modern, sticks swapped (2026-09-22)", "", southpaw_v2, N(southpaw_v2) }, 1, v2_change },
-};
-
-const dxl_pad_preset *dxl_bindings_detect_retired(const dxl_ini *ini, const char **what_changed) {
-    for (size_t i = 0; i < N(retired); i++) {
-        int match = 1;
-        for (size_t k = 0; k < DXL_JOY_KEY_COUNT && match; k++) {
-            const char *have = dxl_ini_get(ini, DXL_INPUT_SECTION, dxl_joy_keys[k]);
-            match = same_binding(have, preset_value(&retired[i].old, dxl_joy_keys[k]));
-        }
-        if (match) {
-            if (what_changed) *what_changed = retired[i].what_changed;
-            return &presets[retired[i].replaced_by];
-        }
-    }
-    return NULL;
-}
-
 const char *dxl_pad_preset_binding(const dxl_pad_preset *p, const char *joy_key) {
     return preset_value(p, joy_key);
 }
@@ -237,11 +204,11 @@ void dxl_bindings_set(dxl_ini *ini, const char *joy_key, const char *command) {
 
 /* ---- remapping --------------------------------------------------------- */
 
-/* The Smart Pro's buttons (ports/trimui-smartpro/README.md, "Pad controls"): no L3/R3, so Joy9
- * and Joy10 are never produced and are not offered. */
+/* A desktop pad's buttons: the face buttons, the shoulders, the triggers,
+ * the stick clicks, the middle two, the d-pad. */
 static const char *const remappable[] = {
     "Joy1", "Joy2", "Joy3", "Joy4", "Joy5", "Joy6", "Joy11", "Joy12",
-    "Joy7", "Joy8", "JoyPovUp", "JoyPovDown", "JoyPovLeft", "JoyPovRight",
+    "Joy9", "Joy10", "Joy7", "Joy8", "JoyPovUp", "JoyPovDown", "JoyPovLeft", "JoyPovRight",
 };
 
 size_t dxl_pad_button_count(void) { return N(remappable); }

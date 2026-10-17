@@ -4,6 +4,7 @@
 #include "core/cmdline.h"
 #include "core/engine_args.h"
 #include "core/engine_sections.h"
+#include "core/padmap.h"
 #include "core/log.h"
 #include "core/paths.h"
 #include "platform/process.h"
@@ -153,20 +154,51 @@ static char **engine_argv(const dxl_run *r) {
 
 /* SDL2: the display backend with the fork's pad support, unless the player
  * named one (the fork's ENGINE.md, settings and environment). */
-static char **engine_env(void) {
-    static char *env[2];
-    env[0] = getenv("SURREALWIDGETS_DISPLAY_BACKEND") ? NULL : "SURREALWIDGETS_DISPLAY_BACKEND=SDL2";
-    env[1] = NULL;
+/* The launcher's pad mappings (core/padmap.h): the controllers the mapping
+ * wizard made known, the engine's too. */
+char *dxl_run_pad_db(const dxl_run *r) { return dxl_path_join(r->session.xdg.data, "gamecontrollerdb.txt"); }
+
+/* SDL2 for the engine's window, the one with the pad; and the pad mappings,
+ * Steam's and the launcher's, when the launcher keeps any. */
+static char **engine_env(const dxl_run *r) {
+    static char *env[3], *pads;
+    int n = 0;
+    if (!getenv("SURREALWIDGETS_DISPLAY_BACKEND")) env[n++] = "SURREALWIDGETS_DISPLAY_BACKEND=SDL2";
+    char *db = dxl_run_pad_db(r);
+    char *config = dxl_padmap_engine_config(getenv("SDL_GAMECONTROLLERCONFIG"), db);
+    free(db);
+    free(pads);
+    pads = NULL;
+    if (config) {
+        size_t len = strlen(config) + sizeof "SDL_GAMECONTROLLERCONFIG=";
+        pads = dxl_xmalloc(len);
+        snprintf(pads, len, "SDL_GAMECONTROLLERCONFIG=%s", config);
+        free(config);
+        env[n++] = pads;
+    }
+    env[n] = NULL;
     return env;
 }
 
 static void print_command(const dxl_run *r) {
     char **argv = engine_argv(r);
     char *line = dxl_argv_quoted(argv);
-    char **env = engine_env();
+    char **env = engine_env(r);
     char *cwd[] = { r->session.install.system_dir, NULL };
     char *dir = dxl_argv_quoted(cwd);
-    printf("cd %s && %s%s%s\n", dir, env[0] ? env[0] : "", env[0] ? " " : "", line);
+    /* Each variable NAME=value, its value quoted: a quoted name is no
+     * assignment to a shell. */
+    dxl_buf vars;
+    dxl_buf_init(&vars);
+    for (int i = 0; env[i]; i++) {
+        const char *eq = strchr(env[i], '=');
+        char *value[] = { (char *)(eq ? eq + 1 : ""), NULL };
+        char *quoted = dxl_argv_quoted(value);
+        dxl_buf_printf(&vars, "%.*s=%s ", (int)(eq ? eq - env[i] : 0), env[i], quoted);
+        free(quoted);
+    }
+    printf("cd %s && %s%s\n", dir, vars.data ? vars.data : "", line);
+    dxl_buf_free(&vars);
     printf("# and DXL_LAUNCHER_FD, the launcher's line; output into %s/%s\n",
            r->session.profile.logs_dir, DXL_LASTRUN_LOG);
     free(dir);
@@ -369,7 +401,7 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     free(line);
     dxl_play_request req = {
         .argv = argv,
-        .env = engine_env(),
+        .env = engine_env(r),
         .workdir = r->session.install.system_dir,
         .log_path = log,
         .instance = r->instance,

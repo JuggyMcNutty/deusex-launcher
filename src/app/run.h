@@ -89,6 +89,10 @@ typedef struct {
  * exit code. */
 int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop);
 
+/* The launcher's own pad mappings, $XDG_DATA_HOME/dxlauncher/gamecontrollerdb.txt
+ * (core/padmap.h): the window's and, with Steam's, the engine's. */
+char *dxl_run_pad_db(const dxl_run *r);
+
 /* The launcher's own options out of argv, the rest joined into *words
  * (caller frees). -1 for one it does not know, named in err. */
 int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl_err *err);
