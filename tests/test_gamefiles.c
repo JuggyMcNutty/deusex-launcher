@@ -8,7 +8,10 @@
 #include "core/paths.h"
 #include "core/peicon.h"
 #include "core/profile.h"
+#include "core/theme_colors.h"
+#include "core/upkg_assets.h"
 
+#include <dirent.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -305,6 +308,98 @@ static void test_exe_icon(void) {
     free(path);
 }
 
+/* Every asset the launcher reads from an install: the 31 menu themes by
+ * their names, the Default's colours as the kit has them; the main menu's
+ * textures; the six menu sounds, each a WAV; the title music, an IT
+ * module; the logo, a BMP; a save's info and its snapshot. */
+static void test_assets(void) {
+    dxl_err e;
+    char *u = game_file("DeusEx.u");
+    static dxl_menu_theme t[DXL_MENU_THEMES_MAX];
+    int n = dxl_menu_themes_read(u, t, DXL_MENU_THEMES_MAX, &e);
+    CHECK_INT(n, 31);
+    const dxl_menu_theme *def = dxl_menu_theme_find(t, n, "Default");
+    CHECK(def && !memcmp(def->colors[1], "\x64\x64\xff", 3));
+    CHECK(dxl_menu_theme_find(t, n, "Blue & Gold") != NULL);
+    free(u);
+
+    dxl_upkg p;
+    char *ui = game_file("DeusExUI.u");
+    CHECK_INT(dxl_upkg_load(&p, ui, &e), 0);
+    static const char *const art[] = { "MenuMainBackground_1", "MenuMainBackground_2", "MenuMainBackground_3",
+                                       "MenuMainButtonNormal_Left", "MenuMainButtonNormal_Center",
+                                       "MenuMainButtonNormal_Right", "MenuMainButtonPressed_Left",
+                                       "MenuMainButtonPressed_Center", "MenuMainButtonPressed_Right" };
+    for (size_t i = 0; i < sizeof art / sizeof *art; i++) {
+        dxl_uimage im;
+        int rc = dxl_upkg_texture(&p, dxl_upkg_find(&p, "Texture", art[i]), &im, &e);
+        CHECK_INT(rc, 0);
+        CHECK(im.w > 0 && im.h > 0 && im.rgba);
+        dxl_uimage_free(&im);
+    }
+    dxl_upkg_free(&p);
+    free(ui);
+
+    char *snd = game_file("DeusExSounds.u");
+    CHECK_INT(dxl_upkg_load(&p, snd, &e), 0);
+    static const char *const sounds[] = { "Menu_Focus", "Menu_Press", "Menu_OK", "Menu_Cancel", "Menu_Slider",
+                                          "Menu_Activate" };
+    for (size_t i = 0; i < sizeof sounds / sizeof *sounds; i++) {
+        size_t len;
+        char type[16];
+        uint8_t *f = dxl_upkg_file(&p, dxl_upkg_find(&p, "Sound", sounds[i]), &len, type, sizeof type, &e);
+        CHECK(f && len > 44 && !memcmp(f, "RIFF", 4) && !memcmp(f + 8, "WAVE", 4));
+        CHECK_STR(type, "wav");
+        free(f);
+    }
+    dxl_upkg_free(&p);
+    free(snd);
+
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    char *music = dxl_path_join(root, "Music/Title_Music.umx");
+    CHECK_INT(dxl_upkg_load(&p, music, &e), 0);
+    size_t len;
+    char type[16];
+    uint8_t *it = dxl_upkg_file(&p, dxl_upkg_find(&p, "Music", "Title_Music"), &len, type, sizeof type, &e);
+    CHECK(it && len > 1000 && !memcmp(it, "IMPM", 4));
+    CHECK_STR(type, "it");
+    free(it);
+    dxl_upkg_free(&p);
+    free(music);
+
+    char *logo = dxl_path_join(root, "Help/Logo.bmp");
+    size_t logo_len = 0;
+    char *bmp = slurp(logo, &logo_len);
+    CHECK(bmp && logo_len > 1078 && !memcmp(bmp, "BM", 2));
+    free(bmp);
+    free(logo);
+
+    /* The first save there is, its info and snapshot. */
+    char *saves = dxl_path_join(root, "Save");
+    DIR *d = opendir(saves);
+    struct dirent *de;
+    int read = 0;
+    while (d && (de = readdir(d)) && !read) {
+        if (dxl_strnicmp(de->d_name, "Save", 4) || de->d_name[4] < '0' || de->d_name[4] > '9') continue;
+        char rel[300];
+        snprintf(rel, sizeof rel, "%s/SaveInfo.dxs", de->d_name);
+        char *info = dxl_path_join(saves, rel);
+        dxl_saveinfo si;
+        if (dxl_saveinfo_read(info, 1, &si, &e) == 0) {
+            CHECK(si.year >= 2000);
+            CHECK(si.map[0] != '\0');
+            CHECK(si.snapshot.rgba && si.snapshot.w == 256 && si.snapshot.h == 128);
+            dxl_saveinfo_free(&si);
+            read = 1;
+        }
+        free(info);
+    }
+    if (d) closedir(d);
+    if (!read) printf("    (no save in the install to read)\n");
+    free(saves);
+    free(root);
+}
+
 TEST_MAIN_BEGIN
     if (access(DXL_GAMEFILES "/Default.ini", R_OK) != 0) {
         printf("skipped: no Deus Ex install in %s\n", DXL_GAMEFILES);
@@ -314,6 +409,7 @@ TEST_MAIN_BEGIN
     RUN(test_default_ini_matches_the_spec);
     RUN(test_strings);
     RUN(test_exe_icon);
+    RUN(test_assets);
     RUN(test_install);
     RUN(test_import_plan);
     RUN(test_headless_run);
