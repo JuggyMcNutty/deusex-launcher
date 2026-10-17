@@ -288,6 +288,8 @@ static void test_pad_test(void) {
     launch("pad_test.script", "ready");
     script_ok();
     char *log = read_home("state/dxlauncher/launcher.log");
+    /* Home wore the install's art on the way. */
+    CHECK(strstr(log, "art: the logo and the main menu's buttons from") != NULL);
     CHECK_INT(count(log, "pad test: Xbox Series X Controller"), 2);
     CHECK_INT(count(log, "pad test: done"), 2);
     CHECK(strstr(log, "starting the game") == NULL);

@@ -39,6 +39,16 @@ static dxl_rgba last_run(const dxl_shell *s, char *out, size_t size) {
     return t->warn;
 }
 
+/* Home's buttons: the game's main menu's, where the install has them. */
+static int button_id(dxl_shell *s, uint32_t id, dxl_rect r, const char *label, int flags) {
+    if (dxl_art_has_buttons(&s->art)) return dxl_art_button(&s->ui, &s->art, id, r, label, flags);
+    return dxl_button_id(&s->ui, id, r, label, flags);
+}
+
+static int button(dxl_shell *s, const char *name, dxl_rect r, const char *label, int flags) {
+    return button_id(s, dxl_ui_id(&s->ui, name), r, label, flags);
+}
+
 void dxl_page_home(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
@@ -49,29 +59,29 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     if (menu_w < 240) menu_w = 240;
     if (menu_w > 320) menu_w = 320;
     dxl_rect menu = { r.x, r.y + 6, menu_w, r.h - 6 };
-    int play = dxl_button(ui, "home play", dxl_cut_top(&menu, 48), "Play",
-                          DXL_W_PRIMARY | DXL_W_LEFT | (playable ? 0 : DXL_W_DISABLED));
+    int play = button(s, "home play", dxl_cut_top(&menu, 48), "Play",
+                      DXL_W_PRIMARY | DXL_W_LEFT | (playable ? 0 : DXL_W_DISABLED));
     dxl_cut_top(&menu, 10);
     /* What keeps it from playing, put right from here: the first focus. */
     uint32_t engine_id = dxl_ui_id(ui, "home engine");
     int game_fix = 0;
     if (!ss->install.ok) {
-        game_fix = dxl_button(ui, "home game", dxl_cut_top(&menu, 48), "The game's folder...", DXL_W_LEFT);
+        game_fix = button(s, "home game", dxl_cut_top(&menu, 48), "The game's folder...", DXL_W_LEFT);
         dxl_cut_top(&menu, 10);
     }
     if (!s->engine_ok) {
         dxl_shell_engine_answer(s, engine_id);
-        if (dxl_button_id(ui, engine_id, dxl_cut_top(&menu, 48), "The engine...", DXL_W_LEFT))
+        if (button_id(s, engine_id, dxl_cut_top(&menu, 48), "The engine...", DXL_W_LEFT))
             dxl_shell_engine_pick(s, engine_id);
         dxl_cut_top(&menu, 10);
     }
-    int settings = dxl_button(ui, "home settings", dxl_cut_top(&menu, 48), "Settings", DXL_W_LEFT);
+    int settings = button(s, "home settings", dxl_cut_top(&menu, 48), "Settings", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
-    int profiles = dxl_button(ui, "home profiles", dxl_cut_top(&menu, 48), "Profiles", DXL_W_LEFT);
+    int profiles = button(s, "home profiles", dxl_cut_top(&menu, 48), "Profiles", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
-    int about = dxl_button(ui, "home about", dxl_cut_top(&menu, 48), "About", DXL_W_LEFT);
+    int about = button(s, "home about", dxl_cut_top(&menu, 48), "About", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
-    int quit = dxl_button(ui, "home quit", dxl_cut_top(&menu, 48), "Quit", DXL_W_LEFT);
+    int quit = button(s, "home quit", dxl_cut_top(&menu, 48), "Quit", DXL_W_LEFT);
 
     /* The profile: its game, the engine, its saves, its last run. */
     float px = r.x + menu_w + 40, pw = r.x + r.w - px;

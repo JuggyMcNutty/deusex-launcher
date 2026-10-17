@@ -136,6 +136,7 @@ add_library(dxl_ui STATIC
     src/ui/osk.c
     src/ui/padmesh.c
     src/ui/pad3d.c
+    src/ui/art.c
 )
 target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
 
