@@ -276,11 +276,12 @@ it -- the launcher's, Steam's, SDL's own -- and whether the game takes it.
 On its right, the rows: Layout, a preset -- Modern, Modern with the sticks
 swapped, Original Deus Ex, the game's own -- or Custom once a button is
 changed by itself (`src/core/bindings.c`); Find a button, the next button
-pressed then its row, as a click on the model's is; a row for each of the
-sixteen buttons, named as the controller's maker names it (the bottom face
-button A on an Xbox pad, Cross on a PlayStation pad, B on a Nintendo
-pad), whose choice is Keyboard & mouse's actions; the dead zone, the look
-speeds, inverted looking and the pointer's speed in the game's menus,
+pressed or trigger pulled then its row, as a click on the model's is; a
+row for each of the sixteen buttons, named as the controller's maker names
+it (the bottom face button A on an Xbox pad, Cross on a PlayStation pad, B
+on a Nintendo pad), whose choice is Keyboard & mouse's actions; the dead
+zone, the look speeds, inverted looking, the pointer's speed in the game's
+menus and, advanced, whether the game reads the controller at all,
 `Settings.json`'s `Gamepad`; Map this controller....
 
 **Map this controller...** learns a controller SDL has no mapping for, or
@@ -288,14 +289,19 @@ one it maps wrongly: each of SDL's controls asked for in turn -- the face
 buttons, the shoulders, the triggers, the middle buttons and the maker's,
 the stick clicks, the d-pad, each stick's two ways -- and pressed or moved,
 the model showing which; Skip for one the controller lacks, Back for a step
-again (`src/screens/padwizard.c`). While it is up, the controller moves
-nothing of the window. Its mapping, SDL's text for it
-(`src/core/padmap.c`), is given to SDL at once and kept in
-`gamecontrollerdb.txt`, a line a controller, by its GUID, which the window
-loads as it opens its pads. The engine is given the file in
-`SDL_GAMECONTROLLERCONFIG` (`src/app/run.c`), after the value the launcher
-was started with, as Steam sets it: each mapping, and again with its GUID's
-CRC of the name zeroed, as an SDL2 before 2.26 makes GUIDs.
+again (`src/screens/padwizard.c`). It begins once the controller is let go
+of, at rest as SDL first read it, or as it has then been still a second;
+while it is up, the controller moves nothing of the window. Its mapping,
+SDL's text for it (`src/core/padmap.c`), is given to SDL at once and kept
+in `gamecontrollerdb.txt`, a line a controller, by its GUID, which the
+window loads as it opens its pads; with nothing mapped, nothing is kept.
+The value of `SDL_GAMECONTROLLERCONFIG` the launcher was started with, as
+Steam sets it, is SDL's but for its lines of a controller the launcher
+maps, which SDL would take over the launcher's. The engine is given that,
+then the file (`src/app/run.c`): each mapping, and a copy of it for an
+SDL2 before 2.26, whose GUIDs have no CRC of the pad's name: its GUID
+without the CRC, a `crc:` field naming it, which a newer SDL reads, so that
+the copy maps the pad of that name alone.
 
 ## The app menu
 
@@ -410,10 +416,11 @@ with the stub for the engine, and reads what they changed:
 in its file as its reader takes it, and the next run's words on that run;
 `recovery` goes from a crash to Recovery's log, the next run in a window
 and another renderer, and finds those on the next run alone; `remap_pad`
-binds two buttons of a virtual Xbox pad, one found by pressing it, maps a
-controller SDL has no mapping for with the wizard, and finds the bindings
-in `User.ini`, the mapping in `gamecontrollerdb.txt` and in the engine's
-environment. It is skipped with no display or no install.
+binds three buttons of a virtual Xbox pad, two found by pressing or pulling
+them, maps that pad with the wizard its own confirm opened, and a
+controller SDL has no mapping for, its trigger resting at the top and first
+read before it was, and finds the bindings in `User.ini`, the mappings in
+`gamecontrollerdb.txt` and in the engine's environment. It is skipped with no display or no install.
 
 ## What it changes from the original
 
