@@ -44,6 +44,11 @@ endif()
 
 # ---- vendored --------------------------------------------------------------
 include(ExternalProject)
+# A source's files dated as they are unpacked, not as the archive has them:
+# a new lock's sources are built again.
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
 
 # dxl_dep(<name>): <name>'s line of cmake/deps.lock, as dep_file, dep_sha256
 # and dep_version; a missing source is a configure error naming the fetch.
