@@ -39,6 +39,8 @@ target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/da
 
 dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
+dxl_test(test_trash)
+target_link_libraries(test_trash PRIVATE dxl_platform)
 
 # The UI kit: focus and navigation, text, input from the keyboard, the
 # mouse and virtual pads.

@@ -100,6 +100,120 @@ int dxl_profile_make_dirs(const dxl_profile *p, dxl_err *err) {
     return rc;
 }
 
+int dxl_profile_count_saves(const dxl_profile *p) {
+    DIR *d = p->save_dir ? opendir(p->save_dir) : NULL;
+    if (!d) return 0;
+    int n = 0;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (dxl_strnicmp(e->d_name, "Save", 4) == 0 && e->d_name[4] >= '0' && e->d_name[4] <= '9') n++;
+        else if (dxl_stricmp(e->d_name, "QuickSave") == 0) n++;
+    }
+    closedir(d);
+    return n;
+}
+
+void dxl_profile_folders(const dxl_profile *p, char *out[4]) {
+    out[0] = dxl_xstrdup(p->dir);
+    out[1] = dxl_path_dirname(p->save_dir);
+    out[2] = dxl_xstrdup(p->state_dir);
+    out[3] = dxl_path_dirname(p->cache_dir);
+}
+
+static int by_id(const void *a, const void *b) { return strcmp((const char *)a, (const char *)b); }
+
+size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], size_t max) {
+    char *dir = dxl_path_join(x->config, "profiles");
+    DIR *d = opendir(dir);
+    size_t n = 0;
+    struct dirent *e;
+    while (d && (e = readdir(d))) {
+        if (e->d_name[0] == '.' || !id_valid(e->d_name)) continue;
+        dxl_profile p;
+        if (dxl_profile_open(&p, x, e->d_name, NULL) != 0) continue;
+        if (dxl_profile_exists(&p)) {
+            if (n < max) snprintf(ids[n], DXL_PROFILE_ID_MAX + 1, "%s", e->d_name);
+            n++;
+        }
+        dxl_profile_free(&p);
+    }
+    if (d) closedir(d);
+    free(dir);
+    qsort(ids, n < max ? n : max, sizeof ids[0], by_id);
+    return n;
+}
+
+void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size) {
+    char base[DXL_PROFILE_ID_MAX - 3];
+    size_t n = 0;
+    int dash = 0;
+    for (const unsigned char *c = (const unsigned char *)(name ? name : ""); *c && n + 1 < sizeof base; c++) {
+        if (isalnum(*c) && *c < 0x80) {
+            if (dash && n) base[n++] = '-';
+            if (n + 1 < sizeof base) base[n++] = (char)tolower(*c);
+            dash = 0;
+        } else {
+            dash = 1;
+        }
+    }
+    base[n] = '\0';
+    if (!n) snprintf(base, sizeof base, "profile");
+    char *profiles = dxl_path_join(x->config, "profiles");
+    for (int k = 1; k < 1000; k++) {
+        if (k == 1) snprintf(out, size, "%s", base);
+        else snprintf(out, size, "%s-%d", base, k);
+        char *dir = dxl_path_join(profiles, out);
+        int taken = dxl_path_exists(dir);
+        free(dir);
+        if (!taken) break;
+    }
+    free(profiles);
+}
+
+/* The engine folder's own files worth a copy: Settings.json and a class's
+ * config files, not its log or crash reports. */
+static int engine_file_kept(const char *name) {
+    size_t n = strlen(name);
+    return !dxl_stricmp(name, "Settings.json") || (n > 4 && !dxl_stricmp(name + n - 4, ".ini"));
+}
+
+int dxl_profile_copy(const dxl_profile *from, const dxl_profile *to, dxl_err *err) {
+    if (dxl_profile_exists(to)) {
+        dxl_err_set(err, "profile %s is made already", to->id);
+        return -1;
+    }
+    dxl_ini *sys = dxl_ini_load(from->system_ini, err), *usr = sys ? dxl_ini_load(from->user_ini, err) : NULL;
+    int rc = -1;
+    if (!sys || !usr) goto out;
+    dxl_ini_set(sys, "Core.System", "SavePath", to->save_dir);
+    dxl_ini_set(sys, "Core.System", "CachePath", to->cache_dir);
+    if (dxl_profile_make_dirs(to, err) != 0) goto out;
+    if (dxl_ini_save(sys, to->system_ini, err) != 0 || dxl_ini_save(usr, to->user_ini, err) != 0) goto out;
+    DIR *d = opendir(from->engine_dir);
+    struct dirent *e;
+    while (d && (e = readdir(d))) {
+        if (e->d_name[0] == '.' || !engine_file_kept(e->d_name)) continue;
+        char *a = dxl_path_join(from->engine_dir, e->d_name), *b = dxl_path_join(to->engine_dir, e->d_name);
+        int c = dxl_path_is_dir(a) ? 0 : dxl_path_copy(a, b, err);
+        free(a);
+        free(b);
+        if (c != 0) {
+            closedir(d);
+            goto out;
+        }
+    }
+    if (d) closedir(d);
+    /* profile.ini last: what makes it a profile. */
+    dxl_ini *meta = dxl_ini_load(from->ini_path, err);
+    if (!meta) goto out;
+    rc = dxl_ini_save(meta, to->ini_path, err);
+    dxl_ini_free(meta);
+out:
+    dxl_ini_free(sys);
+    dxl_ini_free(usr);
+    return rc;
+}
+
 const char *dxl_profile_get(const dxl_profile *p, const char *key) {
     return dxl_ini_get(p->ini, DXL_PROFILE_SECTION, key);
 }

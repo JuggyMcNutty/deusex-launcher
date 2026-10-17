@@ -1,0 +1,24 @@
+/* The desktop's trash, as freedesktop.org's Trash spec has it: what the
+ * launcher deletes of the player's -- a profile's folders, later a save --
+ * goes there, to be put back from the file manager, never removed outright.
+ *
+ * The home trash is <data home>/Trash: files/<name>, the thing itself, and
+ * info/<name>.trashinfo, where it was ([Trash Info] Path, its URL-escaped
+ * absolute path, and DeletionDate). A name taken already there gets ".2",
+ * ".3"...: the .trashinfo is made first, by that name alone (O_EXCL), so two
+ * deletions never take one name. Only what is on the trash's own
+ * filesystem goes, by a rename.
+ */
+#ifndef DXL_TRASH_H
+#define DXL_TRASH_H
+
+#include "core/common.h"
+
+/* Whether path can go to data_home's trash: it is there, and on the same
+ * filesystem. */
+int dxl_trash_can(const char *path, const char *data_home);
+
+/* path into data_home's trash. 0, or -1 and why, with nothing moved. */
+int dxl_trash(const char *path, const char *data_home, dxl_err *err);
+
+#endif

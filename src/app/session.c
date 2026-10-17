@@ -4,6 +4,7 @@
 #include "core/engine_settings.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "platform/trash.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -147,6 +148,74 @@ int dxl_session_begin_with(dxl_session *s, const dxl_preset *graphics, const dxl
     if (rc == 0)
         dxl_log("profile %s begun with %s graphics and %s", s->profile.id, graphics ? graphics->label : "the engine's",
                 layout ? layout->label : "the controls as imported");
+    return rc;
+}
+
+int dxl_session_use_profile(dxl_session *s, const char *id, dxl_err *err) {
+    dxl_profile next;
+    if (dxl_profile_open(&next, &s->xdg, id, err) != 0) return -1;
+    dxl_profile_free(&s->profile);
+    s->profile = next;
+    if (dxl_profile_exists(&s->profile)) {
+        dxl_ini_set(s->ini, LAUNCHER, "Profile", s->profile.id);
+        if (dxl_session_save(s, err) != 0) return -1;
+    }
+    dxl_session_check_install(s);
+    dxl_log("profile %s: in use%s", s->profile.id, dxl_profile_exists(&s->profile) ? "" : ", to be made");
+    return 0;
+}
+
+int dxl_session_copy_profile(dxl_session *s, const char *from, const char *name, char *id, size_t size,
+                             dxl_err *err) {
+    dxl_profile src, to;
+    if (dxl_profile_open(&src, &s->xdg, from, err) != 0) return -1;
+    dxl_profile_new_id(&s->xdg, name, id, size);
+    if (dxl_profile_open(&to, &s->xdg, id, err) != 0) {
+        dxl_profile_free(&src);
+        return -1;
+    }
+    int rc = dxl_profile_copy(&src, &to, err);
+    dxl_profile_free(&to);
+    dxl_profile_free(&src);
+    if (rc == 0) rc = dxl_session_rename_profile(s, id, name, err);
+    if (rc == 0) dxl_log("profile %s: a copy of %s's settings", id, from);
+    return rc;
+}
+
+int dxl_session_rename_profile(dxl_session *s, const char *id, const char *name, dxl_err *err) {
+    if (!strcmp(id, s->profile.id)) {
+        dxl_profile_set(&s->profile, "Name", name);
+        return dxl_profile_save(&s->profile, err);
+    }
+    dxl_profile p;
+    if (dxl_profile_open(&p, &s->xdg, id, err) != 0) return -1;
+    dxl_profile_set(&p, "Name", name);
+    int rc = dxl_profile_save(&p, err);
+    dxl_profile_free(&p);
+    return rc;
+}
+
+int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
+    if (!strcmp(id, s->profile.id)) {
+        dxl_err_set(err, "%s is the profile in use", id);
+        return -1;
+    }
+    dxl_profile p;
+    if (dxl_profile_open(&p, &s->xdg, id, err) != 0) return -1;
+    char *dirs[4];
+    dxl_profile_folders(&p, dirs);
+    dxl_profile_free(&p);
+    int rc = 0;
+    /* All of them, or none: each checked before any goes. */
+    for (int i = 0; i < 4 && rc == 0; i++)
+        if (dxl_path_exists(dirs[i]) && !dxl_trash_can(dirs[i], s->xdg.data_home)) {
+            dxl_err_set(err, "%s is not on the trash's filesystem: nothing was deleted", dirs[i]);
+            rc = -1;
+        }
+    for (int i = 0; i < 4 && rc == 0; i++)
+        if (dxl_path_exists(dirs[i])) rc = dxl_trash(dirs[i], s->xdg.data_home, err);
+    if (rc == 0) dxl_log("profile %s: to the trash", id);
+    for (int i = 0; i < 4; i++) free(dirs[i]);
     return rc;
 }
 

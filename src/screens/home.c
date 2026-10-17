@@ -4,28 +4,13 @@
 #include "ui/text.h"
 #include "ui/widgets.h"
 
-#include <dirent.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
-/* The profile's saves: its SaveNNNN folders and QuickSave. */
-static int count_saves(const char *dir) {
-    DIR *d = dir ? opendir(dir) : NULL;
-    if (!d) return 0;
-    int n = 0;
-    struct dirent *e;
-    while ((e = readdir(d))) {
-        if (dxl_strnicmp(e->d_name, "Save", 4) == 0 && e->d_name[4] >= '0' && e->d_name[4] <= '9') n++;
-        else if (dxl_stricmp(e->d_name, "QuickSave") == 0) n++;
-    }
-    closedir(d);
-    return n;
-}
-
 void dxl_page_home_enter(dxl_shell *s) {
     dxl_shell_ask_engine(s);
-    s->saves = s->run ? count_saves(s->run->session.profile.save_dir) : 0;
+    s->saves = s->run ? dxl_profile_count_saves(&s->run->session.profile) : 0;
 }
 
 static void when(long t, char *out, size_t size) {
@@ -82,6 +67,8 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     }
     int settings = dxl_button(ui, "home settings", dxl_cut_top(&menu, 48), "Settings", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
+    int profiles = dxl_button(ui, "home profiles", dxl_cut_top(&menu, 48), "Profiles", DXL_W_LEFT);
+    dxl_cut_top(&menu, 10);
     int about = dxl_button(ui, "home about", dxl_cut_top(&menu, 48), "About", DXL_W_LEFT);
     dxl_cut_top(&menu, 10);
     int quit = dxl_button(ui, "home quit", dxl_cut_top(&menu, 48), "Quit", DXL_W_LEFT);
@@ -124,6 +111,7 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     if (game_fix) dxl_shell_repoint(s, DXL_PAGE_HOME);
     else if (play || (ui->in.start && playable)) s->result = 1;
     else if (settings) dxl_shell_go(s, DXL_PAGE_SETTINGS);
+    else if (profiles) dxl_shell_go(s, DXL_PAGE_PROFILES);
     else if (about) dxl_shell_go(s, DXL_PAGE_ABOUT);
     else if (quit) s->result = 0;
 }

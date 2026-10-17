@@ -89,6 +89,11 @@ typedef struct {
  * exit code. */
 int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop);
 
+/* The profile id the run's from now on, as the window switches to it: its
+ * config, crash sentinel and last run the run's (app/session.h's
+ * dxl_session_use_profile). */
+int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err);
+
 /* The launcher's own pad mappings, $XDG_DATA_HOME/dxlauncher/gamecontrollerdb.txt
  * (core/padmap.h): the window's and, with Steam's, the engine's. */
 char *dxl_run_pad_db(const dxl_run *r);

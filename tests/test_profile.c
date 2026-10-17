@@ -245,8 +245,85 @@ static void test_import_from_defaults(void) {
     free(game);
 }
 
+/* More profiles than one: ids made of their names, each its own; those
+ * made listed; one's settings copied to another, its saves and logs not,
+ * the copy's SavePath and CachePath its own. */
+static void test_profiles(void) {
+    char *game = make_install();
+    char *home = dxl_xstrdup(scratch_dir("profiles-home"));
+    setenv("DXL_HOME", home, 1);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    char id[DXL_PROFILE_ID_MAX + 1];
+    dxl_profile_new_id(&x, "Deus Ex 2", id, sizeof id);
+    CHECK_STR(id, "deus-ex-2");
+    dxl_profile_new_id(&x, "  GMDX: v10!  ", id, sizeof id);
+    CHECK_STR(id, "gmdx-v10");
+    dxl_profile_new_id(&x, "\xc3\x89t\xc3\xa9", id, sizeof id);
+    CHECK_STR(id, "t");
+    dxl_profile_new_id(&x, "***", id, sizeof id);
+    CHECK_STR(id, "profile");
+
+    dxl_profile a;
+    dxl_profile_open(&a, &x, "default", NULL);
+    char *system_dir = scratch_path(game, "System");
+    dxl_import r;
+    CHECK_INT(dxl_profile_import(&a, system_dir, 0, &r, NULL), 0);
+    dxl_profile_set(&a, "Name", "Deus Ex");
+    CHECK_INT(dxl_profile_save(&a, NULL), 0);
+    scratch_write(a.engine_dir, "Settings.json", "{}");
+    scratch_write(a.engine_dir, "SE-Log-LastRun.txt", "a log");
+    scratch_write(a.engine_dir, "HXMod.ini", "[HX.Mod]\nOn=True\n");
+    /* Taken now: the next of that name another. */
+    dxl_profile_new_id(&x, "Default", id, sizeof id);
+    CHECK_STR(id, "default-2");
+
+    dxl_profile b;
+    dxl_profile_open(&b, &x, "copy", NULL);
+    CHECK_INT(dxl_profile_copy(&a, &b, NULL), 0);
+    dxl_profile_free(&b);
+    dxl_profile_open(&b, &x, "copy", NULL);
+    CHECK_INT(dxl_profile_exists(&b), 1);
+    CHECK_STR(dxl_profile_get(&b, "Name"), "Deus Ex");
+    dxl_ini *sys = dxl_ini_load(b.system_ini, NULL);
+    CHECK(sys && !strcmp(dxl_ini_get(sys, "Core.System", "SavePath"), b.save_dir));
+    CHECK(sys && !strcmp(dxl_ini_get(sys, "Core.System", "CachePath"), b.cache_dir));
+    dxl_ini_free(sys);
+    CHECK(scratch_exists(b.engine_dir, "Settings.json"));
+    CHECK(scratch_exists(b.engine_dir, "HXMod.ini"));
+    CHECK(!scratch_exists(b.engine_dir, "SE-Log-LastRun.txt"));
+    CHECK_INT(dxl_profile_count_saves(&a), 2);
+    CHECK_INT(dxl_profile_count_saves(&b), 0);
+    /* Made already: not again. */
+    CHECK_INT(dxl_profile_copy(&a, &b, NULL), -1);
+
+    char ids[4][DXL_PROFILE_ID_MAX + 1];
+    CHECK_INT((int)dxl_profiles_list(&x, ids, 4), 2);
+    CHECK_STR(ids[0], "copy");
+    CHECK_STR(ids[1], "default");
+    char *dirs[4];
+    dxl_profile_folders(&b, dirs);
+    CHECK(strstr(dirs[0], "/config/dxlauncher/profiles/copy") != NULL);
+    CHECK(strstr(dirs[1], "/data/dxlauncher/profiles/copy") != NULL);
+    CHECK(strstr(dirs[2], "/state/dxlauncher/profiles/copy") != NULL);
+    CHECK(strstr(dirs[3], "/cache/dxlauncher/profiles/copy") != NULL);
+    for (int i = 0; i < 4; i++) free(dirs[i]);
+
+    dxl_profile_free(&a);
+    dxl_profile_free(&b);
+    free(system_dir);
+    dxl_xdg_free(&x);
+    unsetenv("DXL_HOME");
+    set_writable(game, 1);
+    scratch_remove(home);
+    scratch_remove(game);
+    free(home);
+    free(game);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
     RUN(test_import_from_defaults);
+    RUN(test_profiles);
 TEST_MAIN_END

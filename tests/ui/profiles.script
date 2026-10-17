@@ -1,0 +1,53 @@
+# Profiles from Home: a new one made from the install The game lists first,
+# named Mod test on Your profile, the one in use after; the first profile
+# duplicated, the copy renamed Copy, its name's whole edit undone once by
+# Esc, then deleted to the trash; the first used again by its row.
+wait 1
+expect home
+find Profiles
+key Return
+wait 0.5
+expect profiles
+find New profile...
+key Return
+wait 0.5
+expect find
+key Return
+wait 0.5
+expect import
+find Name
+type Mod test
+key Return
+wait 0.3
+find Make the profile
+key Return
+wait 0.8
+expect home
+find Profiles
+key Return
+wait 0.5
+expect profiles
+find Deus Ex
+find Duplicate
+key Return
+wait 0.5
+find Name
+type Wrong
+key Escape
+wait 0.3
+type Copy
+key Return
+wait 0.3
+find Delete...
+key Return
+wait 0.3
+expect confirm
+find Delete
+key Return
+wait 0.5
+expect profiles
+find Deus Ex
+key Return
+wait 0.5
+expect home
+quit

@@ -336,6 +336,44 @@ static void test_engine_and_game(void) {
     free(good);
 }
 
+/* The Profiles page: a profile made, named after its name, used; a copy
+ * renamed and deleted, its four folders in the trash; the first in use
+ * again. */
+static void test_profiles(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch("profiles.script", "ready");
+    script_ok();
+    char *made = read_home("config/dxlauncher/profiles/mod-test/profile.ini");
+    CHECK(strstr(made, "Name=Mod test") != NULL);
+    free(made);
+    char *ini = read_home("config/dxlauncher/launcher.ini");
+    CHECK(strstr(ini, "Profile=default") != NULL);
+    free(ini);
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "profile mod-test made from") != NULL);
+    CHECK(strstr(log, "profile deus-ex-copy: a copy of default's settings") != NULL);
+    CHECK(strstr(log, "profile deus-ex-copy: named Copy") != NULL);
+    CHECK(strstr(log, "profile deus-ex-copy: to the trash") != NULL);
+    CHECK(strstr(log, "named Wrong") == NULL);
+    free(log);
+    char *gone = home_file("config/dxlauncher/profiles/deus-ex-copy");
+    CHECK(access(gone, F_OK) != 0);
+    free(gone);
+    char *trashed = home_file("data/Trash/files/deus-ex-copy/profile.ini");
+    CHECK(access(trashed, F_OK) == 0);
+    free(trashed);
+    char *info = read_home("data/Trash/info/deus-ex-copy.trashinfo");
+    CHECK(strstr(info, "/config/dxlauncher/profiles/deus-ex-copy\n") != NULL);
+    free(info);
+    for (int i = 2; i <= 4; i++) {
+        char rel[96];
+        snprintf(rel, sizeof rel, "data/Trash/info/deus-ex-copy.%d.trashinfo", i);
+        char *p = home_file(rel);
+        CHECK(access(p, F_OK) == 0);
+        free(p);
+    }
+}
+
 /* A first run from nothing on the script, a controller connected: the
  * graphics preset and the pad layout the profile was made with, by their
  * ids ("" for none of them). */
@@ -405,6 +443,7 @@ int main(void) {
     RUN(test_remap_pad);
     RUN(test_pad_test);
     RUN(test_engine_and_game);
+    RUN(test_profiles);
     RUN(test_first_run);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);
