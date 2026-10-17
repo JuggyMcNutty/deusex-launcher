@@ -5,21 +5,28 @@ static void test_names(void) {
     CHECK_STR(dxl_key_from_scancode(4), "A");
     CHECK_STR(dxl_key_from_scancode(26), "W");
     CHECK_STR(dxl_key_from_scancode(39), "0");
-    CHECK_STR(dxl_key_from_scancode(225), "LShift");
+    /* As the original names them: a shift by the name of both sides. */
+    CHECK_STR(dxl_key_from_scancode(225), "Shift");
+    CHECK_STR(dxl_key_from_scancode(226), "Alt");
+    CHECK_STR(dxl_key_from_scancode(57), "CapsLock");
+    CHECK_STR(dxl_key_from_scancode(51), "Semicolon");
+    CHECK_STR(dxl_key_from_scancode(85), "GreyStar");
+    CHECK_STR(dxl_key_from_scancode(88), "Enter");
+    CHECK_STR(dxl_key_from_scancode(70), "PrintScrn");
     CHECK_STR(dxl_key_from_scancode(53), "Tilde");
     CHECK_STR(dxl_key_from_scancode(98), "NumPad0");
-    /* What the engine's SDL2 window passes on as no key. */
-    CHECK(dxl_key_from_scancode(51) == NULL);    /* semicolon */
-    CHECK(dxl_key_from_scancode(226) == NULL);   /* left alt */
-    CHECK(dxl_key_from_scancode(57) == NULL);    /* caps lock */
+    CHECK(dxl_key_from_scancode(100) == NULL);   /* the ISO key beside left shift */
     CHECK_STR(dxl_key_from_mouse(1), "LeftMouse");
     CHECK_STR(dxl_key_from_mouse(3), "RightMouse");
     CHECK(dxl_key_from_mouse(4) == NULL);
     CHECK_STR(dxl_key_from_wheel(1), "MouseWheelUp");
     CHECK_STR(dxl_key_from_wheel(-1), "MouseWheelDown");
     CHECK_INT(dxl_key_seen("W"), 1);
-    CHECK_INT(dxl_key_seen("shift"), 0);
-    CHECK_INT(dxl_key_seen("Comma"), 0);
+    CHECK_INT(dxl_key_seen("shift"), 1);
+    CHECK_INT(dxl_key_seen("LShift"), 1);   /* the side's own, given as well */
+    CHECK_INT(dxl_key_seen("Comma"), 1);
+    CHECK_INT(dxl_key_seen("Print"), 0);
+    CHECK_INT(dxl_key_seen("Cancel"), 0);
     CHECK_INT(dxl_key_seen("Joy3"), 1);
     CHECK_STR(dxl_key_label("LShift"), "Left Shift");
     CHECK_STR(dxl_key_label("GreyStar"), "Keypad *");
