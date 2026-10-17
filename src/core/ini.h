@@ -31,7 +31,13 @@ void     dxl_ini_free(dxl_ini *ini);
 
 /* Serialises to a freshly allocated buffer; caller frees. Never fails. */
 char *dxl_ini_render(const dxl_ini *ini, size_t *out_len);
+/* Whole or not at all (dxl_path_write_atomic). */
 int   dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err);
+
+/* Every line's terminator, and new lines', made eol ("\n" or "\r\n"); an
+ * unterminated last line stays unterminated. The desktop launcher writes
+ * its profiles' inis LF, as the engine writes them back. */
+void  dxl_ini_set_eol(dxl_ini *ini, const char *eol);
 
 /* First value for key, or NULL. The returned pointer is owned by the ini and
  * is invalidated by the next dxl_ini_set* on the same object. */

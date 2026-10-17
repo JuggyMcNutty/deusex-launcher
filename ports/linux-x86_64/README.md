@@ -60,7 +60,10 @@ ceiling, checked after each build; this port has none. The rest is `main`'s,
 but for the trimui-smartpro branch's settings, pad bindings, renderer list
 and GPU probe (`src/core/json.c`, `engine_settings.c`, `bindings.c`,
 `renderers.c`, `src/platform/posix/gpu_probe.c`, `data/`), copied for the
-desktop's own launcher, which nothing uses yet.
+desktop's own launcher, which nothing uses yet, and the ini and JSON saves,
+written whole or not at all (`dxl_path_write_atomic` in
+`src/core/paths.c`: a temporary file beside the old one, synced, renamed
+over it).
 
 ## Verified
 

@@ -1,4 +1,5 @@
 #include "core/ini.h"
+#include "core/paths.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -182,28 +183,23 @@ char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
 int dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err) {
     size_t len;
     char *text = dxl_ini_render(ini, &len);
-
-    /* Write-and-rename, so an interrupted save cannot leave a truncated
-     * config behind -- this file is the engine's only persistent state. */
-    char *tmp = dxl_xmalloc(strlen(path) + 8);
-    sprintf(tmp, "%s.tmpXXX", path);
-
-    FILE *f = fopen(tmp, "wb");
-    if (!f) { dxl_err_set(err, "cannot write %s", tmp); free(text); free(tmp); return -1; }
-    size_t wrote = len ? fwrite(text, 1, len, f) : 0;
-    int bad = (wrote != len) || fflush(f) != 0;
-    fclose(f);
+    /* Whole or not at all: this file is the engine's only persistent state. */
+    int rc = dxl_path_write_atomic(path, text, len, err);
     free(text);
+    return rc;
+}
 
-    if (bad) { remove(tmp); dxl_err_set(err, "short write on %s", tmp); free(tmp); return -1; }
-    if (rename(tmp, path) != 0) {
-        remove(tmp);
-        dxl_err_set(err, "cannot replace %s", path);
-        free(tmp);
-        return -1;
+void dxl_ini_set_eol(dxl_ini *ini, const char *eol) {
+    for (size_t i = 0; i < ini->count; i++) {
+        ini_line *l = ini->lines + i;
+        if (!l->eol[0] && i + 1 == ini->count) continue;   /* an unterminated last line stays so */
+        if (strcmp(l->eol, eol) == 0) continue;
+        free(l->eol);
+        l->eol = dxl_xstrdup(eol);
+        ini->dirty = 1;
     }
-    free(tmp);
-    return 0;
+    free(ini->eol);
+    ini->eol = dxl_xstrdup(eol);
 }
 
 /* ---- lookup --------------------------------------------------------- */

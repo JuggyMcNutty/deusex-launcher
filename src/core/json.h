@@ -34,8 +34,8 @@ void      dxl_json_free(dxl_json *v);
 
 /* Two-space indented, members in order. Caller frees. */
 char *dxl_json_render(const dxl_json *v);
-/* Writes via a temporary file and rename, so a crash mid-write cannot leave
- * the engine a truncated file to choke on. */
+/* Whole or not at all (dxl_path_write_atomic), so a crash mid-write cannot
+ * leave the engine a truncated file to choke on. */
 int   dxl_json_save(const dxl_json *v, const char *path, dxl_err *err);
 
 dxl_json     *dxl_json_new_object(void);

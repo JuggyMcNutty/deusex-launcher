@@ -1,5 +1,9 @@
 #include "test.h"
+#include "scratch.h"
 #include "core/ini.h"
+
+#include <dirent.h>
+#include <sys/stat.h>
 
 /* The property that matters most: a file in the game's format, loaded and
  * saved untouched, must come back byte-identical -- CRLF, blank lines,
@@ -225,6 +229,64 @@ static void test_rewrite_normalises_line_ending(void) {
     dxl_ini_free(ini);
 }
 
+/* A save replaces the file whole: no temporary file is left beside it, and
+ * the file keeps the mode it had. */
+static void test_save_is_atomic_and_keeps_the_mode(void) {
+    const char *dir = scratch_dir("ini-save");
+    char *path = scratch_path(dir, "DeusEx.ini");
+    scratch_write(dir, "DeusEx.ini", "[A]\r\nx=1\r\n");
+    chmod(path, 0600);
+    dxl_ini *ini = dxl_ini_load(path, NULL);
+    dxl_ini_set(ini, "A", "x", "2");
+    dxl_err e;
+    CHECK_INT(dxl_ini_save(ini, path, &e), 0);
+    dxl_ini_free(ini);
+    size_t len = 0;
+    char *text = slurp(path, &len);
+    CHECK_STR(text, "[A]\r\nx=2\r\n");
+    free(text);
+    struct stat st;
+    CHECK_INT(stat(path, &st), 0);
+    CHECK_INT(st.st_mode & 0777, 0600);
+    /* Nothing but the file in the folder. */
+    DIR *d = opendir(dir);
+    int others = 0;
+    for (struct dirent *de; d && (de = readdir(d)); )
+        if (strcmp(de->d_name, ".") && strcmp(de->d_name, "..") && strcmp(de->d_name, "DeusEx.ini")) others++;
+    if (d) closedir(d);
+    CHECK_INT(others, 0);
+    /* A new file is 0644. */
+    char *fresh = scratch_path(dir, "User.ini");
+    ini = dxl_ini_parse("[B]\ny=1\n", 9);
+    CHECK_INT(dxl_ini_save(ini, fresh, &e), 0);
+    CHECK_INT(stat(fresh, &st), 0);
+    CHECK_INT(st.st_mode & 0777, 0644);
+    dxl_ini_free(ini);
+    free(fresh);
+    free(path);
+    scratch_remove(dir);
+}
+
+/* A CRLF file made LF, as the desktop launcher writes its profiles' inis. */
+static void test_set_eol(void) {
+    const char *src = "[A]\r\nx=1\r\n\r\n[B]\r\ny=2";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_INT(dxl_ini_dirty(ini), 0);
+    dxl_ini_set_eol(ini, "\n");
+    CHECK_INT(dxl_ini_dirty(ini), 1);
+    dxl_ini_set(ini, "A", "z", "3");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\nx=1\nz=3\n\n[B]\ny=2");
+    free(out);
+    dxl_ini_free(ini);
+    /* Already LF: nothing to change. */
+    ini = dxl_ini_parse("[A]\nx=1\n", 9);
+    dxl_ini_set_eol(ini, "\n");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
+    dxl_ini_free(ini);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_roundtrip_fixtures);
     RUN(test_reads_values);
@@ -237,4 +299,6 @@ TEST_MAIN_BEGIN
     RUN(test_unterminated_last_line);
     RUN(test_lf_file_stays_lf);
     RUN(test_rewrite_normalises_line_ending);
+    RUN(test_save_is_atomic_and_keeps_the_mode);
+    RUN(test_set_eol);
 TEST_MAIN_END

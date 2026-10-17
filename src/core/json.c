@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "core/json.h"
+#include "core/paths.h"
 
 #include <errno.h>
 #include <math.h>
@@ -333,33 +334,7 @@ char *dxl_json_render(const dxl_json *v) {
 
 int dxl_json_save(const dxl_json *v, const char *path, dxl_err *err) {
     char *text = dxl_json_render(v);
-    size_t n = strlen(path) + 8;
-    char *tmp = dxl_xmalloc(n);
-    snprintf(tmp, n, "%s.tmp", path);
-
-    int rc = -1;
-    FILE *f = fopen(tmp, "wb");
-    if (!f) {
-        dxl_err_set(err, "cannot write %s: %s", tmp, strerror(errno));
-    } else {
-        size_t len = strlen(text);
-        int ok = fwrite(text, 1, len, f) == len;
-        ok = (fflush(f) == 0) && ok;
-        /* exFAT on the device: without the sync a power-off after rename can
-         * still leave the new name pointing at unwritten blocks. */
-        ok = (fsync(fileno(f)) == 0) && ok;
-        ok = (fclose(f) == 0) && ok;
-        if (!ok) {
-            dxl_err_set(err, "cannot write %s: %s", tmp, strerror(errno));
-            remove(tmp);
-        } else if (rename(tmp, path) != 0) {
-            dxl_err_set(err, "cannot replace %s: %s", path, strerror(errno));
-            remove(tmp);
-        } else {
-            rc = 0;
-        }
-    }
-    free(tmp);
+    int rc = dxl_path_write_atomic(path, text, strlen(text), err);
     free(text);
     return rc;
 }
