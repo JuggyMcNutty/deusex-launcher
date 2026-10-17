@@ -6,8 +6,8 @@ for aarch64 devices with an ordinary distro, run in place of Deus Ex's
 `System/DeusEx.exe`. For now it is `main`'s launcher, the original recreated
 almost 1:1
 ([`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md)),
-with the port around it; the desktop's own launcher, this branch's and
-linux-x86_64's, is planned
+with the port around it; the desktop's own launcher, DXLauncher, is
+linux-x86_64's, and is to come here from there
 ([Port Ex Machina's to-do list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
 It starts
 [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and waits for it.

@@ -8,7 +8,7 @@ glibc userland, Mesa and a desktop-style SDL2.
 
 The launcher is `main`'s for now
 ([`main`'s README](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md));
-the desktop's own is planned
+the desktop's own, DXLauncher, is linux-x86_64's, and is to come here
 ([to do](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#to-do)).
 It cross-builds warning-free, needing glibc 2.27 at most. Untried on an
 aarch64 device.
@@ -35,10 +35,10 @@ scripts/dx.sh build linux-aarch64       # launcher and engine
 scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64
 ```
 
-Natively, `run` puts the staged app into the `System/` of the `gamefiles/`
-beside the repositories and starts `System/DeusEx` there, as linux-x86_64's
-does
-([its README](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/ports/linux-x86_64/README.md#build-and-run)).
+Natively, `run` puts the staged app -- `DeusEx`, `run-game.sh` and the
+engine's two files -- into the `System/` of the `gamefiles/` beside the
+repositories and starts `System/DeusEx` there, as `main`'s own is installed
+([installing](https://github.com/JuggyMcNutty/deusex-launcher/blob/main/README.md#installing)).
 
 ## What differs from linux-x86_64
 
@@ -47,7 +47,7 @@ does
 | `port.cmake` | a cross build links SDL2 from `deps/sysroots/linux-aarch64` with a 2.31 ceiling, which `CMakeLists.txt` checks `DeusEx` against after each build (`scripts/check-abi.sh`); a native build uses the system's |
 | `toolchain-c.cmake` | Bootlin GCC 9.3 / glibc 2.31; does nothing on an aarch64 host |
 | `engine.cmake` | the engine, native builds only |
-| `port.sh` | `deps` fetches the toolchain and builds the sysroot from Debian bookworm's arm64 packages (`libsdl2`, `libsdl2-ttf`); `run` works natively, as linux-x86_64's |
+| `port.sh` | `deps` fetches the toolchain and builds the sysroot from Debian bookworm's arm64 packages (`libsdl2`, `libsdl2-ttf`); `run` works natively, the staged app put into `gamefiles/System` |
 
 The glibc 2.31 ceiling keeps the cross-built launcher off newer glibc symbols;
 it also needs SDL2 2.0.16 and SDL2_ttf 2.0.18 or later, as in Debian 12 or
