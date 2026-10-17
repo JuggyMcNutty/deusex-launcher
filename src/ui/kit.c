@@ -891,6 +891,12 @@ void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...) {
     ui->diag_count++;
 }
 
+void dxl_ui_set_theme(dxl_ui *ui, const dxl_theme *t) {
+    ui->theme = *t;
+    if (ui->backdrop) SDL_DestroyTexture(ui->backdrop);
+    ui->backdrop = NULL;
+}
+
 void dxl_ui_animate(dxl_ui *ui) { ui->animating = 1; }
 
 void dxl_ui_wake(dxl_ui *ui, double at) {

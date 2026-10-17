@@ -273,6 +273,9 @@ dxl_rect dxl_centered(dxl_rect within, float w, float h);
 /* A diagnostic for the frame (printf-like). */
 void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...);
 
+/* The colours drawn with from now on: the backdrop drawn again in them. */
+void dxl_ui_set_theme(dxl_ui *ui, const dxl_theme *t);
+
 /* An animation is running: the frame after this one comes soon. */
 void dxl_ui_animate(dxl_ui *ui);
 /* A frame due at the time at (the kit's clock), with no input before it:
