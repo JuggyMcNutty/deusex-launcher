@@ -1,4 +1,4 @@
-/* Command-line parsing, reproducing UE1's three helpers exactly.
+/* Command-line parsing: UE1's three helpers, ParseParam stricter by choice.
  *
  * dx-reverse-info/cli-flags.md is emphatic that these are NOT equivalent, and that the
  * difference is observable:
