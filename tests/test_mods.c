@@ -9,9 +9,18 @@
  * ini as such a mod's names it, relative to the game's System; in the
  * launcher's mods folder OutMod, its ini written for it in the game's
  * folder, Renamed, its ini for it under the name it had there, OldName,
- * and Bare, with none. Each file the few lines the code reads. */
+ * Linked, a link to Target-1.0 elsewhere, its ini naming it by both,
+ * RootSave, its saves its own folder, Picky, two inis of settings, one
+ * with its controls, and Bare, with none. Each file the few lines the code
+ * reads. */
 static char *root;
 static char game[300], mods[300], system_dir[320];
+
+static char *at(const char *rel) {
+    char *p = dxl_xmalloc(strlen(root) + strlen(rel) + 2);
+    sprintf(p, "%s/%s", root, rel);
+    return p;
+}
 
 static void make_all(void) {
     root = dxl_xstrdup(scratch_dir("mods"));
@@ -36,6 +45,7 @@ static void make_all(void) {
     scratch_write(root, "game/GameMod/System/GameMod.ini",
                   "[URL]\r\nClass=GameMod.ModPlayer\r\n\r\n[Core.System]\r\nSavePath=..\\GameMod\\Save\r\n"
                   "CachePath=..\\Cache\r\nPaths=..\\GameMod\\System\\*.u\r\nPaths=..\\gamemod\\MAPS\\*.dx\r\n"
+                  "Paths=..\\GameMod\\Maps\\Mod_Intro.dx\r\n"
                   "Paths=..\\System\\*.u\r\nPaths=..\\Maps\\*.dx\r\nPaths=..\\HDTP\\System\\*.u\r\n"
                   "Paths=..\\System\\*.u\r\n\r\n[DeusEx.MenuScreenJoinGame]\r\n"
                   "MasterServerAddress=master0.gamespy.com\r\n");
@@ -64,15 +74,29 @@ static void make_all(void) {
     scratch_write(root, "home/data/dxlauncher/mods/Renamed/System/Renamed.ini",
                   "[Core.System]\r\nPaths=..\\OldName\\System\\*.u\r\nPaths=..\\System\\*.u\r\n");
     scratch_write(root, "home/data/dxlauncher/mods/Renamed/Maps/R.dx", "map");
+    /* Linked: the player's link to the mod's folder, of another name. */
+    scratch_write(root, "elsewhere/Target-1.0/System/Target.u", "pkg");
+    scratch_write(root, "elsewhere/Target-1.0/System/Target-1.0.ini",
+                  "[Core.System]\r\nSavePath=..\\Target-1.0\\Save\r\nPaths=..\\Linked\\System\\*.u\r\n"
+                  "Paths=..\\System\\*.u\r\n");
+    scratch_write(root, "elsewhere/Target-1.0/Save/Save0003/SaveInfo.dxs", "linked's");
+    char *target = at("elsewhere/Target-1.0"), *link = at("home/data/dxlauncher/mods/Linked");
+    if (symlink(target, link) != 0) fprintf(stderr, "  could not link %s\n", link);
+    free(target);
+    free(link);
+    /* RootSave: its SavePath its own folder. */
+    scratch_write(root, "home/data/dxlauncher/mods/RootSave/System/RootSave.u", "pkg");
+    scratch_write(root, "home/data/dxlauncher/mods/RootSave/System/RootSave.ini",
+                  "[Core.System]\r\nSavePath=..\\RootSave\r\nPaths=..\\RootSave\\System\\*.u\r\n");
+    scratch_write(root, "home/data/dxlauncher/mods/RootSave/Maps/RS.dx", "map");
+    /* Picky: a server's ini before its own, which has its controls. */
+    scratch_write(root, "home/data/dxlauncher/mods/Picky/System/Picky.u", "pkg");
+    scratch_write(root, "home/data/dxlauncher/mods/Picky/System/Aserver.ini", "[Core.System]\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(root, "home/data/dxlauncher/mods/Picky/System/Main.ini", "[Core.System]\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(root, "home/data/dxlauncher/mods/Picky/System/MainUser.ini", "[Engine.Input]\r\n");
     /* Bare: packages and maps, no ini. */
     scratch_write(root, "home/data/dxlauncher/mods/Bare/System/Bare.u", "pkg");
     scratch_write(root, "home/data/dxlauncher/mods/Bare/Maps/Bare.dx", "map");
-}
-
-static char *at(const char *rel) {
-    char *p = dxl_xmalloc(strlen(root) + strlen(rel) + 2);
-    sprintf(p, "%s/%s", root, rel);
-    return p;
 }
 
 static void test_check(void) {
@@ -102,6 +126,34 @@ static void test_check(void) {
     dxl_mod_free(&m);
     free(dir);
 
+    /* Known by its link, named after it; its settings named after the
+     * folder the link is to. */
+    dir = at("home/data/dxlauncher/mods/Linked");
+    CHECK_INT(dxl_mod_check(dir, &m, &e), 0);
+    CHECK_STR(m.dir, dir);
+    CHECK_STR(m.name, "Linked");
+    CHECK(m.ini && strstr(m.ini, "/Linked/System/Target-1.0.ini"));
+    dxl_mod_free(&m);
+    free(dir);
+    /* Its own settings, with its controls beside them, over another's. */
+    dir = at("home/data/dxlauncher/mods/Picky");
+    CHECK_INT(dxl_mod_check(dir, &m, &e), 0);
+    CHECK(m.ini && strstr(m.ini, "/Picky/System/Main.ini"));
+    CHECK(m.user_ini && strstr(m.user_ini, "/Picky/System/MainUser.ini"));
+    dxl_mod_free(&m);
+    free(dir);
+    /* A relative folder, made absolute by the text. */
+    char *cwd = getcwd(NULL, 0);
+    if (cwd && chdir(root) == 0) {
+        CHECK_INT(dxl_mod_check("game/./GameMod/", &m, &e), 0);
+        char *want = at("game/GameMod");
+        CHECK_STR(m.dir, want);
+        free(want);
+        dxl_mod_free(&m);
+        CHECK_INT(chdir(cwd), 0);
+    }
+    free(cwd);
+
     const char *nots[] = { "game/MapPack", "game/Empty", "game/Copy", "game", "game/nothing-there" };
     for (size_t i = 0; i < sizeof nots / sizeof *nots; i++) {
         dir = at(nots[i]);
@@ -114,21 +166,24 @@ static void test_check(void) {
 static void test_find(void) {
     dxl_mod_list l;
     dxl_mods_find(&l, game, mods);
-    CHECK_INT(l.count, 4);
-    if (l.count == 4) {
+    CHECK_INT(l.count, 7);
+    if (l.count == 7) {
         CHECK_STR(l.items[0].name, "GameMod");
         CHECK_INT(l.items[0].where, DXL_MOD_GAME);
         CHECK_STR(l.items[1].name, "Bare");
         CHECK_INT(l.items[1].where, DXL_MOD_LAUNCHER);
-        CHECK_STR(l.items[2].name, "OutMod");
-        CHECK_STR(l.items[3].name, "Renamed");
+        CHECK_STR(l.items[2].name, "Linked");
+        CHECK_STR(l.items[3].name, "OutMod");
+        CHECK_STR(l.items[4].name, "Picky");
+        CHECK_STR(l.items[5].name, "Renamed");
+        CHECK_STR(l.items[6].name, "RootSave");
     }
     /* One of a folder there already is not put in again. */
     dxl_mod m;
     char *dir = at("game/GameMod");
     dxl_mod_check(dir, &m, NULL);
     CHECK_INT(dxl_mod_list_add(&l, &m), -1);
-    CHECK_INT(l.count, 4);
+    CHECK_INT(l.count, 7);
     dxl_mod_free(&m);
     free(dir);
     dxl_mod_list_free(&l);
@@ -173,6 +228,26 @@ static void test_folders(void) {
     CHECK(dxl_mod_folder("..\\Maps\\*.dx", system_dir, &out) == NULL);
     CHECK(dxl_mod_folder("..\\OutMod\\Music\\*.umx", system_dir, &out) == NULL);
     CHECK(dxl_mod_folder("..\\..\\OutMod\\System\\*.u", system_dir, &out) == NULL);
+    /* A link's mod: under the link, by its name or its folder's. */
+    dxl_mod lk;
+    char *l = at("home/data/dxlauncher/mods/Linked");
+    dxl_mod_check(l, &lk, NULL);
+    want = at("home/data/dxlauncher/mods/Linked/System");
+    got = dxl_mod_folder("..\\Linked\\System\\*.u", system_dir, &lk);
+    CHECK_STR(got, want);
+    free(got); free(want);
+    want = at("home/data/dxlauncher/mods/Linked/Save");
+    got = dxl_mod_folder("..\\Target-1.0\\Save", system_dir, &lk);
+    CHECK_STR(got, want);
+    free(got); free(want);
+    /* Named by the folder it is to, by its absolute path: still the link's. */
+    char *t = at("elsewhere/Target-1.0/System/*.u");
+    want = at("home/data/dxlauncher/mods/Linked/System");
+    got = dxl_mod_folder(t, system_dir, &lk);
+    CHECK_STR(got, want);
+    free(got); free(want); free(t);
+    dxl_mod_free(&lk);
+    free(l);
     dxl_mod_free(&in);
     dxl_mod_free(&out);
     free(d); free(o);
@@ -186,14 +261,15 @@ static void test_paths(void) {
     dxl_mod_set_paths(sys, system_dir, &m);
     const char *v[16];
     size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
-    CHECK_INT(n, 5);
+    CHECK_INT(n, 6);
     char *a = at("game/GameMod/System/*.u"), *b = at("game/GameMod/Maps/*.dx");
-    if (n == 5) {
+    if (n == 6) {
         CHECK_STR(v[0], a);
         CHECK_STR(v[1], b);
-        CHECK_STR(v[2], "..\\System\\*.u");
-        CHECK_STR(v[3], "..\\Maps\\*.dx");
-        CHECK_STR(v[4], "..\\HDTP\\System\\*.u");
+        CHECK_STR(v[2], "..\\GameMod\\Maps\\Mod_Intro.dx");   /* no pattern: as it is */
+        CHECK_STR(v[3], "..\\System\\*.u");
+        CHECK_STR(v[4], "..\\Maps\\*.dx");
+        CHECK_STR(v[5], "..\\HDTP\\System\\*.u");
     }
     free(a); free(b);
     dxl_ini_free(sys);
@@ -292,6 +368,31 @@ static void test_import(void) {
     CHECK_INT(dxl_path_exists(save), 1);
     CHECK_INT(dxl_path_exists(theirs), 0);
     free(save); free(theirs);
+    dxl_mod_free(&m);
+    dxl_profile_free(&p);
+    free(d);
+
+    /* A link's mod: its saves, its paths under the link. */
+    CHECK_INT(dxl_profile_open(&p, &x, "linked", NULL), 0);
+    d = at("home/data/dxlauncher/mods/Linked");
+    dxl_mod_check(d, &m, NULL);
+    CHECK_INT(dxl_profile_import_mod(&p, system_dir, &m, 0, &r, &e), 0);
+    CHECK_INT(r.saves, 1);
+    sys = dxl_ini_load(p.system_ini, NULL);
+    char *own = at("home/data/dxlauncher/mods/Linked/System/*.u");
+    CHECK(sys && dxl_ini_get(sys, "Core.System", "Paths") && !strcmp(dxl_ini_get(sys, "Core.System", "Paths"), own));
+    free(own);
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    dxl_profile_free(&p);
+    free(d);
+
+    /* SavePath the mod's own folder: none of its folders taken for saves. */
+    CHECK_INT(dxl_profile_open(&p, &x, "rootsave", NULL), 0);
+    d = at("home/data/dxlauncher/mods/RootSave");
+    dxl_mod_check(d, &m, NULL);
+    CHECK_INT(dxl_profile_import_mod(&p, system_dir, &m, 1, &r, &e), 0);
+    CHECK_INT(r.saves, 0);
     dxl_mod_free(&m);
     dxl_profile_free(&p);
     free(d);

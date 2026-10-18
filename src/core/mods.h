@@ -4,13 +4,16 @@
  * name the mod's folders before the game's, by their absolute paths: the
  * engine finds its packages and maps there, and, with its int-paths
  * feature, its .int files' text (VibeEngine's NATIVES.md, mods). Nothing
- * of it is copied, and nothing is written to it.
+ * of it is copied but its saves, and nothing is written to it. A mod is
+ * known by the folder it is found by, a link's kept, and its name is that
+ * folder's.
  *
  * Its settings are its own ini's when it has one: one of System's with
- * [Core.System] Paths, the one named after the mod's folder first, then
- * any but Default.ini, then Default.ini. Its controls are the user ini
- * beside that one: <name>User.ini, User.ini beside DeusEx.ini, else
- * DefUser.ini.
+ * [Core.System] Paths, the one named after the mod's folder (or the folder
+ * a link of it is to) first, then one with its own <name>User.ini beside
+ * it, then any but Default.ini, then Default.ini. Its controls are the
+ * user ini beside that one: <name>User.ini, User.ini beside DeusEx.ini,
+ * else DefUser.ini.
  */
 #ifndef DXL_MODS_H
 #define DXL_MODS_H
@@ -25,7 +28,7 @@ typedef enum {
 } dxl_mod_where;
 
 typedef struct {
-    char *dir;           /* its folder, absolute */
+    char *dir;           /* its folder, absolute, as it is found: a link's kept */
     char *name;          /* the folder's name */
     char *system_dir;    /* its System folder */
     char *ini;           /* its own settings; NULL for none */
@@ -61,12 +64,13 @@ int  dxl_mod_list_add(dxl_mod_list *l, const dxl_mod *m);
 void dxl_mod_list_free(dxl_mod_list *l);
 
 /* The folder of the mod's a folder named in one of its ini's paths comes
- * to, absolute (value with backslashes or not, a path's pattern left off):
- * a folder of the mod's as the engine resolves it, a relative one against
- * the game's System folder in any case; or ..\<the mod's name>\<rest>,
- * the mod's ini's path for it in the game's folder, where it is not: the
- * mod's <rest>, when it has it. NULL when it is not the mod's. Caller
- * frees. */
+ * to, under the mod's dir (value with backslashes or not, a pattern as its
+ * last part left off): a folder of the mod's as the engine resolves it, a
+ * relative one against the game's System folder in any case; or
+ * ..\<the mod's name>\<rest>, the mod's ini's path for it in the game's
+ * folder, where it is not -- its name, or that of the folder a link of it
+ * is to: the mod's <rest>, when it has it. NULL when it is not the mod's.
+ * Caller frees. */
 char *dxl_mod_folder(const char *value, const char *game_system_dir, const dxl_mod *m);
 
 /* A mod's profile's paths, made in sys, the ini the profile is made from
@@ -75,7 +79,8 @@ char *dxl_mod_folder(const char *value, const char *game_system_dir, const dxl_m
  * or with none (no ini, or one written for a folder of another name) the
  * mod's System, Maps, Textures, Sounds and Music --, then the other paths
  * as they are, which the engine resolves against the game's System
- * folder; each once. */
+ * folder; each once. A path whose last part is no pattern (* or ?) is
+ * kept as it is. */
 void dxl_mod_set_paths(dxl_ini *sys, const char *game_system_dir, const dxl_mod *m);
 
 #endif

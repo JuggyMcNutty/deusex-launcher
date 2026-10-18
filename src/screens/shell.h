@@ -185,9 +185,10 @@ typedef struct dxl_shell {
     char         making_before[DXL_PROFILE_ID_MAX + 1];
     dxl_mod      making_mod;
 
-    /* The Mods page: the mods found as it opened and those shown since,
-     * what each row says, the profile that plays each, the one chosen. */
-    dxl_mod_list mods;
+    /* The Mods page: the mods found as it opened and those shown, what
+     * each row says, the profile that plays each, the one chosen; the mods
+     * shown while the launcher runs. */
+    dxl_mod_list mods, mods_shown;
     struct {
         char detail[600];
         char profile[DXL_PROFILE_ID_MAX + 1];   /* the first that plays it; "" for none */

@@ -302,7 +302,7 @@ size_t dxl_session_mod_profiles(const dxl_session *s, const char *dir, char ids[
         if (dxl_profile_open(&p, &s->xdg, all[i], NULL) != 0) continue;
         const char *mod = dxl_profile_get(&p, "Mod");
         if (mod && !strcmp(mod, dir)) {
-            if (k < max) snprintf(ids[k], DXL_PROFILE_ID_MAX + 1, "%s", all[i]);
+            if (k < max) snprintf(ids[k], DXL_PROFILE_ID_MAX + 1, "%.64s", all[i]);
             k++;
         }
         dxl_profile_free(&p);
