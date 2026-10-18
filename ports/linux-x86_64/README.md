@@ -92,13 +92,13 @@ with the toolchain file, and its block in `CMakeLists.txt` with the
   folder. Unattended engine runs drive saves, loads and hub travel
   ([scripted runs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 - Bazzite 44 (glibc 2.43), KDE Plasma on Wayland, AMD Radeon 780M, played
-  by hand with a real keyboard and mouse: `scripts/dx.sh run linux-x86_64
-  --fresh` through the first run, its controller layout offered for the
-  pad connected, to Home, Settings and Multiplayer; a new game to Liberty
-  Island, saves made in the game and one started from the launcher
-  (`?loadgame=2`); movement keys held, text typed in the console and a
-  save's name, a menu dragged by its title bar and Alt accelerators; each
-  game to a clean end.
+  by hand with a real keyboard and mouse:
+  `scripts/dx.sh run linux-x86_64 --fresh` through the first run, its
+  controller layout offered for the pad connected, to Home, Settings and
+  Multiplayer; a new game to Liberty Island, saves made in the game and one
+  started from the launcher (`?loadgame=2`); movement keys held, text typed
+  in the console and a save's name, a menu dragged by its title bar and Alt
+  accelerators; each game to a clean end.
 
 ## Gotchas
 
