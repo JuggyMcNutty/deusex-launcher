@@ -114,6 +114,9 @@ typedef struct dxl_ui {
 
     dxl_input       in;
     dxl_input_mode  mode;        /* the last device used: hints and the pointer follow it */
+    /* The next motion is where the pointer rests, not a move: it came into
+     * the window, or the window changed under it. */
+    int             pointer_resting;
     dxl_pad_family  pad_family;
     SDL_JoystickID  pad;         /* the pad last used, 0 for none */
     int             reduced_motion;

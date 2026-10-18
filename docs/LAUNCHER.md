@@ -367,7 +367,8 @@ screen's, not kept as the window's.
 chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
 Up and Page Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs,
 F5 plays, F11 switches the big screen. The mouse: the pointer focuses
-what it moves onto, a click chooses, the wheel scrolls a list and a list's
+what it moves onto (not what the window, coming up or changing size, puts
+under it), a click chooses, the wheel scrolls a list and a list's
 scroll bar drags by its thumb or pages by its track, the back button goes
 back. A pad: the d-pad or the left stick moves (held, again 350 ms after
 the frame that took it and then every 90), its confirm button chooses and

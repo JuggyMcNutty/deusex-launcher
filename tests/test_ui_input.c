@@ -105,6 +105,39 @@ static void test_mouse(void) {
     CHECK(!(hits[0] & DXL_HIT_ACTIVATED));
 }
 
+static void window_event(Uint32 type) {
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = type;
+    dxl_ui_event(&ui, &e);
+}
+
+/* The pointer where it rests as it comes into the window, or as the window
+ * changes under it, is no move: the focus stays where the keys put it, the
+ * hints the keys', till the pointer moves. */
+static void test_pointer_resting(void) {
+    int hits[3];
+    dxl_ui_focus(&ui, dxl_ui_id(&ui, "three"));
+    column(hits);
+    key(SDLK_UP, 0);
+    CHECK_INT(focused(), 1);
+    window_event(SDL_EVENT_WINDOW_MOUSE_ENTER);
+    mouse(SDL_EVENT_MOUSE_MOTION, 100 * ui.scale, 40 * ui.scale);
+    CHECK_INT(focused(), 1);
+    CHECK_INT(ui.mode, DXL_INPUT_KEYBOARD);
+    mouse(SDL_EVENT_MOUSE_MOTION, 101 * ui.scale, 40 * ui.scale);
+    CHECK_INT(focused(), 0);
+    CHECK_INT(ui.mode, DXL_INPUT_MOUSE);
+    window_event(SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED);
+    mouse(SDL_EVENT_MOUSE_MOTION, 100 * ui.scale, 160 * ui.scale);
+    column(hits);
+    CHECK(hits[0] & DXL_HIT_FOCUSED);
+    CHECK(!(hits[2] & DXL_HIT_FOCUSED));
+    mouse(SDL_EVENT_MOUSE_MOTION, 101 * ui.scale, 160 * ui.scale);
+    column(hits);
+    CHECK(hits[2] & DXL_HIT_FOCUSED);
+}
+
 static SDL_JoystickID pad(Uint16 vendor, Uint16 product, const char *name) {
     SDL_VirtualJoystickDesc d;
     SDL_INIT_INTERFACE(&d);
@@ -408,6 +441,7 @@ TEST_MAIN_BEGIN
     if (offscreen_open(&o, &ui, 1280, 720, 2) != 0) return 1;
     RUN(test_keyboard);
     RUN(test_mouse);
+    RUN(test_pointer_resting);
     RUN(test_pads);
     RUN(test_repeat);
     RUN(test_repeat_after_idle);
