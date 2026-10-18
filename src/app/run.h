@@ -55,6 +55,7 @@ typedef enum {
 
 typedef struct {
     const char *game;       /* --game=<dir>: the install for a first run, or the profile's now */
+    const char *mod;        /* --mod=<dir>: with --import, the profile a mod's (core/mods.h) */
     const char *profile;    /* --profile=<id> */
     int play;               /* --play: no Home */
     int dry;                /* --dry-run: decide and say, write nothing */

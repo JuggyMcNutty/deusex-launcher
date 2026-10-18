@@ -14,8 +14,9 @@ It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
 `deusex-launcher`'s screens are a window of its own, drawn with SDL3 and
-SDL3_ttf: Home, the first run, Settings, Profiles, Saves, Screenshots,
-Multiplayer, Recovery, the log, About ([the window](#the-window)).
+SDL3_ttf: Home, the first run, Settings, Profiles, Mods, Saves,
+Screenshots, Multiplayer, Recovery, the log, About
+([the window](#the-window)).
 
 ## Where everything lives
 
@@ -27,15 +28,17 @@ scratch home:
 | Folder | What is in it |
 |---|---|
 | `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
-| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
-| `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)) |
+| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
+| `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
 | `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
-engine resolves them against the game's `System` folder. `SavePath` and
+engine resolves them against the game's `System` folder. A mod's profile
+names the mod's folders before them, by their absolute paths
+([Mods](#mods)). `SavePath` and
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
 writes them back. The engine never touches `~/.config/SurrealEngine`,
 which the harness's runs read: an engine whose `--version` lacks
@@ -121,10 +124,10 @@ deleted) opens on The game.
 ## Profiles
 
 Each profile is one way to play: its own settings, keys, controller,
-saves and screenshots, and its install. Profiles, from Home
-(`src/screens/profiles.c`), lists each, its game, its saves and its last
-run, the one in use marked; its buttons act on the one chosen, the row
-last focused:
+saves and screenshots, and its install, and a mod's profile its mod.
+Profiles, from Home (`src/screens/profiles.c`), lists each, its game (a
+mod's profile's, its mod on it), its saves and its last run, the one in use
+marked; its buttons act on the one chosen, the row last focused:
 
 - **Use this one**, or the row chosen: the profile played from now on,
   `launcher.ini`'s `Profile` (`dxl_run_use_profile`, `src/app/run.c`: the
@@ -132,6 +135,7 @@ last focused:
 - **New profile...**: The game, then Your profile, as the first run makes
   one, its folders named after its name (`Deus Ex 2`, `deus-ex-2`); Back
   out of them leaves the one in use as it was. Made, it is the one in use.
+- **Mods...**: [the mods](#mods), each played with a profile of its own.
 - **Duplicate**: a new profile with the chosen one's settings, keys and
   controller -- `profile.ini`, the inis with its own `SavePath` and
   `CachePath`, the engine folder's `Settings.json` and a class's config
@@ -139,6 +143,54 @@ last focused:
 - **Name**, under the list: the chosen one's, edited in place.
 - **Delete...**: the chosen one's four folders to the desktop's trash, all
   or none (`src/platform/posix/trash.c`); never the one in use.
+
+## Mods
+
+A mod is a folder of its own with a `System` folder of its packages
+(`src/core/mods.c`), and is played through a profile of its own, whose
+paths name the mod's folders before the game's, by their absolute paths.
+Nothing of it is copied, and nothing is written to it or to the game's
+folder. Its text and the objects its `.int` files register come from its
+folders too, with an engine whose `--version` has `int-paths`
+([VibeEngine's mods](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#mods)):
+the original reads them from `System` alone, where a mod's had to be put.
+
+Mods, from Profiles (`src/screens/mods.c`), lists those it finds: each
+folder of the game's folder that is one, each of the launcher's mods
+folder, `$XDG_DATA_HOME/dxlauncher/mods`, and the profiles' mods; each with
+where it is, whose settings it starts from and the profiles that play it.
+A folder with no `System` of its own, or no packages in it, is no mod, nor
+is a copy of the game (its `System/DeusEx.exe`).
+
+- **Use its profile**, or the row of a mod that has one: that profile
+  played from now on, as Profiles uses one.
+- **Make its profile...**, or the row of a mod that has none: Your
+  profile, as a new profile's, on the game the profile in use plays, named
+  after the mod; Back leaves the one in use as it was. Made, it is the one
+  in use.
+- **Browse...** and **The system's dialog...**: a mod's folder anywhere
+  else, listed until the page closes, then by its profile.
+- **The mods folder**: the launcher's, in the desktop's file manager.
+
+A mod's profile is made as the first run makes one
+(`dxl_profile_import_mod`, `src/core/profile.c`), but:
+
+- **`DeusEx.ini`**: the mod's own, when it has one -- a `System` ini with
+  `[Core.System] Paths`, the one named after its folder first, then any
+  but `Default.ini`, then `Default.ini` --, else the game's. Its paths:
+  the mod's folders first, by their absolute paths, then the others as
+  they are. A path is the mod's when it comes to a folder of the mod's, a
+  relative one as the engine resolves it against the game's `System`, in
+  any case; or when it is `..\<the mod's name>\<rest>`, the mod's ini's
+  path for it in the game's folder, where it is not, and the mod has the
+  rest. When none is, the mod's `System`, `Maps`, `Textures`, `Sounds`
+  and `Music` come first.
+- **`User.ini`**: the mod's own, beside its settings (`<name>User.ini`,
+  `User.ini` beside a `DeusEx.ini`, else `DefUser.ini`), else the game's.
+- **The saves**: those of the mod's own save folder, its ini's `SavePath`
+  when that is the mod's; none of the game's, and no shots.
+- **`profile.ini`'s `Mod`**: the mod's folder. A profile whose mod is not
+  there any more says so on Home and Profiles, and does not play.
 
 ## Saves and screenshots
 
@@ -256,10 +308,11 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 | Page | What it has |
 |---|---|
-| Home | Continue, Play, Multiplayer, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
+| Home | Continue, Play, Multiplayer, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, a mod's profile's mod, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
 | Profiles | [the profiles](#profiles): use one, a new one, a copy, a name, delete one |
+| Mods | [the mods](#mods): one's profile used or made, another's folder shown, the mods folder opened |
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
 | Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
 | Multiplayer | [the servers](#multiplayer): the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
@@ -562,10 +615,11 @@ page or of all, Quit.
 |---|---|
 | `--dry-run` | what the start would decide, make and run; nothing is written |
 | `--print-command` | the engine's command line for the profile; nothing is run |
-| `--import --game=<dir>` | a profile made from the install, nothing run |
+| `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
 | `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
+| `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |
 
 ## How it is tested
@@ -584,6 +638,8 @@ writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
 `test_finder` each of the finder's places, in homes it makes up;
+`test_mods` which folders are mods, their settings and where they are
+found, and their profiles' paths, settings and saves, of mods it makes up;
 `test_gamespy` the master's and the servers' words, the challenge's answer
 against the original's own; `test_servers` a server's answer, the sort,
 the filters and the favourites; `test_browser` a look at a master and
@@ -637,7 +693,8 @@ a virtual pad, whose buttons move nothing of the window until its back is
 held; `engine_and_game` starts with an engine this system cannot start,
 puts another in its place from Home, and the game's folder from Settings;
 `profiles` makes a profile, duplicates one, renames and deletes the copy to
-the trash, and uses the first again; `continue` starts the game on the
+the trash, and uses the first again; `mods` makes a made-up mod's profile
+from Mods, and finds its paths, its settings and its save in it; `continue` starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
 the save's URL on the engine's command line or what was deleted in the
@@ -679,6 +736,7 @@ whatever the install. Changed:
 | Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
 | The save migration below FirstRun 220; the Detail page | Not carried | The engine reads none of the Detail page's keys; the saves are 1112fm's |
 | No server browser: the game's menus have one | Multiplayer: the master's servers and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
+| A mod started by a shortcut of its own, `INI=` and `USERINI=` naming its inis; its `.int` files in the game's `System` | Mods: a profile of its own for each, its folders first in its paths by their absolute paths; its text read from its folders | A mod in a folder of its own, anywhere, with the game's folder left as it is |
 
 ## Known defects
 

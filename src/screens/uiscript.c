@@ -84,6 +84,7 @@ static const char *up_now(const dxl_shell *s) {
     case DXL_PAGE_SAVES: return "saves";
     case DXL_PAGE_SHOTS: return s->shot_open ? "shot" : "shots";
     case DXL_PAGE_SERVERS: return "multiplayer";
+    case DXL_PAGE_MODS: return "mods";
     default: return "?";
     }
 }

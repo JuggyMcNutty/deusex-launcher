@@ -77,6 +77,7 @@ add_library(dxl_core STATIC
     src/core/sha1.c
     src/core/gamedb.c
     src/core/install.c
+    src/core/mods.c
     src/core/profile.c
     src/core/engine_args.c
     src/core/lastrun.c
@@ -166,6 +167,7 @@ add_library(dxl_screens STATIC
     src/screens/controller.c
     src/screens/padwizard.c
     src/screens/profiles.c
+    src/screens/mods.c
     src/screens/saves.c
     src/screens/shots.c
     src/screens/servers.c

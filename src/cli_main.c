@@ -6,6 +6,8 @@
  *   dxl-cli --play [...]              play, no Home (app/run.h)
  *   dxl-cli --probe [--ini]           the GPU this machine has; --ini, for a program
  *   dxl-cli --find                    the installs the first run would list
+ *   dxl-cli --mods [--game=<dir>]     the mods a profile can be made of (core/mods.h)
+ *   dxl-cli --import --game=<dir> --mod=<dir> --profile=<id>   a mod's profile
  *   dxl-cli --servers[=<master>]      the servers a master lists, as the browser asks them
  *
  * The words are the original's command line (-safe, -changevideo, a map
@@ -14,6 +16,7 @@
 #define _GNU_SOURCE
 #include "app/browser.h"
 #include "app/run.h"
+#include "app/session.h"
 #include "core/finder.h"
 #include "core/servers.h"
 #include "platform/gpu_probe.h"
@@ -36,8 +39,8 @@ static void on_signal(int sig) {
 
 static void usage(FILE *f) {
     fprintf(f,
-        "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe | --find | --servers\n"
-        "               [--game=<dir>] [--profile=<id>] [the original's command line...]\n"
+        "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe | --find | --mods |\n"
+        "               --servers [--game=<dir>] [--mod=<dir>] [--profile=<id>] [the original's command line...]\n"
         "\n"
         "  --dry-run        what the launcher would decide, make and run; nothing is written\n"
         "  --print-command  the engine's command line for this profile; nothing is run\n"
@@ -47,6 +50,9 @@ static void usage(FILE *f) {
         "                   the [Probe] section the launcher's window reads\n"
         "  --find           the installs of Deus Ex the first run would find here, but\n"
         "                   launcher.ini's: each folder, where it was found, its build\n"
+        "  --mods           the mods a profile can be made of: the install's folder's (the profile's,\n"
+        "                   or --game's), the launcher's mods folder's, the profiles'\n"
+        "  --mod=<dir>      with --import, the profile made a mod's: its folders first in its paths\n"
         "  --servers[=<master>]  the servers the master (master.333networks.com) lists, each\n"
         "                   asked as the browser asks it: name, map, players, ping, address\n"
         "  --game=<dir>     the game's folder: the first run's, or the profile's from now on\n"
@@ -98,6 +104,45 @@ static int find(void) {
     }
     if (!l.count) printf("no Deus Ex found\n");
     dxl_found_list_free(&l);
+    return 0;
+}
+
+/* The mods a profile can be made of, each with its settings and the
+ * profiles that play it: the install's folder's (--game's, else the
+ * profile's), the launcher's mods folder's, the profiles'. */
+static int list_mods(int argc, char **argv) {
+    const char *game = NULL, *profile = NULL;
+    for (int i = 1; i < argc; i++) {
+        if (!strncmp(argv[i], "--game=", 7)) game = argv[i] + 7;
+        else if (!strncmp(argv[i], "--profile=", 10)) profile = argv[i] + 10;
+    }
+    dxl_session s;
+    dxl_err e;
+    if (dxl_session_open(&s, profile, &e) != 0) {
+        fprintf(stderr, "%s\n", dxl_err_msg(&e));
+        return 1;
+    }
+    const char *root = game ? game : dxl_session_install_path(&s, dxl_profile_get(&s.profile, "Install"));
+    char *folder = dxl_session_mods_dir(&s);
+    printf("the game's folder: %s\nthe launcher's mods folder: %s\n", root ? root : "none: --game=<dir> names it",
+           folder);
+    free(folder);
+    dxl_mod_list l;
+    dxl_session_mods(&s, root, &l);
+    for (int i = 0; i < l.count; i++) {
+        const dxl_mod *m = &l.items[i];
+        printf("\n%s\n    %s, %s: %d package%s\n    its settings: %s\n    its controls: %s\n", m->name,
+               dxl_mod_where_text(m->where), m->dir, m->packages, m->packages == 1 ? "" : "s",
+               m->ini ? m->ini : "the game's", m->user_ini ? m->user_ini : "the game's");
+        char ids[8][DXL_PROFILE_ID_MAX + 1];
+        size_t n = dxl_session_mod_profiles(&s, m->dir, ids, 8);
+        printf("    played by: ");
+        for (size_t k = 0; k < n && k < 8; k++) printf("%s%s", k ? ", " : "", ids[k]);
+        printf("%s\n", n ? "" : "no profile yet");
+    }
+    if (!l.count) printf("\nno mods found\n");
+    dxl_mod_list_free(&l);
+    dxl_session_close(&s);
     return 0;
 }
 
@@ -166,6 +211,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) { usage(stdout); return 0; }
         if (strcmp(argv[i], "--version") == 0) { printf("dxl-cli %s\n", DXL_VERSION); return 0; }
         if (strcmp(argv[i], "--find") == 0) return find();
+        if (strcmp(argv[i], "--mods") == 0) return list_mods(argc, argv);
         if (strcmp(argv[i], "--servers") == 0) return list_servers("master.333networks.com");
         if (strncmp(argv[i], "--servers=", 10) == 0) return list_servers(argv[i] + 10);
         if (strcmp(argv[i], "--probe") == 0) {

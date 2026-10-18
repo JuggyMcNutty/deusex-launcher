@@ -1,8 +1,9 @@
-/* Profiles: every profile the launcher keeps, each with its game, its
- * saves and its last run, the one in use marked. One is used from now on;
- * a new one made from an install, as the first run makes one (The game,
- * then Your profile, its Back the way out); one's settings duplicated, not
- * its saves; one renamed; one deleted -- its four folders to the desktop's
+/* Profiles: every profile the launcher keeps, each with its game (a mod's,
+ * its mod on it), its saves and its last run, the one in use marked. One
+ * is used from now on; a new one made from an install, as the first run
+ * makes one (The game, then Your profile, its Back the way out), or of a
+ * mod, from Mods (screens/mods.c); one's settings duplicated, not its
+ * saves; one renamed; one deleted -- its four folders to the desktop's
  * trash, never the one in use. The rows are the profiles; the buttons
  * beside them act on the one chosen, the row last focused. */
 #define _GNU_SOURCE
@@ -34,6 +35,20 @@ static int describe(dxl_shell *s, const dxl_profile *p, char *out, size_t size) 
     if (ok) snprintf(game, sizeof game, "Deus Ex %s (%s)", in.build->version, in.build->edition);
     else snprintf(game, sizeof game, "%.190s", !path ? "no game" : in.problem[0] ? in.problem : "its game is not there");
     if (path) dxl_install_free(&in);
+    /* A mod's profile: its mod, on the game. */
+    const char *mod = dxl_profile_get(p, "Mod");
+    if (mod && *mod) {
+        dxl_mod m;
+        if (dxl_mod_check(mod, &m, NULL) == 0) {
+            char on[200];
+            snprintf(on, sizeof on, "%.60s on %.130s", m.name, game);
+            snprintf(game, sizeof game, "%s", on);
+            dxl_mod_free(&m);
+        } else {
+            snprintf(game, sizeof game, "its mod is not there");
+            ok = 0;
+        }
+    }
     int n = dxl_profile_count_saves(p);
     if (n == 1) snprintf(saves, sizeof saves, "1 save");
     else if (n) snprintf(saves, sizeof saves, "%d saves", n);
@@ -113,9 +128,35 @@ void dxl_shell_making_cancel(dxl_shell *s) {
     dxl_err e;
     if (dxl_run_use_profile(s->run, s->making_before, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     s->making = 0;
+    dxl_page back = s->making_mod.dir ? DXL_PAGE_MODS : DXL_PAGE_PROFILES;
+    dxl_mod_free(&s->making_mod);
     dxl_shell_theme(s);
     dxl_log("profile: none made");
-    dxl_shell_go(s, DXL_PAGE_PROFILES);
+    dxl_shell_go(s, back);
+}
+
+void dxl_shell_use_profile(dxl_shell *s, const char *id, const char *name) {
+    dxl_err e;
+    if (!strcmp(id, s->run->session.profile.id)) {
+        dxl_shell_go(s, DXL_PAGE_HOME);
+        return;
+    }
+    if (dxl_run_use_profile(s->run, id, &e) != 0) {
+        dxl_shell_message(s, "Not changed", "%s", dxl_err_msg(&e));
+        return;
+    }
+    /* Another profile's start: the next run's words were the other's, and
+     * one whose last run left its Running.ini opens on Recovery, as a start
+     * of it does. */
+    s->note[0] = s->next_run[0] = '\0';
+    dxl_shell_theme(s);
+    dxl_shell_toast(s, "The profile is %s.", name);
+    if (dxl_sentinel_exists(&s->run->sentinel)) {
+        s->run->decision.screen = DXL_SCREEN_MAIN_RECOVERY;
+        dxl_shell_go(s, DXL_PAGE_RECOVERY);
+    } else {
+        dxl_shell_go(s, DXL_PAGE_HOME);
+    }
 }
 
 void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
@@ -185,6 +226,8 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     dxl_cut_top(&side, 10);
     int b_new = dxl_button(ui, "profiles new", dxl_cut_top(&side, 48), "New profile...", DXL_W_LEFT);
     dxl_cut_top(&side, 10);
+    int b_mods = dxl_button(ui, "profiles mods", dxl_cut_top(&side, 48), "Mods...", DXL_W_LEFT);
+    dxl_cut_top(&side, 10);
     int b_copy = dxl_button(ui, "profiles copy", dxl_cut_top(&side, 48), "Duplicate",
                             DXL_W_LEFT | (sel < 0 ? DXL_W_DISABLED : 0));
     dxl_cut_top(&side, 10);
@@ -195,6 +238,9 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     if (ui->focus == dxl_ui_id(ui, "profiles new"))
         why = "A profile of its own, made from an install as the first run makes one: its own settings, saves "
               "and screenshots.";
+    else if (ui->focus == dxl_ui_id(ui, "profiles mods"))
+        why = "The mods here and in the launcher's mods folder, each played with a profile of its own: its "
+              "folders before the game's.";
     else if (ui->focus == dxl_ui_id(ui, "profiles copy"))
         why = "A new profile with the chosen one's settings, keys and controller: none of its saves.";
     else if (ui->focus == del_id)
@@ -215,27 +261,9 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     }
     if (use >= 0 || (b_use && sel >= 0)) {
         int i = use >= 0 ? use : sel;
-        dxl_err e;
-        if (s->profiles[i].active) {
-            dxl_shell_go(s, DXL_PAGE_HOME);
-            return;
-        }
-        if (dxl_run_use_profile(s->run, s->profiles[i].id, &e) != 0) {
-            dxl_shell_message(s, "Not changed", "%s", dxl_err_msg(&e));
-            return;
-        }
-        /* Another profile's start: the next run's words were the other's,
-         * and one whose last run left its Running.ini opens on Recovery, as
-         * a start of it does. */
-        s->note[0] = s->next_run[0] = '\0';
-        dxl_shell_theme(s);
-        dxl_shell_toast(s, "The profile is %s.", s->profiles[i].name);
-        if (dxl_sentinel_exists(&s->run->sentinel)) {
-            s->run->decision.screen = DXL_SCREEN_MAIN_RECOVERY;
-            dxl_shell_go(s, DXL_PAGE_RECOVERY);
-        } else {
-            dxl_shell_go(s, DXL_PAGE_HOME);
-        }
+        dxl_shell_use_profile(s, s->profiles[i].id, s->profiles[i].name);
+    } else if (b_mods) {
+        dxl_shell_go(s, DXL_PAGE_MODS);
     } else if (b_new) {
         start_new(s);
     } else if (b_copy && sel >= 0) {

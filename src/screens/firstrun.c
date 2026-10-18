@@ -1,5 +1,6 @@
 /* The first run's pages: Welcome; The game, which the profile is made
- * from; Your profile, what making it will do, shown before it is done. */
+ * from; Your profile, what making it will do, shown before it is done --
+ * a new profile's too, and a mod's (screens/mods.c). */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
@@ -210,14 +211,21 @@ static void renamed(dxl_shell *s) {
     }
     memset(&s->plan, 0, sizeof s->plan);
     s->plan_error[0] = '\0';
-    if (dxl_profile_import(&ss->profile, s->chosen.system_dir, 1, &s->plan, &e) != 0)
-        snprintf(s->plan_error, sizeof s->plan_error, "%s", dxl_err_msg(&e));
+    int planned = s->making_mod.dir
+                      ? dxl_profile_import_mod(&ss->profile, s->chosen.system_dir, &s->making_mod, 1, &s->plan, &e)
+                      : dxl_profile_import(&ss->profile, s->chosen.system_dir, 1, &s->plan, &e);
+    if (planned != 0) snprintf(s->plan_error, sizeof s->plan_error, "%s", dxl_err_msg(&e));
 }
 
-/* A file of the install's, by its path in the install. */
+/* A file of the install's, by its path in the install; of the mod's, by
+ * its path in the mod's folder, after the mod's name. */
 static const char *in_install(const dxl_shell *s, const char *path, char *buf, size_t size) {
-    const char *root = s->chosen.root;
-    size_t n = root ? strlen(root) : 0;
+    const char *root = s->chosen.root, *mod = s->making_mod.dir;
+    size_t n = root ? strlen(root) : 0, k = mod ? strlen(mod) : 0;
+    if (k && strncmp(path, mod, k) == 0 && path[k] == '/') {
+        snprintf(buf, size, "%s/%s", s->making_mod.name, path + k + 1);
+        return buf;
+    }
     if (n && strncmp(path, root, n) == 0 && path[n] == '/') return path + n + 1;
     return dxl_shell_tilde(path, buf, size);
 }
@@ -226,15 +234,17 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
     const dxl_import *p = &s->plan;
+    const dxl_mod *mod = s->making_mod.dir ? &s->making_mod : NULL;
     float w = r.w < 900 ? r.w : 900;
     char title[1100], shown[1024], v[1200], buf[1024];
-    snprintf(title, sizeof title, "From %s", dxl_shell_tilde(s->chosen.root, shown, sizeof shown));
+    snprintf(title, sizeof title, "From %s", dxl_shell_tilde(mod ? mod->dir : s->chosen.root, shown, sizeof shown));
     char cut[1100];
     dxl_text_fit_tail(ui, DXL_FONT_BUTTON, title, w - 40, cut, sizeof cut);
     const float nw = 150, ch = 40;
     /* How it begins, on lines under the fields: its name, the graphics,
      * and with a pad connected its layout. The fields' lines closer on a
      * short window. */
+    /* A mod's row takes the place of the screenshots'. */
     int pad = SDL_HasGamepad(), rows = 6 + (p->master_replaced != 0);
     float extra = 10 + ch + 10 + ch + 10 + dxl_text_line(ui, DXL_FONT_SMALL),
           room = (r.h - 6 - 133 - extra) / (float)rows;
@@ -250,6 +260,10 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         const dxl_install *g = &s->chosen;
         snprintf(v, sizeof v, "Deus Ex %s (%s)", g->build ? g->build->version : "?", g->build ? g->build->edition : "?");
         dxl_field(ui, &in, lh, nw, "The game", v, t->text, DXL_W_MAY_CUT);
+        if (mod) {
+            snprintf(v, sizeof v, "%s, its folders before the game's", mod->name);
+            dxl_field(ui, &in, lh, nw, "The mod", v, t->text, DXL_W_MAY_CUT);
+        }
         dxl_field(ui, &in, lh, nw, "Its settings", in_install(s, p->system_from, buf, sizeof buf), t->text,
                   DXL_W_TAIL | DXL_W_MAY_CUT);
         dxl_field(ui, &in, lh, nw, "Your controls", in_install(s, p->user_from, buf, sizeof buf), t->text,
@@ -260,9 +274,11 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         if (p->saves) snprintf(v, sizeof v, "%d to copy", p->saves);
         else snprintf(v, sizeof v, "none to copy");
         dxl_field(ui, &in, lh, nw, "Saves", v, t->text, DXL_W_MAY_CUT);
-        if (p->shots) snprintf(v, sizeof v, "%d to copy", p->shots);
-        else snprintf(v, sizeof v, "none to copy");
-        dxl_field(ui, &in, lh, nw, "Screenshots", v, t->text, DXL_W_MAY_CUT);
+        if (!mod) {
+            if (p->shots) snprintf(v, sizeof v, "%d to copy", p->shots);
+            else snprintf(v, sizeof v, "none to copy");
+            dxl_field(ui, &in, lh, nw, "Screenshots", v, t->text, DXL_W_MAY_CUT);
+        }
         if (p->master_replaced)
             dxl_field(ui, &in, lh, nw, "Master server", "333networks', for GameSpy's, which is closed", t->text,
                       DXL_W_MAY_CUT);
@@ -295,8 +311,8 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         }
         dxl_cut_top(&in, 10);
         char kept_in[1200];
-        snprintf(kept_in, sizeof kept_in, "Nothing in the game's folder changes: the profile is kept in %s.",
-                 dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf));
+        snprintf(kept_in, sizeof kept_in, "Nothing in the game's folder%s changes: the profile is kept in %s.",
+                 mod ? " or the mod's" : "", dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf));
         dxl_paragraph(ui, in, DXL_FONT_SMALL, kept_in, t->help);
     }
 
@@ -309,7 +325,7 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     if (make) {
         dxl_import done;
         dxl_err e;
-        if (dxl_session_make_profile(&s->run->session, &s->chosen, s->begin_name, &done, &e) != 0) {
+        if (dxl_session_make_profile(&s->run->session, &s->chosen, mod, s->begin_name, &done, &e) != 0) {
             dxl_shell_message(s, "The profile was not made", "%s", dxl_err_msg(&e));
             return;
         }
@@ -323,10 +339,11 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         if (done.saves && done.shots)
             snprintf(s->note, sizeof s->note, "The profile is made: %s and %s copied from the game's folder.", saves, shots);
         else if (done.saves || done.shots)
-            snprintf(s->note, sizeof s->note, "The profile is made: %s copied from the game's folder.",
-                     done.saves ? saves : shots);
+            snprintf(s->note, sizeof s->note, "The profile is made: %s copied from the %s folder.",
+                     done.saves ? saves : shots, mod ? "mod's" : "game's");
         else
             snprintf(s->note, sizeof s->note, "The profile is made.");
+        dxl_mod_free(&s->making_mod);
         if (s->making) {
             /* From the Profiles page: the run's profile this one now, Home;
              * the next run's words were the other's. */
@@ -339,6 +356,7 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         }
         s->result = 1;
     } else if (back || (ui->in.back && !ui->text_id)) {
-        dxl_shell_go(s, DXL_PAGE_FIND);
+        if (mod) dxl_shell_making_cancel(s);
+        else dxl_shell_go(s, DXL_PAGE_FIND);
     }
 }

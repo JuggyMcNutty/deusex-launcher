@@ -21,6 +21,7 @@
 #include "core/common.h"
 #include "core/ini.h"
 #include "core/install.h"
+#include "core/mods.h"
 #include "core/profile.h"
 #include "core/settings.h"
 #include "core/xdg.h"
@@ -59,10 +60,20 @@ void dxl_session_remember_install(dxl_session *s, const dxl_install *in, char *i
  * when it is one the engine plays. */
 int  dxl_session_check_install(dxl_session *s);
 
-/* The first run: the active profile made from an install, named, pointed
- * at it and made active (core/profile.h's import). */
-int  dxl_session_make_profile(dxl_session *s, const dxl_install *in, const char *name,
+/* The first run: the active profile made from an install, and a mod for a
+ * mod's profile (mod NULL for none), named, pointed at them and made active
+ * (core/profile.h's import). */
+int  dxl_session_make_profile(dxl_session *s, const dxl_install *in, const dxl_mod *mod, const char *name,
                               dxl_import *report, dxl_err *err);
+/* The launcher's mods folder, <data>/mods (core/mods.h). Caller frees. */
+char *dxl_session_mods_dir(const dxl_session *s);
+/* The mods to offer: the install's folder's, the launcher's mods folder's,
+ * then those of the profiles' Mod that are still mods. */
+void dxl_session_mods(const dxl_session *s, const char *game_root, dxl_mod_list *l);
+/* The profiles that play the mod of folder dir, sorted, at most max into
+ * ids; returns how many. */
+size_t dxl_session_mod_profiles(const dxl_session *s, const char *dir, char ids[][DXL_PROFILE_ID_MAX + 1],
+                                size_t max);
 /* And how it begins, as the first run's quick setup has it: a graphics
  * preset, NULL for the engine's defaults as made, and a pad layout, NULL
  * for the controls as imported; its files written. */
