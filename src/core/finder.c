@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* Deus Ex: Game of the Year Edition, on Steam, and the folder Steam gives
@@ -18,8 +19,13 @@
 #define STEAM_FOLDER "Deus Ex"
 /* A folder's folders looked at, at most: more than a games folder has. */
 #define CHILDREN_MAX 1024
-/* A Lutris game's file, read at most. */
-#define YML_MAX (256 * 1024)
+/* A Lutris game's file, read at most; Heroic's list of its games; the
+ * table of what is mounted. */
+#define YML_MAX    (256 * 1024)
+#define JSON_MAX   (8L << 20)
+#define MOUNTS_MAX (4L << 20)
+/* The drives looked at, at most. */
+#define DRIVES_MAX 64
 
 #define FOUND_STEAM    "in Steam's library"
 #define FOUND_HEROIC   "in Heroic's games"
@@ -29,18 +35,34 @@
 #define FOUND_DRIVE    "on a mounted drive"
 
 typedef struct {
-    const char        *home, *config, *data, *wineprefix;
+    const char        *home, *config, *data, *wineprefix, *mounts;
     const char *const *media;
     char              *own[3];      /* the paths made up for those */
-    char              *media_own[6];
+    char               home_own[PATH_MAX];
     dxl_found_fn       found;
     void              *ctx;
-    const volatile int *stop;
+    const atomic_int  *stop;
     char              *seen[DXL_FOUND_MAX];   /* the folders listed, as they really are */
     int                seen_count;
 } finder;
 
-static int stopped(const finder *f) { return (f->stop && *f->stop) || f->seen_count >= DXL_FOUND_MAX; }
+static int stopped(const finder *f) {
+    return (f->stop && atomic_load(f->stop)) || f->seen_count >= DXL_FOUND_MAX;
+}
+
+/* A regular file's text, if it is no larger than max: a link to a device
+ * or a file grown wild is not read. */
+static char *read_small(const char *path, long max) {
+    struct stat st;
+    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > max) return NULL;
+    FILE *in = fopen(path, "rb");
+    if (!in) return NULL;
+    char *text = dxl_xmalloc((size_t)st.st_size + 1);
+    size_t len = fread(text, 1, (size_t)st.st_size, in);
+    fclose(in);
+    text[len] = '\0';
+    return text;
+}
 
 /* dir checked and listed, once: by the folder it really is. always: the
  * folder given, listed whatever is there. */
@@ -240,7 +262,9 @@ static void steam(finder *f, const char *source, const char *root) {
  * "installed", each with its install_path. */
 static void heroic(finder *f, const char *config) {
     char *path = dxl_path_join(config, "heroic/gog_store/installed.json");
-    dxl_json *j = dxl_path_exists(path) ? dxl_json_load(path, NULL) : NULL;
+    char *text = read_small(path, JSON_MAX);
+    dxl_json *j = text ? dxl_json_parse(text, strlen(text), NULL) : NULL;
+    free(text);
     dxl_json *installed = dxl_json_get(j, "installed");
     for (size_t i = 0; i < dxl_json_count(installed) && !stopped(f); i++) {
         const char *at = dxl_json_get_string(dxl_json_at(installed, i), "install_path", NULL);
@@ -252,23 +276,69 @@ static void heroic(finder *f, const char *config) {
 
 /* ---- Lutris ---------------------------------------------------------- */
 
-/* A YAML scalar as Lutris writes one, into out: bare, its comment cut off,
- * or in quotes -- '' a quote in single ones, \ an escape in double. */
+/* A code point as UTF-8 at out + *n, if it fits. */
+static void put_utf8(char *out, size_t *n, size_t size, unsigned long c) {
+    char b[4];
+    size_t k;
+    if (c < 0x80) { b[0] = (char)c; k = 1; }
+    else if (c < 0x800) { b[0] = (char)(0xc0 | c >> 6); b[1] = (char)(0x80 | (c & 0x3f)); k = 2; }
+    else if (c < 0x10000) {
+        b[0] = (char)(0xe0 | c >> 12); b[1] = (char)(0x80 | (c >> 6 & 0x3f)); b[2] = (char)(0x80 | (c & 0x3f)); k = 3;
+    } else if (c < 0x110000) {
+        b[0] = (char)(0xf0 | c >> 18); b[1] = (char)(0x80 | (c >> 12 & 0x3f)); b[2] = (char)(0x80 | (c >> 6 & 0x3f));
+        b[3] = (char)(0x80 | (c & 0x3f)); k = 4;
+    } else {
+        return;
+    }
+    if (*n + k >= size) return;
+    memcpy(out + *n, b, k);
+    *n += k;
+}
+
+/* digits hex digits at s as a number; -1 when they are not. */
+static long hex_of(const char *s, int digits) {
+    long v = 0;
+    for (int i = 0; i < digits; i++) {
+        char c = s[i];
+        int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+        if (d < 0) return -1;
+        v = v * 16 + d;
+    }
+    return v;
+}
+
+/* A YAML scalar as PyYAML writes one for Lutris, into out: bare, its
+ * comment cut off; in single quotes, '' a quote; in double quotes, its
+ * escapes -- \xE9, é, \U000000e9 a character, as UTF-8. */
 static void yml_scalar(const char *in, char *out, size_t size) {
     size_t n = 0;
     while (*in == ' ' || *in == '\t') in++;
-    if (*in == '\'' || *in == '"') {
-        char q = *in++;
-        for (; *in && n + 1 < size; in++) {
-            if (*in == q) {
-                if (q == '\'' && in[1] == '\'') { out[n++] = *in++; continue; }
-                break;
+    if (*in == '\'') {
+        for (in++; *in && n + 1 < size; in++) {
+            if (*in == '\'') {
+                if (in[1] != '\'') break;
+                in++;
             }
-            if (q == '"' && *in == '\\' && in[1]) in++;
             out[n++] = *in;
         }
+    } else if (*in == '"') {
+        for (in++; *in && *in != '"' && n + 1 < size; in++) {
+            if (*in != '\\' || !in[1]) {
+                out[n++] = *in;
+                continue;
+            }
+            char e = *++in;
+            int digits = e == 'x' ? 2 : e == 'u' ? 4 : e == 'U' ? 8 : 0;
+            long c = digits ? hex_of(in + 1, digits) : -1;
+            if (c >= 0) {
+                put_utf8(out, &n, size, (unsigned long)c);
+                in += digits;
+            } else {
+                out[n++] = e == 'n' ? '\n' : e == 't' ? '\t' : e;
+            }
+        }
     } else {
-        for (; *in && *in != '\r' && n + 1 < size; in++) {
+        for (; *in && n + 1 < size; in++) {
             if (*in == '#' && n && (out[n - 1] == ' ' || out[n - 1] == '\t')) break;
             out[n++] = *in;
         }
@@ -278,26 +348,42 @@ static void yml_scalar(const char *in, char *out, size_t size) {
 }
 
 /* One game's file: the game: section's exe -- the game's own folder if it
- * is the game's System/DeusEx.exe, or beside it -- and its Wine prefix. */
+ * is the game's System/DeusEx.exe, or beside it -- and its Wine prefix. A
+ * value PyYAML folded goes on, a space between, on the lines indented
+ * under it; in double quotes, a line's end escaped joins with none. */
 static void lutris_game(finder *f, const char *path) {
-    FILE *in = fopen(path, "rb");
-    if (!in) return;
-    char *text = dxl_xmalloc(YML_MAX + 1);
-    size_t len = fread(text, 1, YML_MAX, in);
-    fclose(in);
-    text[len] = '\0';
+    char *text = read_small(path, YML_MAX);
+    if (!text) return;
     char exe[PATH_MAX] = "", pfx[PATH_MAX] = "";
     int in_game = 0;
-    char *save = NULL;
-    for (char *line = strtok_r(text, "\n", &save); line; line = strtok_r(NULL, "\n", &save)) {
+    for (char *line = text, *next; line; line = next) {
+        next = strchr(line, '\n');
+        if (next) *next++ = '\0';
+        line[strcspn(line, "\r")] = '\0';
         if (line[0] != ' ' && line[0] != '\t') {
             if (line[0] && line[0] != '#') in_game = !strncmp(line, "game:", 5);
             continue;
         }
-        if (!in_game) continue;
-        const char *t = line + strspn(line, " \t");
-        if (!strncmp(t, "exe:", 4)) yml_scalar(t + 4, exe, sizeof exe);
-        else if (!strncmp(t, "prefix:", 7)) yml_scalar(t + 7, pfx, sizeof pfx);
+        size_t indent = strspn(line, " \t");
+        const char *t = line + indent;
+        char *want = !in_game ? NULL : !strncmp(t, "exe:", 4) ? exe : !strncmp(t, "prefix:", 7) ? pfx : NULL;
+        if (!want) continue;
+        dxl_buf v;
+        dxl_buf_init(&v);
+        dxl_buf_puts(&v, strchr(t, ':') + 1);
+        while (next) {
+            size_t under = strspn(next, " \t");
+            if (under <= indent || next[under] == '\n' || next[under] == '\r' || !next[under]) break;
+            char *after = strchr(next, '\n');
+            if (after) *after++ = '\0';
+            next[strcspn(next, "\r")] = '\0';
+            if (v.len && v.data[v.len - 1] == '\\') v.data[--v.len] = '\0';
+            else dxl_buf_add(&v, " ", 1);
+            dxl_buf_puts(&v, next + under);
+            next = after;
+        }
+        yml_scalar(v.data ? v.data : "", want, PATH_MAX);
+        dxl_buf_free(&v);
     }
     free(text);
     if (exe[0] == '/') {
@@ -344,26 +430,93 @@ static void lutris(finder *f, const char *games) {
 
 /* ---- the drives -------------------------------------------------------- */
 
-static int is_media(const finder *f, const char *dir) {
-    for (size_t i = 0; f->media && f->media[i]; i++)
-        if (!strcmp(f->media[i], dir)) return 1;
-    return 0;
+/* A mount point as mountinfo writes it, into out: \040 a space, \011 a
+ * tab, \012 a line's end, \134 a backslash. */
+static void mount_path(const char *in, size_t len, char *out, size_t size) {
+    size_t n = 0;
+    for (size_t i = 0; i < len && n + 1 < size; i++) {
+        if (in[i] == '\\' && i + 3 < len && in[i + 1] >= '0' && in[i + 1] <= '3' &&
+            in[i + 2] >= '0' && in[i + 2] <= '7' && in[i + 3] >= '0' && in[i + 3] <= '7') {
+            out[n++] = (char)((in[i + 1] - '0') * 64 + (in[i + 2] - '0') * 8 + (in[i + 3] - '0'));
+            i += 3;
+        } else {
+            out[n++] = in[i];
+        }
+    }
+    out[n] = '\0';
 }
 
-/* Each drive mounted in dir -- but those of another folder looked in, a
- * user's in /run/media -- at its top and two folders down, and where
- * Windows' installers put the game. */
-static void drives(finder *f, const char *dir) {
-    char **names = children(dir);
-    for (size_t i = 0; names && names[i] && !stopped(f); i++) {
-        char *mount = dxl_path_join(dir, names[i]);
-        if (!is_media(f, mount)) {
-            within(f, FOUND_DRIVE, mount, 2);
-            drive(f, FOUND_DRIVE, mount);
-        }
-        free(mount);
+/* Whether path is root or under it. */
+static int under(const char *path, const char *root) {
+    size_t n = strlen(root);
+    return !strncmp(path, root, n) && (path[n] == '/' || !path[n] || (n == 1 && root[0] == '/'));
+}
+
+/* What mountinfo has mounted under the folders drives are mounted in --
+ * those folders made real first, so a link to another is looked in once --
+ * each drive once, in its order: at its top and two folders down, and
+ * where Windows' installers put the game. */
+static void drives(finder *f) {
+    if (!f->media) return;
+    char *own = NULL;
+    const char *info = f->mounts;
+    if (!info) {
+        /* /proc's files say they are empty: read to their end. */
+        FILE *in = fopen("/proc/self/mountinfo", "rb");
+        if (!in) return;
+        own = dxl_xmalloc((size_t)MOUNTS_MAX + 1);
+        size_t len = fread(own, 1, (size_t)MOUNTS_MAX, in);
+        fclose(in);
+        own[len] = '\0';
+        info = own;
     }
-    names_free(names);
+    char *roots[8];
+    int nroots = 0;
+    for (size_t i = 0; f->media[i] && nroots < 8; i++) {
+        char *r = realpath(f->media[i], NULL);
+        for (int k = 0; r && k < nroots; k++)
+            if (!strcmp(roots[k], r)) {
+                free(r);
+                r = NULL;
+            }
+        if (r) roots[nroots++] = r;
+    }
+    char *walked[DRIVES_MAX];
+    int nwalked = 0;
+    for (const char *line = info; *line && !stopped(f) && nwalked < DRIVES_MAX;) {
+        const char *end = strchr(line, '\n');
+        size_t len = end ? (size_t)(end - line) : strlen(line);
+        /* The fifth field: where it is mounted. */
+        const char *p = line, *stop_at = line + len;
+        for (int k = 0; k < 4 && p; k++) {
+            p = memchr(p, ' ', (size_t)(stop_at - p));
+            if (p) p++;
+        }
+        if (p && p < stop_at) {
+            const char *q = memchr(p, ' ', (size_t)(stop_at - p));
+            char at[PATH_MAX];
+            mount_path(p, (size_t)((q ? q : stop_at) - p), at, sizeof at);
+            int in_media = 0;
+            for (int k = 0; k < nroots && !in_media; k++) in_media = under(at, roots[k]);
+            char *real = in_media ? realpath(at, NULL) : NULL;
+            for (int k = 0; real && k < nwalked; k++)
+                if (!strcmp(walked[k], real)) {
+                    free(real);
+                    real = NULL;
+                }
+            if (real && dxl_path_is_dir(real)) {
+                walked[nwalked++] = real;
+                within(f, FOUND_DRIVE, real, 2);
+                drive(f, FOUND_DRIVE, real);
+            } else {
+                free(real);
+            }
+        }
+        line = end ? end + 1 : line + len;
+    }
+    for (int k = 0; k < nwalked; k++) free(walked[k]);
+    for (int k = 0; k < nroots; k++) free(roots[k]);
+    free(own);
 }
 
 /* ---- the run ------------------------------------------------------------ */
@@ -374,56 +527,39 @@ static const char *env_dir(const char *name) {
     return v && *v == '/' ? v : NULL;
 }
 
+static const char *const media_default[] = { "/run/media", "/media", "/mnt", NULL };
+
 static void setup(finder *f, const dxl_finder_where *w) {
     int own = !w->home;
-    f->home = w->home ? w->home : getenv("HOME");
+    f->home = w->home ? w->home : env_dir("HOME");
+    if (!f->home && own) {
+        struct passwd pw, *got = NULL;
+        char buf[4096];
+        if (getpwuid_r(getuid(), &pw, buf, sizeof buf, &got) == 0 && got && got->pw_dir && *got->pw_dir == '/') {
+            snprintf(f->home_own, sizeof f->home_own, "%s", got->pw_dir);
+            f->home = f->home_own;
+        }
+    }
     f->config = w->config_home ? w->config_home : own ? env_dir("XDG_CONFIG_HOME") : NULL;
     f->data = w->data_home ? w->data_home : own ? env_dir("XDG_DATA_HOME") : NULL;
     if (!f->config && f->home) f->config = f->own[0] = dxl_path_join(f->home, ".config");
     if (!f->data && f->home) f->data = f->own[1] = dxl_path_join(f->home, ".local/share");
     f->wineprefix = w->wineprefix ? w->wineprefix : own ? env_dir("WINEPREFIX") : NULL;
-    f->media = w->media;
-    if (!f->media && own) {
-        char user[256] = "";
-        struct passwd pw, *got = NULL;
-        char buf[4096];
-        if (getpwuid_r(getuid(), &pw, buf, sizeof buf, &got) == 0 && got && got->pw_name)
-            snprintf(user, sizeof user, "%s", got->pw_name);
-        int n = 0;
-        if (*user) f->media_own[n++] = dxl_path_join("/run/media", user);
-        f->media_own[n++] = dxl_xstrdup("/run/media");
-        if (*user) f->media_own[n++] = dxl_path_join("/media", user);
-        f->media_own[n++] = dxl_xstrdup("/media");
-        f->media_own[n++] = dxl_xstrdup("/mnt");
-        f->media_own[n] = NULL;
-        f->media = (const char *const *)f->media_own;
-    }
+    f->media = w->media ? w->media : own ? media_default : NULL;
+    f->mounts = w->mounts;
 }
 
 static void teardown(finder *f) {
     for (int i = 0; i < 3; i++) free(f->own[i]);
-    for (int i = 0; i < 6; i++) free(f->media_own[i]);
     for (int i = 0; i < f->seen_count; i++) free(f->seen[i]);
 }
 
 /* A folder under the home, for the places' walk. */
 static char *in_home(const finder *f, const char *rel) { return dxl_path_join(f->home, rel); }
 
-void dxl_finder_run(const dxl_finder_where *w, dxl_found_fn found, void *ctx, const volatile int *stop) {
-    finder f;
-    memset(&f, 0, sizeof f);
-    f.found = found;
-    f.ctx = ctx;
-    f.stop = stop;
-    setup(&f, w);
-
-    if (w->given && *w->given) add(&f, "the folder given", w->given, 1);
-    for (int i = 0; w->known && w->known[i]; i++) add(&f, "played before", w->known[i], 0);
-    if (!f.home || !*f.home) {
-        teardown(&f);
-        return;
-    }
-
+/* The places under the home: Steam's, Heroic's, the games folders,
+ * Lutris', Bottles', the Wine prefixes there. */
+static void home_places(finder *f) {
     static const struct {
         const char *source;
         const char *steam;   /* under the home */
@@ -435,73 +571,86 @@ void dxl_finder_run(const dxl_finder_where *w, dxl_found_fn found, void *ctx, co
         { FOUND_STEAM ", Steam's Flatpak", ".var/app/com.valvesoftware.Steam/.local/share/Steam" },
         { FOUND_STEAM ", Steam's Snap", "snap/steam/common/.local/share/Steam" },
     };
-    for (size_t i = 0; i < sizeof steams / sizeof *steams && !stopped(&f); i++) {
-        char *root = in_home(&f, steams[i].steam);
-        steam(&f, steams[i].source, root);
+    for (size_t i = 0; i < sizeof steams / sizeof *steams && !stopped(f); i++) {
+        char *root = in_home(f, steams[i].steam);
+        steam(f, steams[i].source, root);
         free(root);
     }
 
     /* Heroic, natively and as a Flatpak; the folder it puts games in. */
-    if (f.config) heroic(&f, f.config);
-    char *p = in_home(&f, ".var/app/com.heroicgameslauncher.hgl/config");
-    heroic(&f, p);
+    if (f->config) heroic(f, f->config);
+    char *p = in_home(f, ".var/app/com.heroicgameslauncher.hgl/config");
+    heroic(f, p);
     free(p);
-    p = in_home(&f, "Games/Heroic");
-    add_children(&f, FOUND_HEROIC, p);
+    p = in_home(f, "Games/Heroic");
+    add_children(f, FOUND_HEROIC, p);
     free(p);
 
-    p = in_home(&f, "GOG Games");
-    add_children(&f, "in GOG Games", p);
+    p = in_home(f, "GOG Games");
+    add_children(f, "in GOG Games", p);
     free(p);
-    p = in_home(&f, "Games");
-    add_children(&f, "in Games", p);
+    p = in_home(f, "Games");
+    add_children(f, "in Games", p);
     free(p);
 
     /* Lutris: its config folder's games, else its data folder's; the same
      * as a Flatpak. */
     char *lutris_dirs[4] = {
-        f.config ? dxl_path_join(f.config, "lutris/games") : NULL,
-        f.data ? dxl_path_join(f.data, "lutris/games") : NULL,
-        in_home(&f, ".var/app/net.lutris.Lutris/config/lutris/games"),
-        in_home(&f, ".var/app/net.lutris.Lutris/data/lutris/games"),
+        f->config ? dxl_path_join(f->config, "lutris/games") : NULL,
+        f->data ? dxl_path_join(f->data, "lutris/games") : NULL,
+        in_home(f, ".var/app/net.lutris.Lutris/config/lutris/games"),
+        in_home(f, ".var/app/net.lutris.Lutris/data/lutris/games"),
     };
     for (int i = 0; i < 4; i++) {
-        if (lutris_dirs[i] && !stopped(&f)) lutris(&f, lutris_dirs[i]);
+        if (lutris_dirs[i] && !stopped(f)) lutris(f, lutris_dirs[i]);
         free(lutris_dirs[i]);
     }
 
     /* Bottles' bottles, natively and as a Flatpak. */
-    if (f.data) {
-        p = dxl_path_join(f.data, "bottles/bottles");
-        prefixes_in(&f, FOUND_BOTTLES, p);
+    if (f->data) {
+        p = dxl_path_join(f->data, "bottles/bottles");
+        prefixes_in(f, FOUND_BOTTLES, p);
         free(p);
     }
-    p = in_home(&f, ".var/app/com.usebottles.bottles/data/bottles/bottles");
-    prefixes_in(&f, FOUND_BOTTLES, p);
+    p = in_home(f, ".var/app/com.usebottles.bottles/data/bottles/bottles");
+    prefixes_in(f, FOUND_BOTTLES, p);
     free(p);
+}
+
+void dxl_finder_run(const dxl_finder_where *w, dxl_found_fn found, void *ctx, const atomic_int *stop) {
+    finder f;
+    memset(&f, 0, sizeof f);
+    f.found = found;
+    f.ctx = ctx;
+    f.stop = stop;
+    setup(&f, w);
+
+    if (w->given && *w->given) add(&f, "the folder given", w->given, 1);
+    for (int i = 0; w->known && w->known[i]; i++) add(&f, "played before", w->known[i], 0);
+    if (f.home && *f.home) home_places(&f);
 
     /* The other Wine prefixes: the environment's, Wine's own, winetricks',
      * Lutris' folder for them, Heroic's. */
     if (f.wineprefix) prefix(&f, FOUND_PREFIX, f.wineprefix);
-    p = in_home(&f, ".wine");
-    prefix(&f, FOUND_PREFIX, p);
-    free(p);
+    int home = f.home && *f.home;
+    if (home) {
+        char *p = in_home(&f, ".wine");
+        prefix(&f, FOUND_PREFIX, p);
+        free(p);
+    }
     if (f.data) {
-        p = dxl_path_join(f.data, "wineprefixes");
+        char *p = dxl_path_join(f.data, "wineprefixes");
         prefixes_in(&f, FOUND_PREFIX, p);
         free(p);
     }
-    p = in_home(&f, "Games");
-    prefixes_in(&f, FOUND_PREFIX, p);
-    free(p);
-    p = in_home(&f, "Games/Heroic/Prefixes");
-    prefixes_in(&f, FOUND_PREFIX, p);
-    free(p);
-    p = in_home(&f, "Games/Heroic/Prefixes/default");
-    prefixes_in(&f, FOUND_PREFIX, p);
-    free(p);
+    static const char *const in_games[] = { "Games", "Games/Heroic/Prefixes", "Games/Heroic/Prefixes/default" };
+    for (size_t i = 0; home && i < sizeof in_games / sizeof *in_games; i++) {
+        char *p = in_home(&f, in_games[i]);
+        prefixes_in(&f, FOUND_PREFIX, p);
+        free(p);
+    }
 
-    for (size_t i = 0; f.media && f.media[i] && !stopped(&f); i++) drives(&f, f.media[i]);
+    drives(&f);
     teardown(&f);
 }
 

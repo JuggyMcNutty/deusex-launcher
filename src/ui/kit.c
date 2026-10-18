@@ -112,6 +112,11 @@ static void measure(dxl_ui *ui) {
     if (fabsf(ui->scale - ui->font_scale) > 0.001f) dxl_text_open(ui);
 }
 
+void dxl_ui_set_big(dxl_ui *ui, int on) {
+    ui->big = on != 0;
+    if (ui->renderer) measure(ui);
+}
+
 int dxl_ui_init(dxl_ui *ui, SDL_Window *window, SDL_Renderer *renderer, const char *fonts_dir,
                 float user_scale) {
     memset(ui, 0, sizeof *ui);

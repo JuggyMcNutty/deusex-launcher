@@ -567,8 +567,16 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     dxl_decision first;
     dxl_policy_decide(&pre, &first);
     int busy = dxl_instance_other_running(id);
-    if (!r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy &&
-        dxl_instance_forward(id, r->words, HANDOFF_TIMEOUT_MS, &e) == 0) {
+    /* The line, and the one option of the launcher's own the one running
+     * takes too: its window on the big screen. */
+    size_t handed_size = strlen(r->words) + 16;
+    char *handed = dxl_xmalloc(handed_size);
+    snprintf(handed, handed_size, "%s%s%s", r->words, r->opt.big_screen && r->words[0] ? " " : "",
+             r->opt.big_screen ? "--big-screen" : "");
+    int forwarded = !r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy &&
+                    dxl_instance_forward(id, handed, HANDOFF_TIMEOUT_MS, &e) == 0;
+    free(handed);
+    if (forwarded) {
         fprintf(stderr, "the launcher already running took this command line\n");
         free(id);
         goto done;

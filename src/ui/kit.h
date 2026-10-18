@@ -277,6 +277,9 @@ void dxl_clip_pop(dxl_ui *ui);
  * dp an eighth larger -- the screen 640 dp tall -- and never narrower than
  * its smallest, 960 dp. */
 float    dxl_ui_big_scale(int w, int h);
+/* The kit on the big screen or off it, measured again at once: its fonts
+ * opened at the scale it draws at. */
+void     dxl_ui_set_big(dxl_ui *ui, int on);
 
 /* dp to px. */
 dxl_rect dxl_px(const dxl_ui *ui, dxl_rect r);

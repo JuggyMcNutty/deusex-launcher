@@ -177,14 +177,21 @@ void dxl_shell_big(dxl_shell *s, int on) {
         s->set_big(s, on);
     } else {
         s->big = on;
-        s->ui.big = on;
+        dxl_ui_set_big(&s->ui, on);
     }
-    dxl_log("the big screen: %s", on ? "on" : "off");
+    if (s->big == on) dxl_log("the big screen: %s", on ? "on" : "off");
+    else dxl_log("the big screen: still %s, the desktop did not switch it", s->big ? "on" : "off");
+}
+
+/* A player who knows of the big screen, by F11 or the Settings row, is not
+ * offered it, now or later. */
+static void big_known(dxl_shell *s) {
+    s->big_offered = 1;
+    if (s->run) dxl_ini_set_bool(s->run->session.ini, "Launcher", "BigScreenOffered", 1);
 }
 
 void dxl_shell_big_setting(dxl_shell *s, const char *value) {
-    /* The player knows of it now: not offered too. */
-    s->big_offered = 1;
+    big_known(s);
     dxl_big_setting st = dxl_big_setting_of(value);
     int on = st == DXL_BIG_ON;
     if (st == DXL_BIG_AUTO) on = dxl_big_screen_wanted(st, s->run && s->run->opt.big_screen, NULL);
@@ -204,8 +211,10 @@ void dxl_shell_offer_big(dxl_shell *s) {
 
 /* Offered once, on Home or Welcome, as a pad is first used there in a
  * window that is not the big screen and may be -- launcher.ini's
- * BigScreen automatic, BigScreenOffered not yet: the press that brought it
- * the question's, not the page's. Switched to, the big screen always. */
+ * BigScreen automatic, BigScreenOffered not yet -- with no other dialog's
+ * answer waiting to be read: the press that brought it the question's,
+ * not the page's, its move undone and its sound not played. Switched to,
+ * the big screen always. */
 static void offer_big(dxl_shell *s) {
     dxl_ui *ui = &s->ui;
     if (!s->run) return;
@@ -222,15 +231,18 @@ static void offer_big(dxl_shell *s) {
         return;
     }
     if (s->big || !s->set_big || s->big_offered || ui->mode != DXL_INPUT_PAD || s->dialog != DXL_DIALOG_NONE ||
-        (s->page != DXL_PAGE_HOME && s->page != DXL_PAGE_WELCOME))
+        s->answered || (s->page != DXL_PAGE_HOME && s->page != DXL_PAGE_WELCOME))
         return;
     if (dxl_big_setting_of(dxl_ini_get(ini, "Launcher", "BigScreen")) != DXL_BIG_AUTO ||
         dxl_ini_get_bool(ini, "Launcher", "BigScreenOffered", 0))
         return;
-    s->big_offered = 1;
-    dxl_ini_set_bool(ini, "Launcher", "BigScreenOffered", 1);
-    ui->in.activate = ui->in.back = ui->in.start = ui->in.clear = 0;
-    ui->in.shoulder_l = ui->in.shoulder_r = 0;
+    big_known(s);
+    ui->focus = ui->focus_was;
+    ui->focus_moved = 0;
+    ui->cues = 0;
+    memset(ui->in.nav, 0, sizeof ui->in.nav);
+    ui->in.activate = ui->in.back = ui->in.start = ui->in.clear = ui->in.tab = ui->in.untab = 0;
+    ui->in.shoulder_l = ui->in.shoulder_r = ui->in.page_up = ui->in.page_down = 0;
     dxl_shell_offer_big(s);
 }
 
@@ -856,7 +868,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
      * player who knows of it is not offered it. */
     if (ui->in.toggle_big) {
         dxl_shell_big(s, !s->big);
-        s->big_offered = 1;
+        big_known(s);
     }
     offer_big(s);
 
