@@ -17,8 +17,9 @@ if [ ! -x "$engine" ]; then
     exit 127
 fi
 
-# SDL2: the display backend with the fork's pad support.
-export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL2}"
+# SDL3: the window of the engine linux-x86_64 builds, which the recreation
+# installs (Port Ex Machina's scripts/recreation.sh), the one with the pad.
+export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL3}"
 
 # DXL_ENGINE_ARGS: more of the engine's own options, for a scripted run
 # (--timeline=<file>, VibeEngine's ENGINE.md).
