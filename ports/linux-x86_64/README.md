@@ -8,7 +8,8 @@ changes run here.
 
 The launcher is DXLauncher, the desktop's own
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)): a window with Home, the first
-run, Settings, Profiles, Recovery, the log and About, which makes profiles
+run, Settings, Profiles, Saves, Screenshots, Recovery, the log and About,
+which makes profiles
 from the game's files, keeps their settings and plays them. The engine runs the game, not yet fully playable
 ([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
@@ -70,7 +71,9 @@ checked after each build; this port has neither.
   is up is handed over. Settings, by `tests/ui/settings_roundtrip.script`:
   a row of each kind changed on each page, then the engine played on them
   in a window of the size chosen to a clean end, each value kept through
-  its rewrite of the profile's files. Unattended engine runs drive saves,
+  its rewrite of the profile's files. Continue: the engine started on the
+  quick save it had made in the profile, to a clean end, its shot in the
+  profile's Screenshots and shown there. Unattended engine runs drive saves,
   loads and hub travel
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 

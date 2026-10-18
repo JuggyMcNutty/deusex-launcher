@@ -14,8 +14,8 @@ It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
 `deusex-launcher`'s screens are a window of its own, drawn with SDL3 and
-SDL3_ttf: Home, the first run, Settings, Profiles, Recovery, the log, About
-([the window](#the-window)).
+SDL3_ttf: Home, the first run, Settings, Profiles, Saves, Screenshots,
+Recovery, the log, About ([the window](#the-window)).
 
 ## Where everything lives
 
@@ -26,13 +26,13 @@ scratch home:
 
 | Folder | What is in it |
 |---|---|
-| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
+| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
-| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, to be put back from the file manager ([profiles](#profiles)) |
+| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. `SavePath` and
@@ -129,6 +129,38 @@ last focused:
 - **Delete...**: the chosen one's four folders to the desktop's trash, all
   or none (`src/platform/posix/trash.c`); never the one in use.
 
+## Saves and screenshots
+
+A profile's saves are its `Save` folder's, the engine's `SavePath`: each
+`SaveNNNN` under the engine's own name for slot NNNN, and `QuickSave`, the
+quick save, slot -1 (`src/core/saves.c`). Each is read from its
+`SaveInfo.dxs`, the game's `DeusExSaveInfo` (`src/core/upkg_assets.c`):
+what it says, where and when it was made, how long the game had been
+played, its snapshot; the newest first, one whose info does not read last.
+
+- **Continue**, Home's first button where there is a save: the game started
+  on the newest, which Home names, its snapshot under the profile's panel.
+  Play is the game's own start.
+- **Saves**, from Home: each save, the one chosen beside the list with its
+  snapshot (the game's 160 x 120 of its picture), when it was made, how long
+  it had been played, its map and folder. Load, or Enter or a click on its
+  row, starts the game on it; Delete... puts its folder in the desktop's
+  trash.
+- **Screenshots**, from Home: the profile's `Screenshots` folder's pictures,
+  the engine's `ShotNNNN.bmp` and those the import copied, BMPs and PNGs,
+  newest first (`src/core/shotlist.c`), as a gallery of thumbnails read off
+  the window's thread (`src/ui/thumbs.c`), the one chosen beside it with
+  when it was taken and its size. Show, or Enter or a click on one, shows
+  it whole, Previous and Next stepping through them; Open the folder opens
+  it in the file manager; Delete... puts it in the trash.
+
+The game starts on a save by the engine's start URL, `?loadgame=N` in
+`--url`, which only an engine whose `--version` names `loadgame-url` takes
+([the start URL](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)):
+with an older one there is no Continue, and Load is off, saying why. A run
+started on a save that never reached its first map opens Recovery saying
+so, its fix Saves....
+
 ## One start
 
 `src/app/run.h`, in this order:
@@ -173,10 +205,12 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 | Page | What it has |
 |---|---|
-| Home | Play, Settings, Profiles, About, Quit; the profile's game, its build, the engine, its saves, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
+| Home | Continue, Play, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
 | Profiles | [the profiles](#profiles): use one, a new one, a copy, a name, delete one |
+| Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
+| Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
 | Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
 | The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
@@ -184,12 +218,21 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 Graphics (`-changevideo`, and an engine's `RELAUNCH` with it) opens
 Settings on its Graphics tab, whose Done is Play.
 
-It is our own drawing on SDL3's renderer (`src/ui/`), with none of the
-game's art: steel panels with cut corners and lit edges, title bars in the
-theme's colour, and round what has the focus the four corner brackets the
-game puts round what can be used. The colours are made from the game's
-default menu theme, `ColorThemeMenu_Default` (`src/ui/theme.c`); its type
-is in `data/fonts` (`THIRD-PARTY.md` says whose). It is laid out in dp,
+It is our own drawing on SDL3's renderer (`src/ui/`), wearing the game's:
+steel panels with cut corners and lit edges, title bars in the theme's
+colour, and round what has the focus the four corner brackets the game puts
+round what can be used. Its colours are the player's menu theme's, as the
+game takes it -- `User.ini`'s `[DeusEx.DeusExPlayer] MenuThemeName`, else
+Grey -- the install's colours of it, from `DeusEx.u`'s `ColorThemeMenu_*`
+(`src/core/theme_colors.c`), and the default theme's, the kit's own, until
+there is an install (`src/ui/theme.c`). Home wears the game's art, read
+from the install at run time and never kept: its logo's "Deus Ex"
+(`Help/Logo.bmp`, without the makers' logos) and its main menu's buttons
+(`DeusExUI.u`'s `MenuMainButton*` and `MenuMainLight_*`), tinted by the
+theme and added to what is under them, as the game draws them
+(`src/ui/art.c`); ours stand in for what the install lacks. The game's
+packages are read by our own code from their format (`src/core/upkg.c`).
+Its type is in `data/fonts` (`THIRD-PARTY.md` says whose). It is laid out in dp,
 which the display's scale makes pixels, so it is as sharp at any size: for
 1280 x 720 dp, and no smaller than 960 x 600; the window opens at
 1280 x 720, or as it last closed.
@@ -220,6 +263,18 @@ keeps the edit, Esc puts it back, Tab, Up and Down keep it and move on, a
 click elsewhere keeps it. While it is edited the pointer takes no focus and
 nothing scrolls. A pad's confirm opens the on-screen keyboard
 (`src/ui/osk.c`).
+
+**Sound.** The game's title music, `Music/Title_Music.umx`'s module,
+played from its first order and looped by libxmp, fading as the game
+starts, and the game's six menu sounds (`DeusExSounds.u`'s `Menu_*`) for
+the focus moving, a choice, play, back, a value stepped and a dialog
+(`src/ui/audio.c`), at the launcher's own volumes: Settings' Audio page's
+The launcher's music and The launcher's sounds (`launcher.ini`'s
+`MusicVolume`, 0.5, and `SoundVolume`, 0.7). With no sound output, none.
+
+**Text that types itself in**, as the game's menus' does: a page's title,
+the help lines, a dialog's words, Recovery's advice, at 220 characters a
+second; a key or a click shows it whole, and reduced motion turns it off.
 
 Idle, it costs nothing: it waits on its events and draws only while
 something moves, VSync-paced. A second start while it is up hands it its
@@ -398,7 +453,8 @@ end of a socket pair. On that line the
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the
-engine is ready (`src/app/play.c`). A start URL goes in `--url`: in
+engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
+`?loadgame=N` for Continue and Load ([saves](#saves-and-screenshots)): in
 `--cmdline` the engine takes one only with `-hax0r` or `-server`.
 `dxl-cli --print-command` shows the command for a profile.
 
@@ -413,7 +469,7 @@ fork's under SDL does.
 folder: made before the game, taken away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`SurrealEngine error: ...`),
-whether it was ever ready. The window opens on Recovery after a run that
+whether it was ever ready, and the save it started on. The window opens on Recovery after a run that
 was not clean, and at the next start that finds `Running.ini`; with no
 window (`dxl-cli`), that start says so with the end of the run's log, and
 exits 3.
@@ -421,9 +477,10 @@ exits 3.
 The page says what to do about the run's end (`src/core/advice.c`). For a
 crash, and for the errors it knows -- the Vulkan renderer not made, OpenAL
 not started, a package or the engine's `.pk3` not found, an engine that
-ended before its first map -- it says the likely cause, and has its fix as
-a button: another renderer, of those that run here; a run without sound;
-the game's folder. Below are the end of the log where it fits, the [next
+ended before its first map, a save it started on that did not load -- it
+says the likely cause, and has its fix as a button: another renderer, of
+those that run here; a run without sound; the game's folder; Saves. Below
+are the end of the log where it fits, the [next
 run's words](#settings), and Play, the fix, the log, the defaults of a
 page or of all, Quit.
 
@@ -448,7 +505,10 @@ key names, bindings and their reset; `test_bindings` the controller's
 layouts, labels and actions; `test_padcurve` its sticks and triggers as the
 engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`
 and what the engine is given; `test_engine_sections` the keys written;
-`test_advice` the advice. The stand-in
+`test_advice` the advice; `test_upkg` the game's packages, on packages it
+writes itself and the same broken a thousand ways; `test_saves` a profile's
+saves and shots, the saves' infos written as the game writes them
+(`tests/upkg_writer.h`). The stand-in
 engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
 that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
@@ -457,15 +517,19 @@ ends (`test_process`, which has the engine's refusals and its choice too,
 install made read-only, which it leaves as it was, and makes, lists and
 copies profiles; `test_trash` puts folders in a scratch trash;
 `test_gamefiles`, on a
-real install in `gamefiles/`, plays the stub from a scratch home through a
-first run, a crash and the Recovery that follows, and checks that nothing
-in the game's folder changed.
+real install in `gamefiles/`, reads every asset the window takes from it --
+the menu themes, the art, the menu sounds, the title music, its saves'
+infos and snapshots -- plays the stub from a scratch home through a first
+run, a crash and the Recovery that follows, and checks that nothing in the
+game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
 focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the
 keyboard, the mouse and virtual pads with an Xbox's, a DualSense's and a
-Switch Pro's ids (`test_ui_input`), and the controls and the on-screen
-keyboard (`test_ui_controls`). `dxl-shots` (`tools/shots.c`) draws every
+Switch Pro's ids (`test_ui_input`), the controls and the on-screen
+keyboard (`test_ui_controls`), the sound on SDL's dummy output
+(`test_ui_audio`) and the thumbnails (`test_ui_thumbs`). `dxl-shots`
+(`tools/shots.c`) draws every
 page and dialog, each settings page too, from states it makes up in a
 scratch home, at
 1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160 at 2 and
@@ -493,7 +557,11 @@ a virtual pad, whose buttons move nothing of the window until its back is
 held; `engine_and_game` starts with an engine this system cannot start,
 puts another in its place from Home, and the game's folder from Settings;
 `profiles` makes a profile, duplicates one, renames and deletes the copy to
-the trash, and uses the first again; `first_run` and
+the trash, and uses the first again; `continue` starts the game on the
+latest save from Home, `saves_load` on a save from Saves, `saves_delete`
+deletes one, and `shots` shows a shot whole and deletes it, each finding
+the save's URL on the engine's command line or what was deleted in the
+trash; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
 with Your profile's choices made and as they come. SDL takes in each
 only controllers of the virtual ones' makes and models
@@ -524,8 +592,6 @@ whatever the install. Changed:
 
 ## Known defects
 
-- **Not the player's theme**: the window's colours are the default menu
-  theme's, whatever the profile's `MenuThemeName`.
 - **The finder looks in a few places**: Steam's own library, not the
   others `libraryfolders.vdf` lists; `~/Games/Heroic` and `~/GOG Games`;
   not Lutris, Bottles or Wine prefixes. The folder browser, the system's
