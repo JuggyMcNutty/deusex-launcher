@@ -4,7 +4,7 @@ This branch is the launcher of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina)'s
 desktop Linux port: DXLauncher, the desktop's own, an app outside the
 game's folder that keeps the player's settings and saves in a profile,
-starts [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and stays
+starts [DXEngine](https://github.com/JuggyMcNutty/DXEngine) and stays
 with it ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)). Its window has Home, the
 first run, Settings, Profiles, Mods, Saves, Screenshots, Multiplayer,
 Recovery, the log and About. Made with AI assistance.

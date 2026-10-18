@@ -1,9 +1,9 @@
 # Initial cache for the engine on desktop Linux (scripts/engine.sh build), at
 # glibc 2.28 by the SDK of toolchain.cmake, libstdc++ and libgcc static.
 #
-# SDL3's window and X11's. SurrealWidgets builds one SDL backend, SDL3's
+# SDL3's window and X11's. DXWidgets builds one SDL backend, SDL3's
 # when both are on; the launcher asks for it at run time
-# (SURREALWIDGETS_DISPLAY_BACKEND). SDL3 is port.sh's, the launcher's own
+# (DXE_DISPLAY_BACKEND). SDL3 is port.sh's, the launcher's own
 # version, built in, its own X11, Wayland and audio backends opened at run
 # time. The engine's own Wayland window is left out: it needs waylandpp,
 # which the SDK lacks, and SDL3's Wayland is the one the launcher's runs use.
@@ -16,5 +16,5 @@ set(ENABLE_SDL2    OFF CACHE BOOL "" FORCE)
 set(ENABLE_SDL3    ON  CACHE BOOL "" FORCE)
 set(ENABLE_X11     ON  CACHE BOOL "" FORCE)
 set(ENABLE_WAYLAND OFF CACHE BOOL "" FORCE)
-# For editors: VibeEngine/compile_commands.json can point here.
+# For editors: DXEngine/compile_commands.json can point here.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "" FORCE)
