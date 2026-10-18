@@ -151,8 +151,9 @@ A mod is a folder of its own with a `System` folder of its packages
 paths name the mod's folders before the game's, by their absolute paths.
 Nothing of it is copied but its saves, and nothing is written to it or to
 the game's folder. A mod is known by the folder it is found by, a link's
-kept, and is named after it. Its text and the objects its `.int` files register come from its
-folders too, with an engine whose `--version` has `int-paths`
+kept, and is named after it. Its text and the objects its `.int` files
+register come from its folders too, with an engine whose `--version` has
+`int-paths`
 ([VibeEngine's mods](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#mods)):
 the original reads them from `System` alone, where a mod's had to be put.
 
@@ -246,7 +247,7 @@ packet each for its basic, info and rules and one for each player, in
 whatever order they come; one not whole a second after its asking -- a
 packet lost, or all of them -- asked again, its answer begun again, three
 times at most, and given up two seconds after the last
-(`src/core/gamespy.c`).
+(`src/core/gamespy.c`). Refresh asks them all again.
 Each shows as it answers -- its name, map, game, players and ping, the
 time to its first packet -- and, once all have, by the sort chosen: ping,
 players or name; the filter shows them all, those with players, those not
@@ -315,7 +316,7 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 | Home | Continue, Play, Multiplayer, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, a mod's profile's mod, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
-| Profiles | [the profiles](#profiles): use one, a new one, a copy, a name, delete one |
+| Profiles | [the profiles](#profiles): use one, a new one, the mods, a copy, a name, delete one |
 | Mods | [the mods](#mods): one's profile used or made, another's folder shown, the mods folder opened |
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
 | Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
@@ -350,10 +351,11 @@ which the display's scale makes pixels, so it is as sharp at any size: for
 (`src/core/bigscreen.h`): the window full screen, its layout 1280 x 720 dp
 an eighth larger -- the screen 640 dp tall, and no narrower than 960 dp --
 and the hints a pad's when one is there as it opens. Settings' Launcher
-page has it Always, Never, or Automatic, the default: the big screen when
-`--big-screen` asks for it, as the app menu's Big screen does, under
+page has it Always, Never, or Automatic, the default: the big screen under
 Steam's Big Picture (`SteamTenfoot` or `SteamGamepadUI` set to 1), on a
 Steam Deck (`SteamDeck=1`) or in gamescope (`GAMESCOPE_WAYLAND_DISPLAY`).
+`--big-screen`, as the app menu's Big screen, asks for it whatever the
+setting.
 F11 switches it while the window is up, and a second start's
 `--big-screen` -- the app menu's Big screen with the launcher up -- puts
 it on; the desktop taking the window out of full screen ends it. In a
@@ -403,15 +405,16 @@ as each does what it does; reduced motion turns it off.
 
 Idle, it costs next to nothing: it waits on its events and draws only
 while something moves or a picture is being read, VSync-paced; the title
-music, while it plays, is mixed on SDL's audio thread. A second start while it is up hands it its
-command line and raises it; a pad connected or lost is a note in its
-corner.
+music, while it plays, is mixed on SDL's audio thread. A second start while
+it is up hands it its command line and raises it; a pad connected or lost is
+a note in its corner.
 
 ## Settings
 
 Settings' tabs are its pages: Display, Graphics, Audio, Keyboard & mouse,
 Controller ([the controller](#the-controller)), Gameplay & HUD,
-Multiplayer, Launcher; a page's advanced rows come after its others. Each row is the registry's (`src/core/settings_table.c`): what
+Multiplayer, Launcher; a page's advanced rows come after its others. Each
+row is the registry's (`src/core/settings_table.c`): what
 it is, its help, and the places it is kept, each with the codec its reader
 takes (`src/core/settings.c`):
 
@@ -420,7 +423,7 @@ takes (`src/core/settings.c`):
 | `DeusEx.ini` | the engine's sections, `[Engine.SurrealClient]`, `SurrealAudioDevice`, `SurrealRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
-| `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer; the profile's game, the engine's extra words |
+| `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer, its volumes; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
 `[Engine.SurrealAudioDevice]` has a key, else the retail ones
@@ -482,7 +485,7 @@ Recovery's: added to the original's command line of the run Play starts
 next, and of no other.
 
 The changes are in the open files at once, and written as Settings is
-left, by Done or otherwise. The launcher's size, the big screen and
+left, by Done or otherwise. The launcher's size, volumes, the big screen and
 reduced motion apply at once, its renderer from the window's next opening.
 
 ## The controller
@@ -551,7 +554,8 @@ the copy maps the pad of that name alone.
 ## The app menu
 
 `deusex-launcher --install-desktop`, or About's button, puts the launcher on
-the desktop's app menu: `$XDG_DATA_HOME/applications/io.github.juggymcnutty.DXLauncher.desktop`,
+the desktop's app menu:
+`$XDG_DATA_HOME/applications/io.github.juggymcnutty.DXLauncher.desktop`,
 from `data/`'s template with the launcher's own path, and its icon, our own
 drawing, at 32 to 256 px under `$XDG_DATA_HOME/icons/hicolor`
 (`src/platform/posix/desktop.c`, `src/ui/icon.c`). The window has the same
@@ -598,10 +602,10 @@ fork's under SDL does.
 folder: made before the game, taken away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`SurrealEngine error: ...`),
-whether it was ever ready, and the save it started on. The window opens on Recovery after a run that
-was not clean, and at the next start that finds `Running.ini`; with no
-window (`dxl-cli`), that start says so with the end of the run's log, and
-exits 3.
+whether it was ever ready, and the save it started on. The window opens on
+Recovery after a run that was not clean, and at the next start that finds
+`Running.ini`; with no window (`dxl-cli`), that start says so with the end
+of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
 crash, and for the errors it knows -- the Vulkan renderer not made, OpenAL
@@ -642,6 +646,8 @@ writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
 `test_finder` each of the finder's places, in homes it makes up;
+`test_bigscreen` when the big screen is wanted, by the setting, the
+environment and `--big-screen`;
 `test_mods` which folders are mods, their settings and where they are
 found, and their profiles' paths, settings and saves, of mods it makes up;
 `test_gamespy` the master's and the servers' words, the challenge's answer
@@ -659,9 +665,9 @@ copies profiles; `test_trash` puts folders in a scratch trash;
 `test_gamefiles`, on a
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
-infos and snapshots of any saves it has -- plays the stub from a scratch home through a first
-run, a crash and the Recovery that follows, and checks that nothing in the
-game's folder changed.
+infos and snapshots of any saves it has -- plays the stub from a scratch
+home through a first run, a crash and the Recovery that follows, and checks
+that nothing in the game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
 focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the
@@ -673,7 +679,8 @@ keyboard (`test_ui_controls`), the sound on SDL's dummy output
 page and dialog, each settings page too, from states it makes up in a
 scratch home, at
 1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160 at 2 and
-960x600, and on the big screen at 1920x1080 and 1280x800, with the keyboard, the mouse and four virtual pads, and fails on
+960x600, and on the big screen at 1920x1080 and 1280x800, with the keyboard,
+the mouse and four virtual pads, and fails on
 any diagnostic of the kit's: a label cut short, focusables on one another
 or off the window (`test_ui_shots_*`); with `--out=<dir>` it writes them as
 PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
@@ -698,7 +705,8 @@ held; `engine_and_game` starts with an engine this system cannot start,
 puts another in its place from Home, and the game's folder from Settings;
 `profiles` makes a profile, duplicates one, renames and deletes the copy to
 the trash, and uses the first again; `mods` makes a made-up mod's profile
-from Mods, and finds its paths, its settings and its save in it; `continue` starts the game on the
+from Mods, and finds its paths, its settings and its save in it; `continue`
+starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
 the save's URL on the engine's command line or what was deleted in the
