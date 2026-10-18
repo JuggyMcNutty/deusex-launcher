@@ -142,6 +142,12 @@ void dxl_audio_fade(dxl_audio *a, float seconds) {
 
 int dxl_audio_sound(dxl_audio *a, dxl_sound which, const void *wav, size_t len) {
     if (!a || which < 0 || which >= DXL_SOUND_COUNT) return -1;
+    if (!wav) {
+        SDL_free(a->pcm[which]);
+        a->pcm[which] = NULL;
+        a->pcm_len[which] = 0;
+        return 0;
+    }
     SDL_AudioSpec spec;
     Uint8 *buf = NULL, *out = NULL;
     Uint32 blen = 0;

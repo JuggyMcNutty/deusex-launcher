@@ -37,6 +37,7 @@ void dxl_shell_release(dxl_shell *s) {
     s->save_snap_read = 0;
     dxl_thumbs_clear(s->thumbs);
     dxl_thumbs_clear(s->shot_whole);
+    s->thumbs_pending = 0;
 }
 
 void dxl_shell_free(dxl_shell *s) {
@@ -82,6 +83,8 @@ static char *install_file(const char *root, const char *dir, const char *name) {
     return f;
 }
 
+/* The install's title music and menu sounds, those of the one before
+ * gone; none for no install. */
 static void read_sounds(dxl_shell *s, const char *root) {
     free(s->music);
     s->music = NULL;
@@ -91,6 +94,7 @@ static void read_sounds(dxl_shell *s, const char *root) {
         s->sounds[i] = NULL;
         s->sound_len[i] = 0;
     }
+    if (!*root) return;
     dxl_upkg p;
     dxl_err e;
     char type[16];
@@ -125,18 +129,28 @@ void dxl_shell_sound(dxl_shell *s) {
     const char *root = in && in->ok ? in->root : "";
     if (strcmp(s->sounds_from, root) != 0) {
         snprintf(s->sounds_from, sizeof s->sounds_from, "%s", root);
-        if (*root) read_sounds(s, root);
+        read_sounds(s, root);
         s->audio_given = 0;
     }
     if (!s->audio || s->audio_given) return;
     s->audio_given = 1;
+    /* Each sound the install has, and none of another's for those it
+     * lacks. */
     int given = 0;
     for (int i = 0; i < DXL_SOUND_COUNT; i++) {
-        if (!s->sounds[i]) continue;
-        if (dxl_audio_sound(s->audio, (dxl_sound)i, s->sounds[i], s->sound_len[i]) == 0) given++;
-        else dxl_log("sound: %s is no WAV SDL reads", dxl_sound_names[i]);
+        if (!s->sounds[i]) {
+            dxl_audio_sound(s->audio, (dxl_sound)i, NULL, 0);
+            continue;
+        }
+        if (dxl_audio_sound(s->audio, (dxl_sound)i, s->sounds[i], s->sound_len[i]) == 0) {
+            given++;
+        } else {
+            dxl_log("sound: %s is no WAV SDL reads", dxl_sound_names[i]);
+            dxl_audio_sound(s->audio, (dxl_sound)i, NULL, 0);
+        }
     }
     int music = s->music && dxl_audio_music(s->audio, s->music, s->music_len) == 0;
+    if (!s->music) dxl_audio_music(s->audio, NULL, 0);
     if (s->music && !music) dxl_log("sound: the title music does not play");
     dxl_shell_volumes(s);
     if (*root) dxl_log("sound: %s and %d menu sounds", music ? "the title music" : "no music", given);
@@ -812,6 +826,9 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     default: break;
     }
     s->in_page = 0;
+    /* Pictures the page asked for and not read yet: frames until they are,
+     * to show them. Off the page, none waited for. */
+    s->thumbs_pending = s->page == DXL_PAGE_SHOTS && (dxl_thumbs_busy(s->thumbs) || dxl_thumbs_busy(s->shot_whole));
     if (s->go_pending) {
         s->go_pending = 0;
         dxl_shell_go(s, s->go_to);

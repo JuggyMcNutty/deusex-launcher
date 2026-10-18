@@ -44,6 +44,7 @@ struct dxl_window {
     double         opened;
     int            cursor_hidden;
     int            diags;          /* the kit's diagnostics last logged */
+    float          min_scale;      /* the launcher's size (UIScale) its smallest is set for */
     dxl_uiscript  *script;         /* DXL_UI_SCRIPT's input, or NULL */
     char          *words_before;   /* the command line as it was before a run's own words */
 
@@ -288,20 +289,42 @@ int dxl_window_desktop_entry(int install) {
 
 /* ---- the window ---------------------------------------------------------- */
 
+/* The window's points to a dp: the display's scale and the launcher's own
+ * size, the kit's px per dp, as its pixels per point. */
+static float points_per_dp(dxl_window *w, float user_scale) {
+    float scale = SDL_GetWindowDisplayScale(w->window), density = SDL_GetWindowPixelDensity(w->window);
+    if (scale <= 0) scale = 1;
+    if (density <= 0) density = 1;
+    return scale / density * (user_scale > 0 ? user_scale : 1);
+}
+
+/* Its smallest, 960 x 600 dp at the launcher's size, within the display. */
+static void minimum(dxl_window *w, float user_scale, int *minw, int *minh) {
+    SDL_Rect usable;
+    if (!SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w->window), &usable))
+        usable = (SDL_Rect){ 0, 0, 1920, 1080 };
+    float k = points_per_dp(w, user_scale);
+    *minw = (int)(SMALLEST_W * k);
+    *minh = (int)(SMALLEST_H * k);
+    if (*minw > usable.w) *minw = usable.w;
+    if (*minh > usable.h) *minh = usable.h;
+    SDL_SetWindowMinimumSize(w->window, *minw, *minh);
+    w->min_scale = user_scale;
+}
+
 /* Its first size: the layout's 1280 x 720 dp, or what it had when it last
  * closed (launcher.ini's [Window]), within the display. */
 static void size_window(dxl_window *w) {
     SDL_DisplayID d = SDL_GetDisplayForWindow(w->window);
-    float scale = SDL_GetWindowDisplayScale(w->window), density = SDL_GetWindowPixelDensity(w->window);
-    if (scale <= 0) scale = 1;
-    if (density <= 0) density = 1;
-    float k = scale / density;   /* window points per dp */
+    const char *ui_scale = dxl_ini_get(w->run->session.ini, "Launcher", "UIScale");
+    float user_scale = ui_scale ? (float)atof(ui_scale) : 1;
+    if (user_scale < 0.5f || user_scale > 3) user_scale = 1;
+    float k = points_per_dp(w, user_scale);
     SDL_Rect usable;
     if (!SDL_GetDisplayUsableBounds(d, &usable)) usable = (SDL_Rect){ 0, 0, 1920, 1080 };
     int maxw = (int)(usable.w * 0.94f), maxh = (int)(usable.h * 0.94f);
-    int minw = (int)(SMALLEST_W * k), minh = (int)(SMALLEST_H * k);
-    if (minw > usable.w) minw = usable.w;
-    if (minh > usable.h) minh = usable.h;
+    int minw, minh;
+    minimum(w, user_scale, &minw, &minh);
     int ww = (int)(FIRST_W * k), wh = (int)(FIRST_H * k);
     const dxl_ini *ini = w->run->session.ini;
     int kw = dxl_ini_get_int(ini, "Window", "Width", 0), kh = dxl_ini_get_int(ini, "Window", "Height", 0);
@@ -313,7 +336,6 @@ static void size_window(dxl_window *w) {
     if (wh > maxh) wh = maxh;
     if (ww < minw) ww = minw;
     if (wh < minh) wh = minh;
-    SDL_SetWindowMinimumSize(w->window, minw, minh);
     SDL_SetWindowSize(w->window, ww, wh);
     SDL_SetWindowPosition(w->window, SDL_WINDOWPOS_CENTERED_DISPLAY(d), SDL_WINDOWPOS_CENTERED_DISPLAY(d));
     if (dxl_ini_get_bool(ini, "Window", "Maximized", 0)) SDL_MaximizeWindow(w->window);
@@ -510,6 +532,11 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
             }
         }
         if (w->stop && *w->stop) s->ui.in.quit = 1;
+        /* The launcher's size changed on Settings: its smallest with it. */
+        if (s->ui.user_scale != w->min_scale) {
+            int minw, minh;
+            minimum(w, s->ui.user_scale, &minw, &minh);
+        }
         cursor(w);
         Uint64 t0 = SDL_GetTicksNS();
         SDL_SetRenderDrawColor(w->renderer, 0, 0, 0, 255);

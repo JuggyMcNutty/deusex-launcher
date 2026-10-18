@@ -97,13 +97,25 @@ int dxl_upkg_texture(const dxl_upkg *p, int32_t e, dxl_uimage *out, dxl_err *err
         dxl_err_set(err, "texture %s: its first mipmap does not hold together", dxl_upkg_ref_name(p, e + 1));
         return -1;
     }
-    size_t px = (size_t)w * (size_t)h;
+    /* Its bytes all there before its pixels are made: a size it claims is
+     * no size to allocate. */
+    size_t px = (size_t)w * (size_t)h, need;
+    if (format == TEXF_P8) need = px;
+    else if (format == TEXF_RGBA8) need = px * 4;
+    else if (format == TEXF_DXT1) need = (size_t)((w + 3) / 4) * (size_t)((h + 3) / 4) * 8;
+    else {
+        dxl_err_set(err, "texture %s is of a format the launcher does not read (%d)", dxl_upkg_ref_name(p, e + 1), format);
+        return -1;
+    }
+    if ((size_t)n < need) {
+        dxl_err_set(err, "texture %s: fewer bytes than its size", dxl_upkg_ref_name(p, e + 1));
+        return -1;
+    }
     out->w = w;
     out->h = h;
     out->masked = masked;
     out->rgba = dxl_xmalloc(px * 4);
     if (format == TEXF_P8) {
-        if ((size_t)n < px) goto short_data;
         uint8_t pal[256][4];
         int has = pal_ref > 0 && palette(p, pal_ref - 1, pal) == 0;
         for (size_t i = 0; i < px; i++) {
@@ -119,7 +131,6 @@ int dxl_upkg_texture(const dxl_upkg *p, int32_t e, dxl_uimage *out, dxl_err *err
             o[3] = masked && c == 0 ? 0 : 255;
         }
     } else if (format == TEXF_RGBA8) {
-        if ((size_t)n < px * 4) goto short_data;
         for (size_t i = 0; i < px; i++) {
             const uint8_t *s = data + i * 4;
             uint8_t *o = out->rgba + i * 4;
@@ -128,21 +139,12 @@ int dxl_upkg_texture(const dxl_upkg *p, int32_t e, dxl_uimage *out, dxl_err *err
             o[2] = s[0];
             o[3] = s[3];
         }
-    } else if (format == TEXF_DXT1) {
+    } else {
         int bw = (w + 3) / 4, bh = (h + 3) / 4;
-        if ((size_t)n < (size_t)bw * (size_t)bh * 8) goto short_data;
         for (int by = 0; by < bh; by++)
             for (int bx = 0; bx < bw; bx++) dxt1_block(data + ((size_t)by * (size_t)bw + (size_t)bx) * 8, out->rgba, w, h, bx, by);
-    } else {
-        dxl_uimage_free(out);
-        dxl_err_set(err, "texture %s is of a format the launcher does not read (%d)", dxl_upkg_ref_name(p, e + 1), format);
-        return -1;
     }
     return 0;
-short_data:
-    dxl_uimage_free(out);
-    dxl_err_set(err, "texture %s: fewer bytes than its size", dxl_upkg_ref_name(p, e + 1));
-    return -1;
 }
 
 uint8_t *dxl_upkg_file(const dxl_upkg *p, int32_t e, size_t *len, char *type, size_t type_size, dxl_err *err) {
@@ -216,6 +218,14 @@ void dxl_saveinfo_free(dxl_saveinfo *s) {
     dxl_uimage_free(&s->snapshot);
 }
 
+/* A Str for showing: UTF-8, from the original's Latin-1 or as the fork
+ * wrote it. */
+static void shown_str(const dxl_uprop *pr, char *out, size_t size) {
+    char raw[512];
+    dxl_uprop_str(pr, raw, sizeof raw);
+    dxl_text_utf8(raw, out, size);
+}
+
 int dxl_saveinfo_read(const char *path, int with_snapshot, dxl_saveinfo *out, dxl_err *err) {
     memset(out, 0, sizeof *out);
     dxl_upkg p;
@@ -243,9 +253,9 @@ int dxl_saveinfo_read(const char *path, int with_snapshot, dxl_saveinfo *out, dx
         else if (!dxl_stricmp(n, "Minute")) out->minute = dxl_uprop_int(&pr);
         else if (!dxl_stricmp(n, "Second")) out->second = dxl_uprop_int(&pr);
         else if (!dxl_stricmp(n, "DirectoryIndex")) out->directory_index = dxl_uprop_int(&pr);
-        else if (!dxl_stricmp(n, "Description")) dxl_uprop_str(&pr, out->description, sizeof out->description);
-        else if (!dxl_stricmp(n, "MissionLocation")) dxl_uprop_str(&pr, out->location, sizeof out->location);
-        else if (!dxl_stricmp(n, "MapName")) dxl_uprop_str(&pr, out->map, sizeof out->map);
+        else if (!dxl_stricmp(n, "Description")) shown_str(&pr, out->description, sizeof out->description);
+        else if (!dxl_stricmp(n, "MissionLocation")) shown_str(&pr, out->location, sizeof out->location);
+        else if (!dxl_stricmp(n, "MapName")) shown_str(&pr, out->map, sizeof out->map);
         else if (!dxl_stricmp(n, "saveTime")) out->play_seconds = dxl_uprop_int(&pr);
         else if (!dxl_stricmp(n, "Snapshot")) snapshot = dxl_uprop_index(&pr);
     }

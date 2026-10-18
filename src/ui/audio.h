@@ -35,7 +35,8 @@ void       dxl_audio_close(dxl_audio *a);
 int  dxl_audio_music(dxl_audio *a, const void *module, size_t len);
 /* The music faded to silence over seconds, then stopped. */
 void dxl_audio_fade(dxl_audio *a, float seconds);
-/* A sound's WAV bytes, kept for playing: 0, or -1 for none SDL reads. */
+/* A sound's WAV bytes, kept for playing: 0, or -1 for none SDL reads, the
+ * one before kept. NULL lets it go: none played for it. */
 int  dxl_audio_sound(dxl_audio *a, dxl_sound which, const void *wav, size_t len);
 /* Played once, on the voice played longest ago. */
 void dxl_audio_play(dxl_audio *a, dxl_sound which);

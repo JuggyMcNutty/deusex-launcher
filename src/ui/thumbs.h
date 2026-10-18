@@ -28,6 +28,9 @@ int         dxl_thumbs_update(dxl_thumbs *t, SDL_Renderer *r);
 /* path's texture and its size in px, NULL until it is there; *failed 1
  * for a file that did not read. */
 SDL_Texture *dxl_thumbs_get(dxl_thumbs *t, const char *path, int *failed, int *w, int *h);
+/* 1 while a picture asked for is still to be read, or read and not yet a
+ * texture: the window has frames to draw for it. */
+int         dxl_thumbs_busy(dxl_thumbs *t);
 /* Until every picture asked for is done (dxl-shots), then the update. */
 void        dxl_thumbs_wait(dxl_thumbs *t, SDL_Renderer *r);
 

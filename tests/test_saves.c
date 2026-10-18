@@ -54,6 +54,12 @@ static void test_list(void) {
     write_info(dir, "Save010", 10, newest, "Not one", "Nowhere", 1);
     write_info(dir, "Current", -2, newest, "Not one", "Nowhere", 1);
     scratch_write(dir, "Save0004", "a file");
+    /* An info by another case of its name: not one the engine opens. */
+    write_info(dir, "Save0011", 11, newest, "Lower case", "Nowhere", 1);
+    char *was = scratch_path(dir, "Save0011/SaveInfo.dxs"), *lower = scratch_path(dir, "Save0011/saveinfo.dxs");
+    rename(was, lower);
+    free(was);
+    free(lower);
     char *empty = scratch_path(dir, "Save0007");
     mkdir(empty, 0755);
     free(empty);
@@ -61,8 +67,8 @@ static void test_list(void) {
     dxl_saves s;
     dxl_err e;
     CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
-    CHECK_INT(s.count, 4);
-    if (s.count == 4) {
+    CHECK_INT(s.count, 5);
+    if (s.count == 5) {
         CHECK_STR(s.items[0].folder, "QuickSave");
         CHECK_INT(s.items[0].slot, DXL_SAVE_QUICK);
         CHECK_STR(s.items[1].folder, "Save0010");
@@ -71,6 +77,8 @@ static void test_list(void) {
         CHECK_STR(s.items[2].info.location, "NYC - Liberty Island");
         CHECK_STR(s.items[3].folder, "Save0007");
         CHECK_INT(s.items[3].readable, 0);
+        CHECK_STR(s.items[4].folder, "Save0011");
+        CHECK_INT(s.items[4].readable, 0);
         CHECK(s.items[0].info.snapshot.rgba == NULL);
         /* Its snapshot, read when asked for: the writer's picture in it. */
         dxl_saveinfo full;
@@ -101,12 +109,14 @@ static void test_list(void) {
     }
     dxl_saves_free(&s);
 
-    /* None read: nothing to continue. No folder: no saves. */
+    /* The quick save's info gone: it no longer reads, and the newest that
+     * does is Save0010. No folder: no saves, nothing to continue. */
     char *q = scratch_path(dir, "QuickSave/SaveInfo.dxs");
     remove(q);
     free(q);
     CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
-    CHECK_STR(s.items[0].folder, "Save0010");
+    CHECK(s.count > 0);
+    if (s.count > 0) CHECK_STR(s.items[0].folder, "Save0010");
     dxl_saves_free(&s);
     char *gone = scratch_path(dir, "not-there");
     CHECK_INT(dxl_saves_list(gone, &s, &e), 0);
@@ -114,6 +124,34 @@ static void test_list(void) {
     CHECK(dxl_saves_latest(&s) == NULL);
     dxl_saves_free(&s);
     free(gone);
+    scratch_remove(dir);
+}
+
+/* A save's words for showing: UTF-8 as they are, the original's Latin-1
+ * made UTF-8, cut at a whole character. */
+static void test_text(void) {
+    char out[32];
+    dxl_text_utf8("Caf\xe9 Tonnerre", out, sizeof out);
+    CHECK_STR(out, "Caf\xc3\xa9 Tonnerre");
+    dxl_text_utf8("Caf\xc3\xa9", out, sizeof out);
+    CHECK_STR(out, "Caf\xc3\xa9");
+    dxl_text_utf8("\xff\xfe", out, sizeof out);
+    CHECK_STR(out, "\xc3\xbf\xc3\xbe");
+    dxl_text_utf8("Caf\xe9", out, 5);
+    CHECK_STR(out, "Caf");
+    dxl_text_utf8("\xe2\x82\xac!", out, 4);
+    CHECK_STR(out, "\xe2\x82\xac");
+    dxl_text_utf8(NULL, out, sizeof out);
+    CHECK_STR(out, "");
+    /* Through a save the original wrote. */
+    const char *dir = scratch_dir("saves-text");
+    static const int when[6] = { 2026, 9, 24, 22, 28, 41 };
+    write_info(dir, "Save0001", 1, when, "Caf\xe9 du Monde", "Paris - Denfert-Rochereau", 94);
+    dxl_saves s;
+    dxl_err e;
+    CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
+    CHECK(s.count == 1 && !strcmp(s.items[0].info.description, "Caf\xc3\xa9 du Monde"));
+    dxl_saves_free(&s);
     scratch_remove(dir);
 }
 
@@ -168,5 +206,6 @@ static void test_shots(void) {
 TEST_MAIN_BEGIN
     RUN(test_slots);
     RUN(test_list);
+    RUN(test_text);
     RUN(test_shots);
 TEST_MAIN_END

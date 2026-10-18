@@ -40,6 +40,11 @@ const char *dxl_stristr(const char *hay, const char *needle);
 /* In-place whitespace trim; returns a pointer into the original buffer. */
 char *dxl_trim(char *s);
 
+/* Text for showing, as UTF-8: in as it is when it is UTF-8, else read as
+ * Latin-1, the game's own (a save the original wrote); cut at a whole
+ * character to fit size. */
+void  dxl_text_utf8(const char *in, char *out, size_t size);
+
 /* Growable string, used for building flag strings and file contents. */
 typedef struct {
     char  *data;

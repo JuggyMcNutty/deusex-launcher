@@ -52,12 +52,13 @@ const dxl_advice *dxl_advice_for(const dxl_lastrun *l) {
     if (!l || !l->known || l->clean) return NULL;
     for (size_t i = 0; i < sizeof known / sizeof *known; i++)
         if (strncmp(l->error, known[i].starts, strlen(known[i].starts)) == 0) return &known[i].advice;
-    /* Started on a save, and never up: its level is what did not load. */
-    if (strstr(l->start, "loadgame") && !l->ready) return &save_failed;
     if (l->signal == SIGSEGV || l->signal == SIGBUS || l->signal == SIGABRT || l->signal == SIGILL ||
         l->signal == SIGFPE)
         return &crashed;
     if (l->status == 0 && !l->ready) return &no_game;
+    /* Started on a save, stopped by an error the engine names before it was
+     * up: the save's level is what did not load. */
+    if (strstr(l->start, "loadgame") && !l->ready && l->error[0]) return &save_failed;
     if (l->error[0] || l->status != 0) return &stopped;
     return NULL;
 }

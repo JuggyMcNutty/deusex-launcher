@@ -915,6 +915,10 @@ void dxl_ui_diag(dxl_ui *ui, const char *fmt, ...) {
 
 float dxl_ui_typed(dxl_ui *ui, double since, const char *text) {
     size_t n = text ? strlen(text) : 0;
+    /* Typed from the focus's coming, in the frame the focus moved: the new
+     * control's, from now; focus_since is the old one's until the frame
+     * ends. */
+    if (since == ui->focus_since && ui->focus != ui->focus_seen) since = ui->now;
     if (ui->reduced_motion || n == 0 || since < ui->typed_until) return 1;
     double t = (ui->now - since) * TYPE_CPS / (double)n;
     if (t >= 1) return 1;

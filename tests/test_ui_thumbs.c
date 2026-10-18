@@ -70,17 +70,22 @@ static void test_fit(void) {
     dxl_thumbs_wait(small, r);
     CHECK(dxl_thumbs_get(small, bmp, NULL, &w, NULL) != NULL);
 
-    /* Another renderer: the picture read again for it. */
+    /* Another renderer, the set not cleared: the first's textures let go,
+     * the picture read again and made one of the second's. */
     SDL_Surface *target2 = SDL_CreateSurface(64, 64, SDL_PIXELFORMAT_XRGB8888);
     SDL_Renderer *r2 = SDL_CreateSoftwareRenderer(target2);
-    dxl_thumbs_clear(small);
-    SDL_DestroyRenderer(r);
-    dxl_thumbs_want(small, bmp);
-    dxl_thumbs_wait(small, r2);
     CHECK(dxl_thumbs_get(small, bmp, NULL, NULL, NULL) != NULL);
+    CHECK_INT(dxl_thumbs_update(small, r2), 1);
+    CHECK(dxl_thumbs_get(small, bmp, NULL, NULL, NULL) == NULL);
+    dxl_thumbs_wait(small, r2);
+    CHECK(dxl_thumbs_get(small, bmp, NULL, &w, &h) != NULL);
+    CHECK_INT(w, 384);
+    CHECK_INT(dxl_thumbs_busy(small), 0);
 
-    dxl_thumbs_free(small);
+    /* The sets' textures go before their renderers do. */
     dxl_thumbs_free(whole);
+    SDL_DestroyRenderer(r);
+    dxl_thumbs_free(small);
     SDL_DestroyRenderer(r2);
     SDL_DestroySurface(target2);
     SDL_DestroySurface(target);
