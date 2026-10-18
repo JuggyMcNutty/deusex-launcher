@@ -30,6 +30,8 @@ dxl_test(test_engine_args)
 dxl_test(test_lastrun)
 dxl_test(test_vdf)
 dxl_test(test_bigscreen)
+dxl_test(test_gamespy)
+dxl_test(test_servers)
 dxl_test(test_finder)
 dxl_test(test_advice)
 dxl_test(test_keys)
@@ -45,6 +47,10 @@ dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
+# The server browser against a master and servers of its own on 127.0.0.1.
+find_package(Threads REQUIRED)
+dxl_test(test_browser)
+target_link_libraries(test_browser PRIVATE dxl_app Threads::Threads)
 
 # The UI kit: focus and navigation, text, input from the keyboard, the
 # mouse and virtual pads.
@@ -95,5 +101,6 @@ target_compile_definitions(test_ui_scripts PRIVATE
     DXL_LAUNCHER="$<TARGET_FILE:deusex-launcher>" DXL_CLI="$<TARGET_FILE:dxl-cli>"
     DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>" DXL_DATA="${DXL_ROOT}/data"
     DXL_UI_SCRIPTS="${CMAKE_CURRENT_SOURCE_DIR}/ui" DXL_GAME="${DXL_ROOT}/gamefiles")
+target_link_libraries(test_ui_scripts PRIVATE Threads::Threads)
 add_dependencies(test_ui_scripts deusex-launcher dxl-cli stub_engine)
-set_tests_properties(test_ui_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 180)
+set_tests_properties(test_ui_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)

@@ -24,6 +24,7 @@
 #include "core/settings.h"
 #include "screens/shell.h"
 #include "ui/text.h"
+#include "ui/widgets.h"
 #include "upkg_writer.h"
 
 #include <SDL3/SDL.h>
@@ -95,6 +96,10 @@ typedef enum {
     SCENE_SHOTS,            /* seven, and one that does not read */
     SCENE_SHOTS_NONE,
     SCENE_SHOT_WHOLE,       /* the newest shown whole */
+    SCENE_SERVERS,          /* nine answered -- one with a password, one of another version, a favourite -- and one silent */
+    SCENE_SERVERS_ASKING,   /* the look on: three listed, one answered */
+    SCENE_SERVERS_FAILED,   /* the master gave no list; a favourite answered */
+    SCENE_SERVERS_PASSWORD, /* the chosen asks for a password */
     SCENE_SETTINGS,
     SCENE_PICK,
     SCENE_OSK,
@@ -117,7 +122,7 @@ typedef enum {
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "find-looking", "find-more", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
     "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "big-offer", "saves", "saves-none", "saves-old-engine", "shots",
-    "shots-none", "shot-whole", "settings", "pick", "osk", "confirm", "log", "keys",
+    "shots-none", "shot-whole", "servers", "servers-asking", "servers-failed", "servers-password", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
 };
@@ -311,6 +316,61 @@ static void found(dxl_shell *s) {
     s->found.count = 2;
 }
 
+/* Made-up servers, as their answers would have them. */
+static void server(dxl_shell *s, const char *address, int port, int ping, const char *name, const char *map,
+                   const char *game, int players, int max, const char *more) {
+    char status[1024];
+    snprintf(status, sizeof status,
+             "\\gamename\\deusex\\gamever\\1100\\minnetver\\1100\\hostname\\%s\\hostport\\%d\\mapname\\%s"
+             "\\maptitle\\Untitled\\gametype\\%s\\numplayers\\%d\\maxplayers\\%d%s",
+             name, port - 1, map, game, players, max, more);
+    dxl_shell_server_listed(s, address, port);
+    if (ping >= 0) dxl_shell_server_answered(s, address, port, ping, status);
+}
+
+static void servers(dxl_shell *s, scene sc) {
+    dxl_shell_go(s, DXL_PAGE_SERVERS);
+    if (sc == SCENE_SERVERS_ASKING) {
+        s->browsing = 1;
+        s->browsed = 0;
+        server(s, "203.0.113.10", 7791, 48, "Wunderland Tactical", "DXMP_Cathedral", "TeamDMGame", 3, 16, "");
+        server(s, "203.0.113.11", 7781, -1, "", "", "", 0, 0, "");
+        server(s, "203.0.113.12", 7771, -1, "", "", "", 0, 0, "");
+        return;
+    }
+    dxl_profile_set(&s->run->session.profile, "Favourites", "198.51.100.7:7790");
+    if (sc == SCENE_SERVERS_FAILED) {
+        server(s, "198.51.100.7", 7791, 61, "A Favourite Server", "DXMP_Smuggler", "DeathMatchGame", 1, 8, "");
+        dxl_shell_browsed(s, "master.333networks.com:28900: no answer");
+        return;
+    }
+    server(s, "203.0.113.10", 7791, 48, "~[FGS]Wunderland~ DXSG Tactical Server~", "DXSG_Area51Bunker_V3", "SG Team Game",
+           3, 10,
+           "\\TimeToWin\\15\\player_0\\Cozmo\\frags_0\\15\\ping_0\\ 40\\player_1\\JC Denton\\frags_1\\9\\ping_1\\ 75"
+           "\\player_2\\Gunther\\frags_2\\3\\ping_2\\ 130");
+    server(s, "198.51.100.7", 7791, 61, "A Favourite Server", "DXMP_Smuggler", "DeathMatchGame", 1, 8, "");
+    server(s, "203.0.113.20", 7771, 95, "EZ8 | a Deus Ex community", "DXMP_Area51Bunker", "MTLDeathMatch", 0, 8,
+           "\\password\\True");
+    server(s, "203.0.113.21", 7791, 120, "Sunny Side", "DXMP_Abandoned", "MTLTeam", 0, 7, "");
+    server(s, "203.0.113.22", 17578, 152, "An old one", "DXMP_Silo", "DeathMatchGame", 2, 12,
+           "\\gamever\\1000\\minnetver\\1000");
+    server(s, "203.0.113.23", 7791, 175, "~[FGS]Wunderland~ DXAG V-Server", "DXAG_Smuggler_V2", "DXAG", 0, 12, "");
+    server(s, "203.0.113.24", 7781, 210, "Mixed Deathmatch, every map", "DXMP_DressingRoom", "CDX Zero Aug", 5, 16, "");
+    server(s, "203.0.113.25", 7791, 230, "Late Night Hong Kong", "DXMP_Cathedral", "DeathMatchGame", 0, 8, "");
+    server(s, "203.0.113.26", 7791, 260, "Paris Streets", "DXMP_Paris", "TeamDMGame", 1, 16, "");
+    server(s, "203.0.113.30", 7791, -1, "", "", "", 0, 0, "");
+    dxl_shell_browsed(s, NULL);
+    if (sc == SCENE_SERVERS_PASSWORD) {
+        /* Its row the focus's, the third by ping, once the shot's first
+         * move is made: the second's before it. */
+        dxl_list l;
+        memset(&l, 0, sizeof l);
+        l.id = dxl_ui_id(&s->ui, "servers");
+        l.count = s->server_count;
+        dxl_ui_focus(&s->ui, dxl_list_row_id(&l, 1));
+    }
+}
+
 /* The scene's run and shell, entered. */
 static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
     int profile = sc >= SCENE_HOME && sc != SCENE_REPOINT;
@@ -365,6 +425,13 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
     case SCENE_BIG_OFFER:
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         dxl_shell_offer_big(s);
+        break;
+    case SCENE_SERVERS:
+    case SCENE_SERVERS_ASKING:
+    case SCENE_SERVERS_FAILED:
+    case SCENE_SERVERS_PASSWORD:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        servers(s, sc);
         break;
     case SCENE_HOME_NEW:
     case SCENE_SAVES_NONE: {

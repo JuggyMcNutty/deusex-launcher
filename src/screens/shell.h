@@ -23,6 +23,9 @@
  *   Screenshots the profile's shots (core/shotlist.h) as a gallery of
  *               thumbnails (ui/thumbs.h): one shown whole, its folder
  *               opened, one deleted to the trash
+ *   Multiplayer the servers the profile's master server lists, and its
+ *               favourites, each as it answers (screens/servers.c): join
+ *               one, or an address
  *   About       the launcher, the engine, the folders, the app menu's entry
  *   Settings    the settings (core/settings.h), a tab a page, kept as the
  *               page is left
@@ -40,6 +43,7 @@
 
 #include "app/run.h"
 #include "core/finder.h"
+#include "core/servers.h"
 #include "core/renderers.h"
 #include "core/padmap.h"
 #include "core/saves.h"
@@ -66,6 +70,7 @@ typedef enum {
     DXL_PAGE_PROFILES,
     DXL_PAGE_SAVES,
     DXL_PAGE_SHOTS,
+    DXL_PAGE_SERVERS,
     DXL_PAGE_COUNT
 } dxl_page;
 
@@ -300,9 +305,27 @@ typedef struct dxl_shell {
      * in with dxl_shell_found, its end with dxl_shell_found_all. NULL
      * offscreen, where it looks at once. */
     void       (*start_find)(struct dxl_shell *s, const dxl_finder_where *where);
+    /* The window's: the server browser's look in its worker, each server
+     * handed in with dxl_shell_server_listed and _answered, its end with
+     * dxl_shell_browsed. NULL offscreen, where nothing is asked. */
+    void       (*start_browse)(struct dxl_shell *s, const char *master, const char *const *also);
 
     struct { char text[200]; double at; } toasts[DXL_TOASTS];
     int          toast_count;
+
+    /* Multiplayer: the servers the master lists and the favourites, each
+     * as it answers, in the order they came until the look ends, then by
+     * the page's sort; the one chosen, by its address; what the page's
+     * fields hold; a deusex:// link's server, to join once the player says
+     * so. */
+    dxl_server  *servers;          /* DXL_SERVERS_MAX of them, made as the page first opens */
+    int          server_count;
+    char         server_chosen[96];   /* "a.b.c.d:query port" */
+    int          browsing, browsed, servers_sorted;
+    char         browse_error[300];
+    int          server_sort, server_show;
+    char         join_address[96], join_password[64];
+    char         join_link[96];
 
     /* The big screen (core/bigscreen.h): the window's now, and whether it
      * has been offered in this run. */
@@ -424,6 +447,21 @@ void dxl_saves_reload(dxl_shell *s);
 int  dxl_save_snapshot(dxl_shell *s, const dxl_save *sv, dxl_rect r);
 void dxl_page_shots(dxl_shell *s, dxl_rect r);
 void dxl_page_shots_enter(dxl_shell *s);
+void dxl_page_servers(dxl_shell *s, dxl_rect r);
+void dxl_page_servers_enter(dxl_shell *s);
+/* The servers asked for again: the profile's master's, and its favourites. */
+#define DXL_SERVERS_MAX 256
+void dxl_shell_browse(dxl_shell *s);
+void dxl_shell_server_listed(dxl_shell *s, const char *address, int query_port);
+void dxl_shell_server_answered(dxl_shell *s, const char *address, int query_port, int ping_ms, const char *status);
+/* The look's end: error, the master's failure, or NULL. */
+void dxl_shell_browsed(dxl_shell *s, const char *error);
+/* The game started joining host:port, with a password for it or none: the
+ * screen done, to play. */
+void dxl_shell_join(dxl_shell *s, const char *host, int port, const char *password);
+/* A deusex:// link's server, host:port: Multiplayer, asking whether to
+ * join it. */
+void dxl_shell_join_link(dxl_shell *s, const char *host_port);
 /* A new profile not made after all: the one in use before it again, and
  * the Profiles page. */
 void dxl_shell_making_cancel(dxl_shell *s);

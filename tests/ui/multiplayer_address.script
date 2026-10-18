@@ -1,0 +1,10 @@
+# Multiplayer: an address the list does not have, typed and joined.
+wait 2
+expect home
+find Multiplayer
+key Return
+wait 1
+expect multiplayer
+find Address
+type 127.0.0.1:7999
+key Return

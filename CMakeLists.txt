@@ -82,6 +82,8 @@ add_library(dxl_core STATIC
     src/core/lastrun.c
     src/core/vdf.c
     src/core/bigscreen.c
+    src/core/gamespy.c
+    src/core/servers.c
     src/core/finder.c
     src/core/settings.c
     src/core/settings_table.c
@@ -107,6 +109,7 @@ add_library(dxl_platform STATIC
     src/platform/posix/gpu_probe.c
     src/platform/posix/desktop.c
     src/platform/posix/trash.c
+    src/platform/posix/net.c
 )
 # The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
 # their headers come from the sysroot on a cross build, else the host's.
@@ -121,6 +124,7 @@ add_library(dxl_app STATIC
     src/app/session.c
     src/app/play.c
     src/app/run.c
+    src/app/browser.c
 )
 target_link_libraries(dxl_app PUBLIC dxl_platform)
 
@@ -163,6 +167,7 @@ add_library(dxl_screens STATIC
     src/screens/profiles.c
     src/screens/saves.c
     src/screens/shots.c
+    src/screens/servers.c
 )
 target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
 

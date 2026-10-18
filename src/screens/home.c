@@ -63,7 +63,7 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     dxl_rect menu = { r.x, r.y + 6, menu_w, r.h - 6 };
     /* The buttons a little lower where they do not all fit at their own
      * height. */
-    int n = 7 + (latest != NULL) + !ss->install.ok + !s->engine_ok;
+    int n = 8 + (latest != NULL) + !ss->install.ok + !s->engine_ok;
     float bh = 48, gap = 10;
     if (n * bh + (n - 1) * gap > menu.h) {
         gap = 6;
@@ -93,6 +93,8 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
             dxl_shell_engine_pick(s, engine_id);
         dxl_cut_top(&menu, gap);
     }
+    int multiplayer = button(s, "home multiplayer", dxl_cut_top(&menu, bh), "Multiplayer", DXL_W_LEFT);
+    dxl_cut_top(&menu, gap);
     int saves = button(s, "home saves", dxl_cut_top(&menu, bh), "Saves", DXL_W_LEFT);
     dxl_cut_top(&menu, gap);
     int shots = button(s, "home shots", dxl_cut_top(&menu, bh), "Screenshots", DXL_W_LEFT);
@@ -164,6 +166,7 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     if (game_fix) dxl_shell_repoint(s, DXL_PAGE_HOME);
     else if (cont || (ui->in.start && latest)) dxl_shell_play_save(s, latest->slot);
     else if (play || (ui->in.start && playable)) s->result = 1;
+    else if (multiplayer) dxl_shell_go(s, DXL_PAGE_SERVERS);
     else if (saves) dxl_shell_go(s, DXL_PAGE_SAVES);
     else if (shots) dxl_shell_go(s, DXL_PAGE_SHOTS);
     else if (settings) dxl_shell_go(s, DXL_PAGE_SETTINGS);

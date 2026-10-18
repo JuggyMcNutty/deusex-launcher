@@ -1,6 +1,7 @@
 #include "test.h"
 #include "scratch.h"
 #include "app/play.h"
+#include "app/run.h"
 #include "core/instance.h"
 
 #include <signal.h>
@@ -139,6 +140,8 @@ static char forward_id[64];
 static void forward_on_ready(void *ctx) {
     (void)ctx;
     CHECK_INT(dxl_instance_forward(forward_id, "127.0.0.1:7790 -log", 1000, NULL), 0);
+    /* A link's server, as a second start hands it on: the game's own way. */
+    CHECK_INT(dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/ --big-screen", 1000, NULL), 0);
 }
 
 static void test_forwarded(void) {
@@ -159,6 +162,7 @@ static void test_forwarded(void) {
     CHECK_INT(r.clean, 1);
     char *text = slurp(log, NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 127.0.0.1:7790\n") != NULL);
+    CHECK(text && strstr(text, "line: TakeFocus\nline: Open 10.0.0.5:7780\n") != NULL);
     CHECK(text && strstr(text, "too-early") == NULL);
     free(text);
     dxl_play_result_free(&r);
@@ -166,6 +170,20 @@ static void test_forwarded(void) {
     scratch_remove(dir);
     free(log);
     free(dir);
+}
+
+/* A deusex:// link is the launcher's own, its server to join, not a word
+ * of the original's command line; --big-screen too. */
+static void test_parse_link(void) {
+    char *argv[] = { "deusex-launcher", "deusex://203.0.113.9:7790/", "-nosound", "--big-screen", NULL };
+    dxl_run_options opt;
+    char *words = NULL;
+    CHECK_INT(dxl_run_parse(4, argv, &opt, &words, NULL), 0);
+    CHECK_STR(opt.join, "deusex://203.0.113.9:7790/");
+    CHECK_INT(opt.big_screen, 1);
+    CHECK(words && strstr(words, "deusex://") == NULL);
+    CHECK(words && strstr(words, "-nosound") != NULL);
+    free(words);
 }
 
 static void test_cannot_start(void) {
@@ -180,6 +198,7 @@ static void test_cannot_start(void) {
 
 TEST_MAIN_BEGIN
     signal(SIGPIPE, SIG_IGN);
+    RUN(test_parse_link);
     RUN(test_clean);
     RUN(test_no_game);
     RUN(test_failed);
