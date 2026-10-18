@@ -23,8 +23,8 @@ scripts/dx.sh deploy trimui-smartpro       # build, stage, send; --no-engine, --
 uncommitted changes (the profiling hooks, say). It sends only the files whose checksum differs,
 keeps the device's copies of those in `.prev-<date-time>` (the device's clock) in the app
 directory, and checksums every file there afterwards. Nothing is ever deleted on the device:
-copying a previous copy back is a rollback (newest last; older hand-made ones are
-`.prev-<date>`). `--no-engine` leaves the engine and its `DXEngine.pk3` out.
+copying a previous copy back is a rollback (newest last). `--no-engine` leaves the engine and
+its `DXEngine.pk3` out.
 
 The app lives in `/mnt/SDCARD/App/DeusEx`, the game data in `/mnt/SDCARD/Roms/PORTS/DeusEx`
 (all 38 `.u` packages). `launcher.ini` belongs to the device's owner: `deploy` installs it only
