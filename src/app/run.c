@@ -252,14 +252,14 @@ static char **engine_argv(const dxl_run *r) {
     return dxl_engine_argv(&c);
 }
 
-/* SDL2: the display backend with the fork's pad support, unless the player
- * named one (the fork's ENGINE.md, settings and environment). */
 /* The launcher's pad mappings (core/padmap.h): the controllers the mapping
  * wizard made known, the engine's too. */
 char *dxl_run_pad_db(const dxl_run *r) { return dxl_path_join(r->session.xdg.data, "gamecontrollerdb.txt"); }
 
-/* SDL2 for the engine's window, the one with the pad; and the pad mappings,
- * Steam's and the launcher's, when the launcher keeps any. */
+/* SDL2 for the engine's window, its build's SDL backend, the one with the
+ * pad, unless the player named one (the fork's ENGINE.md, settings and
+ * environment); and the pad mappings, Steam's and the launcher's, when the
+ * launcher keeps any. */
 static char **engine_env(const dxl_run *r) {
     static char *env[3], *pads;
     int n = 0;

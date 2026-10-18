@@ -1,14 +1,15 @@
 # Linux on aarch64 with an ordinary distro (Raspberry Pi OS, Debian, Ubuntu,
 # ROCKNIX-style handheld images...).
 #
-# Built natively on an aarch64 machine it is the same as linux-x86_64. Cross
-# built from a PC, with the glibc 2.28 toolchain, SDL3, FreeType and
-# SDL3_ttf are built in from cmake/deps.lock's sources, SDL3's window and
-# audio backends opened at run time: the programs need only the C library,
-# glibc 2.28 or newer, and the device's own X11 or Wayland, ALSA, PulseAudio
-# or PipeWire. The backends are built against the headers of Debian bookworm
-# arm64's packages in deps/sysroots/linux-aarch64 (port.sh), whose
-# libraries give them the names to open.
+# Built natively on an aarch64 machine it sets none of this: the device's
+# own libraries or their sources, no ceiling. Cross built from a PC, with
+# the glibc 2.28 toolchain, SDL3, FreeType, SDL3_ttf and libxmp-lite are
+# built in from cmake/deps.lock's sources, SDL3's window and audio backends
+# opened at run time: the programs need only the C library, glibc 2.28 or
+# newer, and the device's own X11 or Wayland, ALSA, PulseAudio or PipeWire.
+# The backends are built against the headers of Debian bookworm arm64's
+# packages in deps/sysroots/linux-aarch64 (port.sh), whose libraries give
+# them the names to open.
 if(CMAKE_CROSSCOMPILING)
     set(DXL_PORT_SYSROOT      "${DXL_ROOT}/deps/sysroots/linux-aarch64")
     set(DXL_PORT_GLIBC_MAX    2.28)
