@@ -579,8 +579,9 @@ between them (`src/core/engine_args.c`, `src/platform/posix/process.c`):
 ```
 
 in the game's `System` folder, its output into the profile's
-`last-run.log`, with `SURREALWIDGETS_DISPLAY_BACKEND=SDL3` unless the
-environment names a backend (SDL3's, the one the port's engine is built with),
+`last-run.log`, with `SURREALWIDGETS_DISPLAY_BACKEND` naming the SDL
+window the port's engine is built with, the one with the pad, unless the
+environment names a backend,
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
 ([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the launcher's
 end of a socket pair. On that line the
@@ -736,8 +737,8 @@ Kept as the original does it: the decision's order (`-safe`, the
 `FirstRun` gates, `-changevideo`, `Running.ini`), `Running.ini` made after
 the screens and taken away at a clean end, `FirstRun` raised to 1100, the
 three command-line parsers (`ParseParam` stricter, as `main`'s), and the
-second start's hand-over, its line now to a launcher that keeps it
-whatever the install. Changed:
+second start's hand-over, though its line goes to a launcher that keeps
+it whatever the install. Changed:
 
 | Original | DXLauncher | Why |
 |---|---|---|

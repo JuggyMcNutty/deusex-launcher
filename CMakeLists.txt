@@ -23,12 +23,12 @@ set(DXL_PORT_SYSROOT "")        # headers and libraries of the device, when cros
 set(DXL_PORT_INCLUDE_DIRS "")   # the sysroot's header folders, for the GPU probe's Vulkan and EGL
 set(DXL_PORT_GLIBC_MAX "")      # e.g. 2.31: fail the build on any newer symbol
 set(DXL_PORT_LINK_OPTIONS "")   # extra link options for the programs
-set(DXL_PORT_DEPS_DEFAULT "auto")   # where SDL3 and SDL3_ttf come from: auto, system, vendored
+set(DXL_PORT_DEPS_DEFAULT "auto")   # where SDL3, SDL3_ttf and libxmp come from: auto, system, vendored
 set(DXL_PORT_DEPS_ENV "")       # VAR=value words for the vendored libraries' configure steps
 set(DXL_PORT_DEPS_C_FLAGS "")   # and their C flags
 include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
 set(DXL_PORT_DEPS "${DXL_PORT_DEPS_DEFAULT}" CACHE STRING
-    "Where SDL3 and SDL3_ttf come from: auto, system or vendored (cmake/deps.cmake)")
+    "Where SDL3, SDL3_ttf and libxmp come from: auto, system or vendored (cmake/deps.cmake)")
 include("${DXL_ROOT}/cmake/deps.cmake")
 
 function(dxl_check_abi target)
