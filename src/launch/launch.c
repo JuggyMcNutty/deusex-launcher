@@ -249,7 +249,7 @@ static int play(run *r, volatile int *stop) {
             dxl_game_signal(&g, SIGTERM);
             signalled = 1;
         } else if (signalled && !killed && (since_term += WAIT_STEP_MS) >= KILL_AFTER_MS) {
-            /* An engine that takes no notice of SIGTERM, as the fork does. */
+            /* An engine that takes no notice of SIGTERM, as DXEngine does. */
             dxl_log("the game did not stop: killing it");
             dxl_game_signal(&g, SIGKILL);
             killed = 1;

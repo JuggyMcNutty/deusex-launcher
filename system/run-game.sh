@@ -1,6 +1,6 @@
 #!/bin/sh
-# The game, as DeusEx starts it: the engine beside this script -- VibeEngine's
-# SurrealEngine, installed in the game's System folder with it -- given the
+# The game, as DeusEx starts it: the engine beside this script -- DXEngine,
+# installed in the game's System folder with it -- given the
 # original's command line as the player gave it.
 #
 # DeusEx runs this from System/, with its command line's words as the
@@ -11,7 +11,7 @@
 # others. Running.ini is the launcher's business.
 here="$(cd "$(dirname "$0")" && pwd)"
 game="$(dirname "$here")"
-engine="$here/SurrealEngine"
+engine="$here/DXEngine"
 if [ ! -x "$engine" ]; then
     echo "run-game.sh: no engine at $engine" >&2
     exit 127
@@ -19,9 +19,9 @@ fi
 
 # SDL3: the window of the engine linux-x86_64 builds, which the recreation
 # installs (Port Ex Machina's scripts/recreation.sh), the one with the pad.
-export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL3}"
+export DXE_DISPLAY_BACKEND="${DXE_DISPLAY_BACKEND:-SDL3}"
 
 # DXL_ENGINE_ARGS: more of the engine's own options, for a scripted run
-# (--timeline=<file>, VibeEngine's ENGINE.md).
+# (--timeline=<file>, DXEngine's ENGINE.md).
 exec "$engine" --no-launcher "$game" --ini="$here/DeusEx.ini" --userini="$here/User.ini" \
     ${DXL_ENGINE_ARGS:-} --cmdline="$*"

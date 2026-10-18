@@ -6,7 +6,7 @@ desktop Linux from the reverse-engineering record in
 sequence, its first-run wizard and safe mode, its command line, its crash
 detection and its single-instance handoff. It is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina), which runs
-it with [VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) in the game's
+it with [DXEngine](https://github.com/JuggyMcNutty/DXEngine) in the game's
 `System` folder; the ports of the game are this repository's other branches.
 Made with AI assistance. The recreation is whole: the
 core (`src/core/`), the launch sequence (`src/launch/`) down every road it
@@ -34,8 +34,8 @@ crosses only by a deliberate cherry-pick
 ## Installing
 
 `DeusEx` goes in the game's `System/` folder beside the original's
-`DeusEx.exe`, with `run-game.sh` and VibeEngine's `SurrealEngine` and
-`SurrealEngine.pk3`. Port Ex Machina's
+`DeusEx.exe`, with `run-game.sh` and the engine's `DXEngine` and
+`DXEngine.pk3`. Port Ex Machina's
 [`scripts/recreation.sh`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/scripts/recreation.sh)
 puts them there (`build`, then `install [<GameDir>]`); by hand,
 `cmake --install build --prefix <GameDir>/System` and copy in the engine's
@@ -143,11 +143,11 @@ original's log window drops one before its main loop runs.
 
 `run-game.sh` starts the engine from `System/` with the game's own
 `DeusEx.ini` and `User.ini` and the command line as one string, `--cmdline=`
-([what the engine reads of it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line));
+([what the engine reads of it](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-command-line));
 `DXL_ENGINE_ARGS` adds engine options of its own, for a scripted run. Asked to
 stop (SIGINT, SIGTERM, SIGHUP), the launcher sends the game SIGTERM, and
 SIGKILL if it still runs 5 s later
-([how the engine takes them](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
+([how the engine takes them](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-it)).
 A game stopped so has not ended cleanly: `Running.ini` stays, and the next
 launch opens RecoveryMode, as after a crash -- the usual end of a `-server`
 run, which has no window to quit.

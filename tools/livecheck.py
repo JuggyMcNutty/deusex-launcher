@@ -191,7 +191,7 @@ def set_ini(key, value):
 
 
 def timeline(name, text):
-    """The engine's own scripted run (VibeEngine's --timeline), through
+    """The engine's own scripted run (DXEngine's --timeline), through
     run-game.sh's DXL_ENGINE_ARGS: here, to end the game cleanly."""
     p = "%s/%s.timeline" % (OUT, name)
     open(p, "w").write(text)
