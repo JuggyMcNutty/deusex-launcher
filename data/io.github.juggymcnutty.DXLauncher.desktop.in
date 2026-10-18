@@ -10,3 +10,8 @@ Terminal=false
 Categories=Game;ActionGame;
 Keywords=Deus Ex;DX;VibeEngine;
 StartupWMClass=io.github.juggymcnutty.DXLauncher
+Actions=BigScreen;
+
+[Desktop Action BigScreen]
+Name=Big screen
+Exec=@EXEC@ --big-screen

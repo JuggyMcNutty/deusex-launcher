@@ -45,6 +45,7 @@ int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl
         if (strcmp(a, "--dry-run") == 0) { opt->dry = 1; continue; }
         if (strcmp(a, "--print-command") == 0) { opt->print_command = 1; continue; }
         if (strcmp(a, "--import") == 0) { opt->import_only = 1; continue; }
+        if (strcmp(a, "--big-screen") == 0) { opt->big_screen = 1; continue; }
         dxl_err_set(err, "no option %s", a);
         free(rest);
         return -1;

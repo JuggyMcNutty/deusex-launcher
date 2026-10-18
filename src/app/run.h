@@ -60,6 +60,7 @@ typedef struct {
     int dry;                /* --dry-run: decide and say, write nothing */
     int print_command;      /* --print-command: the engine's command line, nothing run */
     int import_only;        /* --import: make the profile from --game, nothing run */
+    int big_screen;         /* --big-screen: the window on the big screen (core/bigscreen.h) */
 } dxl_run_options;
 
 typedef struct {

@@ -81,6 +81,7 @@ add_library(dxl_core STATIC
     src/core/engine_args.c
     src/core/lastrun.c
     src/core/vdf.c
+    src/core/bigscreen.c
     src/core/finder.c
     src/core/settings.c
     src/core/settings_table.c

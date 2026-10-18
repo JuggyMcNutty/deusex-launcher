@@ -51,11 +51,14 @@ static int fresh_home(void) {
  * for a window without the focus, which one on a desktop someone uses may
  * not have. */
 #define OUR_PADS "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1 " \
-                 "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1 " QUIET
+                 "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1 " QUIET " " NOT_BIG
 /* The window's sound to SDL's dummy output: the title music and the menu's
  * sounds played, as a player's would be, and none of it heard on the
  * desktop the runs share. */
 #define QUIET "SDL_AUDIO_DRIVER=dummy"
+/* The window as on a desktop: none of the environment's big screens
+ * (core/bigscreen.h), but a script's own. */
+#define NOT_BIG "SteamTenfoot= SteamGamepadUI= SteamDeck= GAMESCOPE_WAYLAND_DISPLAY="
 
 /* The launcher on the script, the stub doing mode; its exit code. */
 static int launch_with(const char *script, const char *mode, const char *env) {
@@ -420,6 +423,25 @@ static void write_saves(int newer) {
 
 /* Continue from Home: the latest save, by when it was made, not by its
  * slot, in the engine's --url. */
+/* The big screen offered on a pad's first press, stayed away from, kept
+ * as offered; on F11 and off; Always on Settings' Launcher page, kept. */
+static void test_big_screen(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch("big_screen.script", "ready");
+    script_ok();
+    char *ini = home_file("config/dxlauncher/launcher.ini");
+    dxl_ini *li = dxl_ini_load(ini, NULL);
+    CHECK_STR(value(li, "Launcher", "BigScreen"), "on");
+    CHECK_INT(dxl_ini_get_bool(li, "Launcher", "BigScreenOffered", 0), 1);
+    dxl_ini_free(li);
+    free(ini);
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "the big screen: on"), 3);
+    CHECK_INT(count(log, "the big screen: off"), 2);
+    CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+}
+
 static void test_continue(void) {
     CHECK_INT(fresh_home(), 0);
     write_saves(1);
@@ -555,6 +577,7 @@ int main(void) {
     RUN(test_pad_test);
     RUN(test_engine_and_game);
     RUN(test_profiles);
+    RUN(test_big_screen);
     RUN(test_continue);
     RUN(test_saves_page);
     RUN(test_shots_page);

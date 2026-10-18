@@ -2,6 +2,7 @@
 #include "screens/window.h"
 #include "screens/shell.h"
 #include "screens/uiscript.h"
+#include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
 #include "platform/desktop.h"
@@ -62,6 +63,7 @@ struct dxl_window {
     int            cursor_hidden;
     int            diags;          /* the kit's diagnostics last logged */
     float          min_scale;      /* the launcher's size (UIScale) its smallest is set for */
+    int            big, big_decided;   /* the big screen, decided as the window first opens */
     dxl_uiscript  *script;         /* DXL_UI_SCRIPT's input, or NULL */
     char          *words_before;   /* the command line as it was before a run's own words */
 
@@ -466,9 +468,10 @@ static void close_window(dxl_window *w, dxl_run *r) {
     if (!w->window) return;
     if (r && dxl_profile_exists(&r->session.profile)) {
         dxl_ini *ini = r->session.ini;
+        /* The big screen's size is the screen's, not the window's. */
         int max = (SDL_GetWindowFlags(w->window) & SDL_WINDOW_MAXIMIZED) != 0;
-        dxl_ini_set_bool(ini, "Window", "Maximized", max);
-        if (!max) {
+        if (!w->big) dxl_ini_set_bool(ini, "Window", "Maximized", max);
+        if (!max && !w->big) {
             int ww = 0, wh = 0;
             SDL_GetWindowSize(w->window, &ww, &wh);
             dxl_ini_set_int(ini, "Window", "Width", ww);
@@ -496,6 +499,14 @@ static void close_window(dxl_window *w, dxl_run *r) {
     SDL_PumpEvents();
     SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST);
     w->cursor_hidden = 0;
+}
+
+/* The big screen on or off: the window full screen, the kit's scale the
+ * screen's. */
+static void set_big(dxl_shell *s, int on) {
+    dxl_window *w = s->window;
+    if (!SDL_SetWindowFullscreen(w->window, on != 0)) dxl_log("full screen %s: %s", on ? "on" : "off", SDL_GetError());
+    w->big = s->big = s->ui.big = on != 0;
 }
 
 static int open_window(dxl_window *w, dxl_run *r) {
@@ -531,6 +542,14 @@ static int open_window(dxl_window *w, dxl_run *r) {
         return -1;
     }
     size_window(w);
+    if (!w->big_decided) {
+        const char *why = NULL;
+        w->big = dxl_big_screen_wanted(dxl_big_setting_of(dxl_ini_get(r->session.ini, "Launcher", "BigScreen")),
+                                       r->opt.big_screen, &why);
+        w->big_decided = 1;
+        if (w->big) dxl_log("the big screen, by %s", why);
+    }
+    if (w->big && !SDL_SetWindowFullscreen(w->window, true)) dxl_log("no full screen: %s", SDL_GetError());
     SDL_Surface *icon = dxl_icon(64);
     if (icon) {
         SDL_SetWindowIcon(w->window, icon);
@@ -563,10 +582,13 @@ static int open_window(dxl_window *w, dxl_run *r) {
     int rc;
     if (w->kit) {
         s->ui.user_scale = user_scale;
+        s->ui.big = w->big;
         rc = dxl_ui_attach(&s->ui, w->window, w->renderer);
     } else {
         rc = dxl_ui_init(&s->ui, w->window, w->renderer, fonts, user_scale);
+        s->ui.big = w->big;
     }
+    s->big = w->big;
     s->ui.reduced_motion = dxl_ini_get_bool(r->session.ini, "Launcher", "ReducedMotion", 0);
     if (rc != 0) {
         fprintf(stderr, "DXLauncher cannot draw: %s\n", SDL_GetError());
@@ -591,6 +613,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->desktop = desktop;
     s->start_probe = start_probe;
     s->start_find = start_find;
+    s->set_big = set_big;
     s->desktop_entry = dxl_desktop_installed(r->session.xdg.data_home);
     return 0;
 }
@@ -602,6 +625,12 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         if (now_s() - w->opened > PADS_SETTLE_S) {
             const char *name = SDL_GetGamepadNameForID(e->gdevice.which);
             dxl_shell_toast(s, "A controller is connected: %s.", name ? name : "a pad");
+        } else if (w->big && s->ui.mode == DXL_INPUT_MOUSE) {
+            /* On the big screen a pad there as it opens is the way in:
+             * the hints its own from the first frame. */
+            s->ui.mode = DXL_INPUT_PAD;
+            s->ui.pad = e->gdevice.which;
+            s->ui.pad_family = dxl_ui_pad_family(SDL_GetGamepadFromID(e->gdevice.which));
         }
     } else if (e->type == SDL_EVENT_GAMEPAD_REMOVED) {
         dxl_shell_toast(s, "A controller was disconnected.");

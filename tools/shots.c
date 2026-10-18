@@ -2,7 +2,8 @@
  * offscreen -- SDL's software renderer on a surface, a clock of its own --
  * through the code the window runs, at the sizes it meets: 1280x720,
  * 1280x800, 1920x1080, 2560x1440 at 1.5 px a dp, 3840x2160 at 2, and
- * 960x600, the smallest; with the keyboard, the mouse, and virtual pads
+ * 960x600, the smallest; 1920x1080 and 1280x800 on the big screen, a
+ * television's and a Steam Deck's; with the keyboard, the mouse, and virtual pads
  * with an Xbox's, a DualSense's, a Switch Pro's and an unknown pad's ids.
  * A kit diagnostic in any frame -- a label cut short, focusables on one
  * another or off the window -- fails it.
@@ -41,10 +42,12 @@
 typedef struct {
     int w, h;
     float scale;
+    int big;     /* the big screen's: its scale the screen's */
 } size;
 
 static const size sizes[] = {
-    { 1280, 720, 1 }, { 1280, 800, 1 }, { 1920, 1080, 1 }, { 2560, 1440, 1.5f }, { 3840, 2160, 2 }, { 960, 600, 1 },
+    { 1280, 720, 1, 0 }, { 1280, 800, 1, 0 }, { 1920, 1080, 1, 0 }, { 2560, 1440, 1.5f, 0 }, { 3840, 2160, 2, 0 },
+    { 960, 600, 1, 0 }, { 1920, 1080, 1, 1 }, { 1280, 800, 1, 1 },
 };
 
 typedef enum { MODE_KEYBOARD, MODE_MOUSE, MODE_XBOX, MODE_PS, MODE_SWITCH, MODE_PAD, MODE_COUNT } mode;
@@ -85,6 +88,7 @@ typedef enum {
     SCENE_ABOUT,
     SCENE_PROFILES,         /* three: the one in use, a mod's, one whose game is gone */
     SCENE_HOME_NEW,         /* a profile with no saves yet: Play first */
+    SCENE_BIG_OFFER,        /* Home, a pad's first press asking whether the big screen should be */
     SCENE_SAVES,            /* thirteen, the quick save the newest, one with no snapshot */
     SCENE_SAVES_NONE,
     SCENE_SAVES_OLD,        /* an engine that starts on no save */
@@ -112,7 +116,7 @@ typedef enum {
 
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "find-looking", "find-more", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
-    "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "saves", "saves-none", "saves-old-engine", "shots",
+    "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "big-offer", "saves", "saves-none", "saves-old-engine", "shots",
     "shots-none", "shot-whole", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
@@ -357,6 +361,10 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
             r->last.known = 0;
         }
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        break;
+    case SCENE_BIG_OFFER:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_offer_big(s);
         break;
     case SCENE_HOME_NEW:
     case SCENE_SAVES_NONE: {
@@ -625,6 +633,7 @@ static int kit_for(int si) {
         fprintf(stderr, "dxl-shots: %dx%d: %s\n", z->w, z->h, SDL_GetError());
         return -1;
     }
+    kit.big = z->big;
     now = si;
     return 0;
 }
@@ -632,7 +641,9 @@ static int kit_for(int si) {
 static void shoot(scene sc, int si, mode m) {
     const size *z = &sizes[si];
     char name[128];
-    if (z->scale != 1)
+    if (z->big)
+        snprintf(name, sizeof name, "%s-%dx%dbig-%s", scene_names[sc], z->w, z->h, mode_names[m]);
+    else if (z->scale != 1)
         snprintf(name, sizeof name, "%s-%dx%d@%.1f-%s", scene_names[sc], z->w, z->h, z->scale, mode_names[m]);
     else
         snprintf(name, sizeof name, "%s-%dx%d-%s", scene_names[sc], z->w, z->h, mode_names[m]);
@@ -643,6 +654,7 @@ static void shoot(scene sc, int si, mode m) {
     dxl_shell_init(&s, "shots");
     dxl_ui_reset(&kit);
     s.ui = kit;
+    s.big = kit.big;
     dxl_run r;
     set_up(sc, &r, &s);
     /* The Controller page shows the pad the shot's mode uses; the test

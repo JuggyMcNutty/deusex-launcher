@@ -106,6 +106,7 @@ typedef struct dxl_ui {
     dxl_theme       theme;
     float           scale;       /* px per dp */
     float           user_scale;
+    int             big;         /* the big screen: scale by dxl_ui_big_scale, not the display's and the player's */
     int             w_px, h_px;
     float           w, h;        /* the window in dp */
     double          now;         /* seconds: the kit's clock */
@@ -271,6 +272,11 @@ float *dxl_ui_value(dxl_ui *ui, uint32_t id, float init);
 /* Drawing clipped to r (within any clip already pushed), until the pop. */
 void dxl_clip_push(dxl_ui *ui, dxl_rect r);
 void dxl_clip_pop(dxl_ui *ui);
+
+/* The big screen's px a dp, for a screen w x h px: the layout's 1280 x 720
+ * dp an eighth larger -- the screen 640 dp tall -- and never narrower than
+ * its smallest, 960 dp. */
+float    dxl_ui_big_scale(int w, int h);
 
 /* dp to px. */
 dxl_rect dxl_px(const dxl_ui *ui, dxl_rect r);
