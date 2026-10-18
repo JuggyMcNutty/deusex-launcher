@@ -15,7 +15,8 @@
     {
       "name": "linux-x86_64",
       "inherits": "port",
-      "displayName": "Linux x86_64 (native; deusex-launcher, dxl-cli and the tests)"
+      "displayName": "Linux x86_64 (glibc 2.28, by the SDK of the port's toolchain file; deusex-launcher, dxl-cli and the tests)",
+      "toolchainFile": "${sourceDir}/ports/linux-x86_64/toolchain.cmake"
     }
   ],
   "buildPresets": [

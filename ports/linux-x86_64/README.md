@@ -1,8 +1,9 @@
 # Port: Linux x86_64 -- the development platform
 
-Desktop Linux (or a handheld PC running it), built natively. The unit
-tests, the engine's Vulkan validation and the side-by-side checks of engine
-changes run here.
+Desktop Linux (or a handheld PC running it), with glibc 2.28 or newer:
+RHEL 8's, the oldest of the actively maintained mainline distributions. The
+unit tests, the engine's Vulkan validation and the side-by-side checks of
+engine changes run here.
 
 ## Status
 
@@ -15,14 +16,17 @@ from the game's files, keeps their settings and plays them. The engine runs the 
 
 ## Build and run
 
-Needs a C compiler, CMake 3.21+, pkg-config, and SDL3 and SDL3_ttf 3.2 or
-newer, the window's, as the distro has them; without them,
-`scripts/dx.sh deps linux-x86_64` fetches their sources and the build makes
-its own. The engine adds a C++20 compiler and its own dependencies
-([the workspace's list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#dependencies)).
+Built with a Buildroot SDK, Godot's `godot-2023.08.x-4` (GCC 13.2 on glibc
+2.28), whatever the build machine's glibc: the programs need 2.28 or newer,
+which `scripts/check-abi.sh` holds them to after each build. Needs CMake
+3.21+, pkg-config, curl, xz, bzip2 and binutils' `ar`; `scripts/dx.sh deps
+linux-x86_64` fetches the rest: the SDK, pinned by its SHA256, Debian's
+packages for its sysroot, the window's sources and the engine's SDL2, which
+it builds ([what it is made of](#what-it-is-made-of)).
 
 ```sh
 scripts/dx.sh fetch                  # once: the engine, the launcher's branches, the RE
+scripts/dx.sh deps  linux-x86_64     # once: the SDK, the sysroot, the sources, SDL2
 scripts/dx.sh build linux-x86_64     # launcher, then engine
 scripts/dx.sh test                   # unit tests
 scripts/dx.sh stage linux-x86_64     # build/linux-x86_64/app: the launcher and the engine
@@ -50,17 +54,21 @@ The engine also starts on its own, straight into a map
 
 | File | What it is |
 |---|---|
-| `port.cmake` | no glibc ceiling and no sysroot: the binaries run where they are built; SDL3 and SDL3_ttf the distro's, through pkg-config, else built from `cmake/deps.lock`'s sources (`cmake/deps.cmake`) |
-| `engine.cmake` | the engine with the SDL2, X11 and Wayland display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support; the launcher asks for SDL2 at run time |
-| `port.sh` | `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh` |
+| `toolchain.cmake` | the SDK's GCC against `deps/sysroots/linux-x86_64`, libstdc++ and libgcc linked statically: a native build, not a cross one, so the programs and the tests run here too |
+| `port.cmake` | with the toolchain, the 2.28 ceiling, and SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends opened at run time; a build with the machine's own compiler (one with sanitizers) runs where it is built, with no ceiling |
+| `engine.cmake` | the engine with the SDL2 and X11 display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support, which the launcher asks for at run time. Not the engine's own Wayland window: it needs waylandpp, which the SDK lacks, and SDL2's Wayland is the one the launcher's runs use |
+| `port.sh` | `deps`: the SDK; the sysroot -- the SDK's, hard-linked, its `.pc` files pointed at the lib64 folder its libraries are in, and on it Debian bookworm's headers of what SDL's backends and the GPU probe open at run time (Wayland, xkbcommon, libdecor, PipeWire, libusb, GBM, XScreenSaver, XTest, glvnd, Vulkan) and buster's glvnd and OpenAL Soft, which the engine links, buster's glibc being 2.28; SDL2, static, its backends opened at run time, into `deps/prefix/linux-x86_64`. `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh` |
 
 Beside them, at the branch's root: the port's preset in `CMakePresets.json`,
-and its block in `CMakeLists.txt` with the `scripts/check-abi.sh` it runs,
-both linux-aarch64's too: a cross build's sysroot and glibc ceiling,
-checked after each build; this port has neither.
+with the toolchain file, and its block in `CMakeLists.txt` with the
+`scripts/check-abi.sh` it runs, both linux-aarch64's too.
 
 ## Verified
 
+- AlmaLinux 8.10 (glibc 2.28), in a container: `dxl-cli` runs and
+  `deusex-launcher --dry-run` decides, with nothing but the C library; the
+  engine answers `--version` with the distro's own X11, D-Bus, GLib,
+  fontconfig, glvnd and OpenAL Soft packages.
 - Arch Linux, KDE Plasma on Wayland, AMD GPU (Mesa's RADV and radeonsi),
   the window on SDL3's OpenGL renderer: `scripts/dx.sh run linux-x86_64
   --fresh`, driven by a UI script, goes through the first run on
@@ -81,12 +89,15 @@ checked after each build; this port has neither.
 
 ### Where it runs
 
-The build has no glibc ceiling: it runs on the system it was built on, or
-one as new. Built in a container whose glibc is newer than its host's (an
-Arch container on Bazzite: 2.44 and 2.43), the staged launcher may start on
-the host while its engine does not; the launcher refuses the engine and says
-so ("needs glibc 2.44, this system has 2.43"). Run it in the container, or
-choose an engine built for the host (Settings > Launcher, The engine).
+On any distribution with glibc 2.28 or newer, whatever the glibc of the
+machine that built it. The launcher needs only the C library, its window
+and sound the machine's own X11 or Wayland, ALSA, PulseAudio or PipeWire,
+opened when found; the engine links the distribution's X11 (with Xi),
+D-Bus, GLib and GIO, fontconfig, FreeType, glvnd's EGL and OpenGL, and
+OpenAL Soft (`libopenal.so.1`). An engine built with the machine's own
+compiler instead runs only on a glibc as new as its builder's: the launcher
+refuses it where it cannot start, and says so ("needs glibc 2.44, this
+system has 2.43").
 
 ### Audio
 
