@@ -521,8 +521,8 @@ install made read-only, which it leaves as it was, and makes, lists and
 copies profiles; `test_trash` puts folders in a scratch trash;
 `test_gamefiles`, on a
 real install in `gamefiles/`, reads every asset the window takes from it --
-the menu themes, the art, the menu sounds, the title music, its saves'
-infos and snapshots -- plays the stub from a scratch home through a first
+the menu themes, the art, the menu sounds, the title music, and the
+infos and snapshots of any saves it has -- plays the stub from a scratch home through a first
 run, a crash and the Recovery that follows, and checks that nothing in the
 game's folder changed.
 

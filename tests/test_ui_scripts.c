@@ -405,17 +405,24 @@ static void started_with(const char *want) {
     free(log);
 }
 
-/* Continue from Home: the latest save, a newer one than the install's
- * Save0010 the import copied, in the engine's --url. */
+/* The profile's saves, as the game writes them: Save0010 on Liberty
+ * Island, and with newer, a newer one in a lower slot, Save0003. */
+static void write_saves(int newer) {
+    char *saves = home_file("data/dxlauncher/profiles/default/Save");
+    dxl_test_save island = { { 2026, 10, 14, 20, 47, 15 }, 10, "NYC - Liberty Island", "NYC - Liberty Island",
+                             "01_NYC_UNATCOIsland", 452, 1 };
+    CHECK_INT(dxl_test_write_save(saves, "Save0010", &island), 0);
+    dxl_test_save park = { { 2026, 10, 16, 9, 0, 0 }, 3, "Battery Park", "NYC - Battery Park", "03_NYC_BatteryPark",
+                           600, 1 };
+    if (newer) CHECK_INT(dxl_test_write_save(saves, "Save0003", &park), 0);
+    free(saves);
+}
+
+/* Continue from Home: the latest save, by when it was made, not by its
+ * slot, in the engine's --url. */
 static void test_continue(void) {
     CHECK_INT(fresh_home(), 0);
-    /* A save made after the install's Save0010, in a lower slot: the latest
-     * is the newest by when it was made. */
-    char *saves = home_file("data/dxlauncher/profiles/default/Save");
-    dxl_test_save newer = { { 2026, 10, 16, 9, 0, 0 }, 3, "Battery Park", "NYC - Battery Park", "03_NYC_BatteryPark",
-                            600, 1 };
-    CHECK_INT(dxl_test_write_save(saves, "Save0003", &newer), 0);
-    free(saves);
+    write_saves(1);
     launch_with("continue.script", "ready", STARTS_ON_SAVES);
     script_ok();
     started_with("--url=?loadgame=3");
@@ -424,6 +431,7 @@ static void test_continue(void) {
 /* The Saves page: a save loaded by its row; then deleted, to the trash. */
 static void test_saves_page(void) {
     CHECK_INT(fresh_home(), 0);
+    write_saves(0);
     launch_with("saves_load.script", "ready", STARTS_ON_SAVES);
     script_ok();
     started_with("--url=?loadgame=10");
