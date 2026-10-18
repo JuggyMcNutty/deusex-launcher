@@ -10,7 +10,7 @@ expect shots
 find Shot0001.bmp
 key Return
 wait 0.8
-expect shots
+expect shot
 find Delete...
 key Return
 wait 0.5

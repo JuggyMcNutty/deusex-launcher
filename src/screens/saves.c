@@ -42,7 +42,20 @@ void dxl_saves_reload(dxl_shell *s) {
         if (s->save_list.items[i].slot == keep) s->save_sel = i;
 }
 
-void dxl_page_saves_enter(dxl_shell *s) { dxl_saves_reload(s); }
+void dxl_page_saves_enter(dxl_shell *s) {
+    dxl_saves_reload(s);
+    /* The focus come back to a row: the chosen save's, kept by its slot,
+     * not the row in that place, which may be another save now. */
+    dxl_list list;
+    memset(&list, 0, sizeof list);
+    list.id = dxl_ui_id(&s->ui, "saves");
+    list.count = s->save_list.count;
+    for (int i = 0; i < 4096; i++)
+        if (dxl_list_row_id(&list, i) == s->ui.focus) {
+            dxl_list_focus(&s->ui, &list, s->save_sel);
+            break;
+        }
+}
 
 /* The snapshot of sv as a texture of the window's renderer: read once for
  * its slot. */
@@ -57,7 +70,7 @@ static SDL_Texture *snapshot_of(dxl_shell *s, const dxl_save *sv) {
     if (s->save_snap_read || !ui->renderer) return s->save_snap;
     s->save_snap_read = 1;
     char *dir = dxl_save_path(s->run->session.profile.save_dir, sv);
-    char *path = dxl_path_resolve_ci(dir, "SaveInfo.dxs");
+    char *path = dxl_path_join(dir, "SaveInfo.dxs");
     dxl_saveinfo info;
     dxl_err e;
     if (path && dxl_saveinfo_read(path, 1, &info, &e) == 0) {

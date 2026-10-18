@@ -62,7 +62,8 @@ int dxl_saves_list(const char *dir, dxl_saves *out, dxl_err *err) {
         if (!dxl_save_slot_of(e->d_name, &slot)) continue;
         char *folder = dxl_path_join(dir, e->d_name);
         int is_dir = dxl_path_is_dir(folder);
-        char *info = is_dir ? dxl_path_resolve_ci(folder, "SaveInfo.dxs") : NULL;
+        /* Its info by the name the engine opens, no other case. */
+        char *info = is_dir ? dxl_path_join(folder, "SaveInfo.dxs") : NULL;
         free(folder);
         if (!is_dir) continue;
         if (out->count == cap) {

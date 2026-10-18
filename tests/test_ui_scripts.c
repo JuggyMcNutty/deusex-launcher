@@ -17,6 +17,8 @@
 #include "core/settings.h"
 #include "core/xdg.h"
 
+#include "upkg_writer.h"
+
 #include <math.h>
 #include <stdarg.h>
 #include <sys/stat.h>
@@ -403,13 +405,20 @@ static void started_with(const char *want) {
     free(log);
 }
 
-/* Continue from Home: the latest save, the install's Save0010 the import
- * copied, in the engine's --url. */
+/* Continue from Home: the latest save, a newer one than the install's
+ * Save0010 the import copied, in the engine's --url. */
 static void test_continue(void) {
     CHECK_INT(fresh_home(), 0);
+    /* A save made after the install's Save0010, in a lower slot: the latest
+     * is the newest by when it was made. */
+    char *saves = home_file("data/dxlauncher/profiles/default/Save");
+    dxl_test_save newer = { { 2026, 10, 16, 9, 0, 0 }, 3, "Battery Park", "NYC - Battery Park", "03_NYC_BatteryPark",
+                            600, 1 };
+    CHECK_INT(dxl_test_write_save(saves, "Save0003", &newer), 0);
+    free(saves);
     launch_with("continue.script", "ready", STARTS_ON_SAVES);
     script_ok();
-    started_with("--url=?loadgame=10");
+    started_with("--url=?loadgame=3");
 }
 
 /* The Saves page: a save loaded by its row; then deleted, to the trash. */

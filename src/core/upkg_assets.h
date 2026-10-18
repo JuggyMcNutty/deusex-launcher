@@ -34,7 +34,7 @@ uint8_t *dxl_upkg_file(const dxl_upkg *p, int32_t e, size_t *len, char *type, si
 int dxl_upkg_class_defaults(const dxl_upkg *p, int32_t e, dxl_ureader *r);
 
 /* A save's SaveInfo.dxs: when it was made, what it says, where, and its
- * snapshot. */
+ * snapshot; its words as UTF-8 (core/common.h's dxl_text_utf8). */
 typedef struct {
     int        year, month, day, hour, minute, second;
     int        directory_index;    /* its SaveNNNN's number */

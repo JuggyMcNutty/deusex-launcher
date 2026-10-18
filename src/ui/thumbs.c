@@ -217,6 +217,17 @@ SDL_Texture *dxl_thumbs_get(dxl_thumbs *t, const char *path, int *failed, int *w
     return tex;
 }
 
+int dxl_thumbs_busy(dxl_thumbs *t) {
+    if (!t) return 0;
+    int busy = 0;
+    SDL_LockMutex(t->lock);
+    for (int i = 0; i < t->count && !busy; i++)
+        busy = t->items[i].state == QUEUED || t->items[i].state == READING ||
+               (t->items[i].state == READ && t->items[i].pic);
+    SDL_UnlockMutex(t->lock);
+    return busy;
+}
+
 void dxl_thumbs_wait(dxl_thumbs *t, SDL_Renderer *r) {
     if (!t) return;
     SDL_LockMutex(t->lock);

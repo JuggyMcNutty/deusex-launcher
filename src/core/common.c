@@ -132,3 +132,50 @@ void dxl_buf_word(dxl_buf *b, const char *s) {
     if (b->len) dxl_buf_add(b, " ", 1);
     dxl_buf_puts(b, s);
 }
+
+/* The length of the UTF-8 character s begins, or 0 for one that is not. */
+static size_t utf8_char(const unsigned char *s) {
+    if (s[0] < 0x80) return 1;
+    size_t n = s[0] >= 0xf0 && s[0] <= 0xf4 ? 4 : s[0] >= 0xe0 ? 3 : s[0] >= 0xc2 && s[0] <= 0xdf ? 2 : 0;
+    if (!n || s[0] >= 0xf8) return 0;
+    for (size_t i = 1; i < n; i++)
+        if ((s[i] & 0xc0) != 0x80) return 0;
+    if (n == 3 && s[0] == 0xe0 && s[1] < 0xa0) return 0;   /* overlong */
+    if (n == 3 && s[0] == 0xed && s[1] >= 0xa0) return 0;  /* a surrogate */
+    if (n == 4 && s[0] == 0xf0 && s[1] < 0x90) return 0;   /* overlong */
+    if (n == 4 && s[0] == 0xf4 && s[1] >= 0x90) return 0;  /* past U+10FFFF */
+    return n;
+}
+
+void dxl_text_utf8(const char *in, char *out, size_t size) {
+    if (!size) return;
+    const unsigned char *s = (const unsigned char *)(in ? in : "");
+    int utf8 = 1;
+    for (const unsigned char *p = s; *p && utf8;) {
+        size_t n = utf8_char(p);
+        if (!n) utf8 = 0;
+        else p += n;
+    }
+    size_t o = 0;
+    for (const unsigned char *p = s; *p;) {
+        unsigned char c[4];
+        size_t n;
+        if (utf8) {
+            n = utf8_char(p);
+            memcpy(c, p, n);
+            p += n;
+        } else if (*p < 0x80) {
+            c[0] = *p++;
+            n = 1;
+        } else {
+            c[0] = (unsigned char)(0xc0 | (*p >> 6));
+            c[1] = (unsigned char)(0x80 | (*p & 0x3f));
+            p++;
+            n = 2;
+        }
+        if (o + n >= size) break;
+        memcpy(out + o, c, n);
+        o += n;
+    }
+    out[o] = '\0';
+}

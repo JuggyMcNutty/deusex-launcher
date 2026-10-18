@@ -41,6 +41,14 @@ void dxl_page_shots_enter(dxl_shell *s) {
     if (!s->shot_whole) s->shot_whole = dxl_thumbs_new(WHOLE_W, WHOLE_H);
     s->shot_open = 0;
     reload(s);
+    /* The focus come back to a tile: the chosen shot's, kept by its name,
+     * not the tile in that place. */
+    dxl_list grid;
+    memset(&grid, 0, sizeof grid);
+    grid.id = dxl_ui_id(&s->ui, "shots grid");
+    for (int i = 0; i < 4096 && !s->shot_refocus; i++)
+        for (int c = 0; c < 4; c++)
+            if (dxl_list_cell_id(&grid, i, c) == s->ui.focus) s->shot_refocus = 1;
 }
 
 /* A picture of set's in r, fitted and centred: its texture's, a word while
@@ -113,6 +121,7 @@ static void whole(dxl_shell *s, dxl_rect r) {
             dxl_log("shots: %s to the trash", sh->path);
             dxl_shell_toast(s, "%s is in the trash.", name);
             /* The next in its place, or the one before the last. */
+            dxl_thumbs_clear(s->shot_whole);
             reload(s);
             if (i < l->count) s->shot_sel = i;
             else if (l->count) s->shot_sel = l->count - 1;
@@ -120,12 +129,10 @@ static void whole(dxl_shell *s, dxl_rect r) {
         return;
     }
     /* Each change a frame of its own at once: the picture to show is asked
-     * for as it is drawn. */
-    if (prev && i > 0) {
-        s->shot_sel = i - 1;
-        dxl_ui_animate(ui);
-    } else if (next && i + 1 < l->count) {
-        s->shot_sel = i + 1;
+     * for as it is drawn, the one before it let go, read or not. */
+    if ((prev && i > 0) || (next && i + 1 < l->count)) {
+        s->shot_sel = prev ? i - 1 : i + 1;
+        dxl_thumbs_clear(s->shot_whole);
         dxl_ui_animate(ui);
     }
     else if (del) {
@@ -154,10 +161,9 @@ void dxl_page_shots(dxl_shell *s, dxl_rect r) {
     const dxl_theme *t = &ui->theme;
     dxl_session *ss = &s->run->session;
     dxl_shots *l = &s->shot_list;
-    s->thumbs_pending = dxl_thumbs_update(s->thumbs, ui->renderer);
+    dxl_thumbs_update(s->thumbs, ui->renderer);
     if (s->shot_open && s->shot_sel < l->count) {
         whole(s, r);
-        s->thumbs_pending |= dxl_thumbs_update(s->shot_whole, ui->renderer);
         return;
     }
 

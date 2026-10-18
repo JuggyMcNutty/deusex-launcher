@@ -158,8 +158,9 @@ The game starts on a save by the engine's start URL, `?loadgame=N` in
 `--url`, which only an engine whose `--version` names `loadgame-url` takes
 ([the start URL](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)):
 with an older one there is no Continue, and Load is off, saying why. A run
-started on a save that never reached its first map opens Recovery saying
-so, its fix Saves....
+started on a save that the engine stopped with an error before its first
+map opens Recovery saying the save did not load, its fix Saves...; a
+crash, or an error Recovery knows, has its own advice.
 
 ## One start
 
@@ -274,10 +275,12 @@ The launcher's music and The launcher's sounds (`launcher.ini`'s
 
 **Text that types itself in**, as the game's menus' does: a page's title,
 the help lines, a dialog's words, Recovery's advice, at 220 characters a
-second; a key or a click shows it whole, and reduced motion turns it off.
+second. Enter, Space, Esc, the play key, Start or a click shows it whole,
+as each does what it does; reduced motion turns it off.
 
-Idle, it costs nothing: it waits on its events and draws only while
-something moves, VSync-paced. A second start while it is up hands it its
+Idle, it costs next to nothing: it waits on its events and draws only
+while something moves or a picture is being read, VSync-paced; the title
+music, while it plays, is mixed on SDL's audio thread. A second start while it is up hands it its
 command line and raises it; a pad connected or lost is a note in its
 corner.
 

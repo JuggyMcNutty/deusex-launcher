@@ -1,8 +1,9 @@
 /* A profile's saves: the folders of its Save folder (the engine's SavePath)
  * that the engine loads -- SaveNNNN, slot NNNN, as the engine names one
  * ("Save%04d"), and QuickSave, the quick save, slot -1 -- each with its
- * SaveInfo.dxs read (core/upkg_assets.h): when it was made, what it says,
- * where. Current, the mission in progress, is no save. Newest first, as
+ * SaveInfo.dxs read (core/upkg_assets.h), by that name alone, as the
+ * engine opens it: when it was made, what it says, where. Current, the
+ * mission in progress, is no save. Newest first, as
  * the game's own Load Game lists them; one whose SaveInfo does not read
  * after them all.
  *

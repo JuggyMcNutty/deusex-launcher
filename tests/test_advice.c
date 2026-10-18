@@ -44,6 +44,16 @@ static void test_ends(void) {
     l = run(1, 0, 0, "Could not create vulkan renderer");
     snprintf(l.start, sizeof l.start, "?loadgame=10");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
+    /* A crash, no game, or no error line: not the save's. */
+    l = run(139, SIGSEGV, 0, "");
+    snprintf(l.start, sizeof l.start, "?loadgame=10");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
+    l = run(0, 0, 0, "");
+    snprintf(l.start, sizeof l.start, "?loadgame=10");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
+    l = run(127, 0, 0, "");
+    snprintf(l.start, sizeof l.start, "?loadgame=10");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NONE);
     l = run(0, 0, 1, "");   /* clean */
     CHECK(dxl_advice_for(&l) == NULL);
     l.known = 0;
