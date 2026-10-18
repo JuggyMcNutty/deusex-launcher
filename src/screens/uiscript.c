@@ -287,6 +287,13 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
                 snprintf(what, sizeof what, "expected %.60s, %s is up", arg, up);
                 fail(u, what);
             }
+        } else if (!strcmp(word, "big")) {
+            int want = !strcmp(arg, "on");
+            if ((strcmp(arg, "on") && strcmp(arg, "off")) || s->big != want) {
+                char what[120];
+                snprintf(what, sizeof what, "expected the big screen %.8s, it is %s", arg, s->big ? "on" : "off");
+                fail(u, what);
+            }
         } else if (!strcmp(word, "shot")) {
             free(u->shot);
             u->shot = dxl_xstrdup(arg);

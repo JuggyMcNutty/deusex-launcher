@@ -26,7 +26,7 @@ scratch home:
 
 | Folder | What is in it |
 |---|---|
-| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed (`[Window]` `Width`, `Height`, `Maximized`) |
+| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
@@ -248,10 +248,22 @@ which the display's scale makes pixels, so it is as sharp at any size: for
 1280 x 720 dp, and no smaller than 960 x 600; the window opens at
 1280 x 720, or as it last closed.
 
+**The big screen**, for a television or a handheld
+(`src/core/bigscreen.h`): the window full screen, its layout 1280 x 720 dp
+an eighth larger -- the screen 640 dp tall, and no narrower than 960 dp --
+and the hints a pad's when one is there as it opens. Settings' Launcher
+page has it Always, Never, or Automatic, the default: the big screen when
+`--big-screen` asks for it, as the app menu's Big screen does, under
+Steam's Big Picture (`SteamTenfoot` or `SteamGamepadUI` set to 1), on a
+Steam Deck (`SteamDeck=1`) or in gamescope (`GAMESCOPE_WAYLAND_DISPLAY`).
+F11 switches it while the window is up. In a window, Home and Welcome
+offer it once, as a pad is first pressed there; switched to, it is
+Always. Its size is the screen's, not kept as the window's.
+
 **Controls.** The keyboard: the arrows or WASD move, Enter or Space
 chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
 Up and Page Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs,
-F5 plays. The mouse: the pointer focuses
+F5 plays, F11 switches the big screen. The mouse: the pointer focuses
 what it moves onto, a click chooses, the wheel scrolls a list and a list's
 scroll bar drags by its thumb or pages by its track, the back button goes
 back. A pad: the d-pad or the left stick moves (held, again 350 ms after
@@ -307,7 +319,7 @@ takes (`src/core/settings.c`):
 | `DeusEx.ini` | the engine's sections, `[Engine.SurrealClient]`, `SurrealAudioDevice`, `SurrealRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
-| `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, reduced motion, Home after playing, its renderer; the profile's game, the engine's extra words |
+| `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
 `[Engine.SurrealAudioDevice]` has a key, else the retail ones
@@ -369,8 +381,8 @@ Recovery's: added to the original's command line of the run Play starts
 next, and of no other.
 
 The changes are in the open files at once, and written as Settings is
-left, by Done or otherwise. The launcher's size and reduced motion apply at
-once, its renderer from the window's next opening.
+left, by Done or otherwise. The launcher's size, the big screen and
+reduced motion apply at once, its renderer from the window's next opening.
 
 ## The controller
 
@@ -442,8 +454,9 @@ the desktop's app menu: `$XDG_DATA_HOME/applications/io.github.juggymcnutty.DXLa
 from `data/`'s template with the launcher's own path, and its icon, our own
 drawing, at 32 to 256 px under `$XDG_DATA_HOME/icons/hicolor`
 (`src/platform/posix/desktop.c`, `src/ui/icon.c`). The window has the same
-id, so the desktop puts the two together. `--remove-desktop`, or the button
-again, takes them away; nothing else writes them.
+id, so the desktop puts the two together; its Big screen action starts it
+with `--big-screen`. `--remove-desktop`, or the button again, takes them
+away; nothing else writes them.
 
 ## The game and the launcher
 
@@ -548,7 +561,7 @@ keyboard (`test_ui_controls`), the sound on SDL's dummy output
 page and dialog, each settings page too, from states it makes up in a
 scratch home, at
 1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160 at 2 and
-960x600, with the keyboard, the mouse and four virtual pads, and fails on
+960x600, and on the big screen at 1920x1080 and 1280x800, with the keyboard, the mouse and four virtual pads, and fails on
 any diagnostic of the kit's: a label cut short, focusables on one another
 or off the window (`test_ui_shots_*`); with `--out=<dir>` it writes them as
 PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
@@ -576,7 +589,9 @@ the trash, and uses the first again; `continue` starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
 the save's URL on the engine's command line or what was deleted in the
-trash; `first_run` and
+trash; `big_screen` switches the big screen by F11, is offered it on a
+pad's first press and stays as it is, then has it Always on Settings'
+Launcher page, and finds the two in `launcher.ini`; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
 with Your profile's choices made and as they come. SDL takes in each
 only controllers of the virtual ones' makes and models

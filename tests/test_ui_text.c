@@ -3,6 +3,8 @@
 #include "ui/text.h"
 #include "ui/widgets.h"
 
+#include <math.h>
+
 static int valid_utf8(const char *s) {
     for (const unsigned char *p = (const unsigned char *)s; *p;) {
         int n = *p < 0x80 ? 1 : (*p & 0xe0) == 0xc0 ? 2 : (*p & 0xf0) == 0xe0 ? 3 : (*p & 0xf8) == 0xf0 ? 4 : 0;
@@ -99,6 +101,29 @@ static void test_scale(void) {
     offscreen_close(&o1, &a);
 }
 
+/* The big screen: the layout's 1280 x 720 dp an eighth larger, the screen
+ * 640 dp tall, never narrower than 960 dp; the kit on a television's
+ * screen drawn so. */
+static void test_big_scale(void) {
+    CHECK(fabsf(dxl_ui_big_scale(1920, 1080) - 1.6875f) < 0.0001f);
+    CHECK(fabsf(dxl_ui_big_scale(3840, 2160) - 3.375f) < 0.0001f);
+    CHECK(fabsf(dxl_ui_big_scale(1280, 800) - 1.25f) < 0.0001f);
+    CHECK(fabsf(dxl_ui_big_scale(1024, 768) - 1024 / 960.0f) < 0.0001f);   /* 4:3: its width the bound */
+    offscreen o;
+    static dxl_ui tv;
+    if (offscreen_open(&o, &tv, 1920, 1080, 1)) {
+        CHECK(0);
+        return;
+    }
+    tv.big = 1;
+    dxl_ui_input_begin(&tv);
+    dxl_ui_begin(&tv, 1.0);
+    CHECK(fabsf(tv.h - 640) < 0.01f);
+    CHECK(tv.w > 1137 && tv.w < 1138);
+    dxl_ui_end(&tv);
+    offscreen_close(&o, &tv);
+}
+
 /* The typewriter: 220 characters a second from its start; whole once a key
  * comes after it began, and under reduced motion. */
 static void test_typed(dxl_ui *ui) {
@@ -145,5 +170,6 @@ TEST_MAIN_BEGIN
     test_typed(&ui);
     offscreen_close(&o, &ui);
     RUN(test_scale);
+    RUN(test_big_scale);
     TTF_Quit();
 TEST_MAIN_END

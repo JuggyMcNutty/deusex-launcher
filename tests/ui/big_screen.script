@@ -1,0 +1,52 @@
+# The big screen: offered on a pad's first press on Home, stayed away from,
+# and not offered again; F11 on and off; Settings' Launcher page's Always,
+# Never and Always again, kept: test_ui_scripts.c reads launcher.ini after.
+wait 2
+expect home
+big off
+pad attach xbox
+wait 2
+pad button 12 down
+pad button 12 up
+wait 0.5
+expect confirm
+find Stay as it is
+key Return
+wait 0.5
+expect home
+big off
+pad button 12 down
+pad button 12 up
+wait 0.5
+expect home
+key F11
+wait 0.5
+big on
+key F11
+wait 0.5
+big off
+find Settings
+key Return
+wait 0.5
+expect settings
+find Launcher
+key Return
+wait 0.3
+expect settings Launcher
+find Big screen
+key Right
+wait 0.5
+big on
+key Right
+wait 0.5
+big off
+key Left
+wait 0.5
+big on
+find Done
+key Return
+wait 0.5
+expect home
+big on
+find Quit
+key Return

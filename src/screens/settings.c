@@ -183,6 +183,11 @@ static void choose(dxl_shell *s, const dxl_setting *st, const char *value) {
 static void live(dxl_shell *s, const dxl_setting *st) {
     if (!strcmp(st->id, "launcher.ui_scale")) s->ui.user_scale = (float)dxl_setting_number(&s->stores, st);
     else if (!strcmp(st->id, "launcher.reduced_motion")) s->ui.reduced_motion = dxl_setting_bool(&s->stores, st);
+    else if (!strcmp(st->id, "launcher.big_screen")) {
+        char v[16];
+        dxl_setting_get(&s->stores, st, v, sizeof v);
+        dxl_shell_big_setting(s, v);
+    }
     else if (!strcmp(st->id, "hud.menu_theme")) dxl_shell_theme(s);
     else if (!strcmp(st->id, "launcher.music_volume") || !strcmp(st->id, "launcher.sound_volume")) dxl_shell_volumes(s);
 }

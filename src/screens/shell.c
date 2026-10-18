@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "screens/shell.h"
+#include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
 #include "core/upkg_assets.h"
@@ -167,6 +168,70 @@ void dxl_shell_cue(dxl_shell *s, int cues) {
             dxl_audio_play(s->audio, order[i].sound);
             return;
         }
+}
+
+void dxl_shell_big(dxl_shell *s, int on) {
+    on = on != 0;
+    if (on == s->big) return;
+    if (s->set_big) {
+        s->set_big(s, on);
+    } else {
+        s->big = on;
+        s->ui.big = on;
+    }
+    dxl_log("the big screen: %s", on ? "on" : "off");
+}
+
+void dxl_shell_big_setting(dxl_shell *s, const char *value) {
+    /* The player knows of it now: not offered too. */
+    s->big_offered = 1;
+    dxl_big_setting st = dxl_big_setting_of(value);
+    int on = st == DXL_BIG_ON;
+    if (st == DXL_BIG_AUTO) on = dxl_big_screen_wanted(st, s->run && s->run->opt.big_screen, NULL);
+    dxl_shell_big(s, on);
+}
+
+/* The offer's question, and its answer read. */
+#define BIG_OFFER "big screen offer"
+
+void dxl_shell_offer_big(dxl_shell *s) {
+    dxl_shell_confirm(s, dxl_ui_id(&s->ui, BIG_OFFER), "The big screen",
+                      "A controller is in use. On the big screen the launcher fills the screen, its type larger, for "
+                      "a television or a handheld. F11 switches between the two; Settings' Launcher page keeps the "
+                      "choice.",
+                      "Switch to it", "Stay as it is");
+}
+
+/* Offered once, on Home or Welcome, as a pad is first used there in a
+ * window that is not the big screen and may be -- launcher.ini's
+ * BigScreen automatic, BigScreenOffered not yet: the press that brought it
+ * the question's, not the page's. Switched to, the big screen always. */
+static void offer_big(dxl_shell *s) {
+    dxl_ui *ui = &s->ui;
+    if (!s->run) return;
+    dxl_ini *ini = s->run->session.ini;
+    int a = dxl_shell_answer(s, dxl_ui_id(ui, BIG_OFFER));
+    if (a == 1) {
+        dxl_ini_set(ini, "Launcher", "BigScreen", "on");
+        dxl_shell_big(s, 1);
+    }
+    if (a >= 0) {
+        dxl_err e;
+        if (dxl_profile_exists(&s->run->session.profile) && dxl_session_save(&s->run->session, &e) != 0)
+            dxl_log("warning: %s", dxl_err_msg(&e));
+        return;
+    }
+    if (s->big || !s->set_big || s->big_offered || ui->mode != DXL_INPUT_PAD || s->dialog != DXL_DIALOG_NONE ||
+        (s->page != DXL_PAGE_HOME && s->page != DXL_PAGE_WELCOME))
+        return;
+    if (dxl_big_setting_of(dxl_ini_get(ini, "Launcher", "BigScreen")) != DXL_BIG_AUTO ||
+        dxl_ini_get_bool(ini, "Launcher", "BigScreenOffered", 0))
+        return;
+    s->big_offered = 1;
+    dxl_ini_set_bool(ini, "Launcher", "BigScreenOffered", 1);
+    ui->in.activate = ui->in.back = ui->in.start = ui->in.clear = 0;
+    ui->in.shoulder_l = ui->in.shoulder_r = 0;
+    dxl_shell_offer_big(s);
 }
 
 void dxl_shell_theme(dxl_shell *s) {
@@ -787,6 +852,13 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     if (s->page_since < 0) s->page_since = now;
     expire_toasts(s);
     if (ui->in.quit) s->result = 0;
+    /* F11: the big screen on or off, for as long as the window is up; a
+     * player who knows of it is not offered it. */
+    if (ui->in.toggle_big) {
+        dxl_shell_big(s, !s->big);
+        s->big_offered = 1;
+    }
+    offer_big(s);
 
     float m = margin(ui);
     dxl_rect above = { 0, 0, ui->w, ui->h - FOOT_H };

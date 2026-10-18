@@ -29,6 +29,7 @@ dxl_test(test_profile)
 dxl_test(test_engine_args)
 dxl_test(test_lastrun)
 dxl_test(test_vdf)
+dxl_test(test_bigscreen)
 dxl_test(test_finder)
 dxl_test(test_advice)
 dxl_test(test_keys)
@@ -62,7 +63,7 @@ target_compile_definitions(test_ui_audio PRIVATE DXL_GAMEFILES="${DXL_ROOT}/game
 
 # Every page at every size and with every device, without a diagnostic
 # (tools/shots.c): a test for each size, so they run side by side.
-foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600-)
+foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600- 1920x1080big 1280x800big)
     string(REPLACE "-" "" name "${size}")
     add_test(NAME test_ui_shots_${name} COMMAND dxl-shots --only=${size})
 endforeach()

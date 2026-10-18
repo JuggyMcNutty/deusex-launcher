@@ -86,6 +86,12 @@ static int dpad_dir(int button) {
 
 /* ---- setup ------------------------------------------------------------- */
 
+float dxl_ui_big_scale(int w, int h) {
+    float s = h / 640.0f;
+    if (w < 960 * s) s = w / 960.0f;
+    return s;
+}
+
 static void measure(dxl_ui *ui) {
     int w = 0, h = 0;
     float scale = ui->user_scale;
@@ -96,6 +102,7 @@ static void measure(dxl_ui *ui) {
     } else if (ui->renderer) {
         SDL_GetCurrentRenderOutputSize(ui->renderer, &w, &h);
     }
+    if (ui->big && w > 0 && h > 0) scale = dxl_ui_big_scale(w, h);
     if (scale < 0.5f) scale = 0.5f;
     ui->scale = scale;
     ui->w_px = w;
