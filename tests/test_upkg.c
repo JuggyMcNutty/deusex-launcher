@@ -7,44 +7,11 @@
 #include "scratch.h"
 #include "core/theme_colors.h"
 #include "core/upkg_assets.h"
+#include "upkg_writer.h"
 
 #include <stdint.h>
 
-/* ---- a writer ---------------------------------------------------------- */
-
-typedef struct {
-    uint8_t *d;
-    size_t   n, cap;
-} buf;
-
-static void put(buf *b, const void *p, size_t n) {
-    if (b->n + n > b->cap) {
-        b->cap = (b->n + n) * 2 + 64;
-        b->d = realloc(b->d, b->cap);
-    }
-    memcpy(b->d + b->n, p, n);
-    b->n += n;
-}
-static void u8(buf *b, uint8_t v) { put(b, &v, 1); }
-static void u16(buf *b, uint16_t v) { u8(b, (uint8_t)v); u8(b, (uint8_t)(v >> 8)); }
-static void u32(buf *b, uint32_t v) { u16(b, (uint16_t)v); u16(b, (uint16_t)(v >> 16)); }
-static void u64(buf *b, uint64_t v) { u32(b, (uint32_t)v); u32(b, (uint32_t)(v >> 32)); }
-
-static void idx(buf *b, int32_t v) {
-    uint32_t a = (uint32_t)(v < 0 ? -v : v);
-    uint8_t first = (uint8_t)((v < 0 ? 0x80 : 0) | (a & 0x3f) | (a >= 0x40 ? 0x40 : 0));
-    u8(b, first);
-    a >>= 6;
-    while (a) {
-        u8(b, (uint8_t)((a & 0x7f) | (a >= 0x80 ? 0x80 : 0)));
-        a >>= 7;
-    }
-}
-
-static void str(buf *b, const char *s) {
-    idx(b, (int32_t)strlen(s) + 1);
-    put(b, s, strlen(s) + 1);
-}
+/* ---- the package ------------------------------------------------------- */
 
 /* The names the test's package has, by index. */
 enum { N_NONE, N_CORE, N_ENGINE, N_TEXTURE, N_PALETTE, N_SOUND, N_CLASS, N_PAL, N_TEX, N_SND, N_WAV, N_FORMAT,
@@ -55,16 +22,6 @@ static const char *const names[N_NAMES] = {
     "Palette", "Count", "Title", "Color", "Colors", "ColorThemeMenu_Test", "themeName", "ColorThemeMenu", "bMasked",
     "DeusExSaveInfo", "MyInfo", "Year", "Description", "Snapshot",
 };
-
-/* A property's tag, in the format's order: its name, its type and size
- * code, a struct's name, a size of a byte (code 5), an array index. */
-static void tag(buf *b, int name, int type, int size_code, int index, int struct_name, int size) {
-    idx(b, name);
-    u8(b, (uint8_t)(type | size_code << 4 | (index ? 0x80 : 0)));
-    if (type == DXL_UPROP_STRUCT) idx(b, struct_name);
-    if (size_code == 5) u8(b, (uint8_t)size);
-    if (index) u8(b, (uint8_t)index);
-}
 
 /* A class's headers with no script, its defaults after. */
 static void class_head(buf *b) {
