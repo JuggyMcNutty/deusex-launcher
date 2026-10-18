@@ -1,0 +1,8 @@
+# Continue from Home: the game started on the profile's latest save, the
+# install's Save0010 the import copied, by an engine that starts on one;
+# test_ui_scripts.c reads the run's command line.
+wait 1.5
+expect home
+find Continue
+key Return
+wait 1.5

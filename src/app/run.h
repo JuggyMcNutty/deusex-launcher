@@ -73,6 +73,10 @@ typedef struct {
     dxl_view        view;
     dxl_lastrun     last;       /* the last run's end, for Recovery */
     dxl_play_result played;     /* this run's */
+    /* Where the next game starts, the engine's --url: a save's ?loadgame=N
+     * (core/saves.h), the window's Continue or a save's Load; "" for the
+     * game's own start. One game's: cleared as it ends. */
+    char            url[64];
     char            message[512];   /* why the run stopped short */
 } dxl_run;
 

@@ -1,7 +1,8 @@
 /* What a profile's last run left: how it ended, and its log.
  *
  *   <state>/LastRun.ini         [LastRun] Ended, Status, Signal, Ready, Clean,
- *                               Error: the run's end, written as it ends
+ *                               Error, Start: the run's end, written as it
+ *                               ends, and where the game started
  *   <state>/logs/last-run.log   the engine's output, all of it
  *   <state>/logs/previous-run.log   the run's before it
  *
@@ -26,6 +27,7 @@ typedef struct {
     int  ready;        /* the engine said its first map was in */
     int  clean;        /* exit 0 with ready seen */
     char error[512];   /* the engine's "SurrealEngine error: ..." line, or "" */
+    char start[64];    /* where the game started: a save's ?loadgame=N; "" for its own start */
 } dxl_lastrun;
 
 int  dxl_lastrun_load(dxl_lastrun *r, const char *state_dir);

@@ -12,70 +12,12 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
-enum { N_NONE, N_CORE, N_CLASS, N_INFO_CLASS, N_INFO, N_YEAR, N_MONTH, N_DAY, N_HOUR, N_MINUTE, N_SECOND, N_INDEX,
-       N_DESC, N_LOCATION, N_MAP, N_TIME, N_NAMES };
-static const char *const names[N_NAMES] = {
-    "None", "Core", "Class", "DeusExSaveInfo", "MyDeusExSaveInfo", "Year", "Month", "Day", "Hour", "Minute",
-    "Second", "DirectoryIndex", "Description", "MissionLocation", "MapName", "saveTime",
-};
-
-static void int_prop(buf *b, int name, int value) {
-    tag(b, name, DXL_UPROP_INT, 2, 0, 0, 0);
-    u32(b, (uint32_t)value);
-}
-
-static void str_prop(buf *b, int name, const char *value) {
-    tag(b, name, DXL_UPROP_STR, 5, 0, 0, (int)strlen(value) + 2);
-    str(b, value);
-}
-
 /* A SaveInfo.dxs as the game writes one, its date, its words, its time. */
 static void write_info(const char *dir, const char *folder, int slot, const int date[6], const char *desc,
                        const char *location, int seconds) {
-    buf obj = { 0 };
-    static const int fields[6] = { N_YEAR, N_MONTH, N_DAY, N_HOUR, N_MINUTE, N_SECOND };
-    for (int i = 0; i < 6; i++) int_prop(&obj, fields[i], date[i]);
-    int_prop(&obj, N_INDEX, slot);
-    str_prop(&obj, N_DESC, desc);
-    str_prop(&obj, N_LOCATION, location);
-    str_prop(&obj, N_MAP, "01_NYC_UNATCOIsland");
-    int_prop(&obj, N_TIME, seconds);
-    idx(&obj, N_NONE);
-
-    buf h = { 0 };
-    u32(&h, DXL_UPKG_TAG);
-    u16(&h, 68); u16(&h, 0); u32(&h, 0);
-    size_t counts = h.n;
-    for (int i = 0; i < 6; i++) u32(&h, 0);
-    size_t noff = h.n;
-    for (int i = 0; i < N_NAMES; i++) {
-        str(&h, names[i]);
-        u32(&h, 0);
-    }
-    size_t ioff = h.n;
-    idx(&h, N_CORE); idx(&h, N_CLASS); u32(&h, 0); idx(&h, N_INFO_CLASS);
-    size_t off = h.n;
-    put(&h, obj.d, obj.n);
-    size_t eoff = h.n;
-    idx(&h, -1); idx(&h, 0); u32(&h, 0); idx(&h, N_INFO);
-    u32(&h, 0x00070004u);
-    idx(&h, (int32_t)obj.n);
-    idx(&h, (int32_t)off);
-    uint32_t v[6] = { N_NAMES, (uint32_t)noff, 1, (uint32_t)eoff, 1, (uint32_t)ioff };
-    for (int i = 0; i < 6; i++) memcpy(h.d + counts + 4 * (size_t)i, &v[i], 4);
-
-    char rel[64];
-    snprintf(rel, sizeof rel, "%s/SaveInfo.dxs", folder);
-    char *sub = scratch_path(dir, folder);
-    mkdir(sub, 0755);
-    free(sub);
-    char *path = scratch_path(dir, rel);
-    FILE *f = fopen(path, "wb");
-    fwrite(h.d, 1, h.n, f);
-    fclose(f);
-    free(path);
-    free(h.d);
-    free(obj.d);
+    dxl_test_save sv = { { date[0], date[1], date[2], date[3], date[4], date[5] }, slot, desc, location, NULL,
+                         seconds, slot == 10 };
+    CHECK_INT(dxl_test_write_save(dir, folder, &sv), 0);
 }
 
 static void test_slots(void) {
@@ -130,6 +72,14 @@ static void test_list(void) {
         CHECK_STR(s.items[3].folder, "Save0007");
         CHECK_INT(s.items[3].readable, 0);
         CHECK(s.items[0].info.snapshot.rgba == NULL);
+        /* Its snapshot, read when asked for: the writer's picture in it. */
+        dxl_saveinfo full;
+        char *info = scratch_path(dir, "Save0010/SaveInfo.dxs");
+        CHECK_INT(dxl_saveinfo_read(info, 1, &full, &e), 0);
+        CHECK(full.snapshot.rgba && full.snapshot.w == 256 && full.snapshot.h == 128);
+        if (full.snapshot.rgba) CHECK_INT(full.snapshot.rgba[0], dxl_ts_pixel(0, 0, 10));
+        dxl_saveinfo_free(&full);
+        free(info);
         CHECK(dxl_saves_latest(&s) == &s.items[0]);
 
         char text[64];

@@ -5,8 +5,9 @@
  * through dxl_run_ui; the shell shows it as pages until the player plays
  * or quits:
  *
- *   Home        Play, About, Quit; the profile, its game, the engine, the
- *               last run
+ *   Home        Continue (the latest save), Play, Saves, Screenshots,
+ *               Settings, Profiles, About, Quit; the profile, its game, the
+ *               engine, its latest save, the last run
  *   Welcome     the first run's first page
  *   The game    the installs the finder found (core/finder.h), and the
  *               folder browser; also for a profile whose install is not
@@ -17,6 +18,11 @@
  *   Profiles    every profile, its game, saves and last run: use one, make
  *               a new one (The game, Your profile), duplicate, rename,
  *               delete to the trash
+ *   Saves       the profile's saves (core/saves.h), newest first, the one
+ *               chosen with its snapshot: load it, delete it to the trash
+ *   Screenshots the profile's shots (core/shotlist.h) as a gallery of
+ *               thumbnails (ui/thumbs.h): one shown whole, its folder
+ *               opened, one deleted to the trash
  *   About       the launcher, the engine, the folders, the app menu's entry
  *   Settings    the settings (core/settings.h), a tab a page, kept as the
  *               page is left
@@ -36,6 +42,8 @@
 #include "core/finder.h"
 #include "core/renderers.h"
 #include "core/padmap.h"
+#include "core/saves.h"
+#include "core/shotlist.h"
 #include "core/settings.h"
 #include "core/theme_colors.h"
 #include "ui/art.h"
@@ -44,6 +52,7 @@
 #include "ui/kit.h"
 #include "ui/osk.h"
 #include "ui/padmesh.h"
+#include "ui/thumbs.h"
 
 typedef enum {
     DXL_PAGE_HOME,
@@ -55,11 +64,17 @@ typedef enum {
     DXL_PAGE_SETTINGS,
     DXL_PAGE_LOG,
     DXL_PAGE_PROFILES,
+    DXL_PAGE_SAVES,
+    DXL_PAGE_SHOTS,
     DXL_PAGE_COUNT
 } dxl_page;
 
 /* The most profiles the Profiles page lists. */
 #define DXL_PROFILES_MAX 32
+
+/* No save's snapshot: the slot of none (a save's is -1, the quick save, or
+ * more). */
+#define DXL_SNAP_NONE (-2)
 
 /* The most choices a pick dialog lists: the actions a pad's button takes. */
 #define DXL_PICK_MAX 96
@@ -172,6 +187,22 @@ typedef struct dxl_shell {
 
     /* Home and Recovery. */
     int          saves;           /* the profile's saves, counted as Home opens */
+    /* Home's and the Saves page's: the profile's saves, read as either
+     * opens, the one chosen; its snapshot, a texture of the window's
+     * renderer, of the slot in save_snap_slot (DXL_SNAP_NONE for none). */
+    dxl_saves    save_list;
+    int          save_sel;
+    SDL_Texture *save_snap;
+    int          save_snap_slot;
+    int          save_snap_read;  /* that slot's SaveInfo read for it: none to read again */
+    /* The Screenshots page: the profile's shots, read as it opens, the one
+     * chosen, shown whole or not; their thumbnails and the one shown, read
+     * off the window's thread. */
+    dxl_shots    shot_list;
+    int          shot_sel, shot_open;
+    int          shot_refocus;    /* the chosen's tile to take the focus, as the one shown closes */
+    dxl_thumbs  *thumbs, *shot_whole;
+    int          thumbs_pending;  /* some still being read: frames kept coming */
     char         note[400];       /* a line under Home's panel: what the first run did */
     char        *log_tail;        /* Recovery's: the end of the last run's log */
 
@@ -288,6 +319,16 @@ double dxl_shell_idle_for(const dxl_shell *s);
 
 /* For the pages. */
 void        dxl_shell_go(dxl_shell *s, dxl_page p);
+/* The textures of the window's renderer let go, before it goes: the art,
+ * a save's snapshot, the thumbnails. */
+void        dxl_shell_release(dxl_shell *s);
+/* Whether the engine's --version names the feature (core/engine_args.h). */
+int         dxl_shell_engine_has(const dxl_shell *s, const char *feature);
+/* The game started on a save's slot: the screen done, to play. */
+void        dxl_shell_play_save(dxl_shell *s, int slot);
+/* Home's Continue: the latest save, NULL for none to start on -- no save,
+ * no install or engine to play, or an engine that starts on none. */
+const dxl_save *dxl_shell_continue(const dxl_shell *s);
 void        dxl_shell_toast(dxl_shell *s, const char *fmt, ...);
 void        dxl_shell_message(dxl_shell *s, const char *title, const char *fmt, ...);
 void        dxl_shell_close_dialog(dxl_shell *s);
@@ -345,6 +386,16 @@ void dxl_page_recovery_enter(dxl_shell *s);
 void dxl_page_about(dxl_shell *s, dxl_rect r);
 void dxl_page_profiles(dxl_shell *s, dxl_rect r);
 void dxl_page_profiles_enter(dxl_shell *s);
+void dxl_page_saves(dxl_shell *s, dxl_rect r);
+void dxl_page_saves_enter(dxl_shell *s);
+/* The profile's saves read again into s->save_list, the chosen kept by
+ * its slot where it is still there. */
+void dxl_saves_reload(dxl_shell *s);
+/* The chosen save's snapshot drawn fitted in r, its picture's part (the
+ * game draws 160 x 120 of its 256 x 128); 0 for none to draw. */
+int  dxl_save_snapshot(dxl_shell *s, const dxl_save *sv, dxl_rect r);
+void dxl_page_shots(dxl_shell *s, dxl_rect r);
+void dxl_page_shots_enter(dxl_shell *s);
 /* A new profile not made after all: the one in use before it again, and
  * the Profiles page. */
 void dxl_shell_making_cancel(dxl_shell *s);

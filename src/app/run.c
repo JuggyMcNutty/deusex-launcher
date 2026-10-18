@@ -238,7 +238,7 @@ static char **engine_argv(const dxl_run *r) {
         .ini = p->system_ini,
         .user_ini = p->user_ini,
         .user_dir = p->engine_dir,
-        .url = NULL,
+        .url = r->url[0] ? r->url : NULL,
         .extra = extra,
         .cmdline = r->words,
     };
@@ -530,6 +530,7 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     last->signal = r->played.signal;
     last->ready = r->played.ready;
     last->clean = r->played.clean;
+    snprintf(last->start, sizeof last->start, "%s", r->url);
     if (!r->played.started)
         snprintf(last->error, sizeof last->error, "%s", r->played.error);
     else
@@ -663,8 +664,15 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             rc = DXL_RUN_EXIT_NOGAME;
             goto done;
         }
+        /* A save to start on only with an engine that starts on one: to an
+         * older one a bare ?loadgame is a map it cannot load. */
+        if (r->url[0] && !dxl_engine_has(&v, "loadgame-url")) {
+            dxl_log("engine: no loadgame-url feature: the game's own start, not %s", r->url);
+            r->url[0] = '\0';
+        }
         commit(r);
         rc = play(r, ui, stop);
+        r->url[0] = '\0';
         /* The inis as the engine left them: it writes them whole at a clean
          * end, the game's own changes in them. */
         if (r->config) dxl_config_reload(r->config);

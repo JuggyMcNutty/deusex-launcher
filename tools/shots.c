@@ -23,6 +23,7 @@
 #include "core/settings.h"
 #include "screens/shell.h"
 #include "ui/text.h"
+#include "upkg_writer.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -30,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #ifndef DXL_SHOTS_FONTS
@@ -76,9 +78,17 @@ typedef enum {
     SCENE_THEME_RED,        /* and Settings in a strong one */
     SCENE_REPOINT,
     SCENE_RECOVERY,
+    SCENE_RECOVERY_SAVE,    /* a run started on a save that did not load */
     SCENE_SAFE,
     SCENE_ABOUT,
     SCENE_PROFILES,         /* three: the one in use, a mod's, one whose game is gone */
+    SCENE_HOME_NEW,         /* a profile with no saves yet: Play first */
+    SCENE_SAVES,            /* thirteen, the quick save the newest, one with no snapshot */
+    SCENE_SAVES_NONE,
+    SCENE_SAVES_OLD,        /* an engine that starts on no save */
+    SCENE_SHOTS,            /* seven, and one that does not read */
+    SCENE_SHOTS_NONE,
+    SCENE_SHOT_WHOLE,       /* the newest shown whole */
     SCENE_SETTINGS,
     SCENE_PICK,
     SCENE_OSK,
@@ -100,7 +110,8 @@ typedef enum {
 
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
-    "recovery", "safe", "about", "profiles", "settings", "pick", "osk", "confirm", "log", "keys",
+    "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "saves", "saves-none", "saves-old-engine", "shots",
+    "shots-none", "shot-whole", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
 };
@@ -169,8 +180,64 @@ static void make_home(void) {
     }
 }
 
+/* Twelve saves at the game's places and a quick save after them, each with
+ * a snapshot but the seventh's, made by a renderer that takes none. */
+static void make_saves(const char *dir) {
+    static const char *const where[12][2] = {
+        { "Before the statue", "NYC - Liberty Island" }, { "UNATCO Headquarters", "UNATCO Headquarters" },
+        { "The subway", "NYC - Battery Park" }, { "NYC - Hell's Kitchen", "NYC - Hell's Kitchen" },
+        { "Paul's apartment", "NYC - Hell's Kitchen" }, { "LaGuardia Airport", "LaGuardia Airport" },
+        { "UNATCO Headquarters", "UNATCO Headquarters" }, { "The tong's temple", "Hong Kong - Wan Chai Market" },
+        { "Hong Kong - VersaLife", "Hong Kong - VersaLife" }, { "The catacombs", "Paris - Denfert-Rochereau" },
+        { "Vandenberg Air Force Base", "Vandenberg Air Force Base" }, { "Area 51", "Area 51" },
+    };
+    for (int i = 0; i < 12; i++) {
+        dxl_test_save sv = { { 2026, 10, 1 + i, 9 + i % 12, 7 * i % 60, 0 }, i + 1, where[i][0], where[i][1], NULL,
+                             3600 * i + 1200 + 97 * i, i != 6 };
+        char folder[16];
+        snprintf(folder, sizeof folder, "Save%04d", i + 1);
+        dxl_test_write_save(dir, folder, &sv);
+    }
+    dxl_test_save quick = { { 2026, 10, 16, 21, 40, 0 }, -1, "Quick Save", "Area 51", NULL, 44 * 3600 + 1800, 1 };
+    dxl_test_write_save(dir, "QuickSave", &quick);
+}
+
+/* Seven shots of the game's size, made up -- a sky, a horizon, blocks of
+ * colour -- a minute apart, and a file that does not read. */
+static void make_shots(const char *dir) {
+    dxl_path_mkdirs(dir);
+    for (int i = 0; i < 7; i++) {
+        SDL_Surface *pic = SDL_CreateSurface(1280, 720, SDL_PIXELFORMAT_XRGB8888);
+        if (!pic) continue;
+        const SDL_PixelFormatDetails *f = SDL_GetPixelFormatDetails(pic->format);
+        for (int y = 0; y < 720; y += 8) {
+            SDL_Rect band = { 0, y, 1280, 8 };
+            int k = y * 255 / 720;
+            SDL_FillSurfaceRect(pic, &band, SDL_MapRGB(f, NULL, (Uint8)(20 + k / 4), (Uint8)(30 + k / 3), (Uint8)(60 + k / 2)));
+        }
+        for (int b = 0; b < 9; b++) {
+            int h = 120 + ((b * 53 + i * 31) % 260);
+            SDL_Rect block = { b * 142 + 6, 520 - h, 120, h + 200 };
+            SDL_FillSurfaceRect(pic, &block, SDL_MapRGB(f, NULL, (Uint8)(40 + 25 * i), (Uint8)(50 + 18 * b), 70));
+        }
+        char leaf[32];
+        snprintf(leaf, sizeof leaf, "Shot%04d.bmp", i + 1);
+        char *path = dxl_path_join(dir, leaf);
+        SDL_SaveBMP(pic, path);
+        struct timeval tv[2] = { { 1792186000 + 60 * i, 0 }, { 1792186000 + 60 * i, 0 } };
+        utimes(path, tv);
+        free(path);
+        SDL_DestroySurface(pic);
+    }
+    char *bad = dxl_path_join(dir, "Shot0008.bmp");
+    write_file(bad, "not a picture");
+    struct timeval tv[2] = { { 1792185000, 0 }, { 1792185000, 0 } };
+    utimes(bad, tv);
+    free(bad);
+}
+
 /* A run as run.c has it: the session in the scratch home, the profile made
- * (profile.ini, DeusEx.ini, twelve saves), its install the one given. */
+ * (profile.ini, DeusEx.ini, thirteen saves), its install the one given. */
 static void make_run(dxl_run *r, int profile) {
     memset(r, 0, sizeof *r);
     dxl_err e;
@@ -190,13 +257,7 @@ static void make_run(dxl_run *r, int profile) {
     write_file(p->user_ini, "[Engine.Input]\nW=MoveForward\nUp=MoveForward\nS=MoveBackward\nA=StrafeLeft\n"
                             "D=StrafeRight\nSpace=Jump\nX=Duck\nShift=Walking\nLeftMouse=ParseLeftClick|Fire\n"
                             "RightMouse=ParseRightClick\nR=ReloadWeapon\nF1=ShowInventoryWindow\n");
-    for (int i = 1; i <= 12; i++) {
-        char leaf[32];
-        snprintf(leaf, sizeof leaf, "Save%04d", i);
-        char *d = dxl_path_join(p->save_dir, leaf);
-        dxl_path_mkdirs(d);
-        free(d);
-    }
+    make_saves(p->save_dir);
     good_install(&r->session.install, "GOG Games/Deus Ex GOTY", 0);
     r->config = dxl_config_open_files(r->session.install.system_dir, "DeusEx", p->system_ini, p->user_ini);
     r->last.known = 1;
@@ -229,7 +290,7 @@ static void engine(dxl_shell *s) {
     s->engine_asked = 1;
     s->engine_ok = 1;
     snprintf(s->engine_version, sizeof s->engine_version, "VibeEngine 1e4258f (2026-10-16)");
-    snprintf(s->engine_features, sizeof s->engine_features, "userdir");
+    snprintf(s->engine_features, sizeof s->engine_features, "userdir loadgame-url");
 }
 
 static void found(dxl_shell *s) {
@@ -292,6 +353,31 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         }
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         break;
+    case SCENE_HOME_NEW:
+    case SCENE_SAVES_NONE: {
+        char cmd[1200];
+        snprintf(cmd, sizeof cmd, "rm -rf '%s'/*", r->session.profile.save_dir);
+        if (system(cmd) != 0) fprintf(stderr, "dxl-shots: could not empty the saves\n");
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        if (sc == SCENE_SAVES_NONE) dxl_shell_go(s, DXL_PAGE_SAVES);
+        break;
+    }
+    case SCENE_SAVES_OLD:
+        snprintf(s->engine_features, sizeof s->engine_features, "userdir");
+        /* fall through */
+    case SCENE_SAVES:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_SAVES);
+        break;
+    case SCENE_SHOTS:
+    case SCENE_SHOT_WHOLE:
+        make_shots(r->session.profile.shots_dir);
+        /* fall through */
+    case SCENE_SHOTS_NONE:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_SHOTS);
+        if (sc == SCENE_SHOT_WHOLE) s->shot_open = 1;
+        break;
     case SCENE_HOME_ENGINE:
         s->engine_ok = 0;
         snprintf(s->engine_brief, sizeof s->engine_brief, "needs glibc 2.44, this system has 2.43");
@@ -336,6 +422,19 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         crashed(r);
         dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
         break;
+    case SCENE_RECOVERY_SAVE: {
+        r->last.clean = r->last.ready = 0;
+        r->last.status = 1;
+        snprintf(r->last.error, sizeof r->last.error, "Expected an import table entry: 01_NYC_UNATCOIsland");
+        snprintf(r->last.start, sizeof r->last.start, "?loadgame=10");
+        char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
+        write_file(log, "[] Game folder: ~/GOG Games/Deus Ex GOTY\n[] Renderer: Vulkan\n"
+                        "[GameInfo.InitGame] InitGame: ?Name=Player?Class=DeusEx.JCDentonMale\n"
+                        "SurrealEngine error: Expected an import table entry: 01_NYC_UNATCOIsland\n");
+        free(log);
+        dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
+        break;
+    }
     case SCENE_SAFE:
         r->decision.screen = DXL_SCREEN_MAIN_SAFE;
         dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
@@ -557,6 +656,14 @@ static void shoot(scene sc, int si, mode m) {
     double t = 100;
     events(&s);
     frame(&s, t);
+    /* The thumbnails the first frame asked for, all read. */
+    if (s.thumbs || s.shot_whole) {
+        dxl_thumbs_wait(s.thumbs, s.ui.renderer);
+        dxl_thumbs_wait(s.shot_whole, s.ui.renderer);
+        frame(&s, t += 0.05);
+        dxl_thumbs_wait(s.thumbs, s.ui.renderer);
+        dxl_thumbs_wait(s.shot_whole, s.ui.renderer);
+    }
     /* A list's end in view: the focus on its first row, paged to its last. */
     if (sc == SCENE_CONTROLLER_END) {
         uint32_t first = dxl_ui_named(&s.ui, "Layout");
@@ -570,6 +677,11 @@ static void shoot(scene sc, int si, mode m) {
     dxl_ui_input_begin(&s.ui);
     act(&s, m);
     frame(&s, t += 0.05);
+    /* And those the move brought into view. */
+    if (s.thumbs || s.shot_whole) {
+        dxl_thumbs_wait(s.thumbs, s.ui.renderer);
+        dxl_thumbs_wait(s.shot_whole, s.ui.renderer);
+    }
     /* Every animation run out. */
     dxl_ui_input_begin(&s.ui);
     frame(&s, t += 2);
