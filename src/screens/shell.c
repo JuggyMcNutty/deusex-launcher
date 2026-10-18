@@ -750,7 +750,7 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
             it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Keep" };
             it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
         } else {
-            if (s->run && s->run->session.install.ok && s->engine_ok && s->server_count)
+            if (s->run && s->run->session.install.ok && s->engine_ok && s->servers_shown)
                 it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Join" };
             it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
         }
@@ -895,6 +895,11 @@ void dxl_shell_frame(dxl_shell *s, double now) {
         big_known(s);
     }
     offer_big(s);
+    /* A link's server, handed over: Multiplayer, once nothing is half done. */
+    if (s->join_link[0] && s->page != DXL_PAGE_SERVERS && s->dialog == DXL_DIALOG_NONE && !s->answered &&
+        !s->repoint && !s->making && s->page != DXL_PAGE_WELCOME && s->page != DXL_PAGE_FIND &&
+        s->page != DXL_PAGE_IMPORT)
+        dxl_shell_go(s, DXL_PAGE_SERVERS);
 
     float m = margin(ui);
     dxl_rect above = { 0, 0, ui->w, ui->h - FOOT_H };

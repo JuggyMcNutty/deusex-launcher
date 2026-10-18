@@ -79,7 +79,7 @@ typedef struct {
      * (core/saves.h), the window's Continue or a save's Load; a server's
      * host:port, with ?password= when it asks for one, Multiplayer's Join;
      * "" for the game's own start. One game's: cleared as it ends. */
-    char            url[256];
+    char            url[512];
     char            message[512];   /* why the run stopped short */
 } dxl_run;
 

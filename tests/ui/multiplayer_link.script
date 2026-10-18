@@ -1,0 +1,6 @@
+# A start with a deusex:// link: Home to Multiplayer, which asks about its
+# server; Join joins it (test_ui_scripts.c finds it the engine's --url).
+wait 2.5
+expect confirm
+find Join
+key Return

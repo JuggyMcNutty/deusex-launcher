@@ -7,6 +7,7 @@
  *               set, that line on stderr and exit 127, as a program the
  *               loader could not start
  *   args        prints its working folder, then its words one a line
+ *               (any other mode prints its words too with DXL_STUB_ARGS set)
  *   env         prints the value of the variable DXL_STUB_ENV names
  *   ready       hello, ready, then prints each line the launcher sends,
  *               exiting 0 at "quit" or after DXL_STUB_MS (default 5000)
@@ -78,6 +79,9 @@ int main(int argc, char **argv) {
         return 0;
     }
     say("hello");
+    /* Its words too, with DXL_STUB_ARGS set: what a run was started with. */
+    if (getenv("DXL_STUB_ARGS"))
+        for (int i = 0; i < argc; i++) printf("[%s]\n", argv[i]);
     if (strcmp(mode, "fail") == 0) {
         printf("SurrealEngine error: %s\n", env_or("DXL_STUB_LINE", "Could not open the map"));
         return 1;

@@ -501,7 +501,9 @@ static int ready(int fd) {
 }
 
 typedef struct {
-    int master, server, server_port;
+    int master, server, server_port, master_port;
+    int password;      /* the server asks for one */
+    pthread_t mt, st;
 } fakes;
 
 /* The master: one look, the server listed. */
@@ -535,9 +537,12 @@ static void *fake_server(void *p) {
         socklen_t len = sizeof from;
         ssize_t n = recvfrom(f->server, query, sizeof query - 1, 0, (struct sockaddr *)&from, &len);
         if (n <= 0) break;
-        const char *st = "\\gamename\\deusex\\gamever\\1100\\minnetver\\1100\\hostname\\Fake One\\hostport\\7790"
-                         "\\mapname\\DXMP_Cathedral\\gametype\\DeathMatchGame\\numplayers\\0\\maxplayers\\8"
-                         "\\queryid\\1.1\\final\\";
+        char st[400];
+        snprintf(st, sizeof st,
+                 "\\gamename\\deusex\\gamever\\1100\\minnetver\\1100\\hostname\\Fake One\\hostport\\7790"
+                 "\\mapname\\DXMP_Cathedral\\gametype\\DeathMatchGame\\numplayers\\0\\maxplayers\\8%s"
+                 "\\final\\\\queryid\\1.1",
+                 f->password ? "\\password\\True" : "");
         sendto(f->server, st, strlen(st), 0, (struct sockaddr *)&from, len);
     }
     return NULL;
@@ -554,37 +559,75 @@ static void master_here(int port) {
     close_files(&f);
 }
 
-/* Multiplayer's servers, a master's here: the one listed joined, then an
- * address typed, each on the engine's command line as its --url. */
+/* A master and its server here, the profile's master the one. */
+static void fakes_start(fakes *f, int password) {
+    memset(f, 0, sizeof *f);
+    f->password = password;
+    f->master = local_socket(SOCK_STREAM, &f->master_port);
+    listen(f->master, 4);
+    f->server = local_socket(SOCK_DGRAM, &f->server_port);
+    master_here(f->master_port);
+    pthread_create(&f->mt, NULL, fake_master, f);
+    pthread_create(&f->st, NULL, fake_server, f);
+}
+
+static void fakes_stop(fakes *f) {
+    shutdown(f->master, SHUT_RDWR);
+    shutdown(f->server, SHUT_RDWR);
+    pthread_join(f->mt, NULL);
+    pthread_join(f->st, NULL);
+    close(f->master);
+    close(f->server);
+}
+
+/* Multiplayer's servers, a master's here: the one listed joined; an
+ * address left half typed joining nothing, then typed and joined; a link's
+ * server asked about and joined; a server's password typed and joined,
+ * the engine's, not the log's. Each on the engine's command line as its
+ * --url. */
 static void test_multiplayer(void) {
     CHECK_INT(fresh_home(), 0);
     fakes f;
-    int master_port = 0;
-    f.master = local_socket(SOCK_STREAM, &master_port);
-    listen(f.master, 4);
-    f.server = local_socket(SOCK_DGRAM, &f.server_port);
-    master_here(master_port);
-    pthread_t mt, st;
-    pthread_create(&mt, NULL, fake_master, &f);
-    pthread_create(&st, NULL, fake_server, &f);
+    fakes_start(&f, 0);
     CHECK_INT(launch("multiplayer.script", "ready"), 0);
     script_ok();
     started_with("--url=127.0.0.1:7790");
     char *log = read_home("state/dxlauncher/launcher.log");
     CHECK(strstr(log, "multiplayer: 1 server(s), 1 answered") != NULL);
     free(log);
-    shutdown(f.master, SHUT_RDWR);
-    shutdown(f.server, SHUT_RDWR);
-    pthread_join(mt, NULL);
-    pthread_join(st, NULL);
-    close(f.master);
-    close(f.server);
+    fakes_stop(&f);
 
     CHECK_INT(fresh_home(), 0);
     master_here(1);   /* no master there: the address alone */
     CHECK_INT(launch("multiplayer_address.script", "ready"), 0);
     script_ok();
     started_with("--url=127.0.0.1:7999");
+    log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "starting the game:"), 1);
+    free(log);
+
+    CHECK_INT(fresh_home(), 0);
+    master_here(1);
+    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready DXL_STUB_MS=300 %s DXL_UI_SCRIPT='%s/multiplayer_link.script' "
+                 "'%s/deusex-launcher' 'deusex://127.0.0.1:7998/' >>'%s/out.txt' 2>&1",
+                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, app, home),
+              0);
+    script_ok();
+    started_with("--url=127.0.0.1:7998");
+
+    CHECK_INT(fresh_home(), 0);
+    fakes_start(&f, 1);
+    CHECK_INT(launch_with("multiplayer_password.script", "ready", "DXL_STUB_ARGS=1"), 0);
+    script_ok();
+    started_with("--url=127.0.0.1:7790?password=******");
+    /* The script's own line has it; the launcher's none. */
+    log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "sesame"), count(log, "ui script: type sesame"));
+    free(log);
+    char *run = read_home("state/dxlauncher/profiles/default/logs/last-run.log");
+    CHECK(strstr(run, "[--url=127.0.0.1:7790?password=sesame]") != NULL);
+    free(run);
+    fakes_stop(&f);
 }
 
 /* Continue from Home: the latest save, by when it was made, not by its
