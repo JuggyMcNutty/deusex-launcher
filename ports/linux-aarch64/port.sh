@@ -9,6 +9,12 @@ native() { [ "$(uname -m)" = aarch64 ] || [ "$(uname -m)" = arm64 ]; }
 # toolchain and a much larger sysroot (see README.md).
 if native; then PORT_ENGINE=1; else PORT_ENGINE=0; fi
 
+# The cross toolchain: Godot's Buildroot SDK, GCC 13.2 on glibc 2.28,
+# pinned by our own SHA256 (its release publishes none), as linux-x86_64's.
+A64_SDK=aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4
+A64_SDK_URL=https://github.com/godotengine/buildroot/releases/download/godot-2023.08.x-4/aarch64-godot-linux-gnu_sdk-buildroot.tar.bz2
+A64_SDK_SHA256=d7b673823e8078ac70ffa202b4471356eca360b80960c6d1a722af0c03aea29d
+
 port_deps() {
     if native; then
         if pkg-config --exists 'sdl3 >= 3.2' 'sdl3-ttf >= 3.2' 2>/dev/null; then
@@ -19,7 +25,7 @@ port_deps() {
         fi
         return 0
     fi
-    dx_fetch_bootlin aarch64--glibc--stable-2020.08-1 2.31
+    dx_fetch_buildroot "$A64_SDK" "$A64_SDK_URL" "$A64_SDK_SHA256" 2.28
     dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf
 
     # What SDL3's backends are built against, from Debian bookworm arm64:

@@ -8,7 +8,7 @@ userland, Mesa and a desktop.
 
 The launcher is DXLauncher, linux-x86_64's
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)). It cross-builds
-warning-free under GCC 9.3, needing glibc 2.29 at most and no library but
+warning-free under GCC 13.2, needing glibc 2.27 at most and no library but
 the C library's. Untried on an aarch64 device.
 
 ## Build and run
@@ -46,17 +46,18 @@ app has no engine: one built on the device goes beside the launcher, or
 
 | File | What it is |
 |---|---|
-| `port.cmake` | a cross build has SDL3, FreeType and SDL3_ttf built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends built against `deps/sysroots/linux-aarch64`'s headers and opened at run time, and a 2.31 ceiling, which `CMakeLists.txt` checks the programs against after each build (`scripts/check-abi.sh`); a native build is linux-x86_64's |
-| `toolchain-c.cmake` | Bootlin GCC 9.3 / glibc 2.31, finding the sysroot's libraries in their multiarch folders; does nothing on an aarch64 host |
+| `port.cmake` | a cross build has SDL3, FreeType and SDL3_ttf built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends built against `deps/sysroots/linux-aarch64`'s headers and opened at run time, and a 2.28 ceiling, which `CMakeLists.txt` checks the programs against after each build (`scripts/check-abi.sh`); a native build is linux-x86_64's |
+| `toolchain-c.cmake` | Godot's Buildroot SDK, GCC 13.2 / glibc 2.28, as linux-x86_64's, finding the sysroot's libraries in their multiarch folders; does nothing on an aarch64 host |
 | `engine.cmake` | the engine, native builds only |
 | `port.sh` | `deps` fetches the toolchain and the window's sources, and makes the sysroot from Debian bookworm's arm64 packages: the headers and libraries of X11, Wayland, libdecor, ALSA, PulseAudio, PipeWire, udev, D-Bus, libusb, EGL, GL, GLES, DRM and GBM, and Vulkan's headers; `run` works natively |
 
-The glibc 2.31 ceiling keeps the cross-built programs off newer glibc
-symbols, so they load on a distro with glibc 2.31 or later, as Debian 11 or
-Ubuntu 20.04; the window opens the device's own X11 or Wayland, and its
-ALSA, PulseAudio or PipeWire, at run time. Cross-building the engine needs
-the C++20 toolchain and a sysroot with the engine's libraries (SDL2,
-OpenAL, zlib, ...).
+The glibc 2.28 ceiling keeps the cross-built programs off newer glibc
+symbols, so they load on a distro with glibc 2.28 or later, RHEL 8's, the
+oldest of the actively maintained mainline distributions; the window opens
+the device's own X11 or Wayland, and its ALSA, PulseAudio or PipeWire, at
+run time. Cross-building the engine needs a sysroot with the engine's
+libraries (SDL2, OpenAL, zlib, ...); the SDK's GCC 13.2 already builds its
+C++20.
 
 A GPU without descriptor indexing or some texture formats takes the Vulkan
 device's other paths
