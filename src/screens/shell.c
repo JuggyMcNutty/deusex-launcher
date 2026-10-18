@@ -67,6 +67,10 @@ void dxl_shell_free(dxl_shell *s) {
     s->thumbs = s->shot_whole = NULL;
     dxl_saves_free(&s->save_list);
     dxl_shots_free(&s->shot_list);
+    for (int i = 0; s->servers && i < s->server_count; i++) dxl_server_free(&s->servers[i]);
+    free(s->servers);
+    s->servers = NULL;
+    s->server_count = 0;
     free(s->music);
     s->music = NULL;
     for (int i = 0; i < DXL_SOUND_COUNT; i++) {
@@ -305,6 +309,13 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->page = p;
     s->focus[p] = 0;
     dxl_shell_go(s, p);
+    /* A link's server, the start's: Home to Multiplayer, asking; after
+     * another screen's Play, joined (app/run.c). */
+    char link[256];
+    if (v == DXL_VIEW_HOME && r->opt.join && dxl_server_link(r->opt.join, link, sizeof link)) {
+        dxl_shell_join_link(s, link);
+        r->opt.join = NULL;
+    }
 }
 
 void dxl_shell_go(dxl_shell *s, dxl_page p) {
@@ -334,6 +345,7 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
     case DXL_PAGE_PROFILES: dxl_page_profiles_enter(s); break;
     case DXL_PAGE_SAVES: dxl_page_saves_enter(s); break;
     case DXL_PAGE_SHOTS: dxl_page_shots_enter(s); break;
+    case DXL_PAGE_SERVERS: dxl_page_servers_enter(s); break;
     default: break;
     }
 }
@@ -650,6 +662,7 @@ static const char *page_title(dxl_page p) {
     case DXL_PAGE_PROFILES: return "Profiles";
     case DXL_PAGE_SAVES: return "Saves";
     case DXL_PAGE_SHOTS: return "Screenshots";
+    case DXL_PAGE_SERVERS: return "Multiplayer";
     default: return "";
     }
 }
@@ -730,6 +743,17 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
         break;
     case DXL_PAGE_SHOTS:
         it[n++] = (dxl_hint_item){ DXL_HINT_BACK, s->shot_open ? "Close" : "Back" };
+        break;
+    case DXL_PAGE_SERVERS:
+        if (s->ui.text_id) {
+            n = 0;
+            it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Keep" };
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
+        } else {
+            if (s->run && s->run->session.install.ok && s->engine_ok && s->server_count)
+                it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Join" };
+            it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
+        }
         break;
     case DXL_PAGE_RECOVERY:
         it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
@@ -907,6 +931,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     case DXL_PAGE_PROFILES: dxl_page_profiles(s, r); break;
     case DXL_PAGE_SAVES: dxl_page_saves(s, r); break;
     case DXL_PAGE_SHOTS: dxl_page_shots(s, r); break;
+    case DXL_PAGE_SERVERS: dxl_page_servers(s, r); break;
     default: break;
     }
     s->in_page = 0;

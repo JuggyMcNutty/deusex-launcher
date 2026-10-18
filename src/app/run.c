@@ -6,6 +6,7 @@
 #include "core/engine_sections.h"
 #include "core/padmap.h"
 #include "core/log.h"
+#include "core/servers.h"
 #include "core/paths.h"
 #include "platform/process.h"
 
@@ -39,6 +40,10 @@ int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl
     rest[n++] = argc > 0 ? argv[0] : "deusex-launcher";
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
+        /* A link's server is the launcher's to join, not a word of the
+         * original's. */
+        char link[256];
+        if (dxl_server_link(a, link, sizeof link)) { opt->join = a; continue; }
         if (strncmp(a, "--", 2) != 0) { rest[n++] = argv[i]; continue; }
         if (take(a, "--game", &opt->game) || take(a, "--profile", &opt->profile)) continue;
         if (strcmp(a, "--play") == 0) { opt->play = 1; continue; }
@@ -531,7 +536,9 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     last->signal = r->played.signal;
     last->ready = r->played.ready;
     last->clean = r->played.clean;
-    snprintf(last->start, sizeof last->start, "%s", r->url);
+    /* Where it started, a server's password left out. */
+    const char *pw = strstr(r->url, "?password=");
+    snprintf(last->start, sizeof last->start, "%.*s", pw ? (int)(pw - r->url) : (int)strlen(r->url), r->url);
     if (!r->played.started)
         snprintf(last->error, sizeof last->error, "%s", r->played.error);
     else
@@ -567,11 +574,13 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     dxl_decision first;
     dxl_policy_decide(&pre, &first);
     int busy = dxl_instance_other_running(id);
-    /* The line, and the one option of the launcher's own the one running
-     * takes too: its window on the big screen. */
-    size_t handed_size = strlen(r->words) + 16;
+    /* The line, and what of the launcher's own the one running takes too:
+     * a link's server first, as a URL is the original's first word; its
+     * window on the big screen last. */
+    size_t handed_size = strlen(r->words) + (r->opt.join ? strlen(r->opt.join) : 0) + 20;
     char *handed = dxl_xmalloc(handed_size);
-    snprintf(handed, handed_size, "%s%s%s", r->words, r->opt.big_screen && r->words[0] ? " " : "",
+    snprintf(handed, handed_size, "%s%s%s%s%s", r->opt.join ? r->opt.join : "", r->opt.join && r->words[0] ? " " : "",
+             r->words, r->opt.big_screen && (r->words[0] || r->opt.join) ? " " : "",
              r->opt.big_screen ? "--big-screen" : "");
     int forwarded = !r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy &&
                     dxl_instance_forward(id, handed, HANDOFF_TIMEOUT_MS, &e) == 0;
@@ -667,6 +676,14 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             }
         }
 
+        /* A link's server, when no screen asked about it first: joined. */
+        char link[256];
+        if (r->opt.join && dxl_server_link(r->opt.join, link, sizeof link)) {
+            snprintf(r->url, sizeof r->url, "%s", link);
+            dxl_log("play: joining %s, a link's", link);
+        }
+        r->opt.join = NULL;
+
         /* 4 and 5. */
         dxl_engine_version v;
         if (check_engine(r, &v) != 0) {
@@ -675,7 +692,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         }
         /* A save to start on only with an engine that starts on one: to an
          * older one a bare ?loadgame is a map it cannot load. */
-        if (r->url[0] && !dxl_engine_has(&v, "loadgame-url")) {
+        if (!strncmp(r->url, "?loadgame=", 10) && !dxl_engine_has(&v, "loadgame-url")) {
             dxl_log("engine: no loadgame-url feature: the game's own start, not %s", r->url);
             r->url[0] = '\0';
         }

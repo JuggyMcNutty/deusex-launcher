@@ -2,6 +2,7 @@
 #include "screens/window.h"
 #include "screens/shell.h"
 #include "screens/uiscript.h"
+#include "app/browser.h"
 #include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
@@ -48,6 +49,29 @@ typedef struct {
     char         **known;
 } find_job;
 
+/* One look for servers, in its worker (app/browser.h), as the finder's:
+ * what comes waits under its lock for the window's thread, each told by an
+ * event; freed by the last of the two to let go. */
+typedef struct {
+    char  address[64];
+    int   port, ping;
+    char *status;       /* NULL: listed, not answered */
+} browse_got;
+
+typedef struct {
+    SDL_Mutex     *lock;
+    SDL_AtomicInt  refs;
+    atomic_int     stop;
+    int            quiet, done;
+    Uint32         event;
+    char          *master;
+    char         **also;
+    browse_got    *got;
+    int            got_count, got_cap;
+    char           error[300];
+    int            failed;
+} browse_job;
+
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
@@ -79,8 +103,10 @@ struct dxl_window {
     char          *cli;
     Uint32         job_event;
 
-    /* The finder's look, in its worker; NULL for none. */
+    /* The finder's look, in its worker; NULL for none. The server
+     * browser's. */
     find_job      *find;
+    browse_job    *browse;
 
     /* The system's folder dialog's answer, from its thread. */
     SDL_Mutex     *pick_lock;
@@ -173,6 +199,11 @@ static void take_lines(dxl_window *w) {
         SDL_RestoreWindow(w->window);
         SDL_RaiseWindow(w->window);
         if (has_word(line, "--big-screen")) dxl_shell_big(&w->shell, 1);
+        /* A link's server, the line's first word: Multiplayer asks. */
+        char first[256], link[256];
+        snprintf(first, sizeof first, "%.*s", (int)strcspn(line, " "), line);
+        if (dxl_server_link(first, link, sizeof link) && w->shell.run && w->shell.run->session.install.ok)
+            dxl_shell_join_link(&w->shell, link);
         dxl_shell_toast(&w->shell, "DXLauncher is open already: here it is.");
     }
     if (w->drained) SDL_SignalSemaphore(w->drained);
@@ -366,6 +397,124 @@ static void find_collect(dxl_window *w) {
     dxl_shell_found_all(&w->shell);
 }
 
+/* ---- the server browser ------------------------------------------------- */
+
+static void browse_unref(browse_job *j) {
+    if (SDL_AddAtomicInt(&j->refs, -1) != 1) return;
+    for (int i = 0; i < j->got_count; i++) free(j->got[i].status);
+    free(j->got);
+    SDL_DestroyMutex(j->lock);
+    free(j->master);
+    for (size_t i = 0; j->also && j->also[i]; i++) free(j->also[i]);
+    free(j->also);
+    free(j);
+}
+
+static void browse_tell(browse_job *j) {
+    if (j->quiet) return;
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = j->event;
+    SDL_PushEvent(&e);
+}
+
+static void browse_put(browse_job *j, const char *address, int port, int ping, const char *status) {
+    SDL_LockMutex(j->lock);
+    if (j->got_count == j->got_cap) {
+        j->got_cap = j->got_cap ? j->got_cap * 2 : 64;
+        j->got = dxl_xrealloc(j->got, sizeof *j->got * (size_t)j->got_cap);
+    }
+    browse_got *g = &j->got[j->got_count++];
+    snprintf(g->address, sizeof g->address, "%s", address);
+    g->port = port;
+    g->ping = ping;
+    g->status = status ? dxl_xstrdup(status) : NULL;
+    browse_tell(j);
+    SDL_UnlockMutex(j->lock);
+}
+
+static void browse_listed(void *ctx, const char *address, int port) { browse_put(ctx, address, port, -1, NULL); }
+
+static void browse_answered(void *ctx, const char *address, int port, int ping, const char *status) {
+    browse_put(ctx, address, port, ping, status);
+}
+
+static int SDLCALL browse_main(void *p) {
+    browse_job *j = p;
+    dxl_browse_fns fns = { browse_listed, browse_answered };
+    dxl_err e;
+    e.msg[0] = '\0';
+    int rc = dxl_browse(j->master, (const char *const *)j->also, &fns, j, &j->stop, &e);
+    SDL_LockMutex(j->lock);
+    j->done = 1;
+    j->failed = rc != 0;
+    snprintf(j->error, sizeof j->error, "%s", e.msg);
+    browse_tell(j);
+    SDL_UnlockMutex(j->lock);
+    browse_unref(j);
+    return 0;
+}
+
+static void browse_drop(dxl_window *w) {
+    browse_job *j = w->browse;
+    if (!j) return;
+    w->browse = NULL;
+    SDL_LockMutex(j->lock);
+    atomic_store(&j->stop, 1);
+    j->quiet = 1;
+    SDL_UnlockMutex(j->lock);
+    browse_unref(j);
+}
+
+static void start_browse(dxl_shell *s, const char *master, const char *const *also) {
+    dxl_window *w = s->window;
+    browse_drop(w);
+    browse_job *j = dxl_xmalloc(sizeof *j);
+    memset(j, 0, sizeof *j);
+    atomic_init(&j->stop, 0);
+    j->lock = SDL_CreateMutex();
+    j->event = w->job_event;
+    j->master = dxl_xstrdup(master ? master : "");
+    size_t n = 0;
+    while (also && also[n]) n++;
+    j->also = dxl_xmalloc((n + 1) * sizeof *j->also);
+    for (size_t i = 0; i < n; i++) j->also[i] = dxl_xstrdup(also[i]);
+    j->also[n] = NULL;
+    SDL_SetAtomicInt(&j->refs, 2);
+    SDL_Thread *t = j->lock ? SDL_CreateThread(browse_main, "dxl-browse", j) : NULL;
+    if (!t) {
+        dxl_log("no server browser thread: %s", SDL_GetError());
+        SDL_SetAtomicInt(&j->refs, 1);
+        browse_unref(j);
+        dxl_shell_browsed(s, "the launcher could not start its look for servers");
+        return;
+    }
+    SDL_DetachThread(t);
+    w->browse = j;
+}
+
+/* What the look has found since the last time, into the page's list; and
+ * its end. */
+static void browse_collect(dxl_window *w) {
+    browse_job *j = w->browse;
+    if (!j) return;
+    SDL_LockMutex(j->lock);
+    for (int i = 0; i < j->got_count; i++) {
+        browse_got *g = &j->got[i];
+        if (g->status) dxl_shell_server_answered(&w->shell, g->address, g->port, g->ping, g->status);
+        else dxl_shell_server_listed(&w->shell, g->address, g->port);
+        free(g->status);
+    }
+    j->got_count = 0;
+    int done = j->done, failed = j->failed;
+    char error[300];
+    snprintf(error, sizeof error, "%s", j->error);
+    SDL_UnlockMutex(j->lock);
+    if (!done) return;
+    browse_drop(w);
+    dxl_shell_browsed(&w->shell, failed ? error : NULL);
+}
+
 /* ---- the app menu's entry ------------------------------------------------- */
 
 static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
@@ -499,6 +648,10 @@ static void close_window(dxl_window *w, dxl_run *r) {
     find_drop(w);
     if (w->shell.finding) w->shell.looked = 0;
     w->shell.finding = 0;
+    /* And the look for servers: asked again as the page comes again. */
+    browse_drop(w);
+    if (w->shell.browsing) w->shell.browsed = 0;
+    w->shell.browsing = 0;
     /* The sound goes with the window: the game opens its own. */
     dxl_audio_close(w->shell.audio);
     w->shell.audio = NULL;
@@ -644,6 +797,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->desktop = desktop;
     s->start_probe = start_probe;
     s->start_find = start_find;
+    s->start_browse = start_browse;
     s->set_big = set_big;
     s->desktop_entry = dxl_desktop_installed(r->session.xdg.data_home);
     return 0;
@@ -679,6 +833,7 @@ static void handle(dxl_window *w, const SDL_Event *e) {
     } else if (e->type == w->job_event) {
         probe_collect(w);
         find_collect(w);
+        browse_collect(w);
     }
 }
 

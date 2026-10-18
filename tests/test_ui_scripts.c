@@ -19,8 +19,13 @@
 
 #include "upkg_writer.h"
 
+#include <arpa/inet.h>
 #include <math.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <pthread.h>
 #include <stdarg.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -474,6 +479,114 @@ static void test_big_screen(void) {
     free(log);
 }
 
+/* ---- a master and a server on this machine -------------------------- */
+
+static int local_socket(int type, int *port) {
+    int fd = socket(AF_INET, type, 0);
+    struct sockaddr_in sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t len = sizeof sa;
+    if (fd < 0 || bind(fd, (struct sockaddr *)&sa, sizeof sa) != 0 || getsockname(fd, (struct sockaddr *)&sa, &len) != 0)
+        return -1;
+    *port = ntohs(sa.sin_port);
+    return fd;
+}
+
+/* Waits up to 60 s for fd: 1 ready. */
+static int ready(int fd) {
+    struct pollfd p = { fd, POLLIN, 0 };
+    return poll(&p, 1, 60000) == 1;
+}
+
+typedef struct {
+    int master, server, server_port;
+} fakes;
+
+/* The master: one look, the server listed. */
+static void *fake_master(void *p) {
+    fakes *f = p;
+    if (!ready(f->master)) return NULL;
+    int c = accept(f->master, NULL, NULL);
+    if (c < 0) return NULL;
+    send(c, "\\basic\\\\secure\\abcdef", 21, 0);
+    char asked[512] = "";
+    size_t len = 0;
+    while (len < sizeof asked - 1 && !strstr(asked, "\\list\\") && ready(c)) {
+        ssize_t n = recv(c, asked + len, sizeof asked - 1 - len, 0);
+        if (n <= 0) break;
+        len += (size_t)n;
+        asked[len] = '\0';
+    }
+    char list[128];
+    snprintf(list, sizeof list, "\\ip\\127.0.0.1:%d\\final\\", f->server_port);
+    send(c, list, strlen(list), 0);
+    close(c);
+    return NULL;
+}
+
+/* The server: its status, whole, for each asking until a minute passes. */
+static void *fake_server(void *p) {
+    fakes *f = p;
+    char query[256];
+    while (ready(f->server)) {
+        struct sockaddr_in from;
+        socklen_t len = sizeof from;
+        ssize_t n = recvfrom(f->server, query, sizeof query - 1, 0, (struct sockaddr *)&from, &len);
+        if (n <= 0) break;
+        const char *st = "\\gamename\\deusex\\gamever\\1100\\minnetver\\1100\\hostname\\Fake One\\hostport\\7790"
+                         "\\mapname\\DXMP_Cathedral\\gametype\\DeathMatchGame\\numplayers\\0\\maxplayers\\8"
+                         "\\queryid\\1.1\\final\\";
+        sendto(f->server, st, strlen(st), 0, (struct sockaddr *)&from, len);
+    }
+    return NULL;
+}
+
+/* The profile's master the one here. */
+static void master_here(int port) {
+    profile_files f;
+    open_files(&f);
+    char at[64];
+    snprintf(at, sizeof at, "127.0.0.1:%d", port);
+    dxl_ini_set(f.sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", at);
+    CHECK_INT(dxl_ini_save(f.sys, f.p.system_ini, NULL), 0);
+    close_files(&f);
+}
+
+/* Multiplayer's servers, a master's here: the one listed joined, then an
+ * address typed, each on the engine's command line as its --url. */
+static void test_multiplayer(void) {
+    CHECK_INT(fresh_home(), 0);
+    fakes f;
+    int master_port = 0;
+    f.master = local_socket(SOCK_STREAM, &master_port);
+    listen(f.master, 4);
+    f.server = local_socket(SOCK_DGRAM, &f.server_port);
+    master_here(master_port);
+    pthread_t mt, st;
+    pthread_create(&mt, NULL, fake_master, &f);
+    pthread_create(&st, NULL, fake_server, &f);
+    CHECK_INT(launch("multiplayer.script", "ready"), 0);
+    script_ok();
+    started_with("--url=127.0.0.1:7790");
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "multiplayer: 1 server(s), 1 answered") != NULL);
+    free(log);
+    shutdown(f.master, SHUT_RDWR);
+    shutdown(f.server, SHUT_RDWR);
+    pthread_join(mt, NULL);
+    pthread_join(st, NULL);
+    close(f.master);
+    close(f.server);
+
+    CHECK_INT(fresh_home(), 0);
+    master_here(1);   /* no master there: the address alone */
+    CHECK_INT(launch("multiplayer_address.script", "ready"), 0);
+    script_ok();
+    started_with("--url=127.0.0.1:7999");
+}
+
 /* Continue from Home: the latest save, by when it was made, not by its
  * slot, in the engine's --url. */
 static void test_continue(void) {
@@ -612,6 +725,7 @@ int main(void) {
     RUN(test_engine_and_game);
     RUN(test_profiles);
     RUN(test_big_screen);
+    RUN(test_multiplayer);
     RUN(test_continue);
     RUN(test_saves_page);
     RUN(test_shots_page);

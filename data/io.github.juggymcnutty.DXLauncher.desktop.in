@@ -4,12 +4,13 @@ Version=1.5
 Name=DXLauncher
 GenericName=Deus Ex launcher
 Comment=Play Deus Ex on VibeEngine
-Exec=@EXEC@
+Exec=@EXEC@ %u
 Icon=io.github.juggymcnutty.DXLauncher
 Terminal=false
 Categories=Game;ActionGame;
 Keywords=Deus Ex;DX;VibeEngine;
 StartupWMClass=io.github.juggymcnutty.DXLauncher
+MimeType=x-scheme-handler/deusex;
 Actions=BigScreen;
 
 [Desktop Action BigScreen]

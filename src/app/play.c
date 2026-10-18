@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "app/play.h"
+#include "core/servers.h"
 #include "core/log.h"
 #include "platform/process.h"
 
@@ -39,6 +40,9 @@ static void forwarded(dxl_game *g, const char *msg, int ready) {
     dxl_game_send(g, "TakeFocus");
     char url[DXL_HANDOFF_MAX];
     if (first_token(msg, url, sizeof url) && url[0] != '-') {
+        /* A link's server, as the game takes a server: host:port. */
+        char link[256];
+        if (dxl_server_link(url, link, sizeof link)) snprintf(url, sizeof url, "%s", link);
         char open[DXL_HANDOFF_MAX + 8];
         snprintf(open, sizeof open, "Open %s", url);
         dxl_game_send(g, open);

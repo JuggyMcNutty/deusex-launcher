@@ -6,13 +6,16 @@
  *   dxl-cli --play [...]              play, no Home (app/run.h)
  *   dxl-cli --probe [--ini]           the GPU this machine has; --ini, for a program
  *   dxl-cli --find                    the installs the first run would list
+ *   dxl-cli --servers[=<master>]      the servers a master lists, as the browser asks them
  *
  * The words are the original's command line (-safe, -changevideo, a map
  * with -hax0r, ...), as deusex-launcher takes them.
  */
 #define _GNU_SOURCE
+#include "app/browser.h"
 #include "app/run.h"
 #include "core/finder.h"
+#include "core/servers.h"
 #include "platform/gpu_probe.h"
 
 #include <signal.h>
@@ -33,7 +36,7 @@ static void on_signal(int sig) {
 
 static void usage(FILE *f) {
     fprintf(f,
-        "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe | --find\n"
+        "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe | --find | --servers\n"
         "               [--game=<dir>] [--profile=<id>] [the original's command line...]\n"
         "\n"
         "  --dry-run        what the launcher would decide, make and run; nothing is written\n"
@@ -44,6 +47,8 @@ static void usage(FILE *f) {
         "                   the [Probe] section the launcher's window reads\n"
         "  --find           the installs of Deus Ex the first run would find here, but\n"
         "                   launcher.ini's: each folder, where it was found, its build\n"
+        "  --servers[=<master>]  the servers the master (master.333networks.com) lists, each\n"
+        "                   asked as the browser asks it: name, map, players, ping, address\n"
         "  --game=<dir>     the game's folder: the first run's, or the profile's from now on\n"
         "  --profile=<id>   another profile than launcher.ini's (default: default)\n"
         "\n"
@@ -96,12 +101,63 @@ static int find(void) {
     return 0;
 }
 
+/* The browser's look, each server on a line as it answers, then all of
+ * them by their ping. */
+typedef struct {
+    dxl_server s[DXL_BROWSE_MAX];
+    int        count;
+} servers;
+
+static void listed(void *ctx, const char *address, int port) {
+    servers *l = ctx;
+    if (l->count < DXL_BROWSE_MAX) dxl_server_init(&l->s[l->count++], address, port);
+}
+
+static void answered(void *ctx, const char *address, int port, int ping, const char *status) {
+    servers *l = ctx;
+    for (int i = 0; i < l->count; i++)
+        if (l->s[i].query_port == port && !strcmp(l->s[i].address, address)) {
+            dxl_server_take_status(&l->s[i], status);
+            l->s[i].ping_ms = ping;
+        }
+}
+
+static int by_ping(const void *a, const void *b) { return dxl_server_compare(a, b, DXL_SORT_PING); }
+
+static int list_servers(const char *master) {
+    static servers l;
+    dxl_browse_fns fns = { listed, answered };
+    dxl_err e;
+    if (dxl_browse(master, NULL, &fns, &l, NULL, &e) != 0) {
+        fprintf(stderr, "%s\n", dxl_err_msg(&e));
+        return 1;
+    }
+    qsort(l.s, (size_t)l.count, sizeof *l.s, by_ping);
+    int answers = 0;
+    for (int i = 0; i < l.count; i++) {
+        const dxl_server *s = &l.s[i];
+        if (s->state != DXL_SERVER_ANSWERED) {
+            printf("%s:%d    no answer\n", s->address, s->port);
+            continue;
+        }
+        answers++;
+        printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s\n", s->name, s->map, s->game_type, s->players, s->max_players,
+               s->ping_ms, s->address, s->port, s->password ? ", password" : "",
+               dxl_server_joinable(s) ? "" : ", not this version");
+    }
+    printf("%d listed by %s, %d answered\n", l.count, master, answers);
+    for (int i = 0; i < l.count; i++) dxl_server_free(&l.s[i]);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     int mode = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) { usage(stdout); return 0; }
         if (strcmp(argv[i], "--version") == 0) { printf("dxl-cli %s\n", DXL_VERSION); return 0; }
         if (strcmp(argv[i], "--find") == 0) return find();
+        if (strcmp(argv[i], "--servers") == 0) return list_servers("master.333networks.com");
+        if (strncmp(argv[i], "--servers=", 10) == 0) return list_servers(argv[i] + 10);
         if (strcmp(argv[i], "--probe") == 0) {
             int as_ini = i + 1 < argc && strcmp(argv[i + 1], "--ini") == 0;
             return probe(as_ini);

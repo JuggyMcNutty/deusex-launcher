@@ -15,7 +15,7 @@ It keeps part of the original, which `main` recreates
 
 `deusex-launcher`'s screens are a window of its own, drawn with SDL3 and
 SDL3_ttf: Home, the first run, Settings, Profiles, Saves, Screenshots,
-Recovery, the log, About ([the window](#the-window)).
+Multiplayer, Recovery, the log, About ([the window](#the-window)).
 
 ## Where everything lives
 
@@ -27,7 +27,7 @@ scratch home:
 | Folder | What is in it |
 |---|---|
 | `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
-| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
+| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
@@ -173,6 +173,38 @@ started on a save that the engine stopped with an error before its first
 map opens Recovery saying the save did not load, its fix Saves...; a
 crash, or an error Recovery knows, has its own advice.
 
+## Multiplayer
+
+Multiplayer, from Home (`src/screens/servers.c`), lists the game's
+servers as the game's own Join Internet screen asks for them, in a worker
+of the window's (`src/app/browser.c`): the profile's master server,
+`DeusEx.ini`'s `[DeusEx.MenuScreenJoinGame] MasterServerAddress`
+(333networks' since the first run), over TCP on 28900, its challenge
+answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4 keyed by six
+spaces for Deus Ex, and its list asked for
+([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server));
+then each server it lists, and each of the profile's favourites
+(`profile.ini`'s `Favourites`, asked whether the master lists them or
+not), for its `\status\`, all at once over UDP, one silent after a second
+asked again, and given up three seconds after that (`src/core/gamespy.c`).
+Each shows as it answers -- its name, map, game, players and ping, the
+time to its first packet -- and, once all have, by the sort chosen: ping,
+players or name; the filter shows them all, those with players, those not
+full, those with no password, or the favourites. Beside the one chosen:
+its address, map, game, players and each player's frags and ping, a version
+not the game's 1100 said; Join, with the password typed in its field when
+it asks for one; a favourite or not. An address the list does not have,
+typed, `host` or `host:port` (7790 when none), is joined as it is. A server
+joined is the game's start, its `--url` the server's `host:port`,
+`?password=` after it when it asks for one; the last run keeps where it
+went, not the password.
+
+A `deusex://host:port` link, of which the app menu's entry is the handler,
+opens Multiplayer asking whether to join its server; with `--play`, with no
+window, or after another screen's Play, it is joined. A second start with
+one hands it on: the window asks, or the game, while it plays, opens the
+server.
+
 ## One start
 
 `src/app/run.h`, in this order:
@@ -217,12 +249,13 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 | Page | What it has |
 |---|---|
-| Home | Continue, Play, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
+| Home | Continue, Play, Multiplayer, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
 | Profiles | [the profiles](#profiles): use one, a new one, a copy, a name, delete one |
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
 | Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
+| Multiplayer | [the servers](#multiplayer): the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
 | Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
 | The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
@@ -459,8 +492,9 @@ from `data/`'s template with the launcher's own path, and its icon, our own
 drawing, at 32 to 256 px under `$XDG_DATA_HOME/icons/hicolor`
 (`src/platform/posix/desktop.c`, `src/ui/icon.c`). The window has the same
 id, so the desktop puts the two together; its Big screen action starts it
-with `--big-screen`. `--remove-desktop`, or the button again, takes them
-away; nothing else writes them.
+with `--big-screen`, and its MimeType makes it the handler of `deusex://`
+links. `--remove-desktop`, or the button again, takes them away; nothing
+else writes them.
 
 ## The game and the launcher
 
@@ -524,6 +558,7 @@ page or of all, Quit.
 | `--play` | the start, with no Home |
 | `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
+| `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |
 
 ## How it is tested
 
@@ -540,7 +575,11 @@ and what the engine is given; `test_engine_sections` the keys written;
 writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
-`test_finder` each of the finder's places, in homes it makes up. The stand-in
+`test_finder` each of the finder's places, in homes it makes up;
+`test_gamespy` the master's and the servers' words, the challenge's answer
+against the original's own; `test_servers` a server's answer, the sort,
+the filters and the favourites; `test_browser` a look at a master and
+servers of its own on this machine, one of them silent. The stand-in
 engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
 that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
@@ -597,7 +636,9 @@ trash; `big_screen` is offered the big screen on a pad's first press, an
 A that does not play, and stays as it is, switches it by F11, then has it
 Always on Settings' Launcher page, and finds the two in `launcher.ini`;
 `big_screen_switch` is offered it and switches to it, and
-`big_screen_handover` is put on it by a second start; `first_run` and
+`big_screen_handover` is put on it by a second start; `multiplayer` joins
+the server a master on this machine lists, and `multiplayer_address` an
+address typed, each finding it in the engine's `--url`; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
 with Your profile's choices made and as they come. SDL takes in each
 only controllers of the virtual ones' makes and models
@@ -625,9 +666,13 @@ whatever the install. Changed:
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
 | Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
 | The save migration below FirstRun 220; the Detail page | Not carried | The engine reads none of the Detail page's keys; the saves are 1112fm's |
+| No server browser: the game's menus have one | Multiplayer: the master's servers and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
 
 ## Known defects
 
+- **Multiplayer lists no servers on the local network**: the game's own
+  LAN screen asks the servers' beacons (`REPORTQUERY`, port 8777); the
+  launcher does not. An address typed joins one.
 - **The finder reads no database and no Windows path**: a Lutris game
   whose program is named from its folder, which only Lutris' `pga.db`
   holds, and a library a Windows Steam in a Wine prefix lists, are found

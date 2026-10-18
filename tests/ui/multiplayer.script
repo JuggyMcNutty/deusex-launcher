@@ -1,0 +1,11 @@
+# Multiplayer: the servers of a master on this machine (test_ui_scripts.c
+# runs it and its one server), the one listed joined: the game started with
+# its address.
+wait 2
+expect home
+find Multiplayer
+key Return
+wait 2.5
+expect multiplayer
+find Fake One
+key Return
