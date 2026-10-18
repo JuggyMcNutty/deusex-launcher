@@ -20,10 +20,9 @@ ordinary distro, cross-built from a PC or built natively: DXLauncher's
 source, and the port (`ports/linux-aarch64`, its preset in
 `CMakePresets.json`). Cross-built it makes `deusex-launcher`, `dxl-cli` and
 `dxl-shots`; its host build, `ports/linux-x86_64/port.cmake` and its
-preset, makes them for the PC and runs the tests. Its launcher came whole
-from linux-x86_64's, and each launcher commit since comes over from one to
-the other by a deliberate cherry-pick; nothing merges into it, `main`
-included
+preset, makes them for the PC and runs the tests. Its launcher is
+linux-x86_64's, and each launcher commit comes over from one to the other by
+a deliberate cherry-pick; nothing merges into it, `main` included
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 
 ## Where to read
