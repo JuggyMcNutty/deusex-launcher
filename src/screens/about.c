@@ -18,7 +18,8 @@ void dxl_page_about(dxl_shell *s, dxl_rect r) {
     snprintf(title, sizeof title, "DXLauncher %s", s->version ? s->version : "");
     static const char intro[] = "The desktop's launcher for Deus Ex on VibeEngine, from Port Ex Machina.";
     static const char credits[] =
-        "Made with SDL3 and SDL3_ttf (the zlib licence) and FreeType (its own licence); its type is "
+        "Made with SDL3 and SDL3_ttf (the zlib licence), libxmp-lite (the MIT licence) and FreeType (its own "
+        "licence); its type is "
         "Barlow Semi Condensed and Share Tech Mono (the SIL Open Font License 1.1). Deus Ex is its "
         "makers'; DXLauncher plays your own copy of it.";
     const float nw = 150, lh = 28;
