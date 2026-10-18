@@ -70,13 +70,23 @@ made, before anything is, and how it begins: its name, its graphics, the
 engine's defaults or one of [Graphics'](#settings) presets, and with a
 controller connected its [layout](#the-controller), Modern over the game's
 own three buttons or none, else the controls as imported, a layout of the
-player's (`src/app/session.c`). The game lists what the finder found
-(`src/core/finder.c`), each folder once and checked: the folder
-`--game=<dir>` names, the installs `launcher.ini` lists, the game in
-Steam's own library, as Steam's distro package, its Flatpak and its Snap
-keep it, and each folder in `~/Games/Heroic` and `~/GOG Games`. Another is shown by the launcher's folder browser, which a
-pad works, or by the system's folder dialog. `dxl-cli` makes the profile
-from `--game=<dir>`'s install. Either way the profile is made from the
+player's (`src/app/session.c`). The game lists what the finder finds
+(`src/core/finder.c`), in a worker of the window's, each folder once and
+checked, as it is found: the folder `--game=<dir>` names, the installs
+`launcher.ini` lists; the libraries Steam's `libraryfolders.vdf` lists,
+the game where its `appmanifest_6910.acf` puts it, as Steam's distro
+package, its Flatpak and its Snap keep them; Heroic's GOG games, the
+`installed.json` of its `gog_store`, and each folder in `~/Games/Heroic`;
+each folder in `~/GOG Games` and `~/Games`; what each of Lutris' games runs,
+and its Wine prefix; Bottles' bottles and the other Wine prefixes,
+`$WINEPREFIX`, `~/.wine`, winetricks', those in `~/Games` and Heroic's;
+the drives mounted in `/run/media`, `/media` and `/mnt`, at the top and
+two folders down. In a prefix's `drive_c`, and on a drive, it looks where
+Windows' installers put the game: `DeusEx`, the CD's folder; each folder
+in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library.
+Another is shown by the launcher's folder browser, which a pad works, or
+by the system's folder dialog. `dxl-cli` makes the profile from
+`--game=<dir>`'s install. Either way the profile is made from the
 install by `dxl_profile_import` (`src/core/profile.c`), reading it and
 writing nothing there:
 
@@ -496,6 +506,7 @@ page or of all, Quit.
 | `--import --game=<dir>` | a profile made from the install, nothing run |
 | `--play` | the start, with no Home |
 | `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
+| `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 
 ## How it is tested
 
@@ -511,7 +522,8 @@ and what the engine is given; `test_engine_sections` the keys written;
 `test_advice` the advice; `test_upkg` the game's packages, on packages it
 writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
-(`tests/upkg_writer.h`). The stand-in
+(`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
+`test_finder` each of the finder's places, in homes it makes up. The stand-in
 engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
 that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
@@ -595,7 +607,7 @@ whatever the install. Changed:
 
 ## Known defects
 
-- **The finder looks in a few places**: Steam's own library, not the
-  others `libraryfolders.vdf` lists; `~/Games/Heroic` and `~/GOG Games`;
-  not Lutris, Bottles or Wine prefixes. The folder browser, the system's
-  dialog and `--game=<dir>` find the rest.
+- **The finder reads no database and no Windows path**: a Lutris game
+  whose program is named from its folder, which only Lutris' `pga.db`
+  holds, and a library a Windows Steam in a Wine prefix lists, are found
+  by the folder browser, the system's dialog or `--game=<dir>`.

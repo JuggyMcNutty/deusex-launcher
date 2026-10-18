@@ -30,6 +30,23 @@
 /* The title music's fade as Play closes the window. */
 #define FADE_S 0.35f
 
+/* One look for the game, in its worker (core/finder.h): what it finds goes
+ * through its lock to the window's thread, an event telling it as each
+ * comes. The window's and the worker's, freed by the last to let go: a
+ * window closed, or another look begun, leaves a worker held up on a drive
+ * that does not answer to end on its own, telling no one. */
+typedef struct {
+    SDL_Mutex     *lock;
+    SDL_AtomicInt  refs;
+    volatile int   stop;
+    int            quiet;          /* the window let go: no events */
+    int            done;
+    Uint32         event;
+    dxl_found_list found;          /* found, not taken yet */
+    char          *given;
+    char         **known;
+} find_job;
+
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
@@ -59,6 +76,9 @@ struct dxl_window {
     dxl_gpu_probe  probe_result;
     char          *cli;
     Uint32         job_event;
+
+    /* The finder's look, in its worker; NULL for none. */
+    find_job      *find;
 
     /* The system's folder dialog's answer, from its thread. */
     SDL_Mutex     *pick_lock;
@@ -234,6 +254,105 @@ static void probe_collect(dxl_window *w) {
     dxl_shell_probed(&w->shell, &w->probe_result);
 }
 
+/* ---- the finder -------------------------------------------------------- */
+
+static void find_unref(find_job *j) {
+    if (SDL_AddAtomicInt(&j->refs, -1) != 1) return;
+    dxl_found_list_free(&j->found);
+    SDL_DestroyMutex(j->lock);
+    free(j->given);
+    for (size_t i = 0; j->known && j->known[i]; i++) free(j->known[i]);
+    free(j->known);
+    free(j);
+}
+
+/* Under the lock: the window told, while it listens. */
+static void find_tell(find_job *j) {
+    if (j->quiet) return;
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = j->event;
+    SDL_PushEvent(&e);
+}
+
+static void find_one(void *ctx, const dxl_found *f) {
+    find_job *j = ctx;
+    SDL_LockMutex(j->lock);
+    dxl_found_list_add(&j->found, f);
+    find_tell(j);
+    SDL_UnlockMutex(j->lock);
+}
+
+static int SDLCALL find_main(void *p) {
+    find_job *j = p;
+    dxl_finder_where where;
+    memset(&where, 0, sizeof where);
+    where.given = j->given;
+    where.known = (const char *const *)j->known;
+    dxl_finder_run(&where, find_one, j, &j->stop);
+    SDL_LockMutex(j->lock);
+    j->done = 1;
+    find_tell(j);
+    SDL_UnlockMutex(j->lock);
+    find_unref(j);
+    return 0;
+}
+
+/* The window's look let go of: told to stop, left to end. */
+static void find_drop(dxl_window *w) {
+    find_job *j = w->find;
+    if (!j) return;
+    w->find = NULL;
+    SDL_LockMutex(j->lock);
+    j->stop = 1;
+    j->quiet = 1;
+    SDL_UnlockMutex(j->lock);
+    find_unref(j);
+}
+
+static void start_find(dxl_shell *s, const dxl_finder_where *where) {
+    dxl_window *w = s->window;
+    find_drop(w);
+    find_job *j = dxl_xmalloc(sizeof *j);
+    memset(j, 0, sizeof *j);
+    j->lock = SDL_CreateMutex();
+    j->event = w->job_event;
+    j->given = where->given ? dxl_xstrdup(where->given) : NULL;
+    size_t n = 0;
+    while (where->known && where->known[n]) n++;
+    j->known = dxl_xmalloc((n + 1) * sizeof *j->known);
+    for (size_t i = 0; i < n; i++) j->known[i] = dxl_xstrdup(where->known[i]);
+    j->known[n] = NULL;
+    SDL_SetAtomicInt(&j->refs, 2);
+    SDL_Thread *t = j->lock ? SDL_CreateThread(find_main, "dxl-find", j) : NULL;
+    if (!t) {
+        /* No worker: the look now, the window waiting on it. */
+        dxl_log("no finder thread (%s): it looks now", SDL_GetError());
+        SDL_SetAtomicInt(&j->refs, 1);
+        find_unref(j);
+        dxl_finder_find(&s->found, where);
+        dxl_shell_found_all(s);
+        return;
+    }
+    SDL_DetachThread(t);
+    w->find = j;
+}
+
+/* What the look has found since the last time, into the page's list; and
+ * its end. */
+static void find_collect(dxl_window *w) {
+    find_job *j = w->find;
+    if (!j) return;
+    SDL_LockMutex(j->lock);
+    for (int i = 0; i < j->found.count; i++) dxl_shell_found(&w->shell, &j->found.items[i]);
+    dxl_found_list_free(&j->found);
+    int done = j->done;
+    SDL_UnlockMutex(j->lock);
+    if (!done) return;
+    find_drop(w);
+    dxl_shell_found_all(&w->shell);
+}
+
 /* ---- the app menu's entry ------------------------------------------------- */
 
 static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
@@ -359,6 +478,9 @@ static void close_window(dxl_window *w, dxl_run *r) {
         if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     }
     dxl_shell_release(&w->shell);
+    /* The look for the game, if it is still on, is for a page gone. */
+    find_drop(w);
+    w->shell.finding = 0;
     /* The sound goes with the window: the game opens its own. */
     dxl_audio_close(w->shell.audio);
     w->shell.audio = NULL;
@@ -468,6 +590,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->pick_folder = pick_folder;
     s->desktop = desktop;
     s->start_probe = start_probe;
+    s->start_find = start_find;
     s->desktop_entry = dxl_desktop_installed(r->session.xdg.data_home);
     return 0;
 }
@@ -488,6 +611,7 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         picked(w);
     } else if (e->type == w->job_event) {
         probe_collect(w);
+        find_collect(w);
     }
 }
 

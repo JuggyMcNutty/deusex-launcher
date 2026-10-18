@@ -158,7 +158,9 @@ typedef struct dxl_shell {
     int          pick_open;
     dxl_page     pick_page;
     int          pick_repoint, pick_making;
-    int          looked;          /* the finder has run */
+    int          looked;          /* the finder has been asked */
+    int          finding;         /* ...and still looks: the list grows as it finds */
+    int          find_focus;      /* the first found to take the page's focus as it comes */
     dxl_found_list found;
     dxl_install  chosen;          /* the install the profile is to be made from */
     int          has_chosen;
@@ -294,6 +296,10 @@ typedef struct dxl_shell {
     dxl_gpu_probe probe;
     dxl_renderer_list renderers;
     void       (*start_probe)(struct dxl_shell *s);
+    /* The window's: the finder in its worker, each install it finds handed
+     * in with dxl_shell_found, its end with dxl_shell_found_all. NULL
+     * offscreen, where it looks at once. */
+    void       (*start_find)(struct dxl_shell *s, const dxl_finder_where *where);
 
     struct { char text[200]; double at; } toasts[DXL_TOASTS];
     int          toast_count;
@@ -380,6 +386,12 @@ void dxl_page_home_enter(dxl_shell *s);
 void dxl_page_welcome(dxl_shell *s, dxl_rect r);
 void dxl_page_find(dxl_shell *s, dxl_rect r);
 void dxl_page_find_enter(dxl_shell *s);
+/* The finder asked for, the game page's list emptied for what it finds:
+ * the places core/finder.h has, with --game's folder and launcher.ini's
+ * installs. */
+void dxl_shell_find(dxl_shell *s);
+void dxl_shell_found(dxl_shell *s, const dxl_found *f);
+void dxl_shell_found_all(dxl_shell *s);
 void dxl_page_import(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery_enter(dxl_shell *s);

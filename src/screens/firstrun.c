@@ -61,12 +61,34 @@ void dxl_page_welcome(dxl_shell *s, dxl_rect r) {
 
 void dxl_page_find_enter(dxl_shell *s) {
     if (s->looked || !s->run) return;
-    s->looked = 1;
+    dxl_shell_find(s);
+}
+
+void dxl_shell_find(dxl_shell *s) {
     const char *known[17];
     size_t n = dxl_session_installs(&s->run->session, known, 16);
     known[n < 16 ? n : 16] = NULL;
-    dxl_finder_quick(&s->found, NULL, s->run->opt.game, known);
-    dxl_log("first run: %d install(s) found", s->found.count);
+    dxl_found_list_free(&s->found);
+    s->looked = s->finding = s->find_focus = 1;
+    dxl_finder_where w;
+    memset(&w, 0, sizeof w);
+    w.given = s->run->opt.game;
+    w.known = known;
+    if (s->start_find) {
+        s->start_find(s, &w);
+        return;
+    }
+    dxl_finder_find(&s->found, &w);
+    dxl_shell_found_all(s);
+}
+
+void dxl_shell_found(dxl_shell *s, const dxl_found *f) {
+    if (dxl_found_list_add(&s->found, f) == 0) dxl_log("the finder: %s, %s", f->install.root, f->source);
+}
+
+void dxl_shell_found_all(dxl_shell *s) {
+    s->finding = 0;
+    dxl_log("the finder: %d install(s) found", s->found.count);
 }
 
 /* What a row says of an install. */
@@ -106,13 +128,22 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
         dxl_cut_top(&in, h + 10);
     }
     int picked = -1;
+    /* The player's own move, the pointer's or a click: the focus theirs
+     * from now on. */
+    if (ui->focus_moved || ui->in.pointer_moved || ui->in.pressed || ui->in.activate) s->find_focus = 0;
     if (s->found.count == 0) {
         dxl_paragraph(ui, in, DXL_FONT_BODY,
-                      "It is not in the usual places: Steam's library, Heroic's and GOG's folders. Show "
-                      "DXLauncher the folder the game is in, the one with System and Maps in it.",
+                      s->finding ? "Looking for it in Steam's libraries, in Heroic's, GOG's and Lutris' games, in "
+                                   "Bottles and the other Wine prefixes, and on the drives mounted here..."
+                                 : "It is not in the usual places: Steam's libraries, Heroic's, GOG's and Lutris' games, "
+                                   "Bottles and the other Wine prefixes, the drives mounted here. Show DXLauncher the "
+                                   "folder the game is in, the one with System and Maps in it.",
                       t->text);
     } else {
-        float hint = dxl_paragraph(ui, in, DXL_FONT_SMALL, "Choose the copy to play:", t->help);
+        float hint = dxl_paragraph(ui, in, DXL_FONT_SMALL,
+                                   s->finding ? "Choose the copy to play, or wait: the launcher is still looking."
+                                              : "Choose the copy to play:",
+                                   t->help);
         dxl_cut_top(&in, hint + 8);
         dxl_well(ui, in);
         dxl_list l;
@@ -122,6 +153,12 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
             dxl_rgba c = describe(s, &s->found.items[i], detail, sizeof detail);
             dxl_shell_tilde(s->found.items[i].install.root, path, sizeof path);
             if (dxl_list_row(ui, &l, i, path, detail, c, DXL_W_TAIL | DXL_W_MAY_CUT) & DXL_HIT_ACTIVATED) picked = i;
+        }
+        /* The first found has the focus, though it came after the page did,
+         * until the player moves it. */
+        if (s->find_focus) {
+            s->find_focus = 0;
+            dxl_list_focus(ui, &l, 0);
         }
         dxl_list_end(ui, &l);
     }

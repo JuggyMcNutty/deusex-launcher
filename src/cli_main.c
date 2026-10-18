@@ -5,12 +5,14 @@
  *   dxl-cli --import --game=<dir> [--profile=<id>]
  *   dxl-cli --play [...]              play, no Home (app/run.h)
  *   dxl-cli --probe [--ini]           the GPU this machine has; --ini, for a program
+ *   dxl-cli --find                    the installs the first run would list
  *
  * The words are the original's command line (-safe, -changevideo, a map
  * with -hax0r, ...), as deusex-launcher takes them.
  */
 #define _GNU_SOURCE
 #include "app/run.h"
+#include "core/finder.h"
 #include "platform/gpu_probe.h"
 
 #include <signal.h>
@@ -31,7 +33,7 @@ static void on_signal(int sig) {
 
 static void usage(FILE *f) {
     fprintf(f,
-        "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe\n"
+        "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe | --find\n"
         "               [--game=<dir>] [--profile=<id>] [the original's command line...]\n"
         "\n"
         "  --dry-run        what the launcher would decide, make and run; nothing is written\n"
@@ -40,6 +42,8 @@ static void usage(FILE *f) {
         "  --play           play, with no Home screen; a screen that is due is a message\n"
         "  --probe [--ini]  the Vulkan, OpenGL ES and OpenGL this machine offers; --ini as\n"
         "                   the [Probe] section the launcher's window reads\n"
+        "  --find           the installs of Deus Ex the first run would find here, but\n"
+        "                   launcher.ini's: each folder, where it was found, its build\n"
         "  --game=<dir>     the game's folder: the first run's, or the profile's from now on\n"
         "  --profile=<id>   another profile than launcher.ini's (default: default)\n"
         "\n"
@@ -74,11 +78,30 @@ static int probe(int as_ini) {
     return 0;
 }
 
+/* The finder's places, this machine's own, each install on two lines. */
+static int find(void) {
+    dxl_finder_where where;
+    memset(&where, 0, sizeof where);
+    dxl_found_list l;
+    dxl_finder_find(&l, &where);
+    for (int i = 0; i < l.count; i++) {
+        const dxl_install *in = &l.items[i].install;
+        printf("%s\n    %s: ", in->root, l.items[i].source);
+        if (in->ok) printf("Deus Ex %s (%s)%s%s\n", in->build->version, in->build->edition, in->problem[0] ? "; " : "",
+                           in->problem);
+        else printf("%s\n", in->problem);
+    }
+    if (!l.count) printf("no Deus Ex found\n");
+    dxl_found_list_free(&l);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     int mode = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) { usage(stdout); return 0; }
         if (strcmp(argv[i], "--version") == 0) { printf("dxl-cli %s\n", DXL_VERSION); return 0; }
+        if (strcmp(argv[i], "--find") == 0) return find();
         if (strcmp(argv[i], "--probe") == 0) {
             int as_ini = i + 1 < argc && strcmp(argv[i + 1], "--ini") == 0;
             return probe(as_ini);

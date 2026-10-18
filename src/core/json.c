@@ -351,6 +351,14 @@ static ssize_t find(const dxl_json *obj, const char *key) {
     return -1;
 }
 
+size_t dxl_json_count(const dxl_json *v) {
+    return v && (v->type == DXL_JSON_ARRAY || v->type == DXL_JSON_OBJECT) ? v->count : 0;
+}
+
+dxl_json *dxl_json_at(const dxl_json *v, size_t i) {
+    return i < dxl_json_count(v) ? v->items[i] : NULL;
+}
+
 dxl_json *dxl_json_get(const dxl_json *obj, const char *key) {
     ssize_t i = find(obj, key);
     return i < 0 ? NULL : obj->items[i];
