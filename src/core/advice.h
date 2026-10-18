@@ -1,5 +1,5 @@
 /* What to do after a run that did not end cleanly, for Recovery: the
- * engine's known errors, from its own messages (VibeEngine's
+ * engine's known errors, from its own messages (DXEngine's
  * Exception::Throw), and the ways a run ends, each with advice and the fix
  * Recovery offers for it. */
 #ifndef DXL_ADVICE_H

@@ -218,7 +218,7 @@ void dxl_saveinfo_free(dxl_saveinfo *s) {
     dxl_uimage_free(&s->snapshot);
 }
 
-/* A Str for showing: UTF-8, from the original's Latin-1 or as the fork
+/* A Str for showing: UTF-8, from the original's Latin-1 or as DXEngine
  * wrote it. */
 static void shown_str(const dxl_uprop *pr, char *out, size_t size) {
     char raw[512];

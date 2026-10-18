@@ -113,11 +113,11 @@ static void test_generations(void) {
     CHECK_STR(get(&st, "audio.sound_volume"), "0.784314");
     CHECK_INT(set(&st, "display.fullscreen", "0"), 0);
     CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "StartupFullscreen"), "False");
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealClient", "StartupFullscreen"), "False");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "StartupFullscreen"), "False");
     dxl_ini_free(st.system);
 
-    st.system = parse("[WinDrv.WindowsClient]\nBrightness=0.700000\n[Engine.SurrealClient]\nBrightness=0.450000\n"
-                      "[Engine.SurrealAudioDevice]\nMusicVolume=128\n[Galaxy.GalaxyAudioSubsystem]\nSoundVolume=100\n");
+    st.system = parse("[WinDrv.WindowsClient]\nBrightness=0.700000\n[Engine.DXEngineClient]\nBrightness=0.450000\n"
+                      "[Engine.DXEngineAudioDevice]\nMusicVolume=128\n[Galaxy.GalaxyAudioSubsystem]\nSoundVolume=100\n");
     CHECK_INT(dxl_settings_engine_generation(st.system), 1);
     CHECK_STR(get(&st, "display.brightness"), "0.45");
     CHECK_STR(get(&st, "audio.music_volume"), "0.501961");
@@ -129,9 +129,9 @@ static void test_generations(void) {
 static void test_codecs(void) {
     dxl_stores st;
     memset(&st, 0, sizeof st);
-    st.system = parse("[Engine.SurrealAudioDevice]\nReverseStereo=TRUE\nUseReverb=0\nOutputRate=22050\n"
+    st.system = parse("[Engine.DXEngineAudioDevice]\nReverseStereo=TRUE\nUseReverb=0\nOutputRate=22050\n"
                       "EffectsChannels=24 channels\nMusicVolume=300\nAmbientFactor=0.5abc\n"
-                      "[Engine.SurrealClient]\nNoDynamicLights=True\nDecals=false\n");
+                      "[Engine.DXEngineClient]\nNoDynamicLights=True\nDecals=false\n");
     CHECK_STR(get(&st, "audio.reverse"), "0");          /* TRUE: not the engine's */
     CHECK_STR(get(&st, "audio.reverb"), "0");
     CHECK_STR(get(&st, "audio.rate"), "44100");         /* no Hz: not read */
@@ -142,22 +142,22 @@ static void test_codecs(void) {
     CHECK_STR(get(&st, "graphics.decals"), "0");
 
     CHECK_INT(set(&st, "audio.reverb", "1"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "UseReverb"), "True");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "UseReverb"), "True");
     CHECK_INT(set(&st, "graphics.dynamic_lights", "1"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealClient", "NoDynamicLights"), "False");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "NoDynamicLights"), "False");
     CHECK_INT(set(&st, "audio.music_volume", "0.5"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "MusicVolume"), "128");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "MusicVolume"), "128");
     CHECK_INT(set(&st, "audio.music_volume", "0.627451"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "MusicVolume"), "160");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "MusicVolume"), "160");
     CHECK_INT(set(&st, "audio.rate", "11025"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "OutputRate"), "11025Hz");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "OutputRate"), "11025Hz");
     CHECK_INT(set(&st, "audio.ambient", "0.35"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "AmbientFactor"), "0.350000");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "AmbientFactor"), "0.350000");
     CHECK_INT(set(&st, "audio.channels", "32"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "EffectsChannels"), "32");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "EffectsChannels"), "32");
     CHECK_INT(set(&st, "audio.channels", "12"), -1);    /* no such choice */
     CHECK_INT(set(&st, "audio.reverb", "yes"), -1);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealAudioDevice", "UseReverb"), "True");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineAudioDevice", "UseReverb"), "True");
     dxl_ini_free(st.system);
 }
 
@@ -167,8 +167,8 @@ static void test_sizes_and_numbers(void) {
     open_all(&st);
     dxl_engine_sections_seed(st.system);
     CHECK_INT(set(&st, "display.window_size", "1600x900"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealClient", "WindowedViewportX"), "1600");
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealClient", "WindowedViewportY"), "900");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "WindowedViewportX"), "1600");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "WindowedViewportY"), "900");
     CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "WindowedViewportX"), "1600");
     CHECK_STR(get(&st, "display.window_size"), "1600x900");
     CHECK_INT(set(&st, "display.window_size", "100x100"), -1);
@@ -182,7 +182,7 @@ static void test_sizes_and_numbers(void) {
     CHECK_STR(get(&st, "display.fov"), "80");
     CHECK_INT(set(&st, "display.fov", "80 degrees"), -1);
     CHECK_INT(set(&st, "display.brightness", "0.55"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.SurrealClient", "Brightness"), "0.550000");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "Brightness"), "0.550000");
     close_all(&st);
 }
 

@@ -22,14 +22,14 @@ static char *make_install(void) {
                   "[FirstRun]\r\nFirstRun=1100\r\n\r\n[Core.System]\r\nSavePath=..\\Save\r\n"
                   "CachePath=..\\Cache\r\nPaths=..\\System\\*.u\r\nPaths=..\\Maps\\*.dx\r\n\r\n"
                   "[DeusEx.MenuScreenJoinGame]\r\nMasterServerAddress=master0.gamespy.com\r\n");
-    scratch_write(g, "System/SE-DeusEx.ini",
-                  "[Engine.SurrealClient]\nBrightness=0.7\nStartupFullscreen=False\n\n"
-                  "[Engine.SurrealAudioDevice]\nMusicVolume=128\n");
+    scratch_write(g, "System/DXE-DeusEx.ini",
+                  "[Engine.DXEngineClient]\nBrightness=0.7\nStartupFullscreen=False\n\n"
+                  "[Engine.DXEngineAudioDevice]\nMusicVolume=128\n");
     scratch_write(g, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
     scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=Older\r\n");
     /* The bindings the original saved: its key names as it spells them, and
      * its key 0. */
-    scratch_write(g, "System/SE-User.ini",
+    scratch_write(g, "System/DXE-User.ini",
                   "[Engine.Input]\nF1=Newer\nHome=None\n\n"
                   "[Extension.InputExt]\nhome=Jump\nperiod=Duck\nStrProperty0=\n");
     scratch_write(g, "System/Shot0003.bmp", "BM");
@@ -39,7 +39,7 @@ static char *make_install(void) {
     scratch_write(g, "Save/QuickSave/SaveInfo.dxs", "quick");
     scratch_write(g, "Save/Current/01_NYC_UNATCOIsland.dxs", "current");
     scratch_write(g, "Maps/DX.dx", "map");
-    /* User.ini older than SE-User.ini, as the engine's own runs leave them. */
+    /* User.ini older than DXE-User.ini, as the engine's own runs leave them. */
     char *user = scratch_path(g, "System/User.ini");
     struct utimbuf old = { .actime = time(NULL) - 3600, .modtime = time(NULL) - 3600 };
     utime(user, &old);
@@ -109,8 +109,8 @@ static void test_import(void) {
     dxl_err e;
     CHECK_INT(dxl_profile_import(&p, system_dir, 1, &r, &e), 0);
     CHECK(strstr(r.system_from, "System/DeusEx.ini") != NULL);
-    CHECK(strstr(r.user_from, "System/SE-User.ini") != NULL);
-    CHECK(strstr(r.engine_from, "System/SE-DeusEx.ini") != NULL);
+    CHECK(strstr(r.user_from, "System/DXE-User.ini") != NULL);
+    CHECK(strstr(r.engine_from, "System/DXE-DeusEx.ini") != NULL);
     CHECK_INT(r.saves, 2);
     CHECK_INT(r.shots, 1);
     CHECK_INT(r.master_replaced, 1);
@@ -129,7 +129,7 @@ static void test_import(void) {
 
     /* DeusEx.ini: the game's, LF, the save and cache paths the profile's,
      * the Paths as they were, the master 333networks', and the engine's
-     * sections from SE-DeusEx.ini. */
+     * sections from DXE-DeusEx.ini. */
     dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
     CHECK(sys != NULL);
     if (sys) {
@@ -140,15 +140,15 @@ static void test_import(void) {
         CHECK_STR(dxl_ini_get(sys, "Core.System", "Paths"), "..\\System\\*.u");
         CHECK_STR(dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"),
                   "master.333networks.com");
-        CHECK_STR(dxl_ini_get(sys, "Engine.SurrealClient", "Brightness"), "0.7");
-        CHECK_STR(dxl_ini_get(sys, "Engine.SurrealAudioDevice", "MusicVolume"), "128");
+        CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineClient", "Brightness"), "0.7");
+        CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineAudioDevice", "MusicVolume"), "128");
         dxl_ini_free(sys);
     }
     size_t len = 0;
     char *text = slurp(p.system_ini, &len);
     CHECK(text && !strchr(text, '\r'));
     free(text);
-    /* User.ini: the newer, SE-User.ini, LF, the original's bindings in
+    /* User.ini: the newer, DXE-User.ini, LF, the original's bindings in
      * [Engine.Input]. */
     dxl_ini *usr = dxl_ini_load(p.user_ini, NULL);
     CHECK(usr != NULL);
@@ -204,7 +204,7 @@ static void test_import(void) {
 
 /* A DeusEx.ini with no Paths is a stub the engine cannot start from: the
  * profile's is Default.ini with the stub's values over it. With no
- * SE-User.ini or User.ini, DefUser.ini. */
+ * DXE-User.ini or User.ini, DefUser.ini. */
 static void test_import_from_defaults(void) {
     char *game = dxl_xstrdup(scratch_dir("profile-stub"));
     scratch_write(game, "System/DeusEx.exe", "x");
@@ -272,7 +272,7 @@ static void test_profiles(void) {
     dxl_profile_set(&a, "Name", "Deus Ex");
     CHECK_INT(dxl_profile_save(&a, NULL), 0);
     scratch_write(a.engine_dir, "Settings.json", "{}");
-    scratch_write(a.engine_dir, "SE-Log-LastRun.txt", "a log");
+    scratch_write(a.engine_dir, "DXE-Log-LastRun.txt", "a log");
     scratch_write(a.engine_dir, "HXMod.ini", "[HX.Mod]\nOn=True\n");
     /* Taken now: the next of that name another. */
     dxl_profile_new_id(&x, "Default", id, sizeof id);
@@ -291,7 +291,7 @@ static void test_profiles(void) {
     dxl_ini_free(sys);
     CHECK(scratch_exists(b.engine_dir, "Settings.json"));
     CHECK(scratch_exists(b.engine_dir, "HXMod.ini"));
-    CHECK(!scratch_exists(b.engine_dir, "SE-Log-LastRun.txt"));
+    CHECK(!scratch_exists(b.engine_dir, "DXE-Log-LastRun.txt"));
     CHECK_INT(dxl_profile_count_saves(&a), 2);
     CHECK_INT(dxl_profile_count_saves(&b), 0);
     /* Made already: not again. */

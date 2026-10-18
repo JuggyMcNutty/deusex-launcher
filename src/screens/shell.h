@@ -119,7 +119,7 @@ typedef struct {
 
 /* What a folder is chosen for, by the browser or the system's dialog. */
 #define DXL_BROWSE_GAME   0   /* an install: the first run's, or the profile's from now on */
-#define DXL_BROWSE_ENGINE 1   /* the engine's: VibeEngine or SurrealEngine in it */
+#define DXL_BROWSE_ENGINE 1   /* the engine's: DXEngine in it */
 #define DXL_BROWSE_MOD    2   /* a mod's: a folder with a System of its own, of packages (core/mods.h) */
 
 typedef struct {

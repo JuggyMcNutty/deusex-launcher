@@ -20,7 +20,7 @@ static const struct {
       { "A package the game needs is not in its folder: the install is incomplete. Check it, or show the "
         "launcher another copy.",
         DXL_FIX_INSTALL } },
-    { "Could not open SurrealEngine.pk3",
+    { "Could not open DXEngine.pk3",
       { "The engine's own files are not beside it in the launcher's folder: stage or install DXLauncher "
         "again.",
         DXL_FIX_APP } },

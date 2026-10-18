@@ -173,14 +173,14 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
             snprintf(why, size, "%s does not start here (its exit %d)%s%s", engine, status, line[0] ? ": " : ".",
                      line);
         } else {
-            snprintf(brief, brief_size, "not VibeEngine");
-            snprintf(why, size, "%s does not answer --version as VibeEngine does: refusing it.", engine);
+            snprintf(brief, brief_size, "not DXEngine");
+            snprintf(why, size, "%s does not answer --version as DXEngine does: refusing it.", engine);
         }
         return -1;
     }
     if (!dxl_engine_has(v, DXL_ENGINE_NEEDS)) {
         snprintf(brief, brief_size, "%s, without --%s", v->version, DXL_ENGINE_NEEDS);
-        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/SurrealEngine.",
+        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/DXEngine.",
                  engine, v->version, DXL_ENGINE_NEEDS);
         return -1;
     }
@@ -193,7 +193,7 @@ int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brie
 }
 
 char *dxl_engine_in(const char *dir) {
-    static const char *const names[] = { "VibeEngine", "SurrealEngine" };
+    static const char *const names[] = { "DXEngine" };
     for (size_t i = 0; dir && i < sizeof names / sizeof *names; i++) {
         char *p = dxl_path_join(dir, names[i]);
         if (dxl_path_exists(p) && !dxl_path_is_dir(p) && access(p, X_OK) == 0) return p;
@@ -204,17 +204,17 @@ char *dxl_engine_in(const char *dir) {
 
 int dxl_engine_pk3_found(const char *path) {
     char *dir = dxl_path_dirname(path);
-    char *beside = dxl_path_join(dir, "SurrealEngine.pk3");
+    char *beside = dxl_path_join(dir, "DXEngine.pk3");
     int found = dxl_path_exists(beside);
     free(beside);
     free(dir);
-    if (found || dxl_path_exists("/usr/share/surrealengine/SurrealEngine.pk3")) return 1;
+    if (found || dxl_path_exists("/usr/share/dxengine/DXEngine.pk3")) return 1;
     const char *home = getenv("HOME"), *data = getenv("XDG_DATA_HOME");
     char p[2048];
-    if (data && *data) snprintf(p, sizeof p, "%s/surrealengine/SurrealEngine.pk3", data);
-    else snprintf(p, sizeof p, "%s/.local/share/surrealengine/SurrealEngine.pk3", home ? home : "");
+    if (data && *data) snprintf(p, sizeof p, "%s/dxengine/DXEngine.pk3", data);
+    else snprintf(p, sizeof p, "%s/.local/share/dxengine/DXEngine.pk3", home ? home : "");
     if (dxl_path_exists(p)) return 1;
-    snprintf(p, sizeof p, "%s/.surrealengine/SurrealEngine.pk3", home ? home : "");
+    snprintf(p, sizeof p, "%s/.dxengine/DXEngine.pk3", home ? home : "");
     return dxl_path_exists(p);
 }
 
@@ -257,13 +257,13 @@ static char **engine_argv(const dxl_run *r) {
 char *dxl_run_pad_db(const dxl_run *r) { return dxl_path_join(r->session.xdg.data, "gamecontrollerdb.txt"); }
 
 /* SDL2 for the engine's window, its build's SDL backend, the one with the
- * pad, unless the player named one (the fork's ENGINE.md, settings and
+ * pad, unless the player named one (DXEngine's ENGINE.md, settings and
  * environment); and the pad mappings, Steam's and the launcher's, when the
  * launcher keeps any. */
 static char **engine_env(const dxl_run *r) {
     static char *env[3], *pads;
     int n = 0;
-    if (!getenv("SURREALWIDGETS_DISPLAY_BACKEND")) env[n++] = "SURREALWIDGETS_DISPLAY_BACKEND=SDL2";
+    if (!getenv("DXE_DISPLAY_BACKEND")) env[n++] = "DXE_DISPLAY_BACKEND=SDL2";
     char *db = dxl_run_pad_db(r);
     char *config = dxl_padmap_engine_config(getenv("SDL_GAMECONTROLLERCONFIG"), db);
     free(db);

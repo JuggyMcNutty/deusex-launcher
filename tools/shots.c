@@ -327,7 +327,7 @@ static void crashed(dxl_run *r) {
 static void engine(dxl_shell *s) {
     s->engine_asked = 1;
     s->engine_ok = 1;
-    snprintf(s->engine_version, sizeof s->engine_version, "VibeEngine 1e4258f (2026-10-16)");
+    snprintf(s->engine_version, sizeof s->engine_version, "DXEngine 1e4258f (2026-10-16)");
     snprintf(s->engine_features, sizeof s->engine_features, "userdir loadgame-url int-paths");
 }
 
@@ -537,7 +537,7 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         s->engine_ok = 0;
         snprintf(s->engine_brief, sizeof s->engine_brief, "needs glibc 2.44, this system has 2.43");
         snprintf(s->engine_problem, sizeof s->engine_problem,
-                 "%.200s/Applications/DXLauncher/SurrealEngine does not start here: it needs glibc 2.44, and this system "
+                 "%.200s/Applications/DXLauncher/DXEngine does not start here: it needs glibc 2.44, and this system "
                  "has 2.43. It was built on a newer system than this one: choose an engine built for this one, or "
                  "build it here.", home);
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
@@ -585,7 +585,7 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
         write_file(log, "[] Game folder: ~/GOG Games/Deus Ex GOTY\n[] Renderer: Vulkan\n"
                         "[GameInfo.InitGame] InitGame: ?Name=Player?Class=DeusEx.JCDentonMale\n"
-                        "SurrealEngine error: Expected an import table entry: 01_NYC_UNATCOIsland\n");
+                        "DXEngine error: Expected an import table entry: 01_NYC_UNATCOIsland\n");
         free(log);
         dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
         break;

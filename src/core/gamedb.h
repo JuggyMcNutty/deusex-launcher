@@ -1,7 +1,7 @@
 /* The builds of Deus Ex the engine plays, by System/DeusEx.exe's SHA1.
  *
  * The engine takes a game folder only when that file's hash is in its own
- * list (VibeEngine's UE1GameDatabase.h); with any other it finds no game
+ * list (DXEngine's UE1GameDatabase.h); with any other it finds no game
  * and exits. This list is the same, and Port Ex Machina's scripts/dx.sh
  * check holds the two together. 1112fm is the build the engine is made
  * against; 1002f, the first release, it starts too, with a warning here.

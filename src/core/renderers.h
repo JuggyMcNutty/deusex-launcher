@@ -5,7 +5,7 @@
  *   - Does this *engine build* have a backend for it? Declared per renderer
  *     in renderers.ini as EngineType -- the value Settings.json
  *     RenderDevice.Type takes. Empty means the engine has no such backend
- *     (Surreal Engine has no software renderer at all; the fork's GL device
+ *     (DXEngine has no software renderer at all; its GL device
  *     runs on OpenGL ES too, as GLES).
  *   - Does *this device* have the graphics API it needs? Measured at startup
  *     by the GPU probe (platform/gpu_probe.c), never assumed.
@@ -16,7 +16,7 @@
  * -- detection runs in a forked child -- without the re-exec.
  *
  * The choice is written to Settings.json, not to [Engine.Engine]
- * GameRenderDevice: Surreal Engine overrides that ini key with its own device
+ * GameRenderDevice: DXEngine overrides that ini key with its own device
  * class, so writing it changed nothing.
  */
 #ifndef DXL_RENDERERS_H

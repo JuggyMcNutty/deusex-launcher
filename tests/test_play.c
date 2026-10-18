@@ -73,7 +73,7 @@ static void test_failed(void) {
     CHECK_INT(r.status, 1);
     CHECK_INT(r.clean, 0);
     char *text = slurp(s.log, NULL);
-    CHECK(text && strstr(text, "SurrealEngine error: Could not open /g/Maps/.dx") != NULL);
+    CHECK(text && strstr(text, "DXEngine error: Could not open /g/Maps/.dx") != NULL);
     free(text);
     done(&s, &r);
 }
@@ -187,7 +187,7 @@ static void test_parse_link(void) {
 }
 
 static void test_cannot_start(void) {
-    char *argv[] = { "/nonexistent/SurrealEngine", NULL };
+    char *argv[] = { "/nonexistent/DXEngine", NULL };
     dxl_play_request req = { .argv = argv };
     dxl_play_result r;
     dxl_play(&req, &r);

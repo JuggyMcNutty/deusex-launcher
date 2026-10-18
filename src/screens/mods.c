@@ -195,7 +195,7 @@ void dxl_page_mods(dxl_shell *s, dxl_rect r) {
     if (s->engine_ok && !dxl_shell_engine_has(s, "int-paths"))
         dxl_paragraph(ui, help_r, DXL_FONT_SMALL,
                       "This engine reads a mod's text from the game's System folder alone, so a mod's own text is "
-                      "missing: a VibeEngine with the int-paths feature reads it from the mod's folder.",
+                      "missing: a DXEngine with the int-paths feature reads it from the mod's folder.",
                       t->warn);
     else if (why)
         dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);

@@ -8,7 +8,7 @@
 
 #define INPUT "Engine.Input"
 
-/* SurrealWidgets' SDL2 window, ScancodeToInputKey: the scancodes it passes
+/* DXWidgets' SDL2 window, ScancodeToInputKey: the scancodes it passes
  * on, and the name each is in the engine. */
 static const struct {
     int scancode;

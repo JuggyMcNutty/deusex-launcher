@@ -1,4 +1,4 @@
-/* What the game makes of a pad's sticks and triggers: VibeEngine's own
+/* What the game makes of a pad's sticks and triggers: DXEngine's own
  * processing (its GamepadInput.cpp), for the Controller page to draw. Axis
  * values are SDL's, -1 to 1, right and down positive; the game's are up
  * positive, a whole number to 100.

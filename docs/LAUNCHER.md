@@ -3,7 +3,7 @@
 DXLauncher is the desktop's launcher for Deus Ex: an app of its own,
 outside the game's folder, that finds the game, keeps the player's settings
 and saves in a profile, and starts
-[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md)
+[DXEngine](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md)
 and stays with it. Two programs: `deusex-launcher`, the launcher, and
 `dxl-cli`, the same with no window, for scripts and for looking. C11, its
 core with no SDL; the desktop Linux branches', linux-x86_64's and
@@ -40,12 +40,12 @@ engine resolves them against the game's `System` folder. A mod's profile
 names the mod's folders before them, by their absolute paths
 ([Mods](#mods)). `SavePath` and
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
-writes them back. The engine never touches `~/.config/SurrealEngine`,
+writes them back. The engine never touches `~/.config/DXEngine`,
 which the harness's runs read: an engine whose `--version` lacks
 `userdir` is refused.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
-it (`SurrealEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
+it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
 window's type (`data/fonts`), the app menu's entry
 ([the app menu](#the-app-menu)), the engine's renderers and what each needs
 of the machine (`renderers.ini`), and `Settings.json`'s defaults
@@ -97,12 +97,12 @@ writing nothing there:
 - **`DeusEx.ini`**: the game's own, else `Default.ini`; one with no
   `[Core.System] Paths`, a stub the engine cannot start from, is
   `Default.ini` with its values over it. The engine's own sections
-  (`Engine.SurrealClient`, `SurrealAudioDevice`, `SurrealRenderDevice`,
-  `SurrealWindowSystem`) come from `SE-DeusEx.ini`, which the engine writes
+  (`Engine.DXEngineClient`, `DXEngineAudioDevice`, `DXEngineRenderDevice`,
+  `DXEngineWindowSystem`) come from `DXE-DeusEx.ini`, which the engine writes
   when no launcher names an ini, for each the game's lacks; then each key
   of them they lack is written, as the engine would take it
   (`src/core/engine_sections.h`).
-- **`User.ini`**: the newer of `User.ini` and `SE-User.ini`, else
+- **`User.ini`**: the newer of `User.ini` and `DXE-User.ini`, else
   `DefUser.ini`. The bindings the original game saved, in
   `[Extension.InputExt]`, put in `[Engine.Input]`, the one section of them
   the engine reads, and taken out of the other.
@@ -154,7 +154,7 @@ the game's folder. A mod is known by the folder it is found by, a link's
 kept, and is named after it. Its text and the objects its `.int` files
 register come from its folders too, with an engine whose `--version` has
 `int-paths`
-([VibeEngine's mods](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#mods)):
+([DXEngine's mods](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#mods)):
 the original reads them from `System` alone, where a mod's had to be put.
 
 Mods, from Profiles (`src/screens/mods.c`), lists those it finds: each
@@ -224,7 +224,7 @@ played, its snapshot; the newest first, one whose info does not read last.
 
 The game starts on a save by the engine's start URL, `?loadgame=N` in
 `--url`, which only an engine whose `--version` names `loadgame-url` takes
-([the start URL](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)):
+([the start URL](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-command-line)):
 with an older one there is no Continue, and Load is off, saying why. A run
 started on a save that the engine stopped with an error before its first
 map opens Recovery saying the save did not load, its fix Saves...; a
@@ -290,7 +290,7 @@ chosen -- or the game, while it plays, opens the server.
 5. **The engine** asked what it can do (`--version`), and started: or
    refused, saying why -- not there, one this system cannot start (a glibc
    newer than its own, a library it lacks: the loader's words, which the
-   launcher keeps), no VibeEngine, or one without `userdir`.
+   launcher keeps), no DXEngine, or one without `userdir`.
 6. **The end**: the inis read again, as the engine left them. A clean end
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
    runs a `RELAUNCH` the engine passed on, decided again in this process:
@@ -421,13 +421,13 @@ takes (`src/core/settings.c`):
 
 | Kept in | What |
 |---|---|
-| `DeusEx.ini` | the engine's sections, `[Engine.SurrealClient]`, `SurrealAudioDevice`, `SurrealRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
+| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
 | `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer, its volumes; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
-`[Engine.SurrealAudioDevice]` has a key, else the retail ones
+`[Engine.DXEngineAudioDevice]` has a key, else the retail ones
 (`[WinDrv.WindowsClient]`, `[Galaxy.GalaxyAudioSubsystem]`, the render
 device's), taking its built-in default for a key missing there; a row reads
 the same way, and is written to both, so the two agree. The engine stops at
@@ -472,8 +472,8 @@ Escape.
 **Launcher** begins with the engine and the game's folder. The engine:
 its version, or what is wrong with it, and as its choices the launcher's
 own or another, in a folder shown by the launcher's browser or the
-system's dialog, VibeEngine or SurrealEngine in it, checked before it is
-taken (one that finds no `SurrealEngine.pk3` where the engine looks is said
+system's dialog, DXEngine in it, checked before it is
+taken (one that finds no `DXEngine.pk3` where the engine looks is said
 to). The game's folder: the profile's install, another chosen on The game.
 
 **A text row** is edited as [the window's text](#the-window) is. Your name
@@ -498,7 +498,7 @@ bottom face button, `Joy2` the right, `Joy3` the left, `Joy4` the top,
 and `Joy10` the stick clicks, `Joy11` and `Joy12` the triggers,
 `JoyPovUp` to `JoyPovRight` the d-pad; in the game's menus they have uses of
 their own
-([the gamepad](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices)).
+([the gamepad](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices)).
 
 Settings' Controller page (`src/screens/controller.c`) has on its left the
 controller shown: a model of its family, of our own shapes, no maker's --
@@ -572,14 +572,14 @@ The engine is the launcher's child, started by its words, with no shell
 between them (`src/core/engine_args.c`, `src/platform/posix/process.c`):
 
 ```
-<app>/SurrealEngine --no-launcher <game> --ini=<profile>/DeusEx.ini
+<app>/DXEngine --no-launcher <game> --ini=<profile>/DeusEx.ini
     --userini=<profile>/User.ini --userdir=<profile>/engine
     [--url=<url>] [profile.ini's EngineArgs] [DXL_ENGINE_ARGS's words]
     --cmdline=<the original's command line>
 ```
 
 in the game's `System` folder, its output into the profile's
-`last-run.log`, with `SURREALWIDGETS_DISPLAY_BACKEND` naming the SDL
+`last-run.log`, with `DXE_DISPLAY_BACKEND` naming the SDL
 window the port's engine is built with, the one with the pad, unless the
 environment names a backend,
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
@@ -595,15 +595,15 @@ engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
 
 The launcher waits on the line and its own socket, waking once a second
 besides. Stopped (SIGINT, SIGTERM, SIGHUP), it passes SIGTERM on, and
-SIGKILL 5 s later to an engine that takes no notice of SIGTERM, as the
-fork's under SDL does.
+SIGKILL 5 s later to an engine that takes no notice of SIGTERM, as
+DXEngine's under SDL does.
 
 ## Recovery
 
 `Running.ini`, the original's crash sentinel, in the profile's state
 folder: made before the game, taken away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
-code or signal, the engine's error line (`SurrealEngine error: ...`),
+code or signal, the engine's error line (`DXEngine error: ...`),
 whether it was ever ready, and the save it started on. The window opens on
 Recovery after a run that was not clean, and at the next start that finds
 `Running.ini`; with no window (`dxl-cli`), that start says so with the end

@@ -211,7 +211,7 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
         why = "The save's folder to the trash, to be put back from there.";
     if (!can_load && l->count)
         why = !ss->install.ok ? "The profile's game is not there to play: Home sets it right."
-              : s->engine_ok ? "This engine starts on no save: a VibeEngine with the loadgame-url feature does."
+              : s->engine_ok ? "This engine starts on no save: a DXEngine with the loadgame-url feature does."
                              : "No engine to play with: Home sets it right.";
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 

@@ -15,7 +15,7 @@
  *   4. Before the game, after the screens, as the original does it: the
  *      settings saved, FirstRun raised to 1100, the crash sentinel made.
  *   5. The game (app/play.h). An engine whose --version lacks the userdir
- *      feature is refused, so nothing ever writes ~/.config/SurrealEngine.
+ *      feature is refused, so nothing ever writes ~/.config/DXEngine.
  *   6. The end: a clean one takes the sentinel away and runs a RELAUNCH the
  *      engine passed on; one that is not leaves it, and the next start
  *      opens on Recovery.
@@ -110,23 +110,23 @@ char *dxl_run_pad_db(const dxl_run *r);
  * (caller frees). -1 for one it does not know, named in err. */
 int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl_err *err);
 
-/* The engine at path asked for its --version: 0 when it is a VibeEngine
+/* The engine at path asked for its --version: 0 when it is a DXEngine
  * with the userdir feature, else -1, brief what is wrong in a few words
  * ("needs glibc 2.44, this system has 2.43") and why the whole of it: an
  * engine not there, one this system cannot start and the loader's reason
  * (a library it lacks, a glibc newer than its own), one that is no
- * VibeEngine, or one without the userdir feature. */
+ * DXEngine, or one without the userdir feature. */
 int dxl_engine_check(const char *path, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
                      size_t size);
 /* The same for the session's engine. */
 int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
                          size_t size);
-/* The engine's program in a folder: VibeEngine, else SurrealEngine; NULL
- * for neither. Caller frees. */
+/* The engine's program in a folder, DXEngine; NULL for none. Caller
+ * frees. */
 char *dxl_engine_in(const char *dir);
-/* Whether the engine at path finds its SurrealEngine.pk3: beside it, or
- * where the engine looks after (/usr/share/surrealengine, the data home's
- * surrealengine, ~/.surrealengine). */
+/* Whether the engine at path finds its DXEngine.pk3: beside it, or
+ * where the engine looks after (/usr/share/dxengine, the data home's
+ * dxengine, ~/.dxengine). */
 int dxl_engine_pk3_found(const char *path);
 
 #endif

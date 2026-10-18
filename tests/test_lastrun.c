@@ -50,15 +50,15 @@ static void test_describe(void) {
 static void test_log(void) {
     const char *dir = scratch_dir("lastrun-log");
     scratch_write(dir, "logs/last-run.log",
-                  "Launching Deus Ex 1112fm\n[] Game: Deus Ex\nSurrealEngine error: first\n"
-                  "  log: one\nSurrealEngine error: Could not open x\r\n  log: two\n");
+                  "Launching Deus Ex 1112fm\n[] Game: Deus Ex\nDXEngine error: first\n"
+                  "  log: one\nDXEngine error: Could not open x\r\n  log: two\n");
     char *logs = scratch_path(dir, "logs");
     char *log = scratch_path(dir, "logs/last-run.log");
     char err[128];
     CHECK_INT(dxl_lastrun_error_line(log, err, sizeof err), 1);
     CHECK_STR(err, "Could not open x");
     char *tail = dxl_lastrun_tail(log, 2);
-    CHECK_STR(tail, "SurrealEngine error: Could not open x\r\n  log: two");
+    CHECK_STR(tail, "DXEngine error: Could not open x\r\n  log: two");
     free(tail);
     tail = dxl_lastrun_tail(log, 100);
     CHECK(tail && strncmp(tail, "Launching", 9) == 0);

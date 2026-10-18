@@ -15,10 +15,10 @@ const size_t dxl_settings_pages_count = sizeof dxl_settings_pages / sizeof *dxl_
  * retail one it stands for (core/settings.h). */
 #define ENGINE_SYS(sec, k, c) { DXL_STORE_SYSTEM, sec, k, c, 0, 0, DXL_GEN_ENGINE }
 #define RETAIL_SYS(sec, k, c) { DXL_STORE_SYSTEM, sec, k, c, 0, 0, DXL_GEN_RETAIL }
-#define CLIENT(k, c) ENGINE_SYS("Engine.SurrealClient", k, c), RETAIL_SYS("WinDrv.WindowsClient", k, c)
-#define AUDIO(k, c) ENGINE_SYS("Engine.SurrealAudioDevice", k, c), RETAIL_SYS("Galaxy.GalaxyAudioSubsystem", k, c)
-#define RENDER(k, c) ENGINE_SYS("Engine.SurrealRenderDevice", k, c), RETAIL_SYS("D3DDrv.D3DRenderDevice", k, c)
-#define VOLUME(k) { DXL_STORE_SYSTEM, "Engine.SurrealAudioDevice", k, DXL_CODEC_BYTE, 255, 0, DXL_GEN_ENGINE }, \
+#define CLIENT(k, c) ENGINE_SYS("Engine.DXEngineClient", k, c), RETAIL_SYS("WinDrv.WindowsClient", k, c)
+#define AUDIO(k, c) ENGINE_SYS("Engine.DXEngineAudioDevice", k, c), RETAIL_SYS("Galaxy.GalaxyAudioSubsystem", k, c)
+#define RENDER(k, c) ENGINE_SYS("Engine.DXEngineRenderDevice", k, c), RETAIL_SYS("D3DDrv.D3DRenderDevice", k, c)
+#define VOLUME(k) { DXL_STORE_SYSTEM, "Engine.DXEngineAudioDevice", k, DXL_CODEC_BYTE, 255, 0, DXL_GEN_ENGINE }, \
                   { DXL_STORE_SYSTEM, "Galaxy.GalaxyAudioSubsystem", k, DXL_CODEC_BYTE, 255, 0, DXL_GEN_RETAIL }
 #define JSON(f) { DXL_STORE_ENGINE, NULL, NULL, DXL_CODEC_JSON, 0, f, 0 }
 #define JSON_SCALED(f, k) { DXL_STORE_ENGINE, NULL, NULL, DXL_CODEC_JSON, k, f, 0 }
@@ -127,8 +127,8 @@ const dxl_setting dxl_settings_table[] = {
       .help = "The game's window when it is not full screen, in pixels; under X11 SDL scales it by the "
               "display's DPI.",
       .kind = DXL_SET_CHOICE, .choices = sizes, .def = "1920x1080",
-      .at = { { DXL_STORE_SYSTEM, "Engine.SurrealClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_ENGINE },
-              { DXL_STORE_SYSTEM, "Engine.SurrealClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_ENGINE },
+      .at = { { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_ENGINE },
+              { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_ENGINE },
               { DXL_STORE_SYSTEM, "WinDrv.WindowsClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_RETAIL },
               { DXL_STORE_SYSTEM, "WinDrv.WindowsClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_RETAIL } } },
     { .id = "display.brightness", .page = "Display", .label = "Brightness",
@@ -166,7 +166,7 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "graphics.light", .page = "Graphics", .label = "Lighting", .help = "How the light maps are blended.",
       .kind = DXL_SET_CHOICE, .choices = lighting, .def = "Normal", .at = { JSON(DXL_ES_LIGHT) } },
     { .id = "graphics.bloom", .page = "Graphics", .label = "Bloom",
-      .help = "A soft glow round bright lights, VibeEngine's own.", .kind = DXL_SET_BOOL, .def = "0",
+      .help = "A soft glow round bright lights, DXEngine's own.", .kind = DXL_SET_BOOL, .def = "0",
       .at = { JSON(DXL_ES_BLOOM) } },
     { .id = "graphics.bloom_amount", .page = "Graphics", .label = "Bloom strength",
       .help = "How far the glow spreads, and how bright it is.", .kind = DXL_SET_NUMBER, .min = 0.0625, .max = 1,
@@ -188,7 +188,7 @@ const dxl_setting dxl_settings_table[] = {
       .help = "The screen's flash when you are hit or blinded; always on in a net game.", .kind = DXL_SET_BOOL,
       .def = "1", .at = { CLIENT("ScreenFlashes", DXL_CODEC_BOOL) } },
     { .id = "graphics.hdr", .page = "Graphics", .label = "HDR",
-      .help = "A scene of 16-bit colours, shown through VibeEngine's HDR shader; on Vulkan on a display "
+      .help = "A scene of 16-bit colours, shown through DXEngine's HDR shader; on Vulkan on a display "
               "that takes it.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { JSON(DXL_ES_HDR) }, .flags = DXL_SET_ADVANCED },
     { .id = "graphics.hdr_scale", .page = "Graphics", .label = "HDR brightness", .help = "HDR's brightness.",
@@ -358,7 +358,7 @@ const dxl_setting dxl_settings_table[] = {
     /* ---- Launcher ------------------------------------------------------------- */
     /* The engine and the game's folder, chosen by the page (screens/settings.c). */
     { .id = "launcher.engine", .page = "Launcher", .label = "The engine",
-      .help = "The VibeEngine the game runs on: the launcher's own, beside it, or another -- a build of your own, "
+      .help = "The DXEngine the game runs on: the launcher's own, beside it, or another -- a build of your own, "
               "one made for this system.",
       .kind = DXL_SET_ACTION },
     { .id = "profile.game", .page = "Launcher", .label = "The game's folder",
@@ -406,7 +406,7 @@ const size_t dxl_settings_table_count = sizeof dxl_settings_table / sizeof *dxl_
 
 /* The graphics presets. As in 2000: the game as its Direct3D renderer drew
  * it here -- no multisampling, no bloom, no detail textures, Direct3D's
- * light and brightness curve. Enhanced: VibeEngine's own on top.
+ * light and brightness curve. Enhanced: DXEngine's own on top.
  * Performance: less to draw. Each value one its place keeps as it is (a
  * bloom of 128/255, Settings.json's step), or the preset never matches. */
 static const dxl_preset_value as_in_2000[] = {

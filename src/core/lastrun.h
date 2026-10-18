@@ -26,7 +26,7 @@ typedef struct {
     int  signal;       /* 0 when it exited */
     int  ready;        /* the engine said its first map was in */
     int  clean;        /* exit 0 with ready seen */
-    char error[512];   /* the engine's "SurrealEngine error: ..." line, or "" */
+    char error[512];   /* the engine's "DXEngine error: ..." line, or "" */
     char start[64];    /* where the game started: a save's ?loadgame=N; "" for its own start */
 } dxl_lastrun;
 
@@ -37,7 +37,7 @@ int  dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err)
  * log's path; caller frees. */
 char *dxl_lastrun_rotate(const char *logs_dir);
 
-/* The engine's error line in a log, without its "SurrealEngine error: ":
+/* The engine's error line in a log, without its "DXEngine error: ":
  * 1 when there is one. */
 int   dxl_lastrun_error_line(const char *log_path, char *out, size_t size);
 /* The last lines of a log, at most max_lines; caller frees. NULL when

@@ -16,7 +16,7 @@ void dxl_page_about(dxl_shell *s, dxl_rect r) {
     float w = r.w < 900 ? r.w : 900;
     char title[200], buf[1024];
     snprintf(title, sizeof title, "DXLauncher %s", s->version ? s->version : "");
-    static const char intro[] = "The desktop's launcher for Deus Ex on VibeEngine, from Port Ex Machina.";
+    static const char intro[] = "The desktop's launcher for Deus Ex on DXEngine, from Port Ex Machina.";
     static const char credits[] =
         "Made with SDL3 and SDL3_ttf (the zlib licence), libxmp-lite (the MIT licence) and FreeType (its own "
         "licence); its type is "

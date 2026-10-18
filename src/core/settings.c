@@ -74,7 +74,7 @@ static void set_word(char *line, size_t size, const char *word, int on) {
 /* ---- codecs ------------------------------------------------------------- */
 
 int dxl_settings_engine_generation(const dxl_ini *system) {
-    return system && dxl_ini_pairs(system, "Engine.SurrealAudioDevice", NULL, NULL, 0) > 0;
+    return system && dxl_ini_pairs(system, "Engine.DXEngineAudioDevice", NULL, NULL, 0) > 0;
 }
 
 /* The leading whole number, as the engine's std::stoi reads it: blanks, a

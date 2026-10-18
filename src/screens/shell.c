@@ -460,8 +460,8 @@ int dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief, size_t 
                             size_t why_size) {
     char *prog = dxl_path_is_dir(path) ? dxl_engine_in(path) : dxl_xstrdup(path);
     if (!prog) {
-        snprintf(brief, brief_size, "No VibeEngine or SurrealEngine in this folder.");
-        snprintf(why, why_size, "There is no VibeEngine or SurrealEngine program in %s.", path);
+        snprintf(brief, brief_size, "No DXEngine in this folder.");
+        snprintf(why, why_size, "There is no DXEngine program in %s.", path);
         return 0;
     }
     dxl_engine_version v;
@@ -479,7 +479,7 @@ int dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief, size_t 
     if (ss->engine_by_env)
         dxl_shell_toast(s, "Kept, but DXL_ENGINE names the engine played with: unset it to play with %s.", v.version);
     else if (!dxl_engine_pk3_found(prog))
-        dxl_shell_toast(s, "The engine is %s, but it finds no SurrealEngine.pk3: put one beside it.", v.version);
+        dxl_shell_toast(s, "The engine is %s, but it finds no DXEngine.pk3: put one beside it.", v.version);
     else
         dxl_shell_toast(s, "The engine is %s.", v.version);
     free(prog);
@@ -498,7 +498,7 @@ void dxl_shell_engine_pick(dxl_shell *s, uint32_t id) {
     else snprintf(detail, sizeof detail, "%s", brief);
     free(own);
     const char *labels[3] = { "The launcher's own", "Another, in a folder...", "Another, by the system's dialog..." };
-    const char *details[3] = { detail, "VibeEngine or SurrealEngine in it, a build of your own", "" };
+    const char *details[3] = { detail, "DXEngine in it, a build of your own", "" };
     dxl_shell_pick_with(s, id, "The engine", labels, details, s->pick_folder ? 3 : 2,
                         ss->engine_by_env || !dxl_ini_get(ss->ini, "Launcher", "Engine") ? ENGINE_OWN : ENGINE_BROWSE);
 }
