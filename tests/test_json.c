@@ -128,6 +128,25 @@ static void test_child_creates_and_replaces(void) {
     dxl_json_free(v);
 }
 
+/* An array's elements and an object's values, in order; nothing of
+ * anything else. */
+static void test_elements(void) {
+    const char *text = "{\"a\": [1, \"two\", {\"k\": true}], \"b\": 2}";
+    dxl_json *v = dxl_json_parse(text, strlen(text), NULL);
+    CHECK(v != NULL);
+    dxl_json *a = dxl_json_get(v, "a");
+    CHECK_INT((int)dxl_json_count(a), 3);
+    CHECK_INT(dxl_json_kind(dxl_json_at(a, 1)), DXL_JSON_STRING);
+    CHECK_INT(dxl_json_get_bool(dxl_json_at(a, 2), "k", 0), 1);
+    CHECK(dxl_json_at(a, 3) == NULL);
+    CHECK_INT((int)dxl_json_count(v), 2);
+    CHECK_INT((int)dxl_json_get_number(dxl_json_at(v, 1), "x", 7), 7);
+    CHECK_INT((int)dxl_json_count(dxl_json_at(a, 0)), 0);
+    CHECK_INT((int)dxl_json_count(NULL), 0);
+    CHECK(dxl_json_at(NULL, 0) == NULL);
+    dxl_json_free(v);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_reads_the_engine_file);
     RUN(test_round_trip_keeps_unknown_members);
@@ -136,4 +155,5 @@ TEST_MAIN_BEGIN
     RUN(test_string_escapes);
     RUN(test_rejects_malformed);
     RUN(test_child_creates_and_replaces);
+    RUN(test_elements);
 TEST_MAIN_END

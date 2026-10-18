@@ -68,6 +68,8 @@ typedef enum {
     SCENE_WELCOME,
     SCENE_FIND,
     SCENE_FIND_NONE,
+    SCENE_FIND_LOOKING,     /* the finder still looking: nothing yet, */
+    SCENE_FIND_MORE,        /* and two found so far */
     SCENE_BROWSER,
     SCENE_MESSAGE,
     SCENE_IMPORT,
@@ -109,7 +111,7 @@ typedef enum {
 } scene;
 
 static const char *const scene_names[SCENE_COUNT] = {
-    "welcome", "find", "find-none", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
+    "welcome", "find", "find-none", "find-looking", "find-more", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
     "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "saves", "saves-none", "saves-old-engine", "shots",
     "shots-none", "shot-whole", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
@@ -296,9 +298,9 @@ static void engine(dxl_shell *s) {
 static void found(dxl_shell *s) {
     dxl_found_list_free(&s->found);
     s->looked = 1;
-    s->found.items[0].source = "Steam";
+    s->found.items[0].source = "in Steam's library";
     good_install(&s->found.items[0].install, ".local/share/Steam/steamapps/common/Deus Ex", 1);
-    s->found.items[1].source = "Heroic";
+    s->found.items[1].source = "in Heroic's games";
     char *bad = at_home("Games/Heroic/Deus Ex GOTY");
     dxl_install_check(bad, &s->found.items[1].install);
     free(bad);
@@ -316,11 +318,14 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         break;
     case SCENE_FIND:
     case SCENE_FIND_NONE:
+    case SCENE_FIND_LOOKING:
+    case SCENE_FIND_MORE:
     case SCENE_BROWSER:
     case SCENE_MESSAGE:
         dxl_shell_enter(s, r, DXL_VIEW_FIRST_RUN);
         s->looked = 1;
-        if (sc != SCENE_FIND_NONE) found(s);
+        s->finding = sc == SCENE_FIND_LOOKING || sc == SCENE_FIND_MORE;
+        if (sc != SCENE_FIND_NONE && sc != SCENE_FIND_LOOKING) found(s);
         dxl_shell_go(s, DXL_PAGE_FIND);
         if (sc == SCENE_BROWSER) dxl_browser_open(s, home, DXL_BROWSE_GAME);
         if (sc == SCENE_MESSAGE)

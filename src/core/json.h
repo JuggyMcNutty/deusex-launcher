@@ -45,6 +45,11 @@ dxl_json_type dxl_json_kind(const dxl_json *v);
  * no such member. */
 dxl_json *dxl_json_get(const dxl_json *obj, const char *key);
 
+/* An array's elements, or an object's members' values, in order: 0 and
+ * NULL for anything else, or past the end. */
+size_t    dxl_json_count(const dxl_json *v);
+dxl_json *dxl_json_at(const dxl_json *v, size_t i);
+
 /* The member object named key, created (appended) if absent. If a member of
  * that name exists but is not an object, it is replaced by an empty one. */
 dxl_json *dxl_json_child(dxl_json *obj, const char *key);
