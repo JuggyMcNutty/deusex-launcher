@@ -69,10 +69,11 @@ static void test_value_truncates_safely(void) {
     CHECK_STR(v, "0123456");
 }
 
-/* The documented surprise: these five match anywhere, with no leading dash,
- * including inside a map name or a URL. dx-reverse-info/cli-flags.md "Substring-matched
- * tokens". A naive argv parser would behave differently, which is exactly why
- * the core keeps the command line as one string. */
+/* The documented surprise: these five match anywhere not straight after a
+ * letter or digit, with no leading dash, inside a map name or a URL too
+ * (dx-reverse-info/cli-flags.md). A naive argv parser would behave
+ * differently, which is exactly why the core keeps the command line as one
+ * string. */
 static void test_strfind_matches_anywhere(void) {
     CHECK_INT(dxl_cmd_find("-safe", "readini"), 0);
     CHECK_INT(dxl_cmd_find("readini", "readini"), 1);
@@ -84,6 +85,25 @@ static void test_strfind_matches_anywhere(void) {
     CHECK_INT(dxl_cmd_find("unreal://a.server.example/", "Server"), 1);
     CHECK_INT(dxl_cmd_find("-CHANGEVIDEO", "changevideo"), 1);
     CHECK_INT(dxl_cmd_find("-testrendev=X", "TestRenDev"), 1);
+}
+
+/* appStrfind's boundary: never straight after a letter or digit, so one
+ * name within another is not it; the first match that is wins. */
+static void test_strfind_not_after_a_letter_or_digit(void) {
+    char v[64];
+    CHECK_INT(dxl_cmd_find("DX.dx?Game=ReServer", "Server"), 0);
+    CHECK_INT(dxl_cmd_find("Map2Server", "Server"), 0);
+    CHECK_INT(dxl_cmd_find("ReServer -Server", "Server"), 1);
+    CHECK_INT(dxl_cmd_value("USERINI=u.ini", "INI", v, sizeof v), 0);
+    CHECK_INT(dxl_cmd_value("USERINI=u.ini INI=s.ini", "INI", v, sizeof v), 1);
+    CHECK_STR(v, "s.ini");
+    CHECK_INT(dxl_cmd_value("USERINI=u.ini INI=s.ini", "USERINI", v, sizeof v), 1);
+    CHECK_STR(v, "u.ini");
+    CHECK_INT(dxl_cmd_value("ABSLOG=a.log", "LOG", v, sizeof v), 0);
+    CHECK_INT(dxl_cmd_value("ABSLOG=a.log LOG=b.log", "LOG", v, sizeof v), 1);
+    CHECK_STR(v, "b.log");
+    CHECK_INT(dxl_cmd_value("-log=x.log", "LOG", v, sizeof v), 1);
+    CHECK_STR(v, "x.log");
 }
 
 static void test_join(void) {
@@ -119,6 +139,7 @@ TEST_MAIN_BEGIN
     RUN(test_value_quoted);
     RUN(test_value_truncates_safely);
     RUN(test_strfind_matches_anywhere);
+    RUN(test_strfind_not_after_a_letter_or_digit);
     RUN(test_join);
     RUN(test_join_excludes_argv0);
 TEST_MAIN_END
