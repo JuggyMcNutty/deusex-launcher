@@ -61,7 +61,7 @@ C++20.
 
 A GPU without descriptor indexing or some texture formats takes the Vulkan
 device's other paths
-([rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering));
+([rendering](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering));
 a Mali or Adreno under Mesa may not need them. Port Ex Machina's
 [device probes](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)
 answer that before the first engine run.

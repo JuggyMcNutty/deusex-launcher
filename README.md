@@ -5,7 +5,7 @@ This branch is the launcher of
 for aarch64 devices with an ordinary distro: DXLauncher, the desktop's own,
 as linux-x86_64 has it, an app outside the game's folder that keeps the
 player's settings and saves in a profile, starts
-[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine) and stays with it
+[DXEngine](https://github.com/JuggyMcNutty/DXEngine) and stays with it
 ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)). Its window has Home, the first
 run, Settings, Profiles, Mods, Saves, Screenshots, Multiplayer, Recovery,
 the log and About. Made with AI assistance.

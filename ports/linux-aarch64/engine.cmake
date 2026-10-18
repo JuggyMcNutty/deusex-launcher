@@ -1,6 +1,6 @@
 # Initial cache for the engine on aarch64 Linux, built natively on the
 # device (scripts/engine.sh build linux-aarch64 there): SDL2, X11 and
-# Wayland; not SDL3. SurrealWidgets builds one SDL backend -- SDL3's when
+# Wayland; not SDL3. DXWidgets builds one SDL backend -- SDL3's when
 # both are on -- and SDL2's is the one the launcher asks for at run time.
 
 # FORCE: this file is the truth, re-applied on every configure (an initial
