@@ -9,9 +9,9 @@ engine changes run here.
 
 The launcher is DXLauncher, the desktop's own
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)): a window with Home, the first
-run, Settings, Profiles, Mods, Saves, Screenshots, Multiplayer, Recovery, the log and About,
-which makes profiles
-from the game's files, keeps their settings and plays them. The engine runs the game, not yet fully playable
+run, Settings, Profiles, Mods, Saves, Screenshots, Multiplayer, Recovery,
+the log and About, which makes profiles from the game's files, keeps their
+settings and plays them. The engine runs the game, not yet fully playable
 ([where the engine still differs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md)).
 
 ## Build and run
@@ -88,8 +88,8 @@ with the toolchain file, and its block in `CMakeLists.txt` with the
   the harness's, an ini of its own naming it as in the game's folder, `.int`
   files of its own text -- made a profile by `dxl-cli --import --mod` and
   played: the engine ran its console class from its package and read its
-  text and the object its `.int` registers from its folder. Unattended engine runs drive saves,
-  loads and hub travel
+  text and the object its `.int` registers from its folder. Unattended
+  engine runs drive saves, loads and hub travel
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas

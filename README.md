@@ -18,7 +18,7 @@ are included.
 built natively: DXLauncher's source (`src/`), and the port
 (`ports/linux-x86_64`, its preset in `CMakePresets.json`, its block in
 `CMakeLists.txt`). It builds `deusex-launcher`, `dxl-cli`, `dxl-shots` and
-the tests. It began as `main`'s launcher, whose core it keeps. Nothing merges into it,
+the tests. It keeps the core of `main`'s launcher. Nothing merges into it,
 `main` included: a change from another branch comes over by a deliberate
 cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
