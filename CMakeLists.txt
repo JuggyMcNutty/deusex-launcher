@@ -91,6 +91,8 @@ add_library(dxl_core STATIC
     src/core/upkg.c
     src/core/upkg_assets.c
     src/core/theme_colors.c
+    src/core/saves.c
+    src/core/shotlist.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)

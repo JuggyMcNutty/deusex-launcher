@@ -8,6 +8,7 @@
 #include "core/paths.h"
 #include "core/peicon.h"
 #include "core/profile.h"
+#include "core/saves.h"
 #include "core/theme_colors.h"
 #include "core/upkg_assets.h"
 
@@ -396,6 +397,18 @@ static void test_assets(void) {
     }
     if (d) closedir(d);
     if (!read) printf("    (no save in the install to read)\n");
+    /* Listed as Continue and the save browser list them: each that read
+     * above among them, the newest the latest. */
+    dxl_saves list;
+    CHECK_INT(dxl_saves_list(saves, &list, &e), 0);
+    if (read) {
+        CHECK(list.count > 0);
+        CHECK(dxl_saves_latest(&list) != NULL);
+        for (int i = 1; i < list.count; i++)
+            if (list.items[i].readable && list.items[i - 1].readable)
+                CHECK(list.items[i - 1].info.year >= list.items[i].info.year);
+    }
+    dxl_saves_free(&list);
     free(saves);
     free(root);
 }
