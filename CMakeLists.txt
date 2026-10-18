@@ -116,7 +116,8 @@ add_library(dxl_platform STATIC
 if(DXL_PORT_INCLUDE_DIRS)
     target_include_directories(dxl_platform PRIVATE ${DXL_PORT_INCLUDE_DIRS})
 endif()
-target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS})
+find_package(Threads REQUIRED)
+target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS} Threads::Threads)
 
 # One start of the launcher and the game it plays (src/app/run.h), shared
 # by both programs.

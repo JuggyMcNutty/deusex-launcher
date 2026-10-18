@@ -88,19 +88,23 @@ int dxl_server_rule(const dxl_server *s, int i, char *key, size_t key_size, char
     return 0;
 }
 
+/* -1, 0 or 1 as x is less, the same or more: no number a server sends
+ * overflows it. */
+static int order(int x, int y) { return (x > y) - (x < y); }
+
 int dxl_server_compare(const dxl_server *a, const dxl_server *b, dxl_server_sort by) {
     int aa = a->state == DXL_SERVER_ANSWERED, ba = b->state == DXL_SERVER_ANSWERED;
     if (aa != ba) return ba - aa;
     int c = 0;
     if (aa) {
         switch (by) {
-        case DXL_SORT_PLAYERS: c = b->players - a->players; break;
+        case DXL_SORT_PLAYERS: c = order(b->players, a->players); break;
         case DXL_SORT_NAME: c = dxl_stricmp(a->name, b->name); break;
-        default: c = a->ping_ms - b->ping_ms; break;
+        default: c = order(a->ping_ms, b->ping_ms); break;
         }
     }
     if (!c) c = strcmp(a->address, b->address);
-    if (!c) c = a->query_port - b->query_port;
+    if (!c) c = order(a->query_port, b->query_port);
     return c;
 }
 

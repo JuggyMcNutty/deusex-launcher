@@ -124,6 +124,15 @@ static void answered(void *ctx, const char *address, int port, int ping, const c
 
 static int by_ping(const void *a, const void *b) { return dxl_server_compare(a, b, DXL_SORT_PING); }
 
+/* A server's own text for the terminal: its control characters, escapes
+ * among them, as '?'. */
+static const char *clean(const char *in, char *out, size_t size) {
+    size_t n = 0;
+    for (; *in && n + 1 < size; in++) out[n++] = (unsigned char)*in < 0x20 || *in == 0x7f ? '?' : *in;
+    out[n] = '\0';
+    return out;
+}
+
 static int list_servers(const char *master) {
     static servers l;
     dxl_browse_fns fns = { listed, answered };
@@ -141,9 +150,10 @@ static int list_servers(const char *master) {
             continue;
         }
         answers++;
-        printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s\n", s->name, s->map, s->game_type, s->players, s->max_players,
-               s->ping_ms, s->address, s->port, s->password ? ", password" : "",
-               dxl_server_joinable(s) ? "" : ", not this version");
+        char name[256], map[128], game[128];
+        printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s\n", clean(s->name, name, sizeof name), clean(s->map, map, sizeof map),
+               clean(s->game_type, game, sizeof game), s->players, s->max_players, s->ping_ms, s->address, s->port,
+               s->password ? ", password" : "", dxl_server_joinable(s) ? "" : ", not this version");
     }
     printf("%d listed by %s, %d answered\n", l.count, master, answers);
     for (int i = 0; i < l.count; i++) dxl_server_free(&l.s[i]);

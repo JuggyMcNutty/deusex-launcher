@@ -10,8 +10,13 @@
 
 #include "core/common.h"
 
-/* host -- a name or a.b.c.d -- as a.b.c.d. */
-int  dxl_net_resolve(const char *host, char *address, size_t size, dxl_err *err);
+#include <stdatomic.h>
+
+/* host -- a name or a.b.c.d -- as a.b.c.d, within timeout_ms, or until
+ * *stop is set (stop may be NULL). A lookup the resolver is still on is
+ * left to end on a thread of its own. */
+int  dxl_net_resolve(const char *host, char *address, size_t size, int timeout_ms, const atomic_int *stop,
+                     dxl_err *err);
 
 /* A TCP connection to address:port, made within timeout_ms; -1 and why. */
 int  dxl_tcp_connect(const char *address, int port, int timeout_ms, dxl_err *err);
