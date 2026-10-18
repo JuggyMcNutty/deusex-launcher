@@ -4,8 +4,9 @@
 
 #include <string.h>
 
-/* The four tokens that skip the single-instance handoff. All matched with
- * appStrfind semantics: anywhere in the line, no leading '-' needed.
+/* The four tokens that skip the single-instance handoff. All matched as
+ * appStrfind matches: anywhere in the line but straight after a letter or
+ * digit, no leading '-' needed.
  * dx-reverse-info/cli-flags.md "Substring-matched tokens". */
 static const char *const bypass_tokens[] = {
     "Server", "NewWindow", "changevideo", "TestRenDev"
@@ -28,7 +29,7 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
         if (dxl_cmd_find(cmd, bypass_tokens[i])) { out->skip_handoff = 1; break; }
 
     /* dx-reverse-info/launch-flow.md section 3. Note the asymmetry: -log and -server
-     * are ParseParam, TestRenDev is a raw substring. Both halves of this
+     * are ParseParam, TestRenDev is appStrfind's. Both halves of this
      * condition were confirmed live. */
     out->show_splash = !dxl_cmd_param(cmd, "log") &&
                        !dxl_cmd_param(cmd, "server") &&
@@ -60,7 +61,7 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
 
     /* --- the entry tree, first match wins (dx-reverse-info/wizard.md) --- */
 
-    /* 1. -safe, or "readini" anywhere in the line. */
+    /* 1. -safe, or "readini" as appStrfind finds it. */
     if (dxl_cmd_param(cmd, "safe") || dxl_cmd_find(cmd, "readini")) {
         out->action = DXL_ACTION_SCREEN;
         out->screen = DXL_SCREEN_MAIN_SAFE;
