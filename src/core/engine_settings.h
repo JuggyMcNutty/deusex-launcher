@@ -1,9 +1,9 @@
-/* VibeEngine's own settings: Settings.json in its folder, the profile's
+/* DXEngine's own settings: Settings.json in its folder, the profile's
  * engine folder (--userdir), which the engine reads once, as its window
  * opens, and never writes (its LauncherSettings.cpp).
  *
- * The engine takes its renderer from here (RenderDevice.Type), and the
- * fork's own choices: anti-aliasing, lighting, the gamma curve, VSync,
+ * The engine takes its renderer from here (RenderDevice.Type), and
+ * DXEngine's own choices: anti-aliasing, lighting, the gamma curve, VSync,
  * bloom, HDR, the pad, the render scale. The rest of the game's display
  * settings are the inis' (core/settings_table.c).
  *
@@ -38,7 +38,7 @@ typedef enum {
     DXL_ES_HDR_SCALE,
     DXL_ES_GAMMA_SCREENSHOTS,
     DXL_ES_DEBUG_LAYER,
-    /* Gamepad -- read by the fork's controller support */
+    /* Gamepad -- read by DXEngine's controller support */
     DXL_ES_PAD_ENABLED,
     DXL_ES_PAD_DEADZONE,
     DXL_ES_PAD_LOOK_X,
@@ -46,7 +46,7 @@ typedef enum {
     DXL_ES_PAD_INVERT_Y,
     DXL_ES_PAD_CURSOR_SPEED,
     DXL_ES_PAD_LAYOUT,          /* which preset the launcher last applied */
-    /* Performance -- the fork's speed-for-fidelity choices */
+    /* Performance -- DXEngine's speed-for-fidelity choices */
     DXL_ES_RENDER_SCALE,        /* the scene's size as a fraction of the window's */
     DXL_ES_FIELD_COUNT
 } dxl_es_field;

@@ -22,7 +22,7 @@ static void test_known(void) {
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
     l = run(1, 0, 0, "Could not find package DeusExText");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
-    l = run(1, 0, 0, "Could not open SurrealEngine.pk3");
+    l = run(1, 0, 0, "Could not open DXEngine.pk3");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_APP);
 }
 

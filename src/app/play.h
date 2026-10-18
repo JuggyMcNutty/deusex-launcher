@@ -7,7 +7,7 @@
  * "ready" once its first map is in, and "relaunch <line>" for the
  * original's RELAUNCH before it exits; the launcher hands it "TakeFocus"
  * and "Open <url>" for a line a second launch forwarded once it is ready
- * (the fork's ENGINE.md, running it). The wait is poll() on the line and
+ * (DXEngine's ENGINE.md, running it). The wait is poll() on the line and
  * the instance's socket, woken once a second besides: the launcher costs
  * next to nothing while the game runs.
  *
@@ -45,7 +45,7 @@ typedef struct {
     char  error[256];  /* why it did not start */
 } dxl_play_result;
 
-/* How long a game the launcher stops has to end before SIGKILL: the fork
+/* How long a game the launcher stops has to end before SIGKILL: DXEngine
  * under SDL takes no notice of SIGTERM (its ENGINE.md, running it). */
 #define DXL_PLAY_KILL_AFTER_MS 5000
 

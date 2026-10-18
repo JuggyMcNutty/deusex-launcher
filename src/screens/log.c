@@ -22,7 +22,7 @@ static char *path_of(const dxl_shell *s, int which) {
     const dxl_profile *p = &s->run->session.profile;
     switch (which) {
     case 1: return dxl_path_join(p->logs_dir, DXL_PREVIOUSRUN_LOG);
-    case 2: return dxl_path_join(p->engine_dir, "SE-Log-LastRun.txt");
+    case 2: return dxl_path_join(p->engine_dir, "DXE-Log-LastRun.txt");
     default: return dxl_path_join(p->logs_dir, DXL_LASTRUN_LOG);
     }
 }

@@ -1,7 +1,7 @@
 #include "core/gamedb.h"
 #include "core/common.h"
 
-/* VibeEngine's SurrealEngine/UE1GameDatabase.h, its Deus Ex entries. */
+/* DXEngine's DXEngine/UE1GameDatabase.h, its Deus Ex entries. */
 static const dxl_game_build builds[] = {
     { "2a933e26aa9cfb33b37f78afe21434caa031f14a", "1112fm", "GOG", 1 },
     { "af951ddd35b38e8d9cc8501b8a50a02a3ab6cae7", "1112fm", "Steam", 1 },

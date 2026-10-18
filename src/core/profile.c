@@ -12,10 +12,10 @@
 #include <unistd.h>
 
 /* The engine's own sections of the system ini, which it reads once they are
- * there (the fork's ENGINE.md, gameplay: the audio and render devices). */
+ * there (DXEngine's ENGINE.md, gameplay: the audio and render devices). */
 static const char *const engine_sections[] = {
-    "Engine.SurrealClient", "Engine.SurrealAudioDevice", "Engine.SurrealRenderDevice",
-    "Engine.SurrealWindowSystem",
+    "Engine.DXEngineClient", "Engine.DXEngineAudioDevice", "Engine.DXEngineRenderDevice",
+    "Engine.DXEngineWindowSystem",
 };
 
 /* The game's master server for its Join screen is GameSpy's, which closed;
@@ -389,11 +389,11 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     int rc = -1;
     char *game_ini = dxl_path_resolve_ci(game_system_dir, "DeusEx.ini");
     char *def_ini = dxl_path_resolve_ci(game_system_dir, "Default.ini");
-    char *se_ini = dxl_path_resolve_ci(game_system_dir, "SE-DeusEx.ini");
+    char *dxe_ini = dxl_path_resolve_ci(game_system_dir, "DXE-DeusEx.ini");
     char *user = dxl_path_resolve_ci(game_system_dir, "User.ini");
-    char *se_user = dxl_path_resolve_ci(game_system_dir, "SE-User.ini");
+    char *dxe_user = dxl_path_resolve_ci(game_system_dir, "DXE-User.ini");
     char *def_user = dxl_path_resolve_ci(game_system_dir, "DefUser.ini");
-    dxl_ini *sys = NULL, *usr = NULL, *se = NULL;
+    dxl_ini *sys = NULL, *usr = NULL, *dxe = NULL;
     char *saves = NULL;
 
     /* DeusEx.ini: a mod's own, else the game's own, else Default.ini; one
@@ -414,21 +414,21 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     }
     copy_str(r->system_from, sizeof r->system_from, sys_from);
 
-    /* The engine's own sections: from SE-DeusEx.ini, the file the engine
+    /* The engine's own sections: from DXE-DeusEx.ini, the file the engine
      * writes without --ini, for each the game's ini lacks. */
-    se = se_ini ? dxl_ini_load(se_ini, NULL) : NULL;
-    for (size_t i = 0; se && i < sizeof engine_sections / sizeof *engine_sections; i++) {
-        if (dxl_ini_has_section(sys, engine_sections[i]) || !dxl_ini_has_section(se, engine_sections[i]))
+    dxe = dxe_ini ? dxl_ini_load(dxe_ini, NULL) : NULL;
+    for (size_t i = 0; dxe && i < sizeof engine_sections / sizeof *engine_sections; i++) {
+        if (dxl_ini_has_section(sys, engine_sections[i]) || !dxl_ini_has_section(dxe, engine_sections[i]))
             continue;
-        copy_str(r->engine_from, sizeof r->engine_from, se_ini);
-        if (!dry) dxl_ini_copy_section(sys, se, engine_sections[i]);
+        copy_str(r->engine_from, sizeof r->engine_from, dxe_ini);
+        if (!dry) dxl_ini_copy_section(sys, dxe, engine_sections[i]);
     }
     /* Every key of them there before the first run (core/engine_sections.h). */
     if (!dry) dxl_engine_sections_seed(sys);
 
     /* User.ini: a mod's own, else the newer of the game's and the engine's
      * own, else DefUser.ini. */
-    const char *user_from = mod && mod->user_ini ? mod->user_ini : newer(user, se_user);
+    const char *user_from = mod && mod->user_ini ? mod->user_ini : newer(user, dxe_user);
     if (!user_from) user_from = def_user;
     usr = user_from ? dxl_ini_load(user_from, err) : NULL;
     if (!usr) {
@@ -472,8 +472,8 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
 out:
     dxl_ini_free(sys);
     dxl_ini_free(usr);
-    dxl_ini_free(se);
-    free(game_ini); free(def_ini); free(se_ini); free(user); free(se_user); free(def_user);
+    dxl_ini_free(dxe);
+    free(game_ini); free(def_ini); free(dxe_ini); free(user); free(dxe_user); free(def_user);
     free(saves);
     return rc;
 }

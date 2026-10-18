@@ -76,14 +76,14 @@ char *dxl_argv_quoted(char *const *argv) {
 int dxl_engine_version_parse(const char *text, dxl_engine_version *out) {
     memset(out, 0, sizeof *out);
     const char *line = text ? text : "";
-    int is_vibe = 0;
+    int is_dxe = 0;
     while (*line) {
         const char *end = strchr(line, '\n');
         size_t n = end ? (size_t)(end - line) : strlen(line);
         if (n && line[n - 1] == '\r') n--;
-        if (n >= 11 && strncmp(line, "VibeEngine ", 11) == 0) {
+        if (n >= 9 && strncmp(line, "DXEngine ", 9) == 0) {
             snprintf(out->version, sizeof out->version, "%.*s", (int)n, line);
-            is_vibe = 1;
+            is_dxe = 1;
         } else if (n >= 9 && strncmp(line, "features:", 9) == 0) {
             const char *f = line + 9;
             size_t m = n - 9;
@@ -93,7 +93,7 @@ int dxl_engine_version_parse(const char *text, dxl_engine_version *out) {
         if (!end) break;
         line = end + 1;
     }
-    return is_vibe ? 0 : -1;
+    return is_dxe ? 0 : -1;
 }
 
 int dxl_engine_has(const dxl_engine_version *v, const char *feature) {

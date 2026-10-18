@@ -34,7 +34,7 @@ void dxl_page_welcome(dxl_shell *s, dxl_rect r) {
     const dxl_theme *t = &ui->theme;
     float w = r.w < 760 ? r.w : 760;
     static const char *const text[] = {
-        "DXLauncher plays your copy of Deus Ex on VibeEngine, natively on this computer.",
+        "DXLauncher plays your copy of Deus Ex on DXEngine, natively on this computer.",
         "It keeps its own copy of the game's settings, and your saves and screenshots, in your home "
         "folder. The game's folder is never written to.",
         "First, where the game is.",
@@ -269,7 +269,7 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         dxl_field(ui, &in, lh, nw, "Your controls", in_install(s, p->user_from, buf, sizeof buf), t->text,
                   DXL_W_TAIL | DXL_W_MAY_CUT);
         dxl_field(ui, &in, lh, nw, "The engine's", p->engine_from[0] ? in_install(s, p->engine_from, buf, sizeof buf)
-                                                                     : "VibeEngine's own defaults",
+                                                                     : "DXEngine's own defaults",
                   t->text, DXL_W_TAIL | DXL_W_MAY_CUT);
         if (p->saves) snprintf(v, sizeof v, "%d to copy", p->saves);
         else snprintf(v, sizeof v, "none to copy");

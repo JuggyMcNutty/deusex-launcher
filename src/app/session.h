@@ -11,7 +11,7 @@
  *                           (screens/window.h)
  *
  * The launcher's own folder is where its program is (/proc/self/exe): its
- * own engine beside it (SurrealEngine) and its data/. DXL_ENGINE names the
+ * own engine beside it (DXEngine) and its data/. DXL_ENGINE names the
  * engine over launcher.ini's.
  */
 #ifndef DXL_SESSION_H

@@ -34,20 +34,20 @@ char **dxl_engine_argv(const dxl_engine_command *c);
  * log. Caller frees. */
 char *dxl_argv_quoted(char *const *argv);
 
-/* What the engine's --version says: "VibeEngine <commit> (<date>)", then
+/* What the engine's --version says: "DXEngine <commit> (<date>)", then
  * "features: <word> ...", what a launcher can rely on it to do. */
 typedef struct {
     char version[160];
     char features[256];
 } dxl_engine_version;
 
-/* 0 when text is a VibeEngine's answer. */
+/* 0 when text is a DXEngine's answer. */
 int dxl_engine_version_parse(const char *text, dxl_engine_version *out);
 /* The feature named is in the list. */
 int dxl_engine_has(const dxl_engine_version *v, const char *feature);
 
 /* What the launcher needs of the engine: its own folder, so that it never
- * touches ~/.config/SurrealEngine, which the harness's runs read. */
+ * touches ~/.config/DXEngine, which the harness's runs read. */
 #define DXL_ENGINE_NEEDS "userdir"
 
 #endif

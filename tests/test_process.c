@@ -136,11 +136,11 @@ static void test_crash(void) {
 }
 
 static void test_cannot_run(void) {
-    char *argv[] = { "/nonexistent/SurrealEngine", NULL };
+    char *argv[] = { "/nonexistent/DXEngine", NULL };
     dxl_game g;
     dxl_err e;
     CHECK_INT(dxl_game_start_argv(&g, argv, NULL, NULL, NULL, &e), -1);
-    CHECK(strstr(dxl_err_msg(&e), "cannot run /nonexistent/SurrealEngine") != NULL);
+    CHECK(strstr(dxl_err_msg(&e), "cannot run /nonexistent/DXEngine") != NULL);
 }
 
 /* --version's answer captured; a program that never ends is killed when
@@ -183,7 +183,7 @@ static void test_capture(void) {
 static void test_engine_check(void) {
     dxl_engine_version v;
     char brief[160], why[700];
-    CHECK_INT(dxl_engine_check("/nonexistent/SurrealEngine", &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK_INT(dxl_engine_check("/nonexistent/DXEngine", &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK_STR(brief, "not there");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), 0);
     CHECK(strstr(v.version, "stub000") != NULL);
@@ -203,20 +203,22 @@ static void test_engine_check(void) {
     CHECK(strstr(brief, "without --userdir") != NULL);
     unsetenv("DXL_STUB_FEATURES");
 
-    /* In a folder: VibeEngine's program over SurrealEngine's. */
+    /* In a folder: DXEngine is found; a folder with only an old name has no
+     * engine. */
     const char *dir = scratch_dir("engine-in");
     CHECK(dxl_engine_in(dir) == NULL);
-    scratch_write(dir, "SurrealEngine", "#!/bin/sh\n");
-    char *p = scratch_path(dir, "SurrealEngine");
+    const char *old[] = { "SurrealEngine", "VibeEngine" };
+    for (size_t i = 0; i < sizeof old / sizeof *old; i++) {
+        scratch_write(dir, old[i], "#!/bin/sh\n");
+        char *o = scratch_path(dir, old[i]);
+        chmod(o, 0755);
+        free(o);
+    }
+    CHECK(dxl_engine_in(dir) == NULL);
+    scratch_write(dir, "DXEngine", "#!/bin/sh\n");
+    char *p = scratch_path(dir, "DXEngine");
     chmod(p, 0755);
     char *found = dxl_engine_in(dir);
-    CHECK(found && strcmp(found, p) == 0);
-    free(found);
-    free(p);
-    scratch_write(dir, "VibeEngine", "#!/bin/sh\n");
-    p = scratch_path(dir, "VibeEngine");
-    chmod(p, 0755);
-    found = dxl_engine_in(dir);
     CHECK(found && strcmp(found, p) == 0);
     free(found);
     free(p);
@@ -233,24 +235,24 @@ static void test_engine_chosen(void) {
     CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
     char *own = dxl_session_own_engine(&s);
     CHECK_STR(s.engine, own);
-    dxl_session_set_engine(&s, "/x/VibeEngine");
-    CHECK_STR(s.engine, "/x/VibeEngine");
+    dxl_session_set_engine(&s, "/x/DXEngine");
+    CHECK_STR(s.engine, "/x/DXEngine");
     CHECK_INT(dxl_session_save(&s, &e), 0);
     dxl_session_close(&s);
     CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
-    CHECK_STR(s.engine, "/x/VibeEngine");
+    CHECK_STR(s.engine, "/x/DXEngine");
     dxl_session_set_engine(&s, NULL);
     CHECK_STR(s.engine, own);
     CHECK(dxl_ini_get(s.ini, "Launcher", "Engine") == NULL);
-    dxl_session_set_engine(&s, "/x/VibeEngine");
+    dxl_session_set_engine(&s, "/x/DXEngine");
     dxl_session_save(&s, &e);
     dxl_session_close(&s);
-    setenv("DXL_ENGINE", "/y/SurrealEngine", 1);
+    setenv("DXL_ENGINE", "/y/DXEngine", 1);
     CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
-    CHECK_STR(s.engine, "/y/SurrealEngine");
+    CHECK_STR(s.engine, "/y/DXEngine");
     CHECK_INT(s.engine_by_env, 1);
     dxl_session_set_engine(&s, NULL);
-    CHECK_STR(s.engine, "/y/SurrealEngine");
+    CHECK_STR(s.engine, "/y/DXEngine");
     dxl_session_close(&s);
     unsetenv("DXL_ENGINE");
     unsetenv("DXL_HOME");

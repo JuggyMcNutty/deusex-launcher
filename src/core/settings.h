@@ -6,8 +6,8 @@
  *
  * A value is read from its first place that holds one, as the engine
  * reads it -- but in the system ini only from the generation the engine
- * reads: its own [Engine.Surreal*] sections once [Engine.SurrealAudioDevice]
- * has a key, the retail ones before (VibeEngine's PackageManager.cpp); one
+ * reads: its own [Engine.DXEngine*] sections once [Engine.DXEngineAudioDevice]
+ * has a key, the retail ones before (DXEngine's PackageManager.cpp); one
  * missing there is the engine's own default, the row's. It is written to
  * every place, so both generations agree. The codecs read as strictly as
  * the engine and write as it does: a value it would refuse at start is
@@ -56,7 +56,7 @@ typedef enum {
 
 /* Which generation of the system ini a place is in. */
 #define DXL_GEN_ANY     0
-#define DXL_GEN_ENGINE  1   /* [Engine.Surreal*] */
+#define DXL_GEN_ENGINE  1   /* [Engine.DXEngine*] */
 #define DXL_GEN_RETAIL  2   /* [WinDrv.WindowsClient], [Galaxy.GalaxyAudioSubsystem], the render device's */
 
 typedef struct {
@@ -77,8 +77,8 @@ typedef struct {
 
 #define DXL_SET_PLACES 4
 
-/* Whether the engine reads its own [Engine.Surreal*] sections of this
- * system ini: [Engine.SurrealAudioDevice] has a key. */
+/* Whether the engine reads its own [Engine.DXEngine*] sections of this
+ * system ini: [Engine.DXEngineAudioDevice] has a key. */
 int dxl_settings_engine_generation(const dxl_ini *system);
 
 /* Row flags. */

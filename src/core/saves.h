@@ -7,7 +7,7 @@
  * the game's own Load Game lists them; one whose SaveInfo does not read
  * after them all.
  *
- * A save is started on with the engine's start URL ?loadgame=N (the fork's
+ * A save is started on with the engine's start URL ?loadgame=N (DXEngine's
  * NATIVES.md, the command line), when its --version has loadgame-url.
  */
 #ifndef DXL_SAVES_H

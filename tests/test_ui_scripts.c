@@ -167,8 +167,8 @@ static void test_settings_roundtrip(void) {
     snprintf(was_c, sizeof was_c, "%s", value(a.usr, "Engine.Input", "C"));
     const char *keys[2];
     if (dxl_keys_bound(a.usr, "Duck", keys, 2) > 0) snprintf(crouch, sizeof crouch, "%s", keys[0]);
-    snprintf(was_size, sizeof was_size, "%sx%s", value(a.sys, "Engine.SurrealClient", "WindowedViewportX"),
-             value(a.sys, "Engine.SurrealClient", "WindowedViewportY"));
+    snprintf(was_size, sizeof was_size, "%sx%s", value(a.sys, "Engine.DXEngineClient", "WindowedViewportX"),
+             value(a.sys, "Engine.DXEngineClient", "WindowedViewportY"));
     snprintf(was_aa, sizeof was_aa, "%s", dxl_es_choice(a.es, DXL_ES_ANTIALIAS));
     snprintf(was_theme, sizeof was_theme, "%s", value(a.usr, "DeusEx.DeusExPlayer", "MenuThemeName"));
 
@@ -182,11 +182,11 @@ static void test_settings_roundtrip(void) {
     }
 
     /* Display. */
-    CHECK_INT(dxl_ini_get_bool(b.sys, "Engine.SurrealClient", "StartupFullscreen", -1),
-              !dxl_ini_get_bool(a.sys, "Engine.SurrealClient", "StartupFullscreen", -1));
+    CHECK_INT(dxl_ini_get_bool(b.sys, "Engine.DXEngineClient", "StartupFullscreen", -1),
+              !dxl_ini_get_bool(a.sys, "Engine.DXEngineClient", "StartupFullscreen", -1));
     char size[64];
-    snprintf(size, sizeof size, "%sx%s", value(b.sys, "Engine.SurrealClient", "WindowedViewportX"),
-             value(b.sys, "Engine.SurrealClient", "WindowedViewportY"));
+    snprintf(size, sizeof size, "%sx%s", value(b.sys, "Engine.DXEngineClient", "WindowedViewportX"),
+             value(b.sys, "Engine.DXEngineClient", "WindowedViewportY"));
     CHECK(strcmp(size, was_size) != 0);
     double fov = atof(value(a.usr, "Engine.PlayerPawn", "DesiredFOV")) + 5;
     if (fov > 120) fov = 120;
@@ -195,11 +195,11 @@ static void test_settings_roundtrip(void) {
     /* Graphics. */
     CHECK(strcmp(dxl_es_choice(b.es, DXL_ES_ANTIALIAS), was_aa) != 0);
     /* Audio: two steps of 0.02 down, as a byte. */
-    double music = atoi(value(a.sys, "Engine.SurrealAudioDevice", "MusicVolume")) / 255.0 - 0.04;
+    double music = atoi(value(a.sys, "Engine.DXEngineAudioDevice", "MusicVolume")) / 255.0 - 0.04;
     if (music < 0) music = 0;
     char want[16];
     snprintf(want, sizeof want, "%ld", lround(music * 255));
-    CHECK_STR(value(b.sys, "Engine.SurrealAudioDevice", "MusicVolume"), want);
+    CHECK_STR(value(b.sys, "Engine.DXEngineAudioDevice", "MusicVolume"), want);
     /* Keyboard: J for Jump, in its second slot, the key there before let
      * go; C for Jump as well, in its first, Space let go; Crouch's first
      * key gone. */
@@ -312,11 +312,11 @@ static void test_pad_test(void) {
 }
 
 /* Engines in the scratch home: glibc, one the loader refuses for a glibc
- * newer than this system's; good, the stub as VibeEngine. */
+ * newer than this system's; good, the stub as DXEngine. */
 static void engines(void) {
-    sh("mkdir -p '%s/engines/glibc' '%s/engines/good' && cp '%s' '%s/engines/good/VibeEngine'", home, home,
+    sh("mkdir -p '%s/engines/glibc' '%s/engines/good' && cp '%s' '%s/engines/good/DXEngine'", home, home,
        DXL_STUB_ENGINE, home);
-    char *script = home_file("engines/glibc/VibeEngine");
+    char *script = home_file("engines/glibc/DXEngine");
     FILE *f = fopen(script, "w");
     if (f) {
         fputs("#!/bin/sh\necho \"$0: /lib64/libm.so.6: version \\`GLIBC_2.99' not found (required by $0)\" >&2\n"
@@ -338,7 +338,7 @@ static void test_engine_and_game(void) {
     dxl_ini *li = dxl_ini_load(ini, NULL);
     CHECK(li != NULL);
     if (!li) return;
-    char *glibc = home_file("engines/glibc/VibeEngine"), *good = home_file("engines/good/VibeEngine");
+    char *glibc = home_file("engines/glibc/DXEngine"), *good = home_file("engines/good/DXEngine");
     dxl_ini_set(li, "Launcher", "Engine", glibc);
     dxl_ini_save(li, ini, NULL);
     dxl_ini_free(li);
@@ -453,7 +453,7 @@ static void test_mods(void) {
     free(dir);
 }
 
-/* The engine that starts on a save, as the fork's --version says it. */
+/* The engine that starts on a save, as DXEngine's --version says it. */
 #define STARTS_ON_SAVES "DXL_STUB_FEATURES='userdir loadgame-url'"
 
 /* The first run's command line holds want. */

@@ -12,14 +12,14 @@ static size_t count(char **v) {
  * it again: main's launcher lost these quotes (its known defects). */
 static void test_argv(void) {
     dxl_engine_command c = {
-        .engine = "/app/SurrealEngine", .game = "/games/Deus Ex",
+        .engine = "/app/DXEngine", .game = "/games/Deus Ex",
         .ini = "/p/DeusEx.ini", .user_ini = "/p/User.ini", .user_dir = "/p/engine",
         .url = "01_NYC_UNATCOIsland", .extra = "--timeline=/tmp/t.txt -v",
         .cmdline = "INI=\"My Mod.ini\" -nosound",
     };
     char **v = dxl_engine_argv(&c);
     CHECK_INT(count(v), 10);
-    CHECK_STR(v[0], "/app/SurrealEngine");
+    CHECK_STR(v[0], "/app/DXEngine");
     CHECK_STR(v[1], "--no-launcher");
     CHECK_STR(v[2], "/games/Deus Ex");
     CHECK_STR(v[3], "--ini=/p/DeusEx.ini");
@@ -56,8 +56,8 @@ static void test_quoting(void) {
 
 static void test_version(void) {
     dxl_engine_version v;
-    CHECK_INT(dxl_engine_version_parse("VibeEngine e781e36 (2026-10-16)\nfeatures: userdir loadgame-url\n", &v), 0);
-    CHECK_STR(v.version, "VibeEngine e781e36 (2026-10-16)");
+    CHECK_INT(dxl_engine_version_parse("DXEngine e781e36 (2026-10-16)\nfeatures: userdir loadgame-url\n", &v), 0);
+    CHECK_STR(v.version, "DXEngine e781e36 (2026-10-16)");
     CHECK_STR(v.features, "userdir loadgame-url");
     CHECK_INT(dxl_engine_has(&v, "userdir"), 1);
     CHECK_INT(dxl_engine_has(&v, "loadgame-url"), 1);
@@ -68,9 +68,11 @@ static void test_version(void) {
     CHECK_INT(dxl_engine_has(&v, "userdir"), 0);
     CHECK_INT(dxl_engine_version_parse("", &v), -1);
     /* CR LF, and no features line. */
-    CHECK_INT(dxl_engine_version_parse("VibeEngine abc1234-dirty (2026-10-16)\r\n", &v), 0);
-    CHECK_STR(v.version, "VibeEngine abc1234-dirty (2026-10-16)");
+    CHECK_INT(dxl_engine_version_parse("DXEngine abc1234-dirty (2026-10-16)\r\n", &v), 0);
+    CHECK_STR(v.version, "DXEngine abc1234-dirty (2026-10-16)");
     CHECK_STR(v.features, "");
+    /* A VibeEngine, the engine's old name, answers as one; it is refused. */
+    CHECK_INT(dxl_engine_version_parse("VibeEngine e781e36 (2026-10-16)\nfeatures: userdir loadgame-url\n", &v), -1);
 }
 
 TEST_MAIN_BEGIN

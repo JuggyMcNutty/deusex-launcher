@@ -2,8 +2,8 @@
 #include "core/gamespy.h"
 
 /* The original's own answers: IpDrv.dll's Validate, as the harness's
- * NetConsole logged it in the original under Proton (VibeEngine's
- * vibe/tools/dxcap), each game's key; and two challenges 333networks sent
+ * NetConsole logged it in the original under Proton (DXEngine's
+ * tools/dxcap), each game's key; and two challenges 333networks sent
  * it, after which it listed the original its servers. */
 static void test_validate(void) {
     static const struct { const char *challenge, *game, *answer; } vectors[] = {

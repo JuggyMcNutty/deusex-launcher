@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define SECTION "LastRun"
-#define ERROR_PREFIX "SurrealEngine error: "
+#define ERROR_PREFIX "DXEngine error: "
 
 int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     memset(r, 0, sizeof *r);

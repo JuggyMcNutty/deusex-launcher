@@ -7,13 +7,13 @@
 
 enum { BOOL, INT, FLOAT, HZ, TEXT };
 
-#define CLIENT "Engine.SurrealClient"
-#define AUDIO  "Engine.SurrealAudioDevice"
-#define RENDER "Engine.SurrealRenderDevice"
+#define CLIENT "Engine.DXEngineClient"
+#define AUDIO  "Engine.DXEngineAudioDevice"
+#define RENDER "Engine.DXEngineRenderDevice"
 
 /* The engine's keys in the order its SaveConfig writes them, and its
- * built-in defaults (USurrealClient.h, USurrealAudioDevice.h,
- * USurrealRenderDevice.h). */
+ * built-in defaults (UDXEngineClient.h, UDXEngineAudioDevice.h,
+ * UDXEngineRenderDevice.h). */
 static const struct {
     const char *section, *key;
     int type;
@@ -112,8 +112,8 @@ int dxl_engine_sections_seed(dxl_ini *system) {
         dxl_ini_set(system, keys[i].section, keys[i].key, v);
         added++;
     }
-    if (!dxl_ini_get(system, "Engine.SurrealWindowSystem", "WindowSystem")) {
-        dxl_ini_set(system, "Engine.SurrealWindowSystem", "WindowSystem", "SDL2");
+    if (!dxl_ini_get(system, "Engine.DXEngineWindowSystem", "WindowSystem")) {
+        dxl_ini_set(system, "Engine.DXEngineWindowSystem", "WindowSystem", "SDL2");
         added++;
     }
     return added;

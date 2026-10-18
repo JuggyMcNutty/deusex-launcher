@@ -11,18 +11,18 @@ static void test_from_retail(void) {
                       "[D3DDrv.D3DRenderDevice]\nDetailTextures=False\n";
     dxl_ini *ini = dxl_ini_parse(src, strlen(src));
     CHECK_INT(dxl_engine_sections_seed(ini), 41);
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "StartupFullscreen"), "True");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "WindowedViewportX"), "640");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "Brightness"), "0.600000");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "MinDesiredFrameRate"), "1");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "Decals"), "True");          /* Yes: the default */
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "TextureDetail"), "High");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealAudioDevice", "MusicVolume"), "153");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealAudioDevice", "OutputRate"), "22050Hz");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealAudioDevice", "UseSurround"), "False");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealAudioDevice", "SpeechVolume"), "255");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealRenderDevice", "DetailTextures"), "False");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealWindowSystem", "WindowSystem"), "SDL2");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "StartupFullscreen"), "True");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "WindowedViewportX"), "640");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Brightness"), "0.600000");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "MinDesiredFrameRate"), "1");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Decals"), "True");          /* Yes: the default */
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "TextureDetail"), "High");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "MusicVolume"), "153");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "OutputRate"), "22050Hz");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "UseSurround"), "False");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "SpeechVolume"), "255");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineRenderDevice", "DetailTextures"), "False");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineWindowSystem", "WindowSystem"), "SDL2");
     /* Seeded, again: nothing more. */
     CHECK_INT(dxl_engine_sections_seed(ini), 0);
     dxl_ini_free(ini);
@@ -32,12 +32,12 @@ static void test_from_retail(void) {
  * its defaults, which it uses for them anyway. */
 static void test_engine_read(void) {
     const char *src = "[WinDrv.WindowsClient]\nWindowedViewportX=640\n"
-                      "[Engine.SurrealAudioDevice]\nMusicVolume=178.500000\n";
+                      "[Engine.DXEngineAudioDevice]\nMusicVolume=178.500000\n";
     dxl_ini *ini = dxl_ini_parse(src, strlen(src));
     dxl_engine_sections_seed(ini);
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealClient", "WindowedViewportX"), "1920");
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealAudioDevice", "MusicVolume"), "178.500000");   /* left as it is */
-    CHECK_STR(dxl_ini_get(ini, "Engine.SurrealAudioDevice", "SoundVolume"), "200");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "WindowedViewportX"), "1920");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "MusicVolume"), "178.500000");   /* left as it is */
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "SoundVolume"), "200");
     dxl_ini_free(ini);
 }
 

@@ -11,7 +11,7 @@
 #include <string.h>
 
 #define LAUNCHER "Launcher"
-#define ENGINE_NAME "SurrealEngine"
+#define ENGINE_NAME "DXEngine"
 
 int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
     memset(s, 0, sizeof *s);

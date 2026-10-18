@@ -3,7 +3,7 @@
  * profile of its own (core/profile.h's dxl_profile_import_mod) whose paths
  * name the mod's folders before the game's, by their absolute paths: the
  * engine finds its packages and maps there, and, with its int-paths
- * feature, its .int files' text (VibeEngine's NATIVES.md, mods). Nothing
+ * feature, its .int files' text (DXEngine's NATIVES.md, mods). Nothing
  * of it is copied but its saves, and nothing is written to it. A mod is
  * known by the folder it is found by, a link's kept, and its name is that
  * folder's.

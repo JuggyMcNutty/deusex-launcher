@@ -2,7 +2,7 @@
  * command line, it does what DXL_STUB says, and talks on DXL_LAUNCHER_FD as
  * the engine does (hello as it starts, ready once "its map is in").
  *
- *   --version   (any mode) answers as VibeEngine does; DXL_STUB_FEATURES
+ *   --version   (any mode) answers as DXEngine does; DXL_STUB_FEATURES
  *               the features (default "userdir"); with DXL_STUB_VERSION_ERR
  *               set, that line on stderr and exit 127, as a program the
  *               loader could not start
@@ -15,7 +15,7 @@
  *               at a clean end ([DXL.Stub] Wrote=1), and added an x to the
  *               file DXL_STUB_COUNT names
  *   crash       hello, ready, then SIGSEGV
- *   fail        hello, then "SurrealEngine error: <DXL_STUB_LINE>", exit 1
+ *   fail        hello, then "DXEngine error: <DXL_STUB_LINE>", exit 1
  *   relaunch    hello, ready, "relaunch <DXL_STUB_LINE>", exit 0
  *   stubborn    hello, ready, SIGTERM ignored, sleeps until killed
  *   nogame      "No UE1 game found in the given folder.", exit 0, no ready
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "%s\n", err);
                 return 127;
             }
-            printf("VibeEngine stub000 (2026-10-16)\nfeatures: %s\n", env_or("DXL_STUB_FEATURES", "userdir"));
+            printf("DXEngine stub000 (2026-10-16)\nfeatures: %s\n", env_or("DXL_STUB_FEATURES", "userdir"));
             return 0;
         }
     }
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     if (getenv("DXL_STUB_ARGS"))
         for (int i = 0; i < argc; i++) printf("[%s]\n", argv[i]);
     if (strcmp(mode, "fail") == 0) {
-        printf("SurrealEngine error: %s\n", env_or("DXL_STUB_LINE", "Could not open the map"));
+        printf("DXEngine error: %s\n", env_or("DXL_STUB_LINE", "Could not open the map"));
         return 1;
     }
     say("ready");

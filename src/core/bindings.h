@@ -2,14 +2,14 @@
  *
  * The engine already resolves Joy1..Joy16, JoyX/Y/Z/R/U/V and JoyPov* through
  * the same binding table as the keyboard (Engine::InputEvent -> InputCommand),
- * so a layout is nothing more than those 26 lines. The fork's gamepad support
+ * so a layout is nothing more than those 26 lines. DXEngine's gamepad support
  * is what makes the pad produce them.
  *
  * Presets are data. Applying one rewrites every Joy key -- including the ones
  * it leaves empty, so nothing from a previous layout lingers -- and touches
  * no other line of User.ini.
  *
- * Axis speeds assume the fork's convention: a stick at full deflection sends
+ * Axis speeds assume DXEngine's convention: a stick at full deflection sends
  * 100, the engine multiplies axis input by 16, and InputCommand multiplies by
  * Speed. Keyboard run speed is MoveForward's 300 x 20 = 6000, so
  * Speed=3.75 gives the same top speed on the stick.

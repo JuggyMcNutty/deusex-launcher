@@ -14,7 +14,7 @@ const char *const dxl_joy_keys[DXL_JOY_KEY_COUNT] = {
 /* Joy numbering follows the XInput order UE1 ports conventionally use
  * (A=Joy1 ... R3=Joy10), with the triggers as Joy11/Joy12 when pressed past
  * half travel; the buttons by their place, the south one Joy1 on every pad.
- * The fork's SDL backends produce exactly these. Each control's name on an
+ * DXEngine's SDL backends produce exactly these. Each control's name on an
  * Xbox pad, a PlayStation one, a Nintendo one (whose south button is B) and
  * any other. */
 static const struct { const char *key, *label[4]; } controls[] = {
