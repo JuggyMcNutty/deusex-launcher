@@ -241,12 +241,17 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     char cut[1100];
     dxl_text_fit_tail(ui, DXL_FONT_BUTTON, title, w - 40, cut, sizeof cut);
     const float nw = 150, ch = 40;
+    /* Where the profile is kept, under its name and looks: as many lines
+     * as the folder's path wraps to. */
+    char kept_in[1200];
+    snprintf(kept_in, sizeof kept_in, "Nothing in the game's folder%s changes: the profile is kept in %s.",
+             mod ? " or the mod's" : "", dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf));
     /* How it begins, on lines under the fields: its name, the graphics,
      * and with a pad connected its layout. The fields' lines closer on a
      * short window. */
     /* A mod's row takes the place of the screenshots'. */
     int pad = SDL_HasGamepad(), rows = 6 + (p->master_replaced != 0);
-    float extra = 10 + ch + 10 + ch + 10 + dxl_text_line(ui, DXL_FONT_SMALL),
+    float extra = 10 + ch + 10 + ch + 10 + dxl_text_size(ui, DXL_FONT_SMALL, kept_in, w - 44).y,
           room = (r.h - 6 - 133 - extra) / (float)rows;
     float lh = room < 29 ? (room > 22 ? room : 22) : 29;
     float content = s->plan_error[0] ? dxl_text_size(ui, DXL_FONT_BODY, s->plan_error, w - 44).y : rows * lh + extra;
@@ -310,9 +315,6 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
             dxl_spinner(ui, dxl_ui_id(ui, "import layout"), right, "Controller", &s->begin_layout, layouts, nk, 0);
         }
         dxl_cut_top(&in, 10);
-        char kept_in[1200];
-        snprintf(kept_in, sizeof kept_in, "Nothing in the game's folder%s changes: the profile is kept in %s.",
-                 mod ? " or the mod's" : "", dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf));
         dxl_paragraph(ui, in, DXL_FONT_SMALL, kept_in, t->help);
     }
 
