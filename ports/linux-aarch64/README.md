@@ -17,9 +17,9 @@ Two ways:
 
 - **Natively, on the device.** The preset's toolchain file steps aside on an
   aarch64 host, so the launcher *and* the engine build against the device's
-  own libraries, as on linux-x86_64: SDL3 and SDL3_ttf 3.2 or newer, the
-  distro's, else built from `cmake/deps.lock`'s sources; untried on a
-  device.
+  own libraries, as on linux-x86_64: SDL3 and SDL3_ttf 3.2 and libxmp 4.4
+  or newer, the distro's, else built from `cmake/deps.lock`'s sources;
+  untried on a device.
 - **Cross, from a PC** -- the launcher only.
 
 ```sh
@@ -30,7 +30,7 @@ scripts/dx.sh stage linux-aarch64       # build/linux-aarch64/app: copy it to th
 
 # natively, on the device
 scripts/dx.sh fetch                     # once: the engine, the launcher's branches, the RE
-scripts/dx.sh deps  linux-aarch64       # SDL3 and SDL3_ttf, the distro's or their sources
+scripts/dx.sh deps  linux-aarch64       # SDL3, SDL3_ttf and libxmp, the distro's or their sources
 scripts/dx.sh build linux-aarch64       # launcher and engine
 scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64 [--fresh]
 ```
@@ -46,7 +46,7 @@ app has no engine: one built on the device goes beside the launcher, or
 
 | File | What it is |
 |---|---|
-| `port.cmake` | a cross build has SDL3, FreeType and SDL3_ttf built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends built against `deps/sysroots/linux-aarch64`'s headers and opened at run time, and a 2.28 ceiling, which `CMakeLists.txt` checks the programs against after each build (`scripts/check-abi.sh`); a native build is linux-x86_64's |
+| `port.cmake` | a cross build has SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends built against `deps/sysroots/linux-aarch64`'s headers and opened at run time, and a 2.28 ceiling, which `CMakeLists.txt` checks the programs against after each build (`scripts/check-abi.sh`); a native build is linux-x86_64's |
 | `toolchain-c.cmake` | Godot's Buildroot SDK, GCC 13.2 / glibc 2.28, as linux-x86_64's, finding the sysroot's libraries in their multiarch folders; does nothing on an aarch64 host |
 | `engine.cmake` | the engine, native builds only |
 | `port.sh` | `deps` fetches the toolchain and the window's sources, and makes the sysroot from Debian bookworm's arm64 packages: the headers and libraries of X11, Wayland, libdecor, ALSA, PulseAudio, PipeWire, udev, D-Bus, libusb, EGL, GL, GLES, DRM and GBM, and Vulkan's headers; `run` works natively |

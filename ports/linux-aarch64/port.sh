@@ -17,16 +17,16 @@ A64_SDK_SHA256=d7b673823e8078ac70ffa202b4471356eca360b80960c6d1a722af0c03aea29d
 
 port_deps() {
     if native; then
-        if pkg-config --exists 'sdl3 >= 3.2' 'sdl3-ttf >= 3.2' 2>/dev/null; then
-            say "native build: SDL3 $(pkg-config --modversion sdl3) and SDL3_ttf $(pkg-config --modversion sdl3-ttf), the distro's"
+        if pkg-config --exists 'sdl3 >= 3.2' 'sdl3-ttf >= 3.2' 'libxmp >= 4.4' 2>/dev/null; then
+            say "native build: SDL3 $(pkg-config --modversion sdl3), SDL3_ttf $(pkg-config --modversion sdl3-ttf) and libxmp $(pkg-config --modversion libxmp), the distro's"
         else
-            say "native build: no SDL3 and SDL3_ttf 3.2 or newer from the distro: their sources, built with the launcher"
-            dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf
+            say "native build: no SDL3 and SDL3_ttf 3.2 and libxmp 4.4 or newer from the distro: their sources, built with the launcher"
+            dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite
         fi
         return 0
     fi
     dx_fetch_buildroot "$A64_SDK" "$A64_SDK_URL" "$A64_SDK_SHA256" 2.28
-    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf
+    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite
 
     # What SDL3's backends are built against, from Debian bookworm arm64:
     # each library's headers, and the library itself, whose soname SDL3
