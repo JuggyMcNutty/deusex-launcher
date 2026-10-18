@@ -421,9 +421,16 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         break;
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+        ui->pointer_resting = 1;
+        ui->in.resized = 1;
+        ui->in.any = 1;
+        break;
     case SDL_EVENT_WINDOW_EXPOSED:
         ui->in.resized = 1;
         ui->in.any = 1;
+        break;
+    case SDL_EVENT_WINDOW_MOUSE_ENTER:
+        ui->pointer_resting = 1;
         break;
     case SDL_EVENT_KEY_DOWN:
         key(ui, &e->key);
@@ -432,8 +439,16 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         float density = ui->window ? SDL_GetWindowPixelDensity(ui->window) : 1;
         ui->in.px = e->motion.x * density / ui->scale;
         ui->in.py = e->motion.y * density / ui->scale;
-        ui->in.pointer_moved = 1;
         ui->in.any = 1;
+        /* Where a still pointer is as the window comes up under it, or
+         * grows over it (the big screen switched by a key or a pad): its
+         * place, but not a move, so the focus stays where the keys or the
+         * pad put it. */
+        if (ui->pointer_resting) {
+            ui->pointer_resting = 0;
+            break;
+        }
+        ui->in.pointer_moved = 1;
         ui->mode = DXL_INPUT_MOUSE;
         break;
     }
