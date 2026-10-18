@@ -6,10 +6,12 @@
  *   the game's answer    \gamename\deusex\location\0\validate\<eight>\final\
  *                        \list\\gamename\deusex\final\
  *   master               \ip\a.b.c.d:<query port>\ip\...\final\
- *   a server, over UDP   asked \status\: its \basic\, \info\, \rules\ and
- *                        \players\, in packets each ending
- *                        \queryid\<id>.<n>, the last with \final\ too,
- *                        in whatever order they come
+ *   a server, over UDP   asked \status\: Deus Ex's UdpServerQuery answers
+ *                        (IpServer.u) a packet each for its basic, info and
+ *                        rules and one for each player, each ending
+ *                        \queryid\<id>.<n> -- the last \final\\queryid\
+ *                        -- in whatever order they come; asked again, its
+ *                        answer has another id
  *
  * Nothing here touches a socket (app/browser.h does).
  */
@@ -45,18 +47,25 @@ typedef void (*dxl_gs_ip_fn)(void *ctx, const char *address, int port);
 int dxl_gs_list(const char *text, dxl_gs_ip_fn fn, void *ctx);
 
 /* A server's answer to \status\, as its packets come: the pairs of each,
- * by the packet's number, and whether all of them are in. */
-#define DXL_GS_PACKETS 16
+ * by the packet's number, and whether all of them are in. One answer's:
+ * the first packet's id is its; one of the answer asked over is not. */
+#define DXL_GS_PACKETS 128   /* the most an answer has: three, and a server's players */
 typedef struct {
-    char  *packet[DXL_GS_PACKETS];   /* each packet's pairs, its \queryid\ and \final\ taken out */
-    int    count;                     /* the packets in */
-    int    last;                      /* the number of the one with \final\, 0 before it comes */
+    char **packet;    /* each packet's pairs, its \queryid\ and \final\ taken out; cap of them */
+    int    cap;
+    int    count;     /* the packets in */
+    int    last;      /* the number of the one with \final\, 0 before it comes */
+    int    id;        /* the answer's, -1 before its first packet */
+    int    stale;     /* the answer asked over's id, -1 for none */
 } dxl_gs_status;
 
 void dxl_gs_status_init(dxl_gs_status *st);
 void dxl_gs_status_free(dxl_gs_status *st);
+/* The server asked again: what came of the last answer let go, and its
+ * packets still to come not taken for the next one's. */
+void dxl_gs_status_restart(dxl_gs_status *st);
 /* A packet of it, as it came; -1 for one that is not of a status answer
- * (no \queryid\), or one already in. */
+ * (no \queryid\), of another answer, past the packets kept, or in. */
 int  dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len);
 /* Whether each packet from the first to the one with \final\ is in. */
 int  dxl_gs_status_whole(const dxl_gs_status *st);

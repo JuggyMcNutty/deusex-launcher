@@ -185,8 +185,12 @@ spaces for Deus Ex, and its list asked for
 ([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server));
 then each server it lists, and each of the profile's favourites
 (`profile.ini`'s `Favourites`, asked whether the master lists them or
-not), for its `\status\`, all at once over UDP, one silent after a second
-asked again, and given up three seconds after that (`src/core/gamespy.c`).
+not), for its `\status\`, all at once over UDP: the game's answer, a
+packet each for its basic, info and rules and one for each player, in
+whatever order they come; one not whole a second after its asking -- a
+packet lost, or all of them -- asked again, its answer begun again, three
+times at most, and given up two seconds after the last
+(`src/core/gamespy.c`).
 Each shows as it answers -- its name, map, game, players and ping, the
 time to its first packet -- and, once all have, by the sort chosen: ping,
 players or name; the filter shows them all, those with players, those not
@@ -579,7 +583,8 @@ saves and shots, the saves' infos written as the game writes them
 `test_gamespy` the master's and the servers' words, the challenge's answer
 against the original's own; `test_servers` a server's answer, the sort,
 the filters and the favourites; `test_browser` a look at a master and
-servers of its own on this machine, one of them silent. The stand-in
+servers of its own on this machine, one of them silent, one losing a
+packet of its first answer. The stand-in
 engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
 that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never

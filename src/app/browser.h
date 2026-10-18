@@ -1,8 +1,8 @@
 /* The server browser's look (screens/servers.c, dxl-cli --servers): the
  * profile's master server asked for Deus Ex's servers as the game asks it
  * (core/gamespy.h), then each server for its status -- all at once, on one
- * UDP socket, those silent after a second asked once more -- each answer
- * handed over as it comes.
+ * UDP socket, one whose answer is not whole a second after it was asked
+ * asked again, three times at most -- each answer handed over as it comes.
  */
 #ifndef DXL_BROWSER_H
 #define DXL_BROWSER_H

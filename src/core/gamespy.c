@@ -135,24 +135,38 @@ int dxl_gs_list(const char *text, dxl_gs_ip_fn fn, void *ctx) {
 
 /* ---- a server's status -------------------------------------------------- */
 
-void dxl_gs_status_init(dxl_gs_status *st) { memset(st, 0, sizeof *st); }
+void dxl_gs_status_init(dxl_gs_status *st) {
+    memset(st, 0, sizeof *st);
+    st->id = st->stale = -1;
+}
 
 void dxl_gs_status_free(dxl_gs_status *st) {
-    for (int i = 0; i < DXL_GS_PACKETS; i++) free(st->packet[i]);
-    memset(st, 0, sizeof *st);
+    for (int i = 0; i < st->cap; i++) free(st->packet[i]);
+    free(st->packet);
+    dxl_gs_status_init(st);
+}
+
+void dxl_gs_status_restart(dxl_gs_status *st) {
+    int stale = st->id >= 0 ? st->id : st->stale;
+    dxl_gs_status_free(st);
+    st->stale = stale;
 }
 
 int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
     const char *p = text, *end = text + len, *k, *v;
     size_t kn, vn;
-    int number = -1, final = 0;
+    int number = -1, id = -1, final = 0;
     dxl_buf pairs;
     dxl_buf_init(&pairs);
     while (next_pair(&p, end, &k, &kn, &v, &vn)) {
         if (key_is(k, kn, "queryid")) {
-            /* <id>.<n>: the packet's number, from 1. */
-            const char *dot = memchr(v, '.', vn);
+            /* <id>.<n>: the answer's, and the packet's number, from 1. */
+            char q[32];
+            snprintf(q, sizeof q, "%.*s", (int)vn, v);
+            char *dot = strchr(q, '.');
             number = dot ? atoi(dot + 1) : 1;
+            if (dot) *dot = '\0';
+            id = atoi(q);
         } else if (key_is(k, kn, "final")) {
             final = 1;
         } else if (kn) {
@@ -162,10 +176,20 @@ int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
             dxl_buf_add(&pairs, v, vn);
         }
     }
-    if (number < 1 || number > DXL_GS_PACKETS || st->packet[number - 1]) {
+    int other = id == st->stale || (st->id >= 0 && id != st->id);
+    if (number < 1 || number > DXL_GS_PACKETS || other || (number <= st->cap && st->packet[number - 1])) {
         dxl_buf_free(&pairs);
         return -1;
     }
+    if (number > st->cap) {
+        int cap = st->cap ? st->cap : 8;
+        while (cap < number) cap *= 2;
+        if (cap > DXL_GS_PACKETS) cap = DXL_GS_PACKETS;
+        st->packet = dxl_xrealloc(st->packet, sizeof *st->packet * (size_t)cap);
+        for (int i = st->cap; i < cap; i++) st->packet[i] = NULL;
+        st->cap = cap;
+    }
+    st->id = id;
     st->packet[number - 1] = pairs.data ? pairs.data : dxl_xstrdup("");
     st->count++;
     if (final) st->last = number;
@@ -173,7 +197,7 @@ int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
 }
 
 int dxl_gs_status_whole(const dxl_gs_status *st) {
-    if (!st->last) return 0;
+    if (!st->last || st->last > st->cap) return 0;
     for (int i = 0; i < st->last; i++)
         if (!st->packet[i]) return 0;
     return 1;
@@ -182,7 +206,7 @@ int dxl_gs_status_whole(const dxl_gs_status *st) {
 char *dxl_gs_status_text(const dxl_gs_status *st) {
     dxl_buf b;
     dxl_buf_init(&b);
-    int n = st->last ? st->last : DXL_GS_PACKETS;
+    int n = st->last && st->last <= st->cap ? st->last : st->cap;
     for (int i = 0; i < n; i++)
         if (st->packet[i]) dxl_buf_puts(&b, st->packet[i]);
     return b.data ? b.data : dxl_xstrdup("");

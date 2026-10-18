@@ -74,6 +74,14 @@ static void test_sort_and_filter(void) {
     CHECK(dxl_server_compare(&named, &full, DXL_SORT_NAME) < 0);
     CHECK(dxl_server_compare(&full, &fast, DXL_SORT_NAME) < 0);   /* Mike before zulu, whatever their case */
 
+    /* What a server says of itself, however wild, orders the same both ways. */
+    full.players = 2147483647;
+    named.players = -2;
+    CHECK(dxl_server_compare(&full, &named, DXL_SORT_PLAYERS) < 0);
+    CHECK(dxl_server_compare(&named, &full, DXL_SORT_PLAYERS) > 0);
+    full.players = 4;
+    named.players = 0;
+
     dxl_server_filter f = { 0 };
     CHECK_INT(dxl_server_shown(&quiet, &f, NULL), 1);
     f.not_empty = 1;

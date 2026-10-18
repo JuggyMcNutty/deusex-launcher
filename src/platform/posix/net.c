@@ -7,30 +7,118 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
-int dxl_net_resolve(const char *host, char *address, size_t size, dxl_err *err) {
+/* A lookup on its thread: the asker's and the thread's, freed by the last
+ * to let go, so one given up on ends on its own. */
+typedef struct {
+    pthread_mutex_t lock;
+    pthread_cond_t  ended;
+    int             refs, done, rc;
+    char            host[256], address[INET_ADDRSTRLEN], error[200];
+} lookup;
+
+static void lookup_unref(lookup *l) {
+    pthread_mutex_lock(&l->lock);
+    int left = --l->refs;
+    pthread_mutex_unlock(&l->lock);
+    if (left) return;
+    pthread_cond_destroy(&l->ended);
+    pthread_mutex_destroy(&l->lock);
+    free(l);
+}
+
+/* The resolver asked, into l. */
+static void look_up(lookup *l) {
+    struct addrinfo hints, *res = NULL;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    int rc = getaddrinfo(l->host, NULL, &hints, &res);
+    pthread_mutex_lock(&l->lock);
+    if (rc != 0 || !res) {
+        snprintf(l->error, sizeof l->error, "%s", rc ? gai_strerror(rc) : "no address");
+        l->rc = -1;
+    } else {
+        inet_ntop(AF_INET, &((const struct sockaddr_in *)res->ai_addr)->sin_addr, l->address, sizeof l->address);
+        l->rc = 0;
+    }
+    l->done = 1;
+    pthread_cond_broadcast(&l->ended);
+    pthread_mutex_unlock(&l->lock);
+    if (res) freeaddrinfo(res);
+}
+
+static void *lookup_main(void *p) {
+    look_up(p);
+    lookup_unref(p);
+    return NULL;
+}
+
+static long now_ms(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec * 1000L + t.tv_nsec / 1000000L;
+}
+
+int dxl_net_resolve(const char *host, char *address, size_t size, int timeout_ms, const atomic_int *stop,
+                    dxl_err *err) {
     struct in_addr a;
     if (inet_pton(AF_INET, host, &a) == 1) {
         snprintf(address, size, "%s", host);
         return 0;
     }
-    struct addrinfo hints, *res = NULL;
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    int rc = getaddrinfo(host, NULL, &hints, &res);
-    if (rc != 0 || !res) {
-        dxl_err_set(err, "%s: %s", host, rc ? gai_strerror(rc) : "no address");
+    lookup *l = calloc(1, sizeof *l);
+    if (!l) {
+        dxl_err_set(err, "%s: no memory to look it up", host);
         return -1;
     }
-    const struct sockaddr_in *in = (const struct sockaddr_in *)res->ai_addr;
-    inet_ntop(AF_INET, &in->sin_addr, address, (socklen_t)size);
-    freeaddrinfo(res);
-    return 0;
+    pthread_mutex_init(&l->lock, NULL);
+    pthread_condattr_t ca;
+    pthread_condattr_init(&ca);
+    pthread_condattr_setclock(&ca, CLOCK_MONOTONIC);
+    pthread_cond_init(&l->ended, &ca);
+    pthread_condattr_destroy(&ca);
+    snprintf(l->host, sizeof l->host, "%s", host);
+    l->refs = 2;
+    pthread_attr_t at;
+    pthread_attr_init(&at);
+    pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED);
+    pthread_t t;
+    if (pthread_create(&t, &at, lookup_main, l) != 0) {
+        /* No thread: the lookup here, as long as it takes. */
+        l->refs = 1;
+        look_up(l);
+    }
+    pthread_attr_destroy(&at);
+    long until = now_ms() + timeout_ms;
+    pthread_mutex_lock(&l->lock);
+    while (!l->done && !(stop && atomic_load(stop)) && now_ms() < until) {
+        struct timespec w;
+        clock_gettime(CLOCK_MONOTONIC, &w);
+        w.tv_nsec += 100 * 1000000L;
+        if (w.tv_nsec >= 1000000000L) {
+            w.tv_sec++;
+            w.tv_nsec -= 1000000000L;
+        }
+        pthread_cond_timedwait(&l->ended, &l->lock, &w);
+    }
+    int rc = -1;
+    if (l->done && l->rc == 0) {
+        snprintf(address, size, "%s", l->address);
+        rc = 0;
+    } else {
+        dxl_err_set(err, "%s: %s", host, l->done ? l->error : stop && atomic_load(stop) ? "not looked up" : "no answer in time");
+    }
+    pthread_mutex_unlock(&l->lock);
+    lookup_unref(l);
+    return rc;
 }
 
 static int to_sockaddr(const char *address, int port, struct sockaddr_in *sa) {
