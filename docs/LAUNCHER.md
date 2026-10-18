@@ -579,7 +579,7 @@ between them (`src/core/engine_args.c`, `src/platform/posix/process.c`):
 
 in the game's `System` folder, its output into the profile's
 `last-run.log`, with `SURREALWIDGETS_DISPLAY_BACKEND=SDL2` unless the
-environment names a backend (only SDL2's has the fork's pad support),
+environment names a backend (SDL2's, the one the port's engine is built with),
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
 ([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the launcher's
 end of a socket pair. On that line the
