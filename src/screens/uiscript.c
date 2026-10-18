@@ -81,6 +81,8 @@ static const char *up_now(const dxl_shell *s) {
     case DXL_PAGE_SETTINGS: return "settings";
     case DXL_PAGE_LOG: return "log";
     case DXL_PAGE_PROFILES: return "profiles";
+    case DXL_PAGE_SAVES: return "saves";
+    case DXL_PAGE_SHOTS: return "shots";
     default: return "?";
     }
 }

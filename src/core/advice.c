@@ -26,6 +26,11 @@ static const struct {
         DXL_FIX_APP } },
 };
 
+static const dxl_advice save_failed = {
+    "The save it started on did not load. Another of the profile's saves may, or Play starts the game itself.",
+    DXL_FIX_SAVES,
+};
+
 static const dxl_advice crashed = {
     "The engine crashed. If it does so again at the same place, try the other renderer, or a run without "
     "sound to rule the audio out; the end of its log may say more.",
@@ -47,6 +52,8 @@ const dxl_advice *dxl_advice_for(const dxl_lastrun *l) {
     if (!l || !l->known || l->clean) return NULL;
     for (size_t i = 0; i < sizeof known / sizeof *known; i++)
         if (strncmp(l->error, known[i].starts, strlen(known[i].starts)) == 0) return &known[i].advice;
+    /* Started on a save, and never up: its level is what did not load. */
+    if (strstr(l->start, "loadgame") && !l->ready) return &save_failed;
     if (l->signal == SIGSEGV || l->signal == SIGBUS || l->signal == SIGABRT || l->signal == SIGILL ||
         l->signal == SIGFPE)
         return &crashed;

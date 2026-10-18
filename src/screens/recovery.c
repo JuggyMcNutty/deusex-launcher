@@ -211,10 +211,13 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     int play = dxl_button(ui, "recovery play", dxl_cut_left(&buttons, 140), "Play", DXL_W_PRIMARY);
     dxl_cut_left(&buttons, 10);
     int fixed = 0;
-    if (fix == DXL_FIX_RENDERER || fix == DXL_FIX_NOSOUND || fix == DXL_FIX_INSTALL) {
-        static const char *const fixes[] = { NULL, "Another renderer...", "Play without sound",
-                                             "The game's folder..." };
-        fixed = dxl_button(ui, "recovery fix", dxl_cut_left(&buttons, 210), fixes[fix], 0);
+    const char *fix_label = fix == DXL_FIX_RENDERER ? "Another renderer..."
+                            : fix == DXL_FIX_NOSOUND ? "Play without sound"
+                            : fix == DXL_FIX_INSTALL ? "The game's folder..."
+                            : fix == DXL_FIX_SAVES   ? "Saves..."
+                                                     : NULL;
+    if (fix_label) {
+        fixed = dxl_button(ui, "recovery fix", dxl_cut_left(&buttons, fix == DXL_FIX_SAVES ? 140 : 210), fix_label, 0);
         dxl_cut_left(&buttons, 10);
     }
     int read = dxl_button(ui, "recovery read", dxl_cut_left(&buttons, 160), "Read the log", 0);
@@ -243,6 +246,8 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
         s->result = 1;
     } else if (fixed && fix == DXL_FIX_INSTALL) {
         dxl_shell_repoint(s, DXL_PAGE_RECOVERY);
+    } else if (fixed && fix == DXL_FIX_SAVES) {
+        dxl_shell_go(s, DXL_PAGE_SAVES);
     } else if (read) {
         s->log_which = 0;
         dxl_shell_go(s, DXL_PAGE_LOG);

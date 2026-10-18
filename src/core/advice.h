@@ -12,7 +12,8 @@ typedef enum {
     DXL_FIX_RENDERER,   /* another renderer, on Graphics or here */
     DXL_FIX_NOSOUND,    /* the next run without sound */
     DXL_FIX_INSTALL,    /* the game's folder: check it, or another */
-    DXL_FIX_APP         /* the launcher's own folder: stage or install it again */
+    DXL_FIX_APP,        /* the launcher's own folder: stage or install it again */
+    DXL_FIX_SAVES       /* the profile's saves: another to load, the one that did not, deleted */
 } dxl_fix;
 
 typedef struct {

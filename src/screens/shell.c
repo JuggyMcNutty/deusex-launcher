@@ -26,6 +26,17 @@ void dxl_shell_init(dxl_shell *s, const char *version) {
     s->result = -1;
     s->pad_mesh_family = -1;
     s->pad_find = s->pad_chosen = -1;
+    s->save_snap_slot = DXL_SNAP_NONE;
+}
+
+void dxl_shell_release(dxl_shell *s) {
+    dxl_art_free(&s->art);
+    if (s->save_snap) SDL_DestroyTexture(s->save_snap);
+    s->save_snap = NULL;
+    s->save_snap_slot = DXL_SNAP_NONE;
+    s->save_snap_read = 0;
+    dxl_thumbs_clear(s->thumbs);
+    dxl_thumbs_clear(s->shot_whole);
 }
 
 void dxl_shell_free(dxl_shell *s) {
@@ -48,7 +59,12 @@ void dxl_shell_free(dxl_shell *s) {
     s->themes = NULL;
     s->theme_count = 0;
     s->themes_from[0] = '\0';
-    dxl_art_free(&s->art);
+    dxl_shell_release(s);
+    dxl_thumbs_free(s->thumbs);
+    dxl_thumbs_free(s->shot_whole);
+    s->thumbs = s->shot_whole = NULL;
+    dxl_saves_free(&s->save_list);
+    dxl_shots_free(&s->shot_list);
     free(s->music);
     s->music = NULL;
     for (int i = 0; i < DXL_SOUND_COUNT; i++) {
@@ -225,8 +241,30 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
     case DXL_PAGE_SETTINGS: dxl_page_settings_enter(s); break;
     case DXL_PAGE_LOG: dxl_page_log_enter(s); break;
     case DXL_PAGE_PROFILES: dxl_page_profiles_enter(s); break;
+    case DXL_PAGE_SAVES: dxl_page_saves_enter(s); break;
+    case DXL_PAGE_SHOTS: dxl_page_shots_enter(s); break;
     default: break;
     }
+}
+
+int dxl_shell_engine_has(const dxl_shell *s, const char *feature) {
+    if (!s->engine_ok) return 0;
+    dxl_engine_version v;
+    memset(&v, 0, sizeof v);
+    snprintf(v.features, sizeof v.features, "%s", s->engine_features);
+    return dxl_engine_has(&v, feature);
+}
+
+const dxl_save *dxl_shell_continue(const dxl_shell *s) {
+    if (!s->run || !s->run->session.install.ok || !dxl_shell_engine_has(s, "loadgame-url")) return NULL;
+    return dxl_saves_latest(&s->save_list);
+}
+
+void dxl_shell_play_save(dxl_shell *s, int slot) {
+    if (!s->run) return;
+    dxl_save_url(slot, s->run->url, sizeof s->run->url);
+    dxl_log("play: the save in slot %d (%s)", slot, s->run->url);
+    s->result = 1;
 }
 
 void dxl_shell_leave(dxl_shell *s) {
@@ -519,6 +557,8 @@ static const char *page_title(dxl_page p) {
     case DXL_PAGE_SETTINGS: return "Settings";
     case DXL_PAGE_LOG: return "The log";
     case DXL_PAGE_PROFILES: return "Profiles";
+    case DXL_PAGE_SAVES: return "Saves";
+    case DXL_PAGE_SHOTS: return "Screenshots";
     default: return "";
     }
 }
@@ -588,7 +628,17 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
     }
     switch (s->page) {
     case DXL_PAGE_HOME:
-        if (s->run && s->run->session.install.ok && s->engine_ok) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
+        if (dxl_shell_continue(s)) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Continue" };
+        else if (s->run && s->run->session.install.ok && s->engine_ok) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
+        break;
+    case DXL_PAGE_SAVES:
+        if (s->run && s->run->session.install.ok && dxl_shell_engine_has(s, "loadgame-url") &&
+            s->save_sel < s->save_list.count && s->save_list.items[s->save_sel].readable)
+            it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Load" };
+        it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
+        break;
+    case DXL_PAGE_SHOTS:
+        it[n++] = (dxl_hint_item){ DXL_HINT_BACK, s->shot_open ? "Close" : "Back" };
         break;
     case DXL_PAGE_RECOVERY:
         it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
@@ -695,9 +745,14 @@ static void expire_toasts(dxl_shell *s) {
 }
 
 double dxl_shell_idle_for(const dxl_shell *s) {
+    /* A page come up and not drawn yet: its first frame now, whatever input
+     * follows or does not. */
+    if (s->page_since < 0) return 0;
     /* A frame the kit asked for (a caret's blink), and each toast's fade. */
     double soonest = -1;
     if (s->ui.wake > 0) soonest = s->ui.wake > s->ui.now ? s->ui.wake - s->ui.now : 0;
+    /* Thumbnails on their way: looked for a few times a second. */
+    if (s->thumbs_pending && (soonest < 0 || soonest > 0.05)) soonest = 0.05;
     for (int i = 0; i < s->toast_count; i++) {
         if (s->toasts[i].at < 0) return 0;
         double left = (s->toasts[i].at + TOAST_S - TOAST_FADE) - s->ui.now;
@@ -752,6 +807,8 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     case DXL_PAGE_SETTINGS: dxl_page_settings(s, r); break;
     case DXL_PAGE_LOG: dxl_page_log(s, r); break;
     case DXL_PAGE_PROFILES: dxl_page_profiles(s, r); break;
+    case DXL_PAGE_SAVES: dxl_page_saves(s, r); break;
+    case DXL_PAGE_SHOTS: dxl_page_shots(s, r); break;
     default: break;
     }
     s->in_page = 0;

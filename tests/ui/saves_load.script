@@ -1,0 +1,11 @@
+# A save loaded from the Saves page by its row: the game started on it;
+# test_ui_scripts.c reads the run's command line.
+wait 1.5
+expect home
+find Saves
+key Return
+wait 0.5
+expect saves
+find NYC - Liberty Island
+key Return
+wait 1.5

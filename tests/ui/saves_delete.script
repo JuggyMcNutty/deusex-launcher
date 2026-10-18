@@ -1,0 +1,31 @@
+# The profile's save deleted from the Saves page, Keep it first, then
+# Delete: test_ui_scripts.c finds it in the trash, none left in the
+# profile; Home again, Quit.
+wait 1.5
+expect home
+find Saves
+key Return
+wait 0.5
+expect saves
+find Delete...
+key Return
+wait 0.5
+expect confirm
+find Keep it
+key Return
+wait 0.3
+expect saves
+find Delete...
+key Return
+wait 0.5
+expect confirm
+find Delete
+key Return
+wait 0.5
+expect saves
+find Back
+key Return
+wait 0.5
+expect home
+find Quit
+key Return

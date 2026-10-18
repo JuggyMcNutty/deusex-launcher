@@ -33,6 +33,17 @@ static void test_ends(void) {
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
     l = run(1, 0, 1, "Something else");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NONE);
+    /* Started on a save that did not load: its own advice; up first, or
+     * an error the engine names, not. */
+    l = run(1, 0, 0, "Expected an import table entry: 01_NYC_UNATCOIsland");
+    snprintf(l.start, sizeof l.start, "?loadgame=10");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "The save it started on") != NULL);
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_SAVES);
+    l.ready = 1;
+    CHECK(strstr(dxl_advice_for(&l)->advice, "The save it started on") == NULL);
+    l = run(1, 0, 0, "Could not create vulkan renderer");
+    snprintf(l.start, sizeof l.start, "?loadgame=10");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
     l = run(0, 0, 1, "");   /* clean */
     CHECK(dxl_advice_for(&l) == NULL);
     l.known = 0;

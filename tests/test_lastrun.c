@@ -10,6 +10,7 @@ static void test_record(void) {
     dxl_lastrun r = { .ended = 1760000000, .status = 139, .signal = SIGSEGV, .ready = 1,
                       .clean = 0 };
     snprintf(r.error, sizeof r.error, "two\nlines");
+    snprintf(r.start, sizeof r.start, "?loadgame=10");
     CHECK_INT(dxl_lastrun_save(&r, dir, NULL), 0);
     dxl_lastrun back;
     CHECK_INT(dxl_lastrun_load(&back, dir), 0);
@@ -20,6 +21,7 @@ static void test_record(void) {
     CHECK_INT(back.ready, 1);
     CHECK_INT(back.clean, 0);
     CHECK_STR(back.error, "two lines");
+    CHECK_STR(back.start, "?loadgame=10");
     char line[256];
     dxl_lastrun_describe(&back, line, sizeof line);
     CHECK_STR(line, "killed by SIGSEGV");

@@ -55,6 +55,8 @@ endforeach()
 # gamefiles/ has one.
 dxl_test(test_ui_audio)
 target_link_libraries(test_ui_audio PRIVATE dxl_ui)
+dxl_test(test_ui_thumbs)
+target_link_libraries(test_ui_thumbs PRIVATE dxl_ui)
 target_compile_definitions(test_ui_audio PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System")
 
 # Every page at every size and with every device, without a diagnostic

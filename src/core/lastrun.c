@@ -25,6 +25,8 @@ int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     r->clean = dxl_ini_get_bool(ini, SECTION, "Clean", 0);
     const char *e = dxl_ini_get(ini, SECTION, "Error");
     snprintf(r->error, sizeof r->error, "%s", e ? e : "");
+    const char *start = dxl_ini_get(ini, SECTION, "Start");
+    snprintf(r->start, sizeof r->start, "%s", start ? start : "");
     dxl_ini_free(ini);
     return 0;
 }
@@ -48,6 +50,7 @@ int dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err) 
     snprintf(error, sizeof error, "%s", r->error);
     for (char *c = error; *c; c++) if (*c == '\r' || *c == '\n') *c = ' ';
     dxl_ini_set(ini, SECTION, "Error", error);
+    if (r->start[0]) dxl_ini_set(ini, SECTION, "Start", r->start);
     char *path = dxl_path_join(state_dir, "LastRun.ini");
     int rc = dxl_ini_save(ini, path, err);
     free(path);

@@ -1,0 +1,27 @@
+# The profile's screenshot shown whole from the gallery, deleted from
+# there: test_ui_scripts.c finds it in the trash; the gallery again, empty,
+# Home, Quit.
+wait 1.5
+expect home
+find Screenshots
+key Return
+wait 0.8
+expect shots
+find Shot0001.bmp
+key Return
+wait 0.8
+expect shots
+find Delete...
+key Return
+wait 0.5
+expect confirm
+find Delete
+key Return
+wait 0.5
+expect shots
+find Back
+key Return
+wait 0.5
+expect home
+find Quit
+key Return

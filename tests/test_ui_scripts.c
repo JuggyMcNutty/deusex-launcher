@@ -390,6 +390,84 @@ static void test_profiles(void) {
     }
 }
 
+/* The engine that starts on a save, as the fork's --version says it. */
+#define STARTS_ON_SAVES "DXL_STUB_FEATURES='userdir loadgame-url'"
+
+/* The first run's command line holds want. */
+static void started_with(const char *want) {
+    char *log = read_home("state/dxlauncher/launcher.log");
+    char line[2048];
+    line_with(log, "starting the game:", 0, line, sizeof line);
+    if (!strstr(line, want)) fprintf(stderr, "  no %s in: %s\n", want, line);
+    CHECK(strstr(line, want) != NULL);
+    free(log);
+}
+
+/* Continue from Home: the latest save, the install's Save0010 the import
+ * copied, in the engine's --url. */
+static void test_continue(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch_with("continue.script", "ready", STARTS_ON_SAVES);
+    script_ok();
+    started_with("--url=?loadgame=10");
+}
+
+/* The Saves page: a save loaded by its row; then deleted, to the trash. */
+static void test_saves_page(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch_with("saves_load.script", "ready", STARTS_ON_SAVES);
+    script_ok();
+    started_with("--url=?loadgame=10");
+    launch_with("saves_delete.script", "ready", STARTS_ON_SAVES);
+    script_ok();
+    char *gone = home_file("data/dxlauncher/profiles/default/Save/Save0010");
+    CHECK(access(gone, F_OK) != 0);
+    free(gone);
+    char *trashed = home_file("data/Trash/files/Save0010/SaveInfo.dxs");
+    CHECK(access(trashed, F_OK) == 0);
+    free(trashed);
+    char *info = read_home("data/Trash/info/Save0010.trashinfo");
+    CHECK(strstr(info, "/data/dxlauncher/profiles/default/Save/Save0010\n") != NULL);
+    free(info);
+}
+
+/* A picture of 2 x 2 pixels, a 24-bit BMP as the engine writes its shots. */
+static void write_bmp(const char *path) {
+    unsigned char b[70];
+    memset(b, 0, sizeof b);
+    const unsigned head[][2] = { { 2, 70 }, { 10, 54 }, { 14, 40 }, { 18, 2 }, { 22, 2 }, { 34, 16 } };
+    b[0] = 'B';
+    b[1] = 'M';
+    for (size_t i = 0; i < sizeof head / sizeof *head; i++)
+        for (int k = 0; k < 4; k++) b[head[i][0] + k] = (unsigned char)(head[i][1] >> (8 * k));
+    b[26] = 1;
+    b[28] = 24;
+    for (int i = 54; i < 70; i++) b[i] = (unsigned char)(i * 13);
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        fwrite(b, 1, sizeof b, f);
+        fclose(f);
+    }
+}
+
+/* The gallery: the profile's shot shown whole, deleted from there to the
+ * trash. */
+static void test_shots_page(void) {
+    CHECK_INT(fresh_home(), 0);
+    char *shot = home_file("data/dxlauncher/profiles/default/Screenshots/Shot0001.bmp");
+    write_bmp(shot);
+    launch("shots.script", "ready");
+    script_ok();
+    CHECK(access(shot, F_OK) != 0);
+    free(shot);
+    char *trashed = home_file("data/Trash/files/Shot0001.bmp");
+    CHECK(access(trashed, F_OK) == 0);
+    free(trashed);
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "Shot0001.bmp to the trash") != NULL);
+    free(log);
+}
+
 /* A first run from nothing on the script, a controller connected: the
  * graphics preset and the pad layout the profile was made with, by their
  * ids ("" for none of them). */
@@ -460,6 +538,9 @@ int main(void) {
     RUN(test_pad_test);
     RUN(test_engine_and_game);
     RUN(test_profiles);
+    RUN(test_continue);
+    RUN(test_saves_page);
+    RUN(test_shots_page);
     RUN(test_first_run);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);

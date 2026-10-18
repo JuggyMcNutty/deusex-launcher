@@ -140,6 +140,7 @@ add_library(dxl_ui STATIC
     src/ui/pad3d.c
     src/ui/art.c
     src/ui/audio.c
+    src/ui/thumbs.c
 )
 target_link_libraries(dxl_ui PUBLIC dxl_core dxl_sdl)
 
@@ -158,6 +159,8 @@ add_library(dxl_screens STATIC
     src/screens/controller.c
     src/screens/padwizard.c
     src/screens/profiles.c
+    src/screens/saves.c
+    src/screens/shots.c
 )
 target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
 
@@ -180,6 +183,8 @@ endforeach()
 add_executable(dxl-shots tools/shots.c)
 target_link_libraries(dxl-shots PRIVATE dxl_screens)
 target_compile_definitions(dxl-shots PRIVATE DXL_SHOTS_FONTS="${DXL_ROOT}/data/fonts")
+# The scenes' saves, written as the tests write theirs (tests/upkg_writer.h).
+target_include_directories(dxl-shots PRIVATE tests)
 
 # The app as it ships, one flat folder (cmake --install <build> --prefix
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
