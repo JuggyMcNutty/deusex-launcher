@@ -11,8 +11,9 @@
 # fontconfig's -- and on it Debian's packages for what it lacks, in their
 # multiarch folders: bookworm's headers for what SDL3's backends
 # and the GPU probe open at run time (Wayland, xkbcommon, libdecor,
-# PipeWire, libusb, Vulkan), and buster's glvnd, EGL and GL, which the
-# engine links and which, buster's glibc being 2.28, link against the SDK's.
+# PipeWire, libusb, Vulkan), and buster's glvnd, EGL, GL and OpenAL Soft,
+# which the engine links and which, buster's glibc being 2.28, link against
+# the SDK's.
 # At run time the machine's own libraries are used. libstdc++ and libgcc
 # are linked statically: the machine's may be older than GCC 13's.
 

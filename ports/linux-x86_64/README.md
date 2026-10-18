@@ -61,7 +61,7 @@ The engine also starts on its own, straight into a map
 
 Beside them, at the branch's root: the port's preset in `CMakePresets.json`,
 with the toolchain file, and its block in `CMakeLists.txt` with the
-`scripts/check-abi.sh` it runs, both linux-aarch64's too.
+`scripts/check-abi.sh` it runs, the block linux-aarch64's too.
 
 ## Verified
 
@@ -72,24 +72,24 @@ with the toolchain file, and its block in `CMakeLists.txt` with the
 - Arch Linux, KDE Plasma on Wayland, AMD GPU (Mesa's RADV and radeonsi),
   the window on SDL3's OpenGL renderer: `scripts/dx.sh run linux-x86_64
   --fresh`, driven by a UI script, goes through the first run on
-  `gamefiles/` to Home and plays, the engine on the desktop's display, to a
-  clean end, and the launcher exits, with nothing newer in `gamefiles/` or
-  `~/.config/SurrealEngine`; a crashing stand-in engine brings the window
-  back on Recovery, the next start opens on it, and a second start while it
-  is up is handed over. Settings, by `tests/ui/settings_roundtrip.script`:
-  a row of each kind changed on each page, then the engine played on them
-  in a window of the size chosen to a clean end, each value kept through
-  its rewrite of the profile's files. Continue: the engine started on the
-  quick save it had made in the profile, to a clean end, its shot in the
-  profile's Screenshots and shown there. Multiplayer: 333networks' master
-  lists the servers, each answers, and one joined from the page is joined
-  by the engine, its map downloaded into the profile's cache and loaded as
-  a client's. Mods: a test mod outside the game's folder -- a package of
-  the harness's, an ini of its own naming it as in the game's folder, `.int`
-  files of its own text -- made a profile by `dxl-cli --import --mod` and
-  played: the engine ran its console class from its package and read its
-  text and the object its `.int` registers from its folder. Unattended
-  engine runs drive saves, loads and hub travel
+  `gamefiles/` to Home and plays, the engine in its SDL3 window on the
+  desktop's display, to a clean end, and the launcher exits, with nothing
+  newer in `gamefiles/` or `~/.config/SurrealEngine`; a crashing stand-in
+  engine brings the window back on Recovery, the next start opens on it, and
+  a second start while it is up is handed over. Settings, by
+  `tests/ui/settings_roundtrip.script`: a row of each kind changed on each
+  page, then the engine played on them in a window of the size chosen to a
+  clean end, each value kept through its rewrite of the profile's files.
+  Continue: the engine started on the quick save it had made in the profile,
+  to a clean end, its shot in the profile's Screenshots and shown there.
+  Multiplayer: 333networks' master lists the servers, each answers, and one
+  joined from the page is joined by the engine, its map downloaded into the
+  profile's cache and loaded as a client's. Mods: a test mod outside the
+  game's folder -- a package of the harness's, an ini of its own naming it
+  as in the game's folder, `.int` files of its own text -- made a profile by
+  `dxl-cli --import --mod` and played: the engine ran its console class from
+  its package and read its text and the object its `.int` registers from its
+  folder. Unattended engine runs drive saves, loads and hub travel
   ([scripted runs](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/DEVELOPMENT.md#scripted-runs-of-both-engines)).
 
 ## Gotchas

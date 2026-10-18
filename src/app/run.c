@@ -256,9 +256,10 @@ static char **engine_argv(const dxl_run *r) {
  * wizard made known, the engine's too. */
 char *dxl_run_pad_db(const dxl_run *r) { return dxl_path_join(r->session.xdg.data, "gamecontrollerdb.txt"); }
 
-/* SDL3 for the engine's window, the backend its build has, unless the
- * player named one (the fork's ENGINE.md, settings and environment); and
- * the pad mappings, Steam's and the launcher's, when the launcher keeps any. */
+/* SDL3 for the engine's window, its build's SDL backend, the one with the
+ * pad, unless the player named one (the fork's ENGINE.md, settings and
+ * environment); and the pad mappings, Steam's and the launcher's, when the
+ * launcher keeps any. */
 static char **engine_env(const dxl_run *r) {
     static char *env[3], *pads;
     int n = 0;
