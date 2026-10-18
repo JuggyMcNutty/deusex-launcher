@@ -8,8 +8,8 @@
 
 #define INPUT "Engine.Input"
 
-/* SurrealWidgets' SDL2 window, ScancodeToInputKey: the scancodes it passes
- * on, and the name each is in the engine. */
+/* SurrealWidgets' SDL3 window, ScancodeToInputKey (SDL2's alike): the
+ * scancodes it passes on, and the name each is in the engine. */
 static const struct {
     int scancode;
     const char *name;

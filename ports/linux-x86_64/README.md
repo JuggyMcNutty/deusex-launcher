@@ -21,12 +21,12 @@ Built with a Buildroot SDK, Godot's `godot-2023.08.x-4` (GCC 13.2 on glibc
 which `scripts/check-abi.sh` holds them to after each build. Needs CMake
 3.21+, pkg-config, curl, xz, bzip2 and binutils' `ar`; `scripts/dx.sh deps
 linux-x86_64` fetches the rest: the SDK, pinned by its SHA256, Debian's
-packages for its sysroot, the window's sources and the engine's SDL2, which
+packages for its sysroot, the window's sources and the engine's SDL3, which
 it builds ([what it is made of](#what-it-is-made-of)).
 
 ```sh
 scripts/dx.sh fetch                  # once: the engine, the launcher's branches, the RE
-scripts/dx.sh deps  linux-x86_64     # once: the SDK, the sysroot, the sources, SDL2
+scripts/dx.sh deps  linux-x86_64     # once: the SDK, the sysroot, the sources, SDL3
 scripts/dx.sh build linux-x86_64     # launcher, then engine
 scripts/dx.sh test                   # unit tests
 scripts/dx.sh stage linux-x86_64     # build/linux-x86_64/app: the launcher and the engine
@@ -56,8 +56,8 @@ The engine also starts on its own, straight into a map
 |---|---|
 | `toolchain.cmake` | the SDK's GCC against `deps/sysroots/linux-x86_64`, libstdc++ and libgcc linked statically: a native build, not a cross one, so the programs and the tests run here too |
 | `port.cmake` | with the toolchain, the 2.28 ceiling, and SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends opened at run time; a build with the machine's own compiler (one with sanitizers) runs where it is built, with no ceiling |
-| `engine.cmake` | the engine with the SDL2 and X11 display backends, not SDL3: SurrealWidgets builds one SDL backend, SDL3's when both are on, and only SDL2's has the fork's gamepad support, which the launcher asks for at run time. Not the engine's own Wayland window: it needs waylandpp, which the SDK lacks, and SDL2's Wayland is the one the launcher's runs use |
-| `port.sh` | `deps`: the SDK; the sysroot -- the SDK's, hard-linked, its `.pc` files pointed at the lib64 folder its libraries are in, and on it Debian bookworm's headers of what SDL's backends and the GPU probe open at run time (Wayland, xkbcommon, libdecor, PipeWire, libusb, GBM, XScreenSaver, XTest, glvnd, Vulkan) and buster's glvnd and OpenAL Soft, which the engine links, buster's glibc being 2.28; SDL2, static, its backends opened at run time, into `deps/prefix/linux-x86_64`. `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh` |
+| `engine.cmake` | the engine with the SDL3 and X11 display backends, not SDL2: SurrealWidgets builds one SDL backend, SDL3's when both are on, the one the launcher asks for at run time. Not the engine's own Wayland window: it needs waylandpp, which the SDK lacks, and SDL3's Wayland is the one the launcher's runs use |
+| `port.sh` | `deps`: the SDK; the sysroot -- the SDK's, hard-linked, its `.pc` files pointed at the lib64 folder its libraries are in, and on it Debian bookworm's headers of what SDL's backends and the GPU probe open at run time (Wayland, xkbcommon, libdecor, PipeWire, libusb, GBM, XScreenSaver, XTest, glvnd, Vulkan) and buster's glvnd and OpenAL Soft, which the engine links, buster's glibc being 2.28; the engine's SDL3, the launcher's version, static, its backends opened at run time, into `deps/prefix/linux-x86_64`. `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh` |
 
 Beside them, at the branch's root: the port's preset in `CMakePresets.json`,
 with the toolchain file, and its block in `CMakeLists.txt` with the

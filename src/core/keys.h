@@ -3,7 +3,7 @@
  * A key is named as the engine names it (its keynames[], the original's
  * EInputKey without IK_). Which physical key gives which name is the
  * engine's window's to say: the launcher's capture names a key as
- * SurrealWidgets' SDL2 window does (its ScancodeToInputKey and
+ * SurrealWidgets' SDL3 window does (its ScancodeToInputKey and
  * GetMouseButtonKey), the window the launcher starts the engine with,
  * which names keys as the original does: a shift, control or alt by the
  * name of both sides (Shift, Ctrl, Alt: a capture's), then by its side's

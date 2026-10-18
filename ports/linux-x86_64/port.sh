@@ -10,7 +10,7 @@ X64_SDK_SHA256=b89f173b1f2f2f35f3090bc4efad732f1c0c1c1206e5480cfcb141977010bc94
 
 # The sysroot the programs are built against (toolchain.cmake): the SDK's,
 # hard-linked, and on it Debian's packages for what it lacks -- bookworm's,
-# whose headers SDL3's and SDL2's backends and the GPU probe are built
+# whose headers SDL3's backends and the GPU probe are built
 # against, the libraries opened at run time by name, and glvnd's headers;
 # buster's glvnd libraries, EGL and GL, under the names bookworm's headers'
 # links give, and its OpenAL Soft, which the engine links: buster's glibc is
@@ -47,41 +47,44 @@ x64_sysroot() {
     say "sysroot ready: $sys"
 }
 
-# The engine's SDL2 (engine.cmake): cmake/deps.lock's, built with the SDK
-# into deps/prefix/linux-x86_64, static, its backends opened at run time.
-x64_sdl2() {
+# The engine's SDL3 (engine.cmake): cmake/deps.lock's, the launcher's own
+# version, built with the SDK into deps/prefix/linux-x86_64, static, its
+# backends opened at run time, as cmake/deps.cmake builds the launcher's.
+x64_sdl3() {
     local lock="$SRC/cmake/deps.lock" ver file
-    ver=$(awk '$1 == "sdl2" { print $2 }' "$lock")
-    file=$(awk '$1 == "sdl2" { print $3 }' "$lock")
+    ver=$(awk '$1 == "sdl3" { print $2 }' "$lock")
+    file=$(awk '$1 == "sdl3" { print $3 }' "$lock")
     local prefix="$DX_DEPS/prefix/linux-x86_64"
-    local recipe; recipe="SDL2 $ver, $(cat "$DX_DEPS/sysroots/linux-x86_64/.dx-recipe")"
-    if [ "$(cat "$prefix/.dx-sdl2" 2>/dev/null)" = "$recipe" ]; then
-        say "SDL2 $ver present: $prefix"
+    local recipe; recipe="SDL3 $ver, $(cat "$DX_DEPS/sysroots/linux-x86_64/.dx-recipe")"
+    if [ "$(cat "$prefix/.dx-sdl3" 2>/dev/null)" = "$recipe" ]; then
+        say "SDL3 $ver present: $prefix"
         return 0
     fi
     local tmp; tmp="$(mktemp -d)"
-    say "building SDL2 $ver for the engine ..."
+    say "building SDL3 $ver for the engine ..."
     tar -C "$tmp" -xzf "$DX_DEPS/cache/src/$file"
-    cmake -S "$tmp/SDL2-$ver" -B "$tmp/build" -DCMAKE_TOOLCHAIN_FILE="$SRC/ports/linux-x86_64/toolchain.cmake" \
+    cmake -S "$tmp/SDL3-$ver" -B "$tmp/build" -DCMAKE_TOOLCHAIN_FILE="$SRC/ports/linux-x86_64/toolchain.cmake" \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
-        -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_STATIC_PIC=ON -DSDL_TEST=OFF \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_TEST_LIBRARY=OFF \
         -DSDL_X11_SHARED=ON -DSDL_WAYLAND_SHARED=ON -DSDL_WAYLAND_LIBDECOR_SHARED=ON \
         -DSDL_ALSA_SHARED=ON -DSDL_PULSEAUDIO_SHARED=ON -DSDL_PIPEWIRE_SHARED=ON \
         -DSDL_HIDAPI_LIBUSB_SHARED=ON -DSDL_KMSDRM_SHARED=ON -DSDL_JACK=OFF -DSDL_SNDIO=OFF -DSDL_IBUS=OFF \
-        >"$tmp/configure.log" 2>&1 || { tail -30 "$tmp/configure.log" >&2; die "SDL2 would not configure"; }
-    cmake --build "$tmp/build" -j"$(nproc)" >"$tmp/build.log" 2>&1 || { tail -30 "$tmp/build.log" >&2; die "SDL2 would not build"; }
+        -DSDL_LIBURING=OFF -DSDL_CAMERA=OFF \
+        >"$tmp/configure.log" 2>&1 || { tail -30 "$tmp/configure.log" >&2; die "SDL3 would not configure"; }
+    cmake --build "$tmp/build" -j"$(nproc)" >"$tmp/build.log" 2>&1 || { tail -30 "$tmp/build.log" >&2; die "SDL3 would not build"; }
     rm -rf "$prefix"
     cmake --install "$tmp/build" >/dev/null
-    printf '%s\n' "$recipe" > "$prefix/.dx-sdl2"
+    printf '%s\n' "$recipe" > "$prefix/.dx-sdl3"
     rm -rf "$tmp"
-    say "SDL2 $ver built: $prefix"
+    say "SDL3 $ver built: $prefix"
 }
 
 port_deps() {
     dx_fetch_buildroot "$X64_SDK" "$X64_SDK_URL" "$X64_SDK_SHA256" 2.28
-    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite sdl2
+    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite
     x64_sysroot
-    x64_sdl2
+    x64_sdl3
 }
 
 # The staged app runs where it is staged, on the gamefiles/ beside the

@@ -9,7 +9,7 @@
 # deps/sysroots/linux-x86_64: the SDK's own -- its glibc and the libraries
 # it has, X11's, ALSA's, PulseAudio's, udev's, D-Bus's, GLib's,
 # fontconfig's -- and on it Debian's packages for what it lacks, in their
-# multiarch folders: bookworm's headers for what SDL3's and SDL2's backends
+# multiarch folders: bookworm's headers for what SDL3's backends
 # and the GPU probe open at run time (Wayland, xkbcommon, libdecor,
 # PipeWire, libusb, Vulkan), and buster's glvnd, EGL and GL, which the
 # engine links and which, buster's glibc being 2.28, link against the SDK's.
@@ -45,7 +45,7 @@ set(X64_LINK "-static-libstdc++ -static-libgcc -L${X64_MULTI} -Wl,-rpath-link,${
 set(CMAKE_EXE_LINKER_FLAGS_INIT    "${X64_LINK}")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "${X64_LINK}")
 
-# The engine's SDL2, built by port.sh, is found as the sysroot's libraries are.
+# The engine's SDL3, built by port.sh, is found as the sysroot's libraries are.
 list(APPEND CMAKE_FIND_ROOT_PATH "${DXL_ROOT}/deps/prefix/linux-x86_64")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
