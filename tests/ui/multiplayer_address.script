@@ -1,4 +1,5 @@
-# Multiplayer: an address the list does not have, typed and joined.
+# Multiplayer: an address the list does not have, half typed and left with
+# Tab, which joins nothing; then typed whole and joined with Enter.
 wait 2
 expect home
 find Multiplayer
@@ -6,5 +7,11 @@ key Return
 wait 1
 expect multiplayer
 find Address
+type 10.1.2
+key Tab
+wait 0.5
+expect multiplayer
+find Address
+key Ctrl+A
 type 127.0.0.1:7999
 key Return

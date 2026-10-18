@@ -141,13 +141,13 @@ void dxl_shell_join(dxl_shell *s, const char *host, int port, const char *passwo
 }
 
 void dxl_shell_join_link(dxl_shell *s, const char *host_port) {
+    /* Multiplayer once a page is up between flows (dxl_shell_frame). */
     snprintf(s->join_link, sizeof s->join_link, "%s", host_port);
-    dxl_shell_go(s, DXL_PAGE_SERVERS);
 }
 
 /* host or host:port, a game's port given or the game's own, into host. */
 static int address_of(const char *text, char *host, size_t size, int *port) {
-    char t[128];
+    char t[300];
     snprintf(t, sizeof t, "%s", text);
     char *a = dxl_trim(t);
     if (!strncmp(a, "deusex://", 9)) a += 9;
@@ -159,7 +159,8 @@ static int address_of(const char *text, char *host, size_t size, int *port) {
         *port = atoi(colon + 1);
     }
     snprintf(host, size, "%s", a);
-    return host[0] && *port > 0 && *port <= 65535;
+    /* No name is longer than DNS takes one. */
+    return host[0] && strlen(a) <= 253 && *port > 0 && *port <= 65535;
 }
 
 /* ---- the page ------------------------------------------------------------- */
@@ -273,24 +274,26 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
     dxl_rect status_r = dxl_cut_top(&area, 24);
     dxl_cut_top(&area, 6);
 
-    /* Its foot: an address to join, and what the look did. */
+    /* Its foot: an address to join, and what the look did. Its field joins
+     * on Enter alone: a Tab or a click away keeps what is typed. */
     dxl_rect help_r = dxl_cut_bottom(&area, 36);
     dxl_cut_bottom(&area, 6);
     dxl_rect join_row = dxl_cut_bottom(&area, 40);
     dxl_cut_bottom(&area, 10);
-    uint32_t address_id = dxl_ui_id(ui, "servers address");
+    uint32_t address_id = dxl_ui_id(ui, "servers address"), address_join_id = dxl_ui_id(ui, "servers join address");
     int typed = dxl_shell_answer(s, address_id) == 1;
+    int address_enter = ui->text_id == address_id && ui->focus == address_id && ui->in.activate;
     dxl_rect join_b = dxl_cut_right(&join_row, 150);
     dxl_cut_right(&join_row, 12);
     int edited = dxl_text_field(ui, address_id, join_row, "Address", s->join_address, sizeof s->join_address,
                                 "host:port", 0);
     if (edited == DXL_TEXT_OSK) dxl_shell_osk(s, address_id, "The server's address", s->join_address, sizeof s->join_address);
-    int join_address = dxl_button(ui, "servers join address", join_b, "Join it",
-                                  s->join_address[0] && playable ? 0 : DXL_W_DISABLED);
-    if (ui->focus == address_id || ui->focus == dxl_ui_id(ui, "servers join address"))
-        why = "A server the list does not have: its address, and its port when it is not 7790.";
+    int join_address = dxl_button_id(ui, address_join_id, join_b, "Join it",
+                                     s->join_address[0] && playable ? 0 : DXL_W_DISABLED);
+    int on_address = ui->focus == address_id || ui->focus == address_join_id;
+    if (on_address) why = "A server the list does not have: its address, and its port when it is not 7790.";
 
-    /* The servers, the filter's. */
+    /* The servers, the filter's; the chosen's row by its key. */
     dxl_server_filter f = filter_of(show);
     int shown[DXL_SERVERS_MAX], count = 0, chosen = -1;
     for (int i = 0; i < s->server_count; i++) {
@@ -300,6 +303,7 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
         if (!strcmp(k, s->server_chosen)) chosen = count;
         shown[count++] = i;
     }
+    s->servers_shown = count;
     dxl_well(ui, area);
     int join = -1;
     if (!count) {
@@ -310,43 +314,41 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
     } else {
         dxl_list list;
         dxl_list_begin(ui, &list, "servers", dxl_inset(area, 4), count, ROW_H, 0);
-        /* Sorted again, the chosen where it is now, if it had the focus. */
-        if (resorted && chosen >= 0)
-            for (int i = 0; i < count; i++)
-                if (ui->focus == dxl_list_row_id(&list, i)) {
-                    dxl_list_focus(ui, &list, chosen);
-                    break;
-                }
+        /* A row of the list has the focus but not the chosen's -- the list
+         * sorted again, or a server answered above it -- and the player did
+         * not move it: the focus to the chosen's row, where it is now. */
+        int focused_row = -1;
+        for (int i = 0; i < count; i++)
+            if (ui->focus == dxl_list_row_id(&list, i)) focused_row = i;
+        int moved = ui->focus_moved || ui->in.pointer_moved || ui->in.pressed;
+        int follow = focused_row >= 0 && chosen >= 0 && focused_row != chosen && !moved;
+        if (follow || (resorted && chosen >= 0 && focused_row >= 0)) dxl_list_focus(ui, &list, chosen);
         for (int i = 0; i < count; i++) {
             dxl_server *v = &s->servers[shown[i]];
             char title[160], detail[300];
             int favourite = dxl_favourite_has(fav, v->address, v->port);
             dxl_rgba c = describe(s, v, favourite, title, sizeof title, detail, sizeof detail);
             int hits = dxl_list_row(ui, &list, i, title, detail, c, DXL_W_MAY_CUT);
-            if ((hits & DXL_HIT_FOCUSED) && !resorted) {
-                char k[96];
-                key_of(v, k, sizeof k);
-                /* Another server: the password typed was the other's. */
-                if (strcmp(k, s->server_chosen) != 0) s->join_password[0] = '\0';
-                snprintf(s->server_chosen, sizeof s->server_chosen, "%s", k);
+            if ((hits & DXL_HIT_FOCUSED) && !resorted && !follow) {
+                key_of(v, s->server_chosen, sizeof s->server_chosen);
                 chosen = i;
             }
             if (hits & DXL_HIT_FOCUSED)
                 why = !playable ? "No game or engine to play with: Home sets it right."
                       : v->state == DXL_SERVER_ANSWERED ? "Enter or a click joins it."
                                                         : "It has not answered: joining it may not work.";
-            if (hits & DXL_HIT_ACTIVATED) join = shown[i];
+            if ((hits & DXL_HIT_ACTIVATED) && !follow) join = shown[i];
             dxl_rect rr;
             if (i == chosen && !(hits & DXL_HIT_FOCUSED) && dxl_list_rect(&list, i, &rr))
                 dxl_fill(ui, (dxl_rect){ rr.x + 4, rr.y + 8, 3, rr.h - 16 }, t->accent);
         }
         dxl_list_end(ui, &list);
     }
-    if (chosen < 0 && count) {
-        key_of(&s->servers[shown[0]], s->server_chosen, sizeof s->server_chosen);
-        chosen = 0;
-    }
-    dxl_server *v = chosen >= 0 ? &s->servers[shown[chosen]] : NULL;
+    /* The chosen the filter hides, or none chosen yet: the first shown,
+     * for the side alone -- the choice kept for when it shows again. */
+    dxl_server *v = chosen >= 0 ? &s->servers[shown[chosen]] : count ? &s->servers[shown[0]] : NULL;
+    char v_key[96] = "";
+    if (v) key_of(v, v_key, sizeof v_key);
 
     /* The one chosen: what it is, its players, Join, favourite. */
     dxl_rect back_r = dxl_cut_bottom(&side, 48);
@@ -354,7 +356,7 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
     int answered = v && v->state == DXL_SERVER_ANSWERED;
     int favourite = v && dxl_favourite_has(fav, v->address, v->port);
     uint32_t password_id = dxl_ui_id(ui, "servers password");
-    int b_join = 0, b_fav = 0, password_kept = 0;
+    int b_join = 0, b_fav = 0, password_enter = 0;
     if (v) {
         dxl_label(ui, dxl_cut_top(&side, 30), DXL_FONT_BUTTON, answered && v->name[0] ? v->name : v->address, t->text_focus,
                   DXL_W_LEFT | DXL_W_MAY_CUT);
@@ -388,11 +390,17 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
         }
         dxl_rect acts_r = dxl_cut_bottom(&side, acts);
         if (v->password) {
+            /* The password typed is the server's it was typed for alone. */
+            if (strcmp(s->join_password_for, v_key) != 0) {
+                s->join_password[0] = '\0';
+                snprintf(s->join_password_for, sizeof s->join_password_for, "%s", v_key);
+            }
+            password_enter = ui->text_id == password_id && ui->focus == password_id && ui->in.activate;
             int pw = dxl_text_field(ui, password_id, dxl_cut_top(&acts_r, 40), "Password", s->join_password,
                                     sizeof s->join_password, NULL, 0);
             if (pw == DXL_TEXT_OSK) dxl_shell_osk(s, password_id, "The server's password", s->join_password,
                                                   sizeof s->join_password);
-            password_kept = pw == DXL_TEXT_DONE || dxl_shell_answer(s, password_id) == 1;
+            password_enter = (password_enter && pw == DXL_TEXT_DONE) || dxl_shell_answer(s, password_id) == 1;
             dxl_cut_top(&acts_r, 10);
             if (ui->focus == password_id) why = "The server asks for a password to join it.";
         }
@@ -412,36 +420,44 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
     dxl_label(ui, status_r, DXL_FONT_SMALL, line, s->browse_error[0] ? t->warn : t->help, DXL_W_LEFT | DXL_W_MAY_CUT);
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
-    /* A deusex:// link's server: joined once the player says so. */
+    /* A deusex:// link's server: asked about, as it is, then joined once
+     * the player says so. */
     uint32_t link_id = dxl_ui_id(ui, "servers link");
     if (dxl_shell_answer(s, link_id) == 1) {
-        char host[128];
+        char host[256];
         int port;
-        if (address_of(s->join_link, host, sizeof host, &port)) dxl_shell_join(s, host, port, NULL);
-        s->join_link[0] = '\0';
+        if (address_of(s->link_asked, host, sizeof host, &port)) dxl_shell_join(s, host, port, NULL);
+        s->link_asked[0] = '\0';
         return;
     } else if (s->join_link[0] && s->dialog == DXL_DIALOG_NONE && !s->answered) {
-        char text[300];
-        snprintf(text, sizeof text, "A link asks to join the server at %s.%s", s->join_link,
+        snprintf(s->link_asked, sizeof s->link_asked, "%s", s->join_link);
+        s->join_link[0] = '\0';
+        char text[400];
+        snprintf(text, sizeof text, "A link asks to join the server at %s.%s", s->link_asked,
                  playable ? "" : " There is no game or engine to play with yet: Home sets it right.");
         if (playable) dxl_shell_confirm(s, link_id, "Join this server?", text, "Join", "Not now");
         else dxl_shell_message(s, "Not joined", "%s", text);
-        s->join_link[0] = '\0';
     }
 
-    int to_join = playable && (join >= 0 || b_join || password_kept || (ui->in.start && v && !ui->text_id));
-    int address = playable && (typed || edited == DXL_TEXT_DONE || join_address);
+    int start = ui->in.start && !ui->text_id;
+    int to_join = playable && (join >= 0 || b_join || password_enter || (start && v && !on_address));
+    int address = playable && (typed || (address_enter && edited == DXL_TEXT_DONE) || join_address || (start && on_address));
     if (to_join) {
         dxl_server *to = join >= 0 ? &s->servers[join] : v;
-        if (to && to->password && !s->join_password[0]) {
+        char to_key[96];
+        if (to) key_of(to, to_key, sizeof to_key);
+        int has_password = to && !strcmp(s->join_password_for, to_key) && s->join_password[0];
+        if (to && to->password && !has_password) {
             /* Its password first: the field, by the keys or the pad. */
+            snprintf(s->server_chosen, sizeof s->server_chosen, "%s", to_key);
             dxl_ui_focus(ui, password_id);
             dxl_shell_toast(s, "%s asks for a password.", to->name[0] ? to->name : to->address);
         } else if (to) {
             dxl_shell_join(s, to->address, to->port, to->password ? s->join_password : NULL);
+            s->join_password[0] = '\0';
         }
     } else if (address) {
-        char host[128];
+        char host[256];
         int port;
         if (address_of(s->join_address, host, sizeof host, &port)) dxl_shell_join(s, host, port, NULL);
         else if (s->join_address[0]) dxl_shell_message(s, "Not an address", "%s is no server's address: a name or "

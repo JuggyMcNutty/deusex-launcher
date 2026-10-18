@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "platform/desktop.h"
+#include "platform/process.h"
 #include "core/common.h"
 #include "core/paths.h"
 
@@ -43,6 +44,18 @@ char *dxl_desktop_exec(const char *program) {
     return b.data ? b.data : dxl_xstrdup("");
 }
 
+/* The applications folder's MimeType cache made again, where the desktop
+ * has the tool for it: xdg-open and GIO find a scheme's handler there. */
+static void refresh_cache(const char *data_home) {
+    char *apps = dxl_path_join(data_home, "applications");
+    char *argv[] = { "update-desktop-database", "-q", apps, NULL };
+    char out[256], errs[256];
+    int status = 0;
+    dxl_err e;
+    dxl_run_capture(argv, 5000, out, sizeof out, errs, sizeof errs, &status, &e);
+    free(apps);
+}
+
 int dxl_desktop_install(const char *data_home, const char *template_path, const char *program, dxl_err *err) {
     FILE *f = fopen(template_path, "rb");
     if (!f) {
@@ -73,6 +86,7 @@ int dxl_desktop_install(const char *data_home, const char *template_path, const 
     int rc = -1;
     if (dxl_path_mkdirs(dir) != 0) dxl_err_set(err, "cannot create %s", dir);
     else rc = dxl_path_write_atomic(path, out.data ? out.data : "", out.len, err);
+    if (rc == 0) refresh_cache(data_home);
     free(dir);
     free(path);
     dxl_buf_free(&out);
@@ -92,6 +106,7 @@ int dxl_desktop_remove(const char *data_home, dxl_err *err) {
         unlink(icon);
         free(icon);
     }
+    refresh_cache(data_home);
     return rc;
 }
 

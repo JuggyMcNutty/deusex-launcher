@@ -196,18 +196,21 @@ time to its first packet -- and, once all have, by the sort chosen: ping,
 players or name; the filter shows them all, those with players, those not
 full, those with no password, or the favourites. Beside the one chosen:
 its address, map, game, players and each player's frags and ping, a version
-not the game's 1100 said; Join, with the password typed in its field when
-it asks for one; a favourite or not. An address the list does not have,
-typed, `host` or `host:port` (7790 when none), is joined as it is. A server
-joined is the game's start, its `--url` the server's `host:port`,
-`?password=` after it when it asks for one; the last run keeps where it
-went, not the password.
+not the game's 1100 said; Join, with the password typed for it in its field
+when it asks for one; a favourite or not. One the filter hides is still
+the one chosen, shown again with it. An address the list does not have,
+typed, `host` or `host:port` (7790 when none), is joined by Enter or Join
+it; a Tab or a click away keeps it. A server joined is the game's start,
+its `--url` the server's `host:port`, `?password=` after it when it asks
+for one; the launcher's log and the last run keep where it went, not the
+password.
 
 A `deusex://host:port` link, of which the app menu's entry is the handler,
 opens Multiplayer asking whether to join its server; with `--play`, with no
-window, or after another screen's Play, it is joined. A second start with
-one hands it on: the window asks, or the game, while it plays, opens the
-server.
+window, or after another screen's Play that chose no other start, it is
+joined. A second start with one hands it on: the window asks, once nothing
+is half done there -- a dialog, the game's folder or a profile being
+chosen -- or the game, while it plays, opens the server.
 
 ## One start
 
@@ -497,8 +500,9 @@ drawing, at 32 to 256 px under `$XDG_DATA_HOME/icons/hicolor`
 (`src/platform/posix/desktop.c`, `src/ui/icon.c`). The window has the same
 id, so the desktop puts the two together; its Big screen action starts it
 with `--big-screen`, and its MimeType makes it the handler of `deusex://`
-links. `--remove-desktop`, or the button again, takes them away; nothing
-else writes them.
+links, `update-desktop-database` (where the desktop has it) putting it in
+the applications folder's cache. `--remove-desktop`, or the button again,
+takes them away; nothing else writes them.
 
 ## The game and the launcher
 
@@ -642,8 +646,11 @@ A that does not play, and stays as it is, switches it by F11, then has it
 Always on Settings' Launcher page, and finds the two in `launcher.ini`;
 `big_screen_switch` is offered it and switches to it, and
 `big_screen_handover` is put on it by a second start; `multiplayer` joins
-the server a master on this machine lists, and `multiplayer_address` an
-address typed, each finding it in the engine's `--url`; `first_run` and
+the server a master on this machine lists, `multiplayer_address` an address
+left half typed by a Tab, which joins nothing, then typed and joined,
+`multiplayer_link` the server of a start's `deusex://` link once asked, and
+`multiplayer_password` a server that asks for a password, the engine's and
+not the log's, each finding it in the engine's `--url`; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
 with Your profile's choices made and as they come. SDL takes in each
 only controllers of the virtual ones' makes and models

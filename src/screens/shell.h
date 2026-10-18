@@ -315,17 +315,18 @@ typedef struct dxl_shell {
 
     /* Multiplayer: the servers the master lists and the favourites, each
      * as it answers, in the order they came until the look ends, then by
-     * the page's sort; the one chosen, by its address; what the page's
-     * fields hold; a deusex:// link's server, to join once the player says
-     * so. */
+     * the page's sort; the one chosen, by its address; those the filter
+     * shows; what the page's fields hold, the password for the server it
+     * was typed for; a deusex:// link's server waiting for the page, and
+     * the one it asks about. */
     dxl_server  *servers;          /* DXL_SERVERS_MAX of them, made as the page first opens */
-    int          server_count;
+    int          server_count, servers_shown;
     char         server_chosen[96];   /* "a.b.c.d:query port" */
     int          browsing, browsed, servers_sorted;
     char         browse_error[300];
     int          server_sort, server_show;
-    char         join_address[96], join_password[64];
-    char         join_link[96];
+    char         join_address[96], join_password[64], join_password_for[96];
+    char         join_link[256], link_asked[256];
 
     /* The big screen (core/bigscreen.h): the window's now, and whether it
      * has been offered in this run. */
@@ -459,8 +460,9 @@ void dxl_shell_browsed(dxl_shell *s, const char *error);
 /* The game started joining host:port, with a password for it or none: the
  * screen done, to play. */
 void dxl_shell_join(dxl_shell *s, const char *host, int port, const char *password);
-/* A deusex:// link's server, host:port: Multiplayer, asking whether to
- * join it. */
+/* A deusex:// link's server, host:port: Multiplayer, once a page is up
+ * between flows -- no dialog, no game or profile being chosen -- asking
+ * whether to join it. */
 void dxl_shell_join_link(dxl_shell *s, const char *host_port);
 /* A new profile not made after all: the one in use before it again, and
  * the Profiles page. */

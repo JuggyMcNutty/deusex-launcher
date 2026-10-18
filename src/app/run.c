@@ -512,6 +512,11 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     char *log = dxl_lastrun_rotate(r->session.profile.logs_dir);
     char **argv = engine_argv(r);
     char *line = dxl_argv_quoted(argv);
+    /* A server's password not in the log: its characters as '*'. */
+    for (char *pw = strstr(line, "?password="); pw; pw = strstr(pw, "?password=")) {
+        pw += 10;
+        for (; *pw && *pw != ' ' && *pw != '\'' && *pw != '"'; pw++) *pw = '*';
+    }
     dxl_log("starting the game: %s", line);
     free(line);
     dxl_play_request req = {
@@ -676,9 +681,10 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             }
         }
 
-        /* A link's server, when no screen asked about it first: joined. */
+        /* A link's server, when no screen asked about it first nor chose
+         * another start: joined. */
         char link[256];
-        if (r->opt.join && dxl_server_link(r->opt.join, link, sizeof link)) {
+        if (r->opt.join && !r->url[0] && dxl_server_link(r->opt.join, link, sizeof link)) {
             snprintf(r->url, sizeof r->url, "%s", link);
             dxl_log("play: joining %s, a link's", link);
         }

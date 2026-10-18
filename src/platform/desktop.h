@@ -24,7 +24,10 @@ char *dxl_desktop_icon_path(const char *data_home, int px);
  * string type have it. Caller frees. */
 char *dxl_desktop_exec(const char *program);
 
-/* The entry from the template file, @EXEC@ the program's Exec. */
+/* The entry from the template file, @EXEC@ the program's Exec; then, and
+ * as it goes, the applications folder's MimeType cache made again where
+ * the desktop has update-desktop-database, for the deusex:// links the
+ * entry handles. */
 int  dxl_desktop_install(const char *data_home, const char *template_path, const char *program, dxl_err *err);
 /* The entry and the icons, gone. */
 int  dxl_desktop_remove(const char *data_home, dxl_err *err);

@@ -201,10 +201,13 @@ static void ask(dxl_shell *s, dxl_dialog d, uint32_t id) {
     s->answer = -1;
 }
 
+/* The answer kept for the control that asked, which reads it as it is
+ * drawn: in the next frame, which comes at once, whatever input does. */
 static void answer(dxl_shell *s, int a) {
     s->answer = a;
     s->answered = 1;
     dxl_shell_close_dialog(s);
+    dxl_ui_animate(&s->ui);
 }
 
 void dxl_shell_pick_with(dxl_shell *s, uint32_t id, const char *title, const char *const *labels,
