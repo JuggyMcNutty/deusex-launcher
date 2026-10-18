@@ -80,8 +80,9 @@ package, its Flatpak and its Snap keep them; Heroic's GOG games, the
 each folder in `~/GOG Games` and `~/Games`; what each of Lutris' games runs,
 and its Wine prefix; Bottles' bottles and the other Wine prefixes,
 `$WINEPREFIX`, `~/.wine`, winetricks', those in `~/Games` and Heroic's;
-the drives mounted in `/run/media`, `/media` and `/mnt`, at the top and
-two folders down. In a prefix's `drive_c`, and on a drive, it looks where
+the drives `/proc/self/mountinfo` has mounted in `/run/media`, `/media`
+and `/mnt`, however deep, each once, at its top and two folders down. In
+a prefix's `drive_c`, and on a drive, it looks where
 Windows' installers put the game: `DeusEx`, the CD's folder; each folder
 in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library.
 Another is shown by the launcher's folder browser, which a pad works, or
@@ -256,9 +257,12 @@ page has it Always, Never, or Automatic, the default: the big screen when
 `--big-screen` asks for it, as the app menu's Big screen does, under
 Steam's Big Picture (`SteamTenfoot` or `SteamGamepadUI` set to 1), on a
 Steam Deck (`SteamDeck=1`) or in gamescope (`GAMESCOPE_WAYLAND_DISPLAY`).
-F11 switches it while the window is up. In a window, Home and Welcome
-offer it once, as a pad is first pressed there; switched to, it is
-Always. Its size is the screen's, not kept as the window's.
+F11 switches it while the window is up, and a second start's
+`--big-screen` -- the app menu's Big screen with the launcher up -- puts
+it on; the desktop taking the window out of full screen ends it. In a
+window, Home and Welcome offer it once, as a pad is first pressed there,
+the press the question's; switched to, it is Always. Its size is the
+screen's, not kept as the window's.
 
 **Controls.** The keyboard: the arrows or WASD move, Enter or Space
 chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
@@ -589,9 +593,11 @@ the trash, and uses the first again; `continue` starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
 the save's URL on the engine's command line or what was deleted in the
-trash; `big_screen` switches the big screen by F11, is offered it on a
-pad's first press and stays as it is, then has it Always on Settings'
-Launcher page, and finds the two in `launcher.ini`; `first_run` and
+trash; `big_screen` is offered the big screen on a pad's first press, an
+A that does not play, and stays as it is, switches it by F11, then has it
+Always on Settings' Launcher page, and finds the two in `launcher.ini`;
+`big_screen_switch` is offered it and switches to it, and
+`big_screen_handover` is put on it by a second start; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
 with Your profile's choices made and as they come. SDL takes in each
 only controllers of the virtual ones' makes and models

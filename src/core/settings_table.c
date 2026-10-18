@@ -366,7 +366,7 @@ const dxl_setting dxl_settings_table[] = {
       .kind = DXL_SET_ACTION },
     { .id = "launcher.ui_scale", .page = "Launcher", .label = "The launcher's size",
       .help = "Everything in the launcher's window larger or smaller, over the size the display's own "
-              "scale gives it.",
+              "scale gives it; the big screen's is the screen's.",
       .kind = DXL_SET_NUMBER, .min = 0.75, .max = 2, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
       .def = "1", .at = { LAUNCHER("UIScale", DXL_CODEC_FLOAT) } },
     { .id = "launcher.big_screen", .page = "Launcher", .label = "Big screen",

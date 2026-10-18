@@ -1,0 +1,18 @@
+# The big screen offered on a pad's first press on Home and switched to:
+# test_ui_scripts.c finds it Always in launcher.ini.
+wait 2
+expect home
+big off
+pad attach xbox
+wait 2
+pad button 0 down
+pad button 0 up
+wait 0.5
+expect confirm
+find Switch to it
+key Return
+wait 1
+expect home
+big on
+find Quit
+key Return

@@ -1,0 +1,11 @@
+# Home in a window while a second start asks for the big screen, as the
+# app menu's Big screen does with the launcher up (test_ui_scripts.c starts
+# it 4 s in): the window on the big screen.
+wait 2
+expect home
+big off
+wait 5
+big on
+expect home
+find Quit
+key Return

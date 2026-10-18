@@ -191,18 +191,28 @@ static void test_lutris(void) {
     scratch_write(home, ".config/lutris/games/deus-ex-1700000000.yml", text);
     snprintf(text, sizeof text, "game:\n  exe: \"%s/beside/DeusEx.exe\"\nsystem:\n  exe: relative/System/DeusEx.exe\n", home);
     scratch_write(home, ".local/share/lutris/games/deus-ex-2.yml", text);
+    /* As PyYAML writes a long one: folded onto the lines under it; and one
+     * with an e acute, in double quotes, escaped, its line's end too. */
+    snprintf(text, sizeof text,
+             "game:\n  exe: %s/a folder whose name is long enough that PyYAML folds\n    it/Deus Ex/System/DeusEx.exe\n"
+             "  prefix: \"%s/pr\\xE9\\\n    fixe\"\nsystem: {}\n", home, home);
+    scratch_write(home, ".local/share/lutris/games/deus-ex-3.yml", text);
     scratch_write(home, ".local/share/lutris/games/notes.txt", "game:\n  exe: /nowhere\n");
     install_at(home, "lutris games/Deus Ex's");
     install_at(home, "pfx/drive_c/GOG Games/Deus Ex GOTY");
     install_at(home, "not");
     install_at(home, "beside");
+    install_at(home, "a folder whose name is long enough that PyYAML folds it/Deus Ex");
+    install_at(home, "pr\xc3\xa9" "fixe/drive_c/DeusEx");
 
     dxl_found_list l;
     find_in(&l, home);
-    CHECK_INT(l.count, 3);
+    CHECK_INT(l.count, 5);
     check_item(&l, 0, "in Lutris' games", "lutris games/Deus Ex's");
     check_item(&l, 1, "in Lutris' games", "pfx/drive_c/GOG Games/Deus Ex GOTY");
     check_item(&l, 2, "in Lutris' games", "/beside");
+    check_item(&l, 3, "in Lutris' games", "PyYAML folds it/Deus Ex");
+    check_item(&l, 4, "in Lutris' games", "/pr\xc3\xa9" "fixe/drive_c/DeusEx");
     dxl_found_list_free(&l);
     scratch_remove(home);
     free(home);
@@ -239,35 +249,58 @@ static void test_prefixes(void) {
     free(home);
 }
 
-/* The drives mounted: at a drive's top and two folders down, and where
- * Windows' installers put the game; a folder of drives looked in for its
- * own is not taken for a drive of another. */
+/* The drives mountinfo has mounted in the folders for them, however deep
+ * -- a user's, the automounter's /run/media/system -- at a drive's top and
+ * two folders down, and where Windows' installers put the game; a folder
+ * of them that links to another, and a drive mounted twice, looked in
+ * once; what is mounted elsewhere, not at all. */
 static void test_drives(void) {
     char *home = dxl_xstrdup(scratch_dir("finder-drives"));
     install_at(home, "run-media/me/USB/Games/Deus Ex");
     install_at(home, "run-media/me/USB2/Deep/Er/Deus Ex");    /* three down: not looked for */
+    install_at(home, "run-media/me/My Disk/DeusEx");
     install_at(home, "run-media/SD/DeusEx");
+    install_at(home, "run-media/system/Win/GOG Games/Deus Ex B");
+    install_at(home, "run-media/system/Win/SteamLibrary/steamapps/common/Deus Ex");
     install_at(home, "mnt/win/Program Files (x86)/Steam/steamapps/common/Deus Ex");
-    char *me = dxl_path_join(home, "run-media/me"), *run = dxl_path_join(home, "run-media"),
+    install_at(home, "elsewhere/disk/DeusEx");                  /* mounted, but not for drives */
+    char *run = dxl_path_join(home, "run-media"), *media_link = dxl_path_join(home, "media"),
          *mnt = dxl_path_join(home, "mnt"), *empty = dxl_path_join(home, "home");
     dxl_path_mkdirs(empty);
-    const char *media[] = { me, run, mnt, NULL };
+    CHECK_INT(symlink(run, media_link), 0);
+    const char *media[] = { run, media_link, mnt, NULL };
+    char mounts[4096];
+    snprintf(mounts, sizeof mounts,
+             "22 1 0:21 / /proc rw,nosuid shared:13 - proc proc rw\n"
+             "41 29 8:17 / %s/run-media/me/USB rw,relatime shared:1 - vfat /dev/sdb1 rw\n"
+             "42 29 8:18 / %s/run-media/me/USB2 rw shared:2 - ext4 /dev/sdb2 rw\n"
+             "43 29 8:19 / %s/run-media/me/My\\040Disk rw shared:3 - exfat /dev/sdb3 rw\n"
+             "44 29 179:1 / %s/run-media/SD rw shared:4 - ext4 /dev/mmcblk0p1 rw\n"
+             "45 29 8:3 / %s/run-media/system/Win rw shared:5 - ntfs3 /dev/sda3 rw\n"
+             "46 29 8:3 / %s/run-media/system/Win rw shared:5 - ntfs3 /dev/sda3 rw\n"
+             "47 29 8:4 / %s/mnt/win rw shared:6 - ntfs3 /dev/sda4 rw\n"
+             "48 29 8:5 / %s/elsewhere/disk rw shared:7 - ext4 /dev/sda5 rw\n",
+             home, home, home, home, home, home, home, home);
 
     dxl_found_list l;
     dxl_finder_where w;
     memset(&w, 0, sizeof w);
     w.home = empty;
     w.media = media;
+    w.mounts = mounts;
     dxl_finder_find(&l, &w);
-    CHECK_INT(l.count, 3);
+    CHECK_INT(l.count, 6);
     check_item(&l, 0, "on a mounted drive", "run-media/me/USB/Games/Deus Ex");
-    check_item(&l, 1, "on a mounted drive", "run-media/SD/DeusEx");
-    check_item(&l, 2, "on a mounted drive", "mnt/win/Program Files (x86)/Steam/steamapps/common/Deus Ex");
+    check_item(&l, 1, "on a mounted drive", "run-media/me/My Disk/DeusEx");
+    check_item(&l, 2, "on a mounted drive", "run-media/SD/DeusEx");
+    check_item(&l, 3, "on a mounted drive", "run-media/system/Win/GOG Games/Deus Ex B");
+    check_item(&l, 4, "on a mounted drive", "run-media/system/Win/SteamLibrary/steamapps/common/Deus Ex");
+    check_item(&l, 5, "on a mounted drive", "mnt/win/Program Files (x86)/Steam/steamapps/common/Deus Ex");
     dxl_found_list_free(&l);
     free(empty);
     free(mnt);
+    free(media_link);
     free(run);
-    free(me);
     scratch_remove(home);
     free(home);
 }
@@ -290,7 +323,7 @@ static void test_stop_and_full(void) {
     w.home = home;
     w.given = home;
     int seen = 0;
-    volatile int stop = 1;
+    atomic_int stop = 1;
     dxl_finder_run(&w, count_found, &seen, &stop);
     CHECK_INT(seen, 0);
 

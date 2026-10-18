@@ -288,10 +288,13 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
                 fail(u, what);
             }
         } else if (!strcmp(word, "big")) {
+            /* The shell's and the window's: full screen, on the big screen. */
             int want = !strcmp(arg, "on");
-            if ((strcmp(arg, "on") && strcmp(arg, "off")) || s->big != want) {
-                char what[120];
-                snprintf(what, sizeof what, "expected the big screen %.8s, it is %s", arg, s->big ? "on" : "off");
+            int full = s->ui.window ? (SDL_GetWindowFlags(s->ui.window) & SDL_WINDOW_FULLSCREEN) != 0 : s->big;
+            if ((strcmp(arg, "on") && strcmp(arg, "off")) || s->big != want || full != want) {
+                char what[160];
+                snprintf(what, sizeof what, "expected the big screen %.8s, it is %s, the window %sfull screen", arg,
+                         s->big ? "on" : "off", full ? "" : "not ");
                 fail(u, what);
             }
         } else if (!strcmp(word, "shot")) {

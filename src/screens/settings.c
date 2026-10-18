@@ -104,7 +104,10 @@ void dxl_settings_defaults(dxl_shell *s, const char *page) {
         }
     for (int i = 0; i < s->text_count; i++)
         dxl_setting_get(&s->stores, s->text_rows[i], s->texts[i], sizeof s->texts[0]);
-    for (size_t i = 0; i < dxl_settings_count(); i++) live(s, dxl_setting_at(i));
+    /* What the rows reset change in the window, at once: those of the page
+     * alone, the rest as they were. */
+    for (size_t i = 0; i < dxl_settings_count(); i++)
+        if (!page || !strcmp(dxl_setting_at(i)->page, page)) live(s, dxl_setting_at(i));
     dxl_es_free(fresh.engine);
     dxl_ini_free(fresh.system);
     dxl_ini_free(fresh.user);

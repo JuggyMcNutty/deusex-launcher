@@ -39,7 +39,7 @@
 typedef struct {
     SDL_Mutex     *lock;
     SDL_AtomicInt  refs;
-    volatile int   stop;
+    atomic_int     stop;
     int            quiet;          /* the window let go: no events */
     int            done;
     Uint32         event;
@@ -156,13 +156,23 @@ static void listen_stop(dxl_window *w) {
     close(w->quit_pipe[1]);
 }
 
-/* A second start's command line: the window raised. */
+/* Whether word is one of the line's. */
+static int has_word(const char *line, const char *word) {
+    size_t n = strlen(word);
+    for (const char *p = line; (p = strstr(p, word)); p += n)
+        if ((p == line || p[-1] == ' ') && (p[n] == ' ' || !p[n])) return 1;
+    return 0;
+}
+
+/* A second start's command line: the window raised, on the big screen
+ * when it asks for it (run.c passes --big-screen on). */
 static void take_lines(dxl_window *w) {
     char line[DXL_HANDOFF_MAX];
     while (w->run && dxl_instance_poll(w->run->instance, line, sizeof line)) {
         dxl_log("a second start's command line: %s", line);
         SDL_RestoreWindow(w->window);
         SDL_RaiseWindow(w->window);
+        if (has_word(line, "--big-screen")) dxl_shell_big(&w->shell, 1);
         dxl_shell_toast(&w->shell, "DXLauncher is open already: here it is.");
     }
     if (w->drained) SDL_SignalSemaphore(w->drained);
@@ -306,7 +316,7 @@ static void find_drop(dxl_window *w) {
     if (!j) return;
     w->find = NULL;
     SDL_LockMutex(j->lock);
-    j->stop = 1;
+    atomic_store(&j->stop, 1);
     j->quiet = 1;
     SDL_UnlockMutex(j->lock);
     find_unref(j);
@@ -317,6 +327,7 @@ static void start_find(dxl_shell *s, const dxl_finder_where *where) {
     find_drop(w);
     find_job *j = dxl_xmalloc(sizeof *j);
     memset(j, 0, sizeof *j);
+    atomic_init(&j->stop, 0);
     j->lock = SDL_CreateMutex();
     j->event = w->job_event;
     j->given = where->given ? dxl_xstrdup(where->given) : NULL;
@@ -468,10 +479,12 @@ static void close_window(dxl_window *w, dxl_run *r) {
     if (!w->window) return;
     if (r && dxl_profile_exists(&r->session.profile)) {
         dxl_ini *ini = r->session.ini;
-        /* The big screen's size is the screen's, not the window's. */
-        int max = (SDL_GetWindowFlags(w->window) & SDL_WINDOW_MAXIMIZED) != 0;
-        if (!w->big) dxl_ini_set_bool(ini, "Window", "Maximized", max);
-        if (!max && !w->big) {
+        /* A size full screen -- the big screen's, or the desktop's own -- is
+         * the screen's, not the window's. */
+        SDL_WindowFlags flags = SDL_GetWindowFlags(w->window);
+        int max = (flags & SDL_WINDOW_MAXIMIZED) != 0, full = w->big || (flags & SDL_WINDOW_FULLSCREEN);
+        if (!full) dxl_ini_set_bool(ini, "Window", "Maximized", max);
+        if (!max && !full) {
             int ww = 0, wh = 0;
             SDL_GetWindowSize(w->window, &ww, &wh);
             dxl_ini_set_int(ini, "Window", "Width", ww);
@@ -481,8 +494,10 @@ static void close_window(dxl_window *w, dxl_run *r) {
         if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     }
     dxl_shell_release(&w->shell);
-    /* The look for the game, if it is still on, is for a page gone. */
+    /* The look for the game, if it is still on, is for a page gone: one cut
+     * short is made again from the start, if the page comes again. */
     find_drop(w);
+    if (w->shell.finding) w->shell.looked = 0;
     w->shell.finding = 0;
     /* The sound goes with the window: the game opens its own. */
     dxl_audio_close(w->shell.audio);
@@ -501,12 +516,23 @@ static void close_window(dxl_window *w, dxl_run *r) {
     w->cursor_hidden = 0;
 }
 
+/* Whether the window is full screen, once the desktop has done what it
+ * was asked. */
+static int full_screen(dxl_window *w) {
+    SDL_SyncWindow(w->window);
+    return (SDL_GetWindowFlags(w->window) & SDL_WINDOW_FULLSCREEN) != 0;
+}
+
 /* The big screen on or off: the window full screen, the kit's scale the
- * screen's. */
+ * screen's -- as the desktop made it, not as it was asked. */
 static void set_big(dxl_shell *s, int on) {
     dxl_window *w = s->window;
-    if (!SDL_SetWindowFullscreen(w->window, on != 0)) dxl_log("full screen %s: %s", on ? "on" : "off", SDL_GetError());
-    w->big = s->big = s->ui.big = on != 0;
+    if (!SDL_SetWindowFullscreen(w->window, on != 0)) {
+        dxl_log("full screen %s: %s", on ? "on" : "off", SDL_GetError());
+        return;
+    }
+    w->big = s->big = full_screen(w);
+    dxl_ui_set_big(&s->ui, w->big);
 }
 
 static int open_window(dxl_window *w, dxl_run *r) {
@@ -586,7 +612,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
         rc = dxl_ui_attach(&s->ui, w->window, w->renderer);
     } else {
         rc = dxl_ui_init(&s->ui, w->window, w->renderer, fonts, user_scale);
-        s->ui.big = w->big;
+        if (rc == 0) dxl_ui_set_big(&s->ui, w->big);
     }
     s->big = w->big;
     s->ui.reduced_motion = dxl_ini_get_bool(r->session.ini, "Launcher", "ReducedMotion", 0);
@@ -603,6 +629,11 @@ static int open_window(dxl_window *w, dxl_run *r) {
     dxl_log("window: the %s renderer%s, %dx%d px at %.2f px a dp", SDL_GetRendererName(w->renderer),
             w->vsync ? ", VSync" : "", s->ui.w_px, s->ui.h_px, s->ui.scale);
     SDL_ShowWindow(w->window);
+    if (w->big && !full_screen(w)) {
+        dxl_log("the big screen: off, the desktop kept the window as it was");
+        w->big = s->big = 0;
+        dxl_ui_set_big(&s->ui, 0);
+    }
     w->opened = now_s();
     /* Its sound: the title music and the menu's sounds (dxl_shell_sound). */
     w->audio_up = SDL_InitSubSystem(SDL_INIT_AUDIO);
@@ -632,6 +663,13 @@ static void handle(dxl_window *w, const SDL_Event *e) {
             s->ui.pad = e->gdevice.which;
             s->ui.pad_family = dxl_ui_pad_family(SDL_GetGamepadFromID(e->gdevice.which));
         }
+    } else if (e->type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN && w->big &&
+               !(SDL_GetWindowFlags(w->window) & SDL_WINDOW_FULLSCREEN)) {
+        /* The desktop took the window out of full screen: the big screen
+         * with it. */
+        w->big = s->big = 0;
+        dxl_ui_set_big(&s->ui, 0);
+        dxl_log("the big screen: off, by the desktop");
     } else if (e->type == SDL_EVENT_GAMEPAD_REMOVED) {
         dxl_shell_toast(s, "A controller was disconnected.");
     } else if (e->type == w->wake_event) {
