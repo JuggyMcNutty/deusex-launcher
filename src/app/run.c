@@ -720,7 +720,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             if (dxl_mod_check(mod_dir, &mod, &e) != 0) {
                 dxl_log("profile %s: its mod is not there to play: %s", r->session.profile.id, dxl_err_msg(&e));
                 if (ui && ui->view) {
+                    /* No game: its start and its run's own words as after one. */
                     r->url[0] = '\0';
+                    if (ui->after_play) ui->after_play(ui->ctx, r);
                     back_home = 1;
                     continue;
                 }

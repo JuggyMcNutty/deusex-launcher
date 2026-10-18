@@ -4,9 +4,10 @@
  * that play it. The one chosen is played with its profile, or has one
  * made, Your profile showing what it is made of before it is; another is
  * shown by the launcher's folder browser or the system's dialog, and is
- * listed until the page closes, then by its profile; the launcher's mods
- * folder opens in the desktop's file manager. The rows are the mods; the
- * buttons beside them act on the one chosen, the row last focused. */
+ * listed while the launcher runs, and by its profile from then on; the
+ * launcher's mods folder opens in the desktop's file manager. The rows are
+ * the mods; the buttons beside them act on the one chosen, the row last
+ * focused. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
@@ -55,6 +56,8 @@ void dxl_page_mods_enter(dxl_shell *s) {
     snprintf(keep, sizeof keep, "%s", s->mod_sel < s->mods.count ? s->mods.items[s->mod_sel].dir : "");
     dxl_mod_list_free(&s->mods);
     dxl_session_mods(&s->run->session, s->run->session.install.ok ? s->run->session.install.root : NULL, &s->mods);
+    for (int i = 0; i < s->mods_shown.count; i++)
+        if (dxl_path_is_dir(s->mods_shown.items[i].dir)) dxl_mod_list_add(&s->mods, &s->mods_shown.items[i]);
     s->mod_sel = 0;
     for (int i = 0; i < s->mods.count; i++) {
         describe(s, i);
@@ -72,6 +75,7 @@ void dxl_shell_mod_shown(dxl_shell *s, const dxl_mod *m) {
             dxl_shell_message(s, "Not listed", "The Mods page lists %d mods at most.", DXL_MODS_MAX);
             return;
         }
+        dxl_mod_list_add(&s->mods_shown, m);
         at = s->mods.count - 1;
         describe(s, at);
         dxl_log("mods: %s shown, %s", m->name, m->dir);

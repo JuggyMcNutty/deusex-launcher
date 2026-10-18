@@ -3,9 +3,11 @@
 #include "core/paths.h"
 
 #include <dirent.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /* The name's extension is ext ("u", "ini"), in any case. */
 static int has_ext(const char *name, const char *ext) {
@@ -65,17 +67,35 @@ static int is_system_ini(const char *path) {
     return yes;
 }
 
+/* The ini's stem is name, in any case. */
+static int stem_is(const char *ini, size_t stem, const char *name) {
+    return name && strlen(name) == stem && dxl_strnicmp(ini, name, stem) == 0;
+}
+
 /* The mod's settings, and its controls beside them. */
 static void own_inis(dxl_mod *m) {
     char **names = names_in(m->system_dir);
+    char *real = realpath(m->dir, NULL);
+    const char *target = real ? dxl_path_basename(real) : NULL;
     const char *best = NULL;
-    int rank = 0;   /* 3 named after the mod, 2 another, 1 Default.ini */
+    /* 4 named after the mod's folder (its link's name or its own), 3 with
+     * its own <stem>User.ini beside it, 2 another, 1 Default.ini. */
+    int rank = 0;
     for (size_t i = 0; names[i]; i++) {
         if (!has_ext(names[i], "ini")) continue;
         size_t stem = strlen(names[i]) - 4;
-        int r = strlen(m->name) == stem && dxl_strnicmp(names[i], m->name, stem) == 0 ? 3
-              : dxl_stricmp(names[i], "Default.ini") == 0                             ? 1
-                                                                                       : 2;
+        int r;
+        if (stem_is(names[i], stem, m->name) || stem_is(names[i], stem, target)) {
+            r = 4;
+        } else if (dxl_stricmp(names[i], "Default.ini") == 0) {
+            r = 1;
+        } else {
+            char user[300];
+            snprintf(user, sizeof user, "%.*sUser.ini", (int)stem, names[i]);
+            char *beside = dxl_path_resolve_ci(m->system_dir, user);
+            r = beside ? 3 : 2;
+            free(beside);
+        }
         if (r <= rank) continue;
         char *path = dxl_path_join(m->system_dir, names[i]);
         if (is_system_ini(path)) {
@@ -94,13 +114,40 @@ static void own_inis(dxl_mod *m) {
             m->user_ini = dxl_path_resolve_ci(m->system_dir, "User.ini");
         if (!m->user_ini) m->user_ini = dxl_path_resolve_ci(m->system_dir, "DefUser.ini");
     }
+    free(real);
     free_names(names);
+}
+
+/* dir made absolute, by the text: the working folder before a relative
+ * one, "." and ".." taken out, no '/' at its end; a link in it kept, the
+ * name the player gave the mod. Caller frees. */
+static char *absolute(const char *dir) {
+    char cwd[PATH_MAX];
+    char *joined = dir[0] == '/' ? dxl_xstrdup(dir) : dxl_path_join(getcwd(cwd, sizeof cwd) ? cwd : "/", dir);
+    char *out = dxl_xmalloc(strlen(joined) + 2);
+    size_t len = 0;
+    out[0] = '\0';
+    for (char *save = NULL, *part = strtok_r(joined, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+        if (!strcmp(part, ".")) continue;
+        if (!strcmp(part, "..")) {
+            char *up = strrchr(out, '/');
+            if (up) *up = '\0';
+            len = strlen(out);
+            continue;
+        }
+        out[len++] = '/';
+        strcpy(out + len, part);
+        len += strlen(part);
+    }
+    if (!len) strcpy(out, "/");
+    free(joined);
+    return out;
 }
 
 int dxl_mod_check(const char *dir, dxl_mod *m, dxl_err *err) {
     memset(m, 0, sizeof *m);
-    char *real = realpath(dir, NULL);
-    if (!real || !dxl_path_is_dir(real)) {
+    char *real = absolute(dir);
+    if (!dxl_path_is_dir(real)) {
         dxl_err_set(err, "%s is not a folder", dir);
         free(real);
         return -1;
@@ -224,41 +271,50 @@ static int inside(const char *path, const char *dir) {
     return strncmp(path, dir, n) == 0 && (path[n] == '\0' || path[n] == '/');
 }
 
+/* A path's last part is a pattern: it has a wildcard. */
+static int is_pattern(const char *part) {
+    return strpbrk(part, "*?") != NULL;
+}
+
 char *dxl_mod_folder(const char *value, const char *game_system_dir, const dxl_mod *m) {
     char *v = dxl_path_from_ini(value);
     /* A path's pattern ("*.u") off: what is named is its folder. */
     char *slash = strrchr(v, '/');
-    if (slash && strchr(slash + 1, '*')) *slash = '\0';
-    else if (!slash && strchr(v, '*')) v[0] = '\0';
+    if (slash && is_pattern(slash + 1)) *slash = '\0';
+    else if (!slash && is_pattern(v)) v[0] = '\0';
     size_t len = strlen(v);
     while (len > 1 && v[len - 1] == '/') v[--len] = '\0';
     if (!*v) {
         free(v);
         return NULL;
     }
+    /* The mod's folder by the name it was found by, a link's kept: its own
+     * folder's names under it. */
     char *folder = resolve(game_system_dir, v);
-    char *real = realpath(folder, NULL);
-    if (inside(real ? real : folder, m->dir)) {
-        free(v);
-        if (!real) return folder;
-        free(folder);
-        return real;
-    }
-    free(real);
+    char *real = realpath(folder, NULL), *mine = realpath(m->dir, NULL);
     char *found = NULL;
-    /* ..\<its name>\<rest>: its ini's path for it in the game's folder,
-     * where it is not. */
-    if (strncmp(v, "../", 3) == 0) {
+    if (real && mine && inside(real, mine)) {
+        const char *under = real + strlen(mine);
+        found = dxl_xmalloc(strlen(m->dir) + strlen(under) + 1);
+        sprintf(found, "%s%s", m->dir, under);
+    } else if (inside(folder, m->dir)) {
+        found = dxl_xstrdup(folder);
+    } else if (strncmp(v, "../", 3) == 0) {
+        /* ..\<its name>\<rest>: its ini's path for it in the game's folder,
+         * where it is not -- its name, or the name of the folder a link of
+         * it is to. */
         char *name = v + 3, *rest = strchr(name, '/');
         if (rest && !strstr(rest, "/..") && !strstr(rest, "/./")) {
             *rest++ = '\0';
-            if (dxl_stricmp(name, m->name) == 0) {
-                char *mine = resolve(m->dir, rest);
-                if (dxl_path_is_dir(mine)) found = mine;
-                else free(mine);
+            if (dxl_stricmp(name, m->name) == 0 || (mine && dxl_stricmp(name, dxl_path_basename(mine)) == 0)) {
+                char *ours = resolve(m->dir, rest);
+                if (dxl_path_is_dir(ours)) found = ours;
+                else free(ours);
             }
         }
     }
+    free(mine);
+    free(real);
     free(folder);
     free(v);
     return found;
@@ -285,7 +341,9 @@ void dxl_mod_set_paths(dxl_ini *sys, const char *game_system_dir, const dxl_mod 
     char **ours = dxl_xmalloc((n + 6) * sizeof *ours), **theirs = dxl_xmalloc((n + 1) * sizeof *theirs);
     size_t no = 0, nt = 0;
     for (size_t i = 0; i < n; i++) {
-        char *folder = dxl_mod_folder(values[i], game_system_dir, m);
+        /* A path names a folder's files by a pattern; one that does not is
+         * kept as it is. */
+        char *folder = is_pattern(pattern_of(values[i])) ? dxl_mod_folder(values[i], game_system_dir, m) : NULL;
         if (folder) {
             char *path = dxl_path_join(folder, pattern_of(values[i]));
             if (!listed(ours, no, path, 0)) ours[no++] = path;

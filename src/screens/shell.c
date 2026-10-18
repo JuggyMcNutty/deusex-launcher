@@ -48,6 +48,7 @@ void dxl_shell_free(dxl_shell *s) {
     s->has_chosen = 0;
     dxl_mod_free(&s->making_mod);
     dxl_mod_list_free(&s->mods);
+    dxl_mod_list_free(&s->mods_shown);
     dxl_browser_free(&s->browser);
     free(s->log_tail);
     s->log_tail = NULL;

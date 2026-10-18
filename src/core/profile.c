@@ -369,11 +369,17 @@ void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini
     free(def_user);
 }
 
-/* A mod's own saves: the folder its ini's SavePath names when that is the
- * mod's (core/mods.h); NULL for none. */
+/* A mod's own saves: the folder its ini's SavePath names when that is a
+ * folder of the mod's (core/mods.h), not the mod's own or its System; NULL
+ * for none. */
 static char *mod_save_dir(const char *game_system_dir, const dxl_mod *m, const dxl_ini *mod_ini) {
     const char *v = mod_ini ? dxl_ini_get(mod_ini, "Core.System", "SavePath") : NULL;
-    return v && *v ? dxl_mod_folder(v, game_system_dir, m) : NULL;
+    char *dir = v && *v ? dxl_mod_folder(v, game_system_dir, m) : NULL;
+    if (dir && (!strcmp(dir, m->dir) || !strcmp(dir, m->system_dir))) {
+        free(dir);
+        dir = NULL;
+    }
+    return dir;
 }
 
 /* The import, of the game or with a mod. */

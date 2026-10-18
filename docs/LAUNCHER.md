@@ -149,8 +149,9 @@ marked; its buttons act on the one chosen, the row last focused:
 A mod is a folder of its own with a `System` folder of its packages
 (`src/core/mods.c`), and is played through a profile of its own, whose
 paths name the mod's folders before the game's, by their absolute paths.
-Nothing of it is copied, and nothing is written to it or to the game's
-folder. Its text and the objects its `.int` files register come from its
+Nothing of it is copied but its saves, and nothing is written to it or to
+the game's folder. A mod is known by the folder it is found by, a link's
+kept, and is named after it. Its text and the objects its `.int` files register come from its
 folders too, with an engine whose `--version` has `int-paths`
 ([VibeEngine's mods](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#mods)):
 the original reads them from `System` alone, where a mod's had to be put.
@@ -169,26 +170,29 @@ is a copy of the game (its `System/DeusEx.exe`).
   after the mod; Back leaves the one in use as it was. Made, it is the one
   in use.
 - **Browse...** and **The system's dialog...**: a mod's folder anywhere
-  else, listed until the page closes, then by its profile.
+  else, listed while the launcher runs, and by its profile from then on.
 - **The mods folder**: the launcher's, in the desktop's file manager.
 
 A mod's profile is made as the first run makes one
 (`dxl_profile_import_mod`, `src/core/profile.c`), but:
 
 - **`DeusEx.ini`**: the mod's own, when it has one -- a `System` ini with
-  `[Core.System] Paths`, the one named after its folder first, then any
-  but `Default.ini`, then `Default.ini` --, else the game's. Its paths:
-  the mod's folders first, by their absolute paths, then the others as
-  they are. A path is the mod's when it comes to a folder of the mod's, a
-  relative one as the engine resolves it against the game's `System`, in
-  any case; or when it is `..\<the mod's name>\<rest>`, the mod's ini's
-  path for it in the game's folder, where it is not, and the mod has the
-  rest. When none is, the mod's `System`, `Maps`, `Textures`, `Sounds`
-  and `Music` come first.
+  `[Core.System] Paths`, the one named after its folder (or the folder a
+  link of it is to) first, then one with its own `<name>User.ini` beside
+  it, then any but `Default.ini`, then `Default.ini` --, else the game's.
+  Its paths: the mod's folders first, by their absolute paths, then the
+  others as they are. A path is the mod's when it comes to a folder of the
+  mod's, a relative one as the engine resolves it against the game's
+  `System`, in any case; or when it is `..\<the mod's name>\<rest>`, the
+  mod's ini's path for it in the game's folder, where it is not, and the
+  mod has the rest. When none is, the mod's `System`, `Maps`, `Textures`,
+  `Sounds` and `Music` come first. A path whose last part is no pattern
+  (`*` or `?` in it) is kept as it is.
 - **`User.ini`**: the mod's own, beside its settings (`<name>User.ini`,
   `User.ini` beside a `DeusEx.ini`, else `DefUser.ini`), else the game's.
 - **The saves**: those of the mod's own save folder, its ini's `SavePath`
-  when that is the mod's; none of the game's, and no shots.
+  when that is a folder in the mod's other than its `System`; none of the
+  game's, and no shots.
 - **`profile.ini`'s `Mod`**: the mod's folder. A profile whose mod is not
   there any more says so on Home and Profiles, and does not play.
 
