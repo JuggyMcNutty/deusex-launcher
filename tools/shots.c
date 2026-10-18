@@ -100,6 +100,9 @@ typedef enum {
     SCENE_SERVERS_ASKING,   /* the look on: three listed, one answered */
     SCENE_SERVERS_FAILED,   /* the master gave no list; a favourite answered */
     SCENE_SERVERS_PASSWORD, /* the chosen asks for a password */
+    SCENE_MODS,             /* two in the game's folder, one played by a profile; one in the launcher's mods folder */
+    SCENE_MODS_NONE,
+    SCENE_MOD_PROFILE,      /* Your profile, a mod's */
     SCENE_SETTINGS,
     SCENE_PICK,
     SCENE_OSK,
@@ -122,7 +125,8 @@ typedef enum {
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "find-looking", "find-more", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
     "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "big-offer", "saves", "saves-none", "saves-old-engine", "shots",
-    "shots-none", "shot-whole", "servers", "servers-asking", "servers-failed", "servers-password", "settings", "pick", "osk", "confirm", "log", "keys",
+    "shots-none", "shot-whole", "servers", "servers-asking", "servers-failed", "servers-password", "mods", "mods-none",
+    "mod-profile", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
     "launcher",
 };
@@ -277,6 +281,29 @@ static void make_run(dxl_run *r, int profile) {
     r->last.ended = 1792186920;   /* 16 October 2026, 21:42 UTC */
 }
 
+/* Mods of a few bytes each: GMDXv10, with its own settings and controls,
+ * and TNM in the game's folder; Revision, with none, in the launcher's
+ * mods folder. */
+static void make_mods(const dxl_run *r) {
+    static const char *const files[][2] = {
+        { "GMDXv10/System/GMDX.u", "x" },
+        { "GMDXv10/System/GMDXv10.ini", "[Core.System]\nPaths=..\\GMDXv10\\System\\*.u\nPaths=..\\System\\*.u\n" },
+        { "GMDXv10/System/GMDXv10User.ini", "[Engine.Input]\n" },
+        { "GMDXv10/Save/Save0001/SaveInfo.dxs", "x" },
+        { "TNM/System/TNMText.u", "x" },
+        { "TNM/System/TNM.ini", "[Core.System]\nPaths=..\\TNM\\System\\*.u\nPaths=..\\System\\*.u\n" },
+    };
+    for (size_t i = 0; i < sizeof files / sizeof *files; i++) {
+        char *p = dxl_path_join(r->session.install.root, files[i][0]);
+        write_file(p, files[i][1]);
+        free(p);
+    }
+    char *mods = dxl_session_mods_dir(&r->session), *p = dxl_path_join(mods, "Revision/System/Revision.u");
+    write_file(p, "x");
+    free(p);
+    free(mods);
+}
+
 static void crashed(dxl_run *r) {
     r->last.clean = 0;
     r->last.ready = 0;
@@ -301,7 +328,7 @@ static void engine(dxl_shell *s) {
     s->engine_asked = 1;
     s->engine_ok = 1;
     snprintf(s->engine_version, sizeof s->engine_version, "VibeEngine 1e4258f (2026-10-16)");
-    snprintf(s->engine_features, sizeof s->engine_features, "userdir loadgame-url");
+    snprintf(s->engine_features, sizeof s->engine_features, "userdir loadgame-url int-paths");
 }
 
 static void found(dxl_shell *s) {
@@ -433,6 +460,54 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         servers(s, sc);
         break;
+    case SCENE_MODS: {
+        make_mods(r);
+        /* GMDXv10's profile. */
+        dxl_profile p;
+        dxl_err e;
+        char *dir = dxl_path_join(r->session.install.root, "GMDXv10"), *real = realpath(dir, NULL);
+        if (dxl_profile_open(&p, &r->session.xdg, "gmdxv10", &e) == 0) {
+            dxl_profile_make_dirs(&p, &e);
+            dxl_profile_set(&p, "Name", "GMDX v10");
+            dxl_profile_set(&p, "Install", "1112fm-00000000");
+            dxl_profile_set(&p, "Mod", real ? real : dir);
+            dxl_profile_save(&p, &e);
+            write_file(p.system_ini, "[Engine.Engine]\n");
+            dxl_profile_free(&p);
+        }
+        free(real);
+        free(dir);
+    }
+        /* fall through */
+    case SCENE_MODS_NONE:
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        dxl_shell_go(s, DXL_PAGE_MODS);
+        break;
+    case SCENE_MOD_PROFILE: {
+        make_mods(r);
+        dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        char *dir = dxl_path_join(r->session.install.root, "GMDXv10");
+        if (dxl_mod_check(dir, &s->making_mod, NULL) == 0) {
+            s->making = 1;
+            snprintf(s->making_before, sizeof s->making_before, "%s", r->session.profile.id);
+            dxl_install in;
+            good_install(&in, "GOG Games/Deus Ex GOTY", 0);
+            if (s->has_chosen) dxl_install_free(&s->chosen);
+            s->chosen = in;
+            s->has_chosen = 1;
+            snprintf(s->begin_name, sizeof s->begin_name, "GMDXv10");
+            /* What a mod with its own inis and a save of its own gives. */
+            memset(&s->plan, 0, sizeof s->plan);
+            s->plan_error[0] = '\0';
+            snprintf(s->plan.system_from, sizeof s->plan.system_from, "%s", s->making_mod.ini);
+            snprintf(s->plan.user_from, sizeof s->plan.user_from, "%s", s->making_mod.user_ini);
+            s->plan.saves = 1;
+            s->plan.master_replaced = 1;
+            dxl_shell_go(s, DXL_PAGE_IMPORT);
+        }
+        free(dir);
+        break;
+    }
     case SCENE_HOME_NEW:
     case SCENE_SAVES_NONE: {
         char cmd[1200];
@@ -617,8 +692,10 @@ static void tear_down(dxl_run *r) {
     dxl_session_close(&r->session);
     /* The next scene's profile from nothing. */
     char *cfg = at_home(".config"), *data = at_home(".local/share/dxlauncher"), *state = at_home(".local/state");
-    char cmd[2048];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s' '%s' '%s'", cfg, data, state);
+    char *mods = at_home("GOG Games/Deus Ex GOTY");
+    char cmd[2600];
+    snprintf(cmd, sizeof cmd, "rm -rf '%s' '%s' '%s' '%s'/GMDXv10 '%s'/TNM", cfg, data, state, mods, mods);
+    free(mods);
     if (system(cmd) != 0) fprintf(stderr, "dxl-shots: could not clear the profile\n");
     free(cfg);
     free(data);

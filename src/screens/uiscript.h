@@ -13,7 +13,7 @@
  *                     again; a frame draws it focused before the next line
  *   expect <name>     the page or dialog up: home, welcome, find, import, recovery,
  *                     about, settings, log, profiles, saves, shots (shot: one shown whole),
- *                     multiplayer;
+ *                     multiplayer, mods;
  *                     browser, message, pick, keyboard,
  *                     confirm, padwizard, padtest; "settings <tab>" its tab too.
  *                     Not so: "ui script: FAILED" in the launcher's log and on

@@ -45,7 +45,8 @@ int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl
         char link[256];
         if (dxl_server_link(a, link, sizeof link)) { opt->join = a; continue; }
         if (strncmp(a, "--", 2) != 0) { rest[n++] = argv[i]; continue; }
-        if (take(a, "--game", &opt->game) || take(a, "--profile", &opt->profile)) continue;
+        if (take(a, "--game", &opt->game) || take(a, "--profile", &opt->profile) || take(a, "--mod", &opt->mod))
+            continue;
         if (strcmp(a, "--play") == 0) { opt->play = 1; continue; }
         if (strcmp(a, "--dry-run") == 0) { opt->dry = 1; continue; }
         if (strcmp(a, "--print-command") == 0) { opt->print_command = 1; continue; }
@@ -329,6 +330,8 @@ static void dry_run(dxl_run *r) {
     printf("  launcher.ini   %s%s\n", s->ini_path, dxl_path_exists(s->ini_path) ? "" : " (not yet written)");
     printf("\nprofile %s (%s)\n", p->id, dxl_profile_exists(p) ? "made" : "not made yet");
     printf("  inis           %s, %s\n", p->system_ini, p->user_ini);
+    const char *mod = dxl_profile_get(p, "Mod");
+    if (mod && *mod) printf("  mod            %s\n", mod);
     printf("  engine folder  %s\n", p->engine_dir);
     printf("  saves, shots   %s, %s\n", p->save_dir, p->shots_dir);
     printf("  runs           %s\n", p->state_dir);
@@ -427,7 +430,14 @@ static int first_run(dxl_run *r, const dxl_run_ui *ui) {
     if (in.problem[0]) dxl_log("warning: %s", in.problem);
     dxl_import report;
     dxl_err e;
-    int rc = dxl_session_make_profile(&r->session, &in, NULL, &report, &e);
+    dxl_mod mod;
+    if (r->opt.mod && dxl_mod_check(r->opt.mod, &mod, &e) != 0) {
+        stop_with(r, "cannot make a mod's profile: %s", dxl_err_msg(&e));
+        dxl_install_free(&in);
+        return DXL_RUN_EXIT_NOGAME;
+    }
+    int rc = dxl_session_make_profile(&r->session, &in, r->opt.mod ? &mod : NULL, NULL, &report, &e);
+    if (r->opt.mod) dxl_mod_free(&mod);
     dxl_install_free(&in);
     if (rc != 0) {
         stop_with(r, "cannot make the profile: %s", dxl_err_msg(&e));
@@ -567,6 +577,12 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         free(r);
         return DXL_RUN_EXIT_USAGE;
     }
+    if (r->opt.mod && !r->opt.import_only) {
+        fprintf(stderr, "--mod makes a mod's profile, with --import\n");
+        free(r->words);
+        free(r);
+        return DXL_RUN_EXIT_USAGE;
+    }
     if (dxl_session_open(&r->session, r->opt.profile, &e) != 0) {
         fprintf(stderr, "%s\n", dxl_err_msg(&e));
         rc = DXL_RUN_EXIT_NOGAME;
@@ -601,6 +617,12 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     free(id);
 
     /* 2. The profile, and its install. */
+    if (r->opt.mod && dxl_profile_exists(&r->session.profile)) {
+        stop_with(r, "profile %s is made already: --mod makes a new one, --profile=<id> naming it",
+                  r->session.profile.id);
+        rc = DXL_RUN_EXIT_USAGE;
+        goto done;
+    }
     if (!dxl_profile_exists(&r->session.profile)) {
         if (r->opt.dry || r->opt.print_command) {
             if (r->opt.game) dxl_install_check(r->opt.game, &r->session.install);
@@ -689,6 +711,25 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             dxl_log("play: joining %s, a link's", link);
         }
         r->opt.join = NULL;
+
+        /* A mod's profile plays only while its mod is there: with a window,
+         * Home again, which says so. */
+        const char *mod_dir = dxl_profile_get(&r->session.profile, "Mod");
+        dxl_mod mod;
+        if (mod_dir && *mod_dir) {
+            if (dxl_mod_check(mod_dir, &mod, &e) != 0) {
+                dxl_log("profile %s: its mod is not there to play: %s", r->session.profile.id, dxl_err_msg(&e));
+                if (ui && ui->view) {
+                    r->url[0] = '\0';
+                    back_home = 1;
+                    continue;
+                }
+                stop_with(r, "profile %s's mod is not there to play: %s", r->session.profile.id, dxl_err_msg(&e));
+                rc = DXL_RUN_EXIT_NOGAME;
+                goto done;
+            }
+            dxl_mod_free(&mod);
+        }
 
         /* 4 and 5. */
         dxl_engine_version v;

@@ -1,6 +1,6 @@
-/* A profile: one way to play -- the game as it is, later a mod -- with its
- * own inis, engine settings, saves and shots, all in the launcher's folders
- * (core/xdg.h), none in the game's:
+/* A profile: one way to play -- the game as it is, or a mod (core/mods.h)
+ * -- with its own inis, engine settings, saves and shots, all in the
+ * launcher's folders (core/xdg.h), none in the game's:
  *
  *   <config>/profiles/<id>/profile.ini   its name and its install
  *   <config>/profiles/<id>/DeusEx.ini    the engine's --ini
@@ -22,6 +22,7 @@
 
 #include "core/common.h"
 #include "core/ini.h"
+#include "core/mods.h"
 #include "core/xdg.h"
 
 #define DXL_PROFILE_SECTION "Profile"
@@ -81,7 +82,7 @@ void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t si
 int  dxl_profile_copy(const dxl_profile *from, const dxl_profile *to, dxl_err *err);
 
 /* profile.ini's [Profile] keys: Name, Install (an id of launcher.ini's
- * installs). */
+ * installs), Mod (a mod's folder, for a mod's profile). */
 const char *dxl_profile_get(const dxl_profile *p, const char *key);
 void        dxl_profile_set(dxl_profile *p, const char *key, const char *value);
 int         dxl_profile_save(dxl_profile *p, dxl_err *err);
@@ -104,6 +105,13 @@ typedef struct {
  * Nothing is written to the game's folder. */
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err);
+/* A mod's profile, made as dxl_profile_import makes one but from the mod's
+ * own ini, else the game's, with the mod's folders first in its paths
+ * (core/mods.h's dxl_mod_set_paths); its User.ini the mod's own, else the
+ * game's; the saves of the mod's own save folder, none of the game's, and
+ * no shots. */
+int dxl_profile_import_mod(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry,
+                           dxl_import *r, dxl_err *err);
 /* The User.ini the import makes from the file at path (dxl_import's
  * user_from), in memory: the bindings the original saved folded in as the
  * import folds them. NULL when it cannot be read. */

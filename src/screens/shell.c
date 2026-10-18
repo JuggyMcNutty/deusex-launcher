@@ -46,6 +46,8 @@ void dxl_shell_free(dxl_shell *s) {
     dxl_found_list_free(&s->found);
     if (s->has_chosen) dxl_install_free(&s->chosen);
     s->has_chosen = 0;
+    dxl_mod_free(&s->making_mod);
+    dxl_mod_list_free(&s->mods);
     dxl_browser_free(&s->browser);
     free(s->log_tail);
     s->log_tail = NULL;
@@ -346,6 +348,7 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
     case DXL_PAGE_SAVES: dxl_page_saves_enter(s); break;
     case DXL_PAGE_SHOTS: dxl_page_shots_enter(s); break;
     case DXL_PAGE_SERVERS: dxl_page_servers_enter(s); break;
+    case DXL_PAGE_MODS: dxl_page_mods_enter(s); break;
     default: break;
     }
 }
@@ -358,8 +361,28 @@ int dxl_shell_engine_has(const dxl_shell *s, const char *feature) {
     return dxl_engine_has(&v, feature);
 }
 
+void dxl_shell_profile_mod(dxl_shell *s) {
+    s->profile_mod = 0;
+    s->profile_mod_text[0] = '\0';
+    const char *dir = s->run ? dxl_profile_get(&s->run->session.profile, "Mod") : NULL;
+    if (!dir || !*dir) return;
+    char shown[1024];
+    dxl_mod m;
+    if (dxl_mod_check(dir, &m, NULL) == 0) {
+        s->profile_mod = 1;
+        snprintf(s->profile_mod_text, sizeof s->profile_mod_text, "%.100s, %s", m.name,
+                 dxl_shell_tilde(m.dir, shown, sizeof shown));
+        dxl_mod_free(&m);
+    } else {
+        s->profile_mod = -1;
+        snprintf(s->profile_mod_text, sizeof s->profile_mod_text, "not there to play: %s",
+                 dxl_shell_tilde(dir, shown, sizeof shown));
+    }
+}
+
 const dxl_save *dxl_shell_continue(const dxl_shell *s) {
-    if (!s->run || !s->run->session.install.ok || !dxl_shell_engine_has(s, "loadgame-url")) return NULL;
+    if (!s->run || !s->run->session.install.ok || s->profile_mod < 0 || !dxl_shell_engine_has(s, "loadgame-url"))
+        return NULL;
     return dxl_saves_latest(&s->save_list);
 }
 
@@ -526,6 +549,17 @@ void dxl_shell_folder_picked(dxl_shell *s, const char *path) {
             dxl_shell_message(s, "Not an engine to play with", "%s", why);
         return;
     }
+    if (s->pick_for == DXL_BROWSE_MOD) {
+        dxl_mod m;
+        dxl_err e;
+        if (dxl_mod_check(path, &m, &e) == 0) {
+            dxl_shell_mod_shown(s, &m);
+            dxl_mod_free(&m);
+        } else {
+            dxl_shell_message(s, "Not a mod", "%s.", dxl_err_msg(&e));
+        }
+        return;
+    }
     dxl_install in;
     dxl_install_check(path, &in);
     if (in.ok) dxl_shell_choose(s, &in);
@@ -582,6 +616,12 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
     dxl_err e;
     if (dxl_profile_import(&ss->profile, s->chosen.system_dir, 1, &s->plan, &e) != 0)
         snprintf(s->plan_error, sizeof s->plan_error, "%s", dxl_err_msg(&e));
+    dxl_shell_begin_defaults(s);
+    s->focus[DXL_PAGE_IMPORT] = 0;
+    dxl_shell_go(s, DXL_PAGE_IMPORT);
+}
+
+void dxl_shell_begin_defaults(dxl_shell *s) {
     /* The engine's own drawing; the Modern layout over the game's own three
      * buttons, or none, else the controls as they are: a layout of the
      * player's, or one of ours already. */
@@ -598,8 +638,6 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
         if (bound && (!now || strcmp(now->id, "classic") != 0)) s->begin_layout = 0;
         dxl_ini_free(usr);
     }
-    s->focus[DXL_PAGE_IMPORT] = 0;
-    dxl_shell_go(s, DXL_PAGE_IMPORT);
 }
 
 void dxl_shell_open(dxl_shell *s, const char *path) {
@@ -663,6 +701,7 @@ static const char *page_title(dxl_page p) {
     case DXL_PAGE_SAVES: return "Saves";
     case DXL_PAGE_SHOTS: return "Screenshots";
     case DXL_PAGE_SERVERS: return "Multiplayer";
+    case DXL_PAGE_MODS: return "Mods";
     default: return "";
     }
 }
@@ -705,7 +744,9 @@ static float head(dxl_shell *s, float m, float shift) {
     dxl_label_typed(ui, (dxl_rect){ x, 46, w * 0.6f, 36 }, DXL_FONT_HEADING, page_title(s->page), t->title_text,
                     DXL_W_LEFT, s->page_since);
     dxl_fill(ui, (dxl_rect){ x, 86, 56, 2 }, t->accent);
-    if (!s->repoint && (s->page == DXL_PAGE_WELCOME || s->page == DXL_PAGE_FIND || s->page == DXL_PAGE_IMPORT))
+    /* A mod's profile is made on one page: no steps. */
+    if (!s->repoint && !s->making_mod.dir &&
+        (s->page == DXL_PAGE_WELCOME || s->page == DXL_PAGE_FIND || s->page == DXL_PAGE_IMPORT))
         steps(s, x + w, 52);
     return 108;
 }
@@ -733,7 +774,8 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
     switch (s->page) {
     case DXL_PAGE_HOME:
         if (dxl_shell_continue(s)) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Continue" };
-        else if (s->run && s->run->session.install.ok && s->engine_ok) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
+        else if (s->run && s->run->session.install.ok && s->engine_ok && s->profile_mod >= 0)
+            it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
         break;
     case DXL_PAGE_SAVES:
         if (s->run && s->run->session.install.ok && dxl_shell_engine_has(s, "loadgame-url") &&
@@ -765,6 +807,7 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
     case DXL_PAGE_ABOUT:
     case DXL_PAGE_LOG:
     case DXL_PAGE_PROFILES:
+    case DXL_PAGE_MODS:
         if (s->ui.text_id) {
             n = 0;
             it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Keep" };
@@ -937,6 +980,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
     case DXL_PAGE_SAVES: dxl_page_saves(s, r); break;
     case DXL_PAGE_SHOTS: dxl_page_shots(s, r); break;
     case DXL_PAGE_SERVERS: dxl_page_servers(s, r); break;
+    case DXL_PAGE_MODS: dxl_page_mods(s, r); break;
     default: break;
     }
     s->in_page = 0;

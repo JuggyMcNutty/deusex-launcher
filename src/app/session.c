@@ -107,18 +107,21 @@ int dxl_session_check_install(dxl_session *s) {
     return dxl_install_check(path, &s->install);
 }
 
-int dxl_session_make_profile(dxl_session *s, const dxl_install *in, const char *name,
+int dxl_session_make_profile(dxl_session *s, const dxl_install *in, const dxl_mod *mod, const char *name,
                              dxl_import *report, dxl_err *err) {
-    if (dxl_profile_import(&s->profile, in->system_dir, 0, report, err) != 0) return -1;
+    int made = mod ? dxl_profile_import_mod(&s->profile, in->system_dir, mod, 0, report, err)
+                   : dxl_profile_import(&s->profile, in->system_dir, 0, report, err);
+    if (made != 0) return -1;
     char id[96];
     dxl_session_remember_install(s, in, id, sizeof id);
-    dxl_profile_set(&s->profile, "Name", name && *name ? name : "Deus Ex");
+    dxl_profile_set(&s->profile, "Name", name && *name ? name : mod ? mod->name : "Deus Ex");
     dxl_profile_set(&s->profile, "Install", id);
+    if (mod) dxl_profile_set(&s->profile, "Mod", mod->dir);
     if (dxl_profile_save(&s->profile, err) != 0) return -1;
     dxl_ini_set(s->ini, LAUNCHER, "Profile", s->profile.id);
-    dxl_log("profile %s made from %s (DeusEx.ini from %s, User.ini from %s, %d saves, %d shots)",
-            s->profile.id, in->root, report->system_from, report->user_from, report->saves,
-            report->shots);
+    dxl_log("profile %s made from %s%s%s (DeusEx.ini from %s, User.ini from %s, %d saves, %d shots)",
+            s->profile.id, in->root, mod ? " and the mod " : "", mod ? mod->dir : "", report->system_from,
+            report->user_from, report->saves, report->shots);
     dxl_session_check_install(s);   /* what the screens say of it; the profile is made either way */
     return 0;
 }
@@ -263,4 +266,46 @@ char *dxl_session_instance_id(const dxl_session *s) {
     char *id = dxl_xmalloc(n);
     snprintf(id, n, "dxlauncher:%s", s->xdg.config);
     return id;
+}
+
+char *dxl_session_mods_dir(const dxl_session *s) {
+    return dxl_path_join(s->xdg.data, "mods");
+}
+
+void dxl_session_mods(const dxl_session *s, const char *game_root, dxl_mod_list *l) {
+    char *mods = dxl_session_mods_dir(s);
+    dxl_mods_find(l, game_root, mods);
+    free(mods);
+    static char ids[64][DXL_PROFILE_ID_MAX + 1];
+    size_t n = dxl_profiles_list(&s->xdg, ids, 64);
+    if (n > 64) n = 64;
+    for (size_t i = 0; i < n; i++) {
+        dxl_profile p;
+        if (dxl_profile_open(&p, &s->xdg, ids[i], NULL) != 0) continue;
+        const char *dir = dxl_profile_get(&p, "Mod");
+        dxl_mod m;
+        if (dir && *dir && dxl_mod_check(dir, &m, NULL) == 0) {
+            dxl_mod_list_add(l, &m);
+            dxl_mod_free(&m);
+        }
+        dxl_profile_free(&p);
+    }
+}
+
+size_t dxl_session_mod_profiles(const dxl_session *s, const char *dir, char ids[][DXL_PROFILE_ID_MAX + 1],
+                                size_t max) {
+    static char all[64][DXL_PROFILE_ID_MAX + 1];
+    size_t n = dxl_profiles_list(&s->xdg, all, 64), k = 0;
+    if (n > 64) n = 64;
+    for (size_t i = 0; i < n; i++) {
+        dxl_profile p;
+        if (dxl_profile_open(&p, &s->xdg, all[i], NULL) != 0) continue;
+        const char *mod = dxl_profile_get(&p, "Mod");
+        if (mod && !strcmp(mod, dir)) {
+            if (k < max) snprintf(ids[k], DXL_PROFILE_ID_MAX + 1, "%s", all[i]);
+            k++;
+        }
+        dxl_profile_free(&p);
+    }
+    return k;
 }

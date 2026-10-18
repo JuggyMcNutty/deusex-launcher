@@ -81,12 +81,31 @@ static void go_to(dxl_shell *s, dxl_list *l, const char *dir) {
 }
 
 /* The folder shown, as the game's: it, or the folder above when this is
- * the game's System; or as the engine's. */
+ * the game's System; as the engine's; or as a mod's, it or the folder
+ * above when this is the mod's System. */
 static void use(dxl_shell *s) {
     dxl_browser *b = &s->browser;
     if (b->mode == DXL_BROWSE_ENGINE) {
         char why[800];
         if (dxl_shell_choose_engine(s, b->dir, b->note, sizeof b->note, why, sizeof why)) dxl_shell_close_dialog(s);
+        return;
+    }
+    if (b->mode == DXL_BROWSE_MOD) {
+        dxl_mod m;
+        dxl_err e;
+        int ok = dxl_mod_check(b->dir, &m, &e) == 0;
+        if (!ok && dxl_stricmp(dxl_path_basename(b->dir), "System") == 0) {
+            char *up = dxl_path_dirname(b->dir);
+            ok = dxl_mod_check(up, &m, NULL) == 0;
+            free(up);
+        }
+        if (ok) {
+            dxl_shell_close_dialog(s);
+            dxl_shell_mod_shown(s, &m);
+            dxl_mod_free(&m);
+        } else {
+            snprintf(b->note, sizeof b->note, "Not a mod's folder: %s.", dxl_err_msg(&e));
+        }
         return;
     }
     dxl_install in;
@@ -114,7 +133,8 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     char shown[PATH_MAX + 2];
 
     dxl_rect in = dxl_dialog_begin(ui, over, 840, 600, b->mode == DXL_BROWSE_ENGINE ? "The engine's folder"
-                                                                                   : "The game's folder");
+                                                       : b->mode == DXL_BROWSE_MOD  ? "The mod's folder"
+                                                                                    : "The game's folder");
     dxl_label(ui, dxl_cut_top(&in, 28), DXL_FONT_BODY, dxl_shell_tilde(b->dir, shown, sizeof shown), t->text_focus,
               DXL_W_LEFT | DXL_W_TAIL | DXL_W_MAY_CUT);
     dxl_cut_top(&in, 8);

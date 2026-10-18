@@ -10,6 +10,7 @@
 
 void dxl_page_home_enter(dxl_shell *s) {
     dxl_shell_ask_engine(s);
+    dxl_shell_profile_mod(s);
     dxl_saves_reload(s);
     s->saves = s->save_list.count;
 }
@@ -54,7 +55,8 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
     dxl_session *ss = &s->run->session;
-    int playable = ss->install.ok && s->engine_ok;
+    /* A mod's profile plays while its mod is there. */
+    int playable = ss->install.ok && s->engine_ok && s->profile_mod >= 0;
     const dxl_save *latest = dxl_shell_continue(s);
 
     float menu_w = r.w * 0.3f;
@@ -114,7 +116,7 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     char title[200], v[1024], shown[1024];
     snprintf(title, sizeof title, "Profile: %s", name ? name : ss->profile.id);
     const dxl_save *newest = dxl_saves_latest(&s->save_list);
-    dxl_rect panel = { px, r.y + 6, pw, 5 + 32 + 16 + (newest ? 6 : 5) * 30 + 22 };
+    dxl_rect panel = { px, r.y + 6, pw, 5 + 32 + 16 + ((newest ? 6 : 5) + (s->profile_mod != 0)) * 30 + 22 };
     dxl_rect in = dxl_window(ui, panel, title);
     const float nw = 104, lh = 30;
 
@@ -130,6 +132,9 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
         if (ss->install.problem[0]) c = t->warn;
     }
     dxl_field(ui, &in, lh, nw, "Build", v, c, DXL_W_MAY_CUT);
+    if (s->profile_mod)
+        dxl_field(ui, &in, lh, nw, "Mod", s->profile_mod_text, s->profile_mod > 0 ? t->text : t->bad,
+                  DXL_W_TAIL | DXL_W_MAY_CUT);
     dxl_field(ui, &in, lh, nw, "Engine", s->engine_ok ? s->engine_version : s->engine_brief,
               s->engine_ok ? t->text : t->bad, DXL_W_MAY_CUT);
     if (s->saves) snprintf(v, sizeof v, "%d", s->saves);

@@ -369,7 +369,15 @@ void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini
     free(def_user);
 }
 
-int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
+/* A mod's own saves: the folder its ini's SavePath names when that is the
+ * mod's (core/mods.h); NULL for none. */
+static char *mod_save_dir(const char *game_system_dir, const dxl_mod *m, const dxl_ini *mod_ini) {
+    const char *v = mod_ini ? dxl_ini_get(mod_ini, "Core.System", "SavePath") : NULL;
+    return v && *v ? dxl_mod_folder(v, game_system_dir, m) : NULL;
+}
+
+/* The import, of the game or with a mod. */
+static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry, dxl_import *r,
                        dxl_err *err) {
     memset(r, 0, sizeof *r);
     int rc = -1;
@@ -382,9 +390,10 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
     dxl_ini *sys = NULL, *usr = NULL, *se = NULL;
     char *saves = NULL;
 
-    /* DeusEx.ini: the game's own, else Default.ini; one with no Paths (a
-     * stub the engine cannot start from) is Default.ini with its values. */
-    const char *sys_from = game_ini ? game_ini : def_ini;
+    /* DeusEx.ini: a mod's own, else the game's own, else Default.ini; one
+     * with no Paths (a stub the engine cannot start from) is Default.ini
+     * with its values. */
+    const char *sys_from = mod && mod->ini ? mod->ini : game_ini ? game_ini : def_ini;
     sys = sys_from ? dxl_ini_load(sys_from, err) : NULL;
     if (!sys) {
         if (!sys_from) dxl_err_set(err, "no DeusEx.ini or Default.ini in %s", game_system_dir);
@@ -411,9 +420,9 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
     /* Every key of them there before the first run (core/engine_sections.h). */
     if (!dry) dxl_engine_sections_seed(sys);
 
-    /* User.ini: the newer of the game's and the engine's own, else
-     * DefUser.ini. */
-    const char *user_from = newer(user, se_user);
+    /* User.ini: a mod's own, else the newer of the game's and the engine's
+     * own, else DefUser.ini. */
+    const char *user_from = mod && mod->user_ini ? mod->user_ini : newer(user, se_user);
     if (!user_from) user_from = def_user;
     usr = user_from ? dxl_ini_load(user_from, err) : NULL;
     if (!usr) {
@@ -422,10 +431,13 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
     }
     copy_str(r->user_from, sizeof r->user_from, user_from);
 
-    saves = game_save_dir(game_system_dir, sys);
+    /* A mod's: its own saves, none of the game's, and its paths; the
+     * game's shots are not its. */
+    saves = mod ? mod_save_dir(game_system_dir, mod, mod->ini ? sys : NULL) : game_save_dir(game_system_dir, sys);
     copy_str(r->saves_from, sizeof r->saves_from, saves);
-    r->saves = each_save(saves, NULL, NULL);
-    r->shots = each_shot(game_system_dir, NULL, NULL);
+    r->saves = saves ? each_save(saves, NULL, NULL) : 0;
+    r->shots = mod ? 0 : each_shot(game_system_dir, NULL, NULL);
+    if (mod) dxl_mod_set_paths(sys, game_system_dir, mod);
     const char *master = dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
     r->master_replaced = master && dxl_stricmp(master, DEAD_MASTER) == 0;
     /* The bindings the original game wrote: its input object is
@@ -448,8 +460,8 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
     if (dxl_profile_make_dirs(p, err) != 0) goto out;
     if (dxl_ini_save(sys, p->system_ini, err) != 0) goto out;
     if (dxl_ini_save(usr, p->user_ini, err) != 0) goto out;
-    if (each_save(saves, p->save_dir, err) < 0) goto out;
-    if (each_shot(game_system_dir, p->shots_dir, err) < 0) goto out;
+    if (saves && each_save(saves, p->save_dir, err) < 0) goto out;
+    if (!mod && each_shot(game_system_dir, p->shots_dir, err) < 0) goto out;
     rc = 0;
 out:
     dxl_ini_free(sys);
@@ -458,4 +470,14 @@ out:
     free(game_ini); free(def_ini); free(se_ini); free(user); free(se_user); free(def_user);
     free(saves);
     return rc;
+}
+
+int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
+                       dxl_err *err) {
+    return import_from(p, game_system_dir, NULL, dry, r, err);
+}
+
+int dxl_profile_import_mod(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry,
+                           dxl_import *r, dxl_err *err) {
+    return import_from(p, game_system_dir, mod, dry, r, err);
 }

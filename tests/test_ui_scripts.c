@@ -400,6 +400,59 @@ static void test_profiles(void) {
     }
 }
 
+/* A mod of its own made in the launcher's mods folder: its profile made
+ * through Mods and Your profile, the one in use; its folders first in the
+ * profile's paths, its own save copied. */
+static void test_mods(void) {
+    CHECK_INT(fresh_home(), 0);
+    const char *files[][2] = {
+        { "data/dxlauncher/mods/TestMod/System/TestMod.u", "pkg" },
+        { "data/dxlauncher/mods/TestMod/System/TestMod.ini",
+          "[URL]\r\nClass=TestMod.ModPlayer\r\n\r\n[Core.System]\r\nSavePath=..\\TestMod\\Save\r\n"
+          "Paths=..\\TestMod\\System\\*.u\r\nPaths=..\\System\\*.u\r\nPaths=..\\Maps\\*.dx\r\n" },
+        { "data/dxlauncher/mods/TestMod/System/TestModUser.ini", "[Engine.Input]\r\nF1=ModsOwn\r\n" },
+        { "data/dxlauncher/mods/TestMod/Save/Save0001/SaveInfo.dxs", "a save" },
+    };
+    for (size_t i = 0; i < sizeof files / sizeof *files; i++) {
+        char *path = home_file(files[i][0]), *dir = dxl_path_dirname(path);
+        dxl_path_mkdirs(dir);
+        FILE *f = fopen(path, "wb");
+        if (f) {
+            fputs(files[i][1], f);
+            fclose(f);
+        }
+        free(dir);
+        free(path);
+    }
+    launch("mods.script", "ready");
+    script_ok();
+    char *dir = home_file("data/dxlauncher/mods/TestMod"), *real = realpath(dir, NULL);
+    char *made = read_home("config/dxlauncher/profiles/testmod/profile.ini"), want[1200];
+    snprintf(want, sizeof want, "Mod=%s\n", real ? real : dir);
+    CHECK(strstr(made, want) != NULL);
+    CHECK(strstr(made, "Name=TestMod") != NULL);
+    free(made);
+    char *ini = read_home("config/dxlauncher/launcher.ini");
+    CHECK(strstr(ini, "Profile=testmod") != NULL);
+    free(ini);
+    char *sys_path = home_file("config/dxlauncher/profiles/testmod/DeusEx.ini");
+    dxl_ini *sys = dxl_ini_load(sys_path, NULL);
+    snprintf(want, sizeof want, "%s/System/*.u", real ? real : dir);
+    CHECK_STR(value(sys, "Core.System", "Paths"), want);
+    CHECK_STR(value(sys, "URL", "Class"), "TestMod.ModPlayer");
+    dxl_ini_free(sys);
+    free(sys_path);
+    char *save = home_file("data/dxlauncher/profiles/testmod/Save/Save0001/SaveInfo.dxs");
+    CHECK(access(save, F_OK) == 0);
+    free(save);
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "profile testmod made from") != NULL);
+    CHECK(strstr(log, " and the mod ") != NULL);
+    free(log);
+    free(real);
+    free(dir);
+}
+
 /* The engine that starts on a save, as the fork's --version says it. */
 #define STARTS_ON_SAVES "DXL_STUB_FEATURES='userdir loadgame-url'"
 
@@ -767,6 +820,7 @@ int main(void) {
     RUN(test_pad_test);
     RUN(test_engine_and_game);
     RUN(test_profiles);
+    RUN(test_mods);
     RUN(test_big_screen);
     RUN(test_multiplayer);
     RUN(test_continue);

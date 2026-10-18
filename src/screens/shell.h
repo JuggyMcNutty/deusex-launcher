@@ -71,6 +71,7 @@ typedef enum {
     DXL_PAGE_SAVES,
     DXL_PAGE_SHOTS,
     DXL_PAGE_SERVERS,
+    DXL_PAGE_MODS,
     DXL_PAGE_COUNT
 } dxl_page;
 
@@ -119,6 +120,7 @@ typedef struct {
 /* What a folder is chosen for, by the browser or the system's dialog. */
 #define DXL_BROWSE_GAME   0   /* an install: the first run's, or the profile's from now on */
 #define DXL_BROWSE_ENGINE 1   /* the engine's: VibeEngine or SurrealEngine in it */
+#define DXL_BROWSE_MOD    2   /* a mod's: a folder with a System of its own, of packages (core/mods.h) */
 
 typedef struct {
     char  *dir;          /* the folder shown */
@@ -177,9 +179,26 @@ typedef struct dxl_shell {
     int          begin_graphics, begin_layout;
     char         begin_name[96];
     /* A profile made from the Profiles page, not a first run: the active
-     * profile before it, gone back to if it is not made. */
+     * profile before it, gone back to if it is not made; the mod it is
+     * made of, from the Mods page (dir NULL for none). */
     int          making;
     char         making_before[DXL_PROFILE_ID_MAX + 1];
+    dxl_mod      making_mod;
+
+    /* The Mods page: the mods found as it opened and those shown since,
+     * what each row says, the profile that plays each, the one chosen. */
+    dxl_mod_list mods;
+    struct {
+        char detail[600];
+        char profile[DXL_PROFILE_ID_MAX + 1];   /* the first that plays it; "" for none */
+        char profile_name[96];
+        int  profiles;
+    } mod_rows[DXL_MODS_MAX];
+    int          mod_sel;
+    /* The profile in use's mod, as Home opened: 0 none, 1 there, -1 gone;
+     * what Home says of it. */
+    int          profile_mod;
+    char         profile_mod_text[600];
 
     /* The Profiles page: each profile as the page opened, the one chosen,
      * its name as it is edited. */
@@ -450,6 +469,19 @@ void dxl_page_shots(dxl_shell *s, dxl_rect r);
 void dxl_page_shots_enter(dxl_shell *s);
 void dxl_page_servers(dxl_shell *s, dxl_rect r);
 void dxl_page_servers_enter(dxl_shell *s);
+void dxl_page_mods(dxl_shell *s, dxl_rect r);
+void dxl_page_mods_enter(dxl_shell *s);
+/* How a profile to be made begins, from its plan: the engine's drawing,
+ * and the Modern layout unless its controls are the player's own. */
+void dxl_shell_begin_defaults(dxl_shell *s);
+/* The profile of id, named name, played from now on, as the Profiles page
+ * uses one: Home, or Recovery when its last run left its Running.ini. */
+void dxl_shell_use_profile(dxl_shell *s, const char *id, const char *name);
+/* A mod's folder shown, by the browser or the system's dialog: the Mods
+ * page's, chosen. */
+void dxl_shell_mod_shown(dxl_shell *s, const dxl_mod *m);
+/* The profile in use's mod looked at again (profile_mod). */
+void dxl_shell_profile_mod(dxl_shell *s);
 /* The servers asked for again: the profile's master's, and its favourites. */
 #define DXL_SERVERS_MAX 256
 void dxl_shell_browse(dxl_shell *s);
