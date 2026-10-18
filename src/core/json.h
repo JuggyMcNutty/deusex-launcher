@@ -1,7 +1,7 @@
-/* A small JSON document model, for Surreal Engine's Settings.json.
+/* A small JSON document model, for DXEngine's Settings.json.
  *
  * The engine keeps its own settings -- renderer backend, VSync, lighting,
- * gamma, and (in our fork) the gamepad -- in a JSON file rather than in the
+ * gamma, and (in DXEngine) the gamepad -- in a JSON file rather than in the
  * game's ini. It parses that file inside a catch-all: one malformed byte and
  * every setting silently reverts to the engine default, including the 4x MSAA
  * that turns the PowerVR's output to speckle. So this module is strict on

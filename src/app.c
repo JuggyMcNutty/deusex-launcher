@@ -21,9 +21,9 @@
 
 /* Relative to the launcher's directory; run-game.sh pins HOME to <app>/home,
  * so this is where the engine looks for its settings. */
-#define DEFAULT_ENGINE_SETTINGS "home/.config/SurrealEngine/Settings.json"
+#define DEFAULT_ENGINE_SETTINGS "home/.config/DXEngine/Settings.json"
 #define DEFAULT_ENGINE_DEFAULTS "engine-settings.json.default"
-#define DEFAULT_ENGINE_LOG      "home/.config/SurrealEngine/SE-Log-LastRun.txt"
+#define DEFAULT_ENGINE_LOG      "home/.config/DXEngine/DXE-Log-LastRun.txt"
 #define DEFAULT_RUN_LOG         "run-game.log"
 
 /* The GPU probe gets this long. vkCreateInstance on the PowerVR stack takes

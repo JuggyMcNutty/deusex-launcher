@@ -24,7 +24,7 @@ uncommitted changes (the profiling hooks, say). It sends only the files whose ch
 keeps the device's copies of those in `.prev-<date-time>` (the device's clock) in the app
 directory, and checksums every file there afterwards. Nothing is ever deleted on the device:
 copying a previous copy back is a rollback (newest last; older hand-made ones are
-`.prev-<date>`). `--no-engine` leaves the engine and its `SurrealEngine.pk3` out.
+`.prev-<date>`). `--no-engine` leaves the engine and its `DXEngine.pk3` out.
 
 The app lives in `/mnt/SDCARD/App/DeusEx`, the game data in `/mnt/SDCARD/Roms/PORTS/DeusEx`
 (all 38 `.u` packages). `launcher.ini` belongs to the device's owner: `deploy` installs it only
@@ -54,7 +54,7 @@ System tab shows the engine log and `run-game.log`'s last run.
 |---|---|
 | `port.cmake` | links the device's vendor SDL2 from the sysroot; glibc ceiling 2.33 |
 | `toolchain-c.cmake`, `toolchain-cxx.cmake` | Bootlin GCC 9.3 (launcher, C11) and GCC 10.3 (engine, C++20) |
-| `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland; fullscreen as a borderless window (`VIBE_SDL2_BORDERLESS_FULLSCREEN`) |
+| `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland; fullscreen as a borderless window (`DXE_SDL2_BORDERLESS_FULLSCREEN`) |
 | `port.sh` | the device's address; `deps`, `deploy` over SSH, `profile` on the device |
 | `fetch-sysroot.sh` | the link sysroot: libraries off the device, pinned headers |
 | `target.c` | the device profile: fonts, spruceOS CPU modes, the pad note |
@@ -104,7 +104,7 @@ window system to attach to: the PowerVR stack ships only `libpvrNULL_WSEGL.so`.
 [`fetch-sysroot.sh`](fetch-sysroot.sh) (run by `deps`) copies the device's own libraries into
 `deps/sysroots/trimui-smartpro/lib` and fetches the headers to build against, pinned (SDL
 2.30.8, SDL_ttf 2.0.15; Vulkan, EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's
-two EGL extension headers). Vulkan is not linked: SurrealGPU loads the loader through
+two EGL extension headers). Vulkan is not linked: DXGPU loads the loader through
 volk, and the launcher's GPU probe `dlopen`s it and EGL, so a device without either still
 starts the launcher.
 
@@ -123,7 +123,7 @@ spruceOS's apps do, then puts its own library path first; `run-game.sh` puts the
 
 ### Engine settings
 
-The launcher writes the app directory's `home/.config/SurrealEngine/Settings.json` before a
+The launcher writes the app directory's `home/.config/DXEngine/Settings.json` before a
 launch ([where the settings live](../../docs/LAUNCHER.md#where-the-settings-actually-live)),
 filling missing fields from `engine-settings.json.default`. This port's values:
 `Antialias: Off`, non-negotiable, as the GE8300's resolve turns partially covered pixels into
@@ -218,7 +218,7 @@ is timed).
 Vulkan at native 1280x720 at the level start, from `15392c0`'s runs, in ms, by the frame-time
 hooks and the device's CPU samples, with what is left in each area. The GPU draws the previous
 frame while the input, tick and view run
-([the Vulkan device](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)),
+([the Vulkan device](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)),
 and its time is the longer at both resolutions: ~54 at native and ~29 at 853x480, against their
 ~23. So **a frame is about the render CPU plus the GPU's time**: render-CPU and GPU savings
 count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (~50 ms) at
@@ -237,7 +237,7 @@ the GPU's ~54 well under ~50.
     frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: a measurement on the current
     engine, whose walking, swimming and flying pawns and anything falling take the tick at once,
     as the original's, without `TryStepToGround`
-    ([game tick](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#game-tick));
+    ([game tick](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#game-tick));
   - collision traces ~3.7 (`TraceTester::Trace`; `TraceAABBModel::Trace` ~1.4 and the sight
     rays' `NodeRayIntersect` ~0.9 of own time);
   - the player's own tick ~2.9: the ladder probe (`DeusExLadder`) ~1.4 and its floor and wall
@@ -252,7 +252,7 @@ the GPU's ~54 well under ~50.
     (`ProcessNodeSurface` ~3.3, `ProcessNode` ~2.3, cache misses), `DrawPolygon` ~1.8,
     `DrawSpan` ~1.5, `IsAABBVisible` ~1.4, the frustum test ~0.7. Left: the walk's memory; the
     occlusion grid's rows a cache line each, no gain on the desktop
-    ([against the original](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#against-the-original)),
+    ([against the original](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#against-the-original)),
     is untried here;
   - actor meshes ~6.4 for ~44 in view: `DrawLodMeshFaceDX` ~3.2 and the vertex lighting
     `GetVertexLight` ~0.9 of own time;
@@ -269,14 +269,14 @@ the GPU's ~54 well under ~50.
 - **Lightmaps ~0.4, texture uploads ~0.3.** The `BarrelFire`, a dynamic light with the fire
   waver effect, rebuilds its 6 lightmaps every frame, built, converted and sent only where its
   light reaches
-  ([lighting](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lighting)).
+  ([lighting](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#lighting)).
   In Battery Park, its one volumetric light rebuilds some 60 fog maps a frame (~72,000 texels),
   each sent whole: texture uploads ~1.7 there. Left: a measurement on the current engine, whose
   fog maps are the original's, only with the viewer's zone and the surface's both fog zones;
   then the fog maps only where a fog light reaches.
 - **GPU**, the time above: the render's wait plus the input, tick and view it overlaps. CPU and
   GPU compete for the SoC's shared memory.
-- **`view+audio` ~3** is mostly `USurrealAudioDevice::StartAmbience` reading every actor's
+- **`view+audio` ~3** is mostly `UDXEngineAudioDevice::StartAmbience` reading every actor's
   `AmbientSound` each frame (~2.5). The original does the same scan every frame
   ([each frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)):
   nothing to port.
@@ -285,18 +285,18 @@ the GPU's ~54 well under ~50.
 (the table above): the GL driver's time lands in its render CPU, ~53 against Vulkan's ~38 there
 less its GPU wait, and is not overlapped by the tick. The GL device's workarounds for this
 driver: ENGINE.md's
-[rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)
+[rendering](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)
 and, for fullscreen,
-[running on our devices](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices).
+[running on our devices](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices).
 
 ### Measuring
 
-Build the engine with the frame-time hooks (`vibe/tools/perf/perf.sh on` applies VibeEngine's
-`vibe/tools/perf/perf-instrumentation.patch`;
-[the profiling hooks](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#the-profiling-hooks)),
+Build the engine with the frame-time hooks (`tools/perf/perf.sh on` applies DXEngine's
+`tools/perf/perf-instrumentation.patch`;
+[the profiling hooks](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#the-profiling-hooks)),
 deploy, and run `scripts/dx.sh profile trimui-smartpro [seconds] [label] [cpu] [turn] [map]`.
 That runs [`tools/profile-map.sh`](tools/profile-map.sh) on the device (its header documents the
-arguments, `SHOT`, `SAMPLE` and `SURREAL_PERF_DETAIL`) and brings back
+arguments, `SHOT`, `SAMPLE` and `DXE_PERF_DETAIL`) and brings back
 `build/trimui-smartpro/profile/perf-<label>.log`: the frame split into input, tick, render CPU,
 GPU wait, lightmaps and texture uploads, the render CPU by section, the visibility pass by part,
 and the time under script calls.
@@ -308,20 +308,20 @@ resolution, set `RenderScale` there for the run and put the owner's value back a
 
 `SAMPLE=1` also brings back samples of the main thread's CPU (4 ms apart) and the engine that
 made them, for
-[`vibe/tools/perf/sample-report.py`](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/tools/perf/sample-report.py):
+[`tools/perf/sample-report.py`](https://github.com/JuggyMcNutty/DXEngine/blob/main/tools/perf/sample-report.py):
 
 ```sh
 # from the parent folder of Port Ex Machina's repositories
 SAMPLE=1 port-ex-machina/scripts/dx.sh profile trimui-smartpro 90 mylabel
 NM=deps/toolchains/aarch64--glibc--bleeding-edge-2021.05-1/bin/aarch64-linux-nm \
-    VibeEngine/vibe/tools/perf/sample-report.py build/trimui-smartpro/profile/samples-mylabel \
+    DXEngine/tools/perf/sample-report.py build/trimui-smartpro/profile/samples-mylabel \
     build/trimui-smartpro/profile/samples-mylabel.engine --sysroot deps/sysroots/trimui-smartpro \
     --root ULevel::Tick
 ```
 
 A profile stops the engine with SIGKILL; started without the launcher, it leaves no
 `Running.ini`
-([running it](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-it)).
+([running it](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-it)).
 
 ## Gotchas
 

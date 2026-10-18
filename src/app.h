@@ -32,7 +32,7 @@ typedef struct {
     char *system_dir;     /* <game_dir>/System, case-resolved */
     char *package;        /* "DeusEx" -- names the ini and the log */
     char *game_command;   /* what to exec once configuration is settled */
-    char *engine_log;     /* the engine's SE-Log-LastRun.txt */
+    char *engine_log;     /* the engine's DXE-Log-LastRun.txt */
     char *run_log;        /* run-game.sh's log, with the engine's exit codes */
 
     char *cmdline;        /* argv[1..] joined */
@@ -96,7 +96,7 @@ void dxl_app_bind(dxl_app *app, const char *joy_key, const char *command);
 const char *dxl_app_cpu_mode(const dxl_app *app);
 void        dxl_app_set_cpu_mode(dxl_app *app, const char *mode);
 
-/* Deletes and rebuilds DeusEx.ini/User.ini (and the engine's SE- copies)
+/* Deletes and rebuilds DeusEx.ini/User.ini (and the engine's DXE- copies)
  * from Default.ini/DefUser.ini, keeping FirstRun. */
 int  dxl_app_reset_game_config(dxl_app *app, dxl_err *err);
 

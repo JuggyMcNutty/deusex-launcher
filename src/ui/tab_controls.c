@@ -2,7 +2,7 @@
  *
  * The layout is User.ini's Joy* bindings (core/bindings.c); the feel -- dead
  * zone, look speed, invert, menu cursor speed -- is Settings.json's Gamepad
- * block, read by the fork's controller support.
+ * block, read by DXEngine's controller support.
  */
 #include "screens_internal.h"
 

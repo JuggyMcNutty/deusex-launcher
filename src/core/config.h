@@ -5,12 +5,12 @@
  *
  *   <Package>.ini   DeusEx.ini. The launcher's own contract keys live here
  *                   ([FirstRun], CdPath) exactly as dx-reverse-info/ini-keys.md says.
- *   SE-<Package>.ini
- *                   Surreal Engine writes this on its first clean exit and
+ *   DXE-<Package>.ini
+ *                   DXEngine writes this on its first clean exit and
  *                   from then on reads *only* it, with client settings under
- *                   [Engine.SurrealClient] instead of [WinDrv.WindowsClient].
- *   SE-User.ini / User.ini
- *                   Key and pad bindings; SE-User.ini wins once it exists.
+ *                   [Engine.DXEngineClient] instead of [WinDrv.WindowsClient].
+ *   DXE-User.ini / User.ini
+ *                   Key and pad bindings; DXE-User.ini wins once it exists.
  *
  * So engine-facing settings (brightness, decals, bindings) go through the
  * "client" and "user" accessors below, which pick the file the engine will
@@ -66,7 +66,7 @@ dxl_ini    *dxl_config_client_ini(dxl_config *c);
 const char *dxl_config_client_section(const dxl_config *c);
 const char *dxl_config_client_path(const dxl_config *c);
 
-/* The ini the engine reads bindings from (SE-User.ini, else User.ini). NULL
+/* The ini the engine reads bindings from (DXE-User.ini, else User.ini). NULL
  * only when neither exists and there is no DefUser.ini to create one from. */
 dxl_ini    *dxl_config_user_ini(dxl_config *c);
 const char *dxl_config_user_path(const dxl_config *c);
@@ -80,13 +80,13 @@ const char *dxl_config_render_device(const dxl_config *c);
 const char *dxl_config_cd_path(const dxl_config *c);
 const char *dxl_config_game_engine(const dxl_config *c);
 
-/* Client settings the engine honours (USurrealClient). Brightness is 0..1. */
+/* Client settings the engine honours (UDXEngineClient). Brightness is 0..1. */
 double dxl_config_brightness(dxl_config *c);
 void   dxl_config_set_brightness(dxl_config *c, double v);
 int    dxl_config_decals(dxl_config *c);
 void   dxl_config_set_decals(dxl_config *c, int on);
 
-/* Deletes SE-<package>.ini, SE-User.ini, <package>.ini and User.ini, so the
+/* Deletes DXE-<package>.ini, DXE-User.ini, <package>.ini and User.ini, so the
  * next dxl_config_open rebuilds all of it from Default.ini and DefUser.ini.
  * Refuses (returns -1, deleting nothing) when Default.ini is missing, since
  * there would be nothing to rebuild from. */

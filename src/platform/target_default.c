@@ -7,7 +7,7 @@
 
 static const dxl_target generic = {
     .id      = "generic",
-    .about   = "Port Ex Machina: a Deus Ex launcher, running Surreal Engine.",
+    .about   = "Port Ex Machina: a Deus Ex launcher, running DXEngine.",
     .fonts   = NULL,
     .panel_w = 1280,
     .panel_h = 720,

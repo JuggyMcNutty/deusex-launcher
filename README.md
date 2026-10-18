@@ -5,7 +5,7 @@ This branch is the launcher of
 for the TrimUI Smart Pro under spruceOS, run in place of Deus Ex's
 `System/DeusEx.exe`: a tabbed home screen, for the handheld's pad or a
 keyboard, that writes the configuration the engine reads and hands over to
-[VibeEngine](https://github.com/JuggyMcNutty/VibeEngine). Made with AI
+[DXEngine](https://github.com/JuggyMcNutty/DXEngine). Made with AI
 assistance.
 
 You need your own copy of Deus Ex (version 1112fm); none of the game's files

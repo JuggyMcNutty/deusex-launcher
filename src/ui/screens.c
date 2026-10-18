@@ -175,7 +175,7 @@ int last_engine_error(const dxl_app *app, char *out, size_t n) {
     while (*p) {
         const char *eol = strchr(p, '\n');
         size_t len = eol ? (size_t)(eol - p) : strlen(p);
-        /* The engine reports "SurrealEngine error: <what>"; the launcher's
+        /* The engine reports "DXEngine error: <what>"; the launcher's
          * own script says "... missing -- nothing to launch". */
         const char *e = dxl_stristr(p, "error:");
         if (e && e < p + len) {

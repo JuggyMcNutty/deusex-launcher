@@ -29,7 +29,7 @@ port_deploy() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --run)       run=1; shift ;;
-            --no-engine) skip+=(./SurrealEngine ./SurrealEngine.pk3); shift ;;
+            --no-engine) skip+=(./DXEngine ./DXEngine.pk3); shift ;;
             --)          shift; args=("$@"); break ;;
             *)           die "unknown option: $1" ;;
         esac
@@ -37,13 +37,13 @@ port_deploy() {
     local d="$DEVICE_APPDIR"
     say "deploying $APP to $DEVICE_USER@$DEVICE:$d ..."
     dx_ssh_sync "$APP" "$d" "${skip[@]}"
-    dx_ssh "chmod +x '$d'/deusex-launcher '$d'/dxl-cli '$d'/*.sh && { [ ! -f '$d/SurrealEngine' ] || chmod +x '$d/SurrealEngine'; }"
+    dx_ssh "chmod +x '$d'/deusex-launcher '$d'/dxl-cli '$d'/*.sh && { [ ! -f '$d/DXEngine' ] || chmod +x '$d/DXEngine'; }"
     dx_ssh "[ -s '$d/launcher.ini' ] || cp '$d/launcher.ini.default' '$d/launcher.ini'"
     # MSAA must be off on the PowerVR GE8300 (speckle). The launcher writes
     # Settings.json before a launch when it is missing, incomplete or changed,
     # and run-game.sh seeds it; this is the last fallback, for an engine run by
     # hand.
-    dx_ssh "[ -s '$d/home/.config/SurrealEngine/Settings.json' ] || { mkdir -p '$d/home/.config/SurrealEngine'; cp '$d/engine-settings.json.default' '$d/home/.config/SurrealEngine/Settings.json'; }"
+    dx_ssh "[ -s '$d/home/.config/DXEngine/Settings.json' ] || { mkdir -p '$d/home/.config/DXEngine'; cp '$d/engine-settings.json.default' '$d/home/.config/DXEngine/Settings.json'; }"
     say "done"
     if [ "$run" = 1 ]; then
         say "--- running ---"
@@ -54,30 +54,30 @@ port_deploy() {
 #   scripts/dx.sh profile trimui-smartpro [seconds] [label] [cpu] [turn] [map]
 #
 # Runs tools/profile-map.sh on the device (its arguments; the engine there must
-# be a `vibe/tools/perf/perf.sh on` build) and prints its summary. The script is
+# be a `tools/perf/perf.sh on` build) and prints its summary. The script is
 # copied over every time: the device's /tmp does not survive a reboot. The whole
 # log comes back as build/trimui-smartpro/profile/perf-<label>.log. SHOT,
-# SAMPLE and SURREAL_PERF_DETAIL pass through; with SHOT the screen comes back
+# SAMPLE and DXE_PERF_DETAIL pass through; with SHOT the screen comes back
 # as fb-<label>.png beside it (needs ImageMagick), with SAMPLE=1 the CPU
 # samples as samples-<label> and samples-<label>.maps, for
-# vibe/tools/perf/sample-report.py, with the engine that made them as
+# tools/perf/sample-report.py, with the engine that made them as
 # samples-<label>.engine: a sample is an address in one particular build.
 port_profile() {
     local label="${2:-run}" out="$BUILD/profile"
     mkdir -p "$out"
     dx_ssh "mkdir -p /tmp/dxl-test && cat > /tmp/dxl-test/profile-map.sh && chmod +x /tmp/dxl-test/profile-map.sh" \
         < "$PORT_DIR/tools/profile-map.sh"
-    dx_ssh "SHOT='${SHOT:-}' SAMPLE='${SAMPLE:-}' SURREAL_PERF_DETAIL='${SURREAL_PERF_DETAIL:-}' /tmp/dxl-test/profile-map.sh $*"
+    dx_ssh "SHOT='${SHOT:-}' SAMPLE='${SAMPLE:-}' DXE_PERF_DETAIL='${DXE_PERF_DETAIL:-}' /tmp/dxl-test/profile-map.sh $*"
     dx_ssh "cat /tmp/dxl-test/perf-$label.log" > "$out/perf-$label.log" && say "log: $out/perf-$label.log"
     if [ "${SAMPLE:-}" = 1 ]; then
         dx_ssh "cat /tmp/dxl-test/samples-$label" > "$out/samples-$label" &&
             dx_ssh "cat /tmp/dxl-test/samples-$label.maps" > "$out/samples-$label.maps" &&
-            say "samples: $out/samples-$label (vibe/tools/perf/sample-report.py)"
+            say "samples: $out/samples-$label (tools/perf/sample-report.py)"
         local ran staged
-        ran=$(dx_ssh "md5sum '$DEVICE_APPDIR/SurrealEngine'" | awk '{ print $1 }')
-        staged=$(md5sum "$APP/SurrealEngine" | awk '{ print $1 }')
+        ran=$(dx_ssh "md5sum '$DEVICE_APPDIR/DXEngine'" | awk '{ print $1 }')
+        staged=$(md5sum "$APP/DXEngine" | awk '{ print $1 }')
         if [ -n "$ran" ] && [ "$ran" = "$staged" ]; then
-            cp "$APP/SurrealEngine" "$out/samples-$label.engine" && say "engine that ran: $out/samples-$label.engine"
+            cp "$APP/DXEngine" "$out/samples-$label.engine" && say "engine that ran: $out/samples-$label.engine"
         else
             say "warning: the device's engine is not the staged build -- symbolise with the build that ran"
         fi

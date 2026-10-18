@@ -13,7 +13,7 @@ const char *const dxl_joy_keys[DXL_JOY_KEY_COUNT] = {
 
 /* Joy numbering follows the XInput order UE1 ports conventionally use
  * (A=Joy1 ... R3=Joy10), with the triggers as Joy11/Joy12 when pressed past
- * half travel. The fork's SDL2 backend produces exactly these. */
+ * half travel. DXEngine's SDL2 backend produces exactly these. */
 static const struct { const char *key, *label; } physical[] = {
     { "Joy1", "A" },            { "Joy2", "B" },
     { "Joy3", "X" },            { "Joy4", "Y" },

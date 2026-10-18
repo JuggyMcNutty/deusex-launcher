@@ -4,7 +4,7 @@
 # The launcher has already settled configuration (Settings.json, the game's
 # ini files, FirstRun) and created the crash sentinel, and it chdir's to
 # GameDir before exec'ing this script. Everything here is about starting
-# Surreal Engine and honouring the sentinel contract on the way out.
+# DXEngine and honouring the sentinel contract on the way out.
 #
 # A port adjusts this through port-hooks.sh beside it (see Port Ex Machina's docs/PORTING.md):
 #   PORT_LIB_PATH       extra library directories, searched after the app dir
@@ -25,24 +25,24 @@ port_after_game()  { :; }
 # APPDIR first: a library shipped beside the engine wins over the system's.
 export LD_LIBRARY_PATH="$APPDIR${PORT_LIB_PATH:+:$PORT_LIB_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-# The engine reads Settings.json and writes SE-Log-LastRun.txt under
-# $HOME/.config/SurrealEngine. Pin HOME to the app directory so both live
+# The engine reads Settings.json and writes DXE-Log-LastRun.txt under
+# $HOME/.config/DXEngine. Pin HOME to the app directory so both live
 # where the launcher looks for them (and are readable over SSH on a device),
 # instead of wherever HOME points.
 export HOME="$APPDIR/home"
-mkdir -p "$HOME/.config/SurrealEngine"
+mkdir -p "$HOME/.config/DXEngine"
 
 # The launcher writes Settings.json before a launch when it is missing,
 # incomplete or changed; this seed only matters when something runs the
 # script without it. Without the file the engine falls back to its own
 # defaults, 4x MSAA included.
-if [ ! -s "$HOME/.config/SurrealEngine/Settings.json" ]; then
-    cp "$APPDIR/engine-settings.json.default" "$HOME/.config/SurrealEngine/Settings.json"
+if [ ! -s "$HOME/.config/DXEngine/Settings.json" ]; then
+    cp "$APPDIR/engine-settings.json.default" "$HOME/.config/DXEngine/Settings.json"
 fi
 
 # SDL2: the one display backend this port's engine is built with
 # (engine.cmake), the one with the pad.
-export SURREALWIDGETS_DISPLAY_BACKEND="${SURREALWIDGETS_DISPLAY_BACKEND:-SDL2}"
+export DXE_DISPLAY_BACKEND="${DXE_DISPLAY_BACKEND:-SDL2}"
 
 port_env
 
@@ -52,14 +52,14 @@ port_env
     echo "args:    $*"
 } >> "$LOG"
 
-if [ ! -x "$APPDIR/SurrealEngine" ]; then
-    echo "SurrealEngine binary missing -- nothing to launch" >> "$LOG"
+if [ ! -x "$APPDIR/DXEngine" ]; then
+    echo "DXEngine binary missing -- nothing to launch" >> "$LOG"
     exit 127
 fi
 
 port_before_game
 
-"$APPDIR/SurrealEngine" --no-launcher "$GAMEDIR" "$@" >> "$LOG" 2>&1
+"$APPDIR/DXEngine" --no-launcher "$GAMEDIR" "$@" >> "$LOG" 2>&1
 status=$?
 echo "engine exit: $status" >> "$LOG"
 

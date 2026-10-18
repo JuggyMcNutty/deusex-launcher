@@ -28,7 +28,7 @@ static const dxl_cpu_mode_info cpu_modes[] = {
 
 static const dxl_target smartpro = {
     .id      = "trimui-smartpro",
-    .about   = "Port Ex Machina: a Deus Ex launcher for spruceOS, running Surreal Engine.",
+    .about   = "Port Ex Machina: a Deus Ex launcher for spruceOS, running DXEngine.",
     .fonts   = fonts,
     .panel_w = 1280,
     .panel_h = 720,

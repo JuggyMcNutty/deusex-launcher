@@ -1,14 +1,14 @@
 #!/bin/sh
 # Frame-time profile of one map, on the handheld.
 #
-# Needs an engine built with VibeEngine's vibe/tools/perf/perf-instrumentation.patch
+# Needs an engine built with DXEngine's tools/perf/perf-instrumentation.patch
 # applied (the hooks are temporary and never committed -- see the patch header
 # comments). From the Port Ex Machina workspace's root:
 #
-#   ../VibeEngine/vibe/tools/perf/perf.sh on
+#   ../DXEngine/tools/perf/perf.sh on
 #   scripts/dx.sh deploy trimui-smartpro      (builds and stages it too)
 #   scripts/dx.sh profile trimui-smartpro [seconds] [label] [cpu] [turn] [map]
-#   ../VibeEngine/vibe/tools/perf/perf.sh off
+#   ../DXEngine/tools/perf/perf.sh off
 #   scripts/dx.sh deploy trimui-smartpro
 #
 # dx.sh profile copies this script to the device's /tmp/dxl-test (a reboot
@@ -30,11 +30,11 @@
 # The engine runs with the device's own Settings.json, and the log's settings:
 # line records its render scale.
 #
-# SURREAL_PERF_DETAIL=1 in the environment adds tick by actor class and script
+# DXE_PERF_DETAIL=1 in the environment adds tick by actor class and script
 # functions by self time; those hooks slow what they measure. SAMPLE=1 samples
 # the main thread's CPU (asked for every millisecond; the device's
 # tick gives one every 4 ms) into /tmp/dxl-test/samples-<label>
-# (and .maps), for vibe/tools/perf/sample-report.py on the PC. SHOT=<seconds>
+# (and .maps), for tools/perf/sample-report.py on the PC. SHOT=<seconds>
 # (a multiple of 5) saves the screen at that point to
 # /tmp/dxl-test/fb-<label>.gz -- the raw framebuffer, gzipped; its first
 # 1280x720 is BGRA (magick -size 1280x720 -depth 8 bgra:fb -alpha off out.png).
@@ -62,14 +62,14 @@ fi
 C=/sys/devices/system/cpu
 echo "cpu: online=$(cat $C/online) gov=$(cat $C/cpu0/cpufreq/scaling_governor) max=$(cat $C/cpu0/cpufreq/scaling_max_freq) map=$MAP" >> $OUT
 # The engine runs with the device's own Settings.json: record what changes the frame.
-echo "settings: $(grep -E '"RenderScale"' $APPDIR/home/.config/SurrealEngine/Settings.json | tr -d ' ",' | tr '\n' ' ')" >> $OUT
+echo "settings: $(grep -E '"RenderScale"' $APPDIR/home/.config/DXEngine/Settings.json | tr -d ' ",' | tr '\n' ' ')" >> $OUT
 cd /mnt/SDCARD/Roms/PORTS/DeusEx || exit 1
 export HOME=$APPDIR/home
 export LD_LIBRARY_PATH=$APPDIR:/usr/trimui/lib:/usr/lib:/lib
-export SURREALWIDGETS_DISPLAY_BACKEND=SDL2 SURREAL_PERF_LOG=1 SURREAL_PERF_TURN=$TURN
+export DXE_DISPLAY_BACKEND=SDL2 DXE_PERF_LOG=1 DXE_PERF_TURN=$TURN
 rm -f /tmp/dxl-test/samples-$LABEL /tmp/dxl-test/samples-$LABEL.maps
-[ "${SAMPLE:-}" = 1 ] && export SURREAL_PERF_SAMPLE=/tmp/dxl-test/samples-$LABEL
-setsid $APPDIR/SurrealEngine --no-launcher /mnt/SDCARD/Roms/PORTS/DeusEx "--url=$MAP" </dev/null >>$OUT 2>&1 &
+[ "${SAMPLE:-}" = 1 ] && export DXE_PERF_SAMPLE=/tmp/dxl-test/samples-$LABEL
+setsid $APPDIR/DXEngine --no-launcher /mnt/SDCARD/Roms/PORTS/DeusEx "--url=$MAP" </dev/null >>$OUT 2>&1 &
 PID=$!
 i=0
 while [ $i -lt "$SECS" ]; do
@@ -79,6 +79,6 @@ while [ $i -lt "$SECS" ]; do
 done
 kill -9 $PID 2>/dev/null
 sleep 1
-echo "engines left: $(pidof SurrealEngine | wc -w)" >> $OUT
+echo "engines left: $(pidof DXEngine | wc -w)" >> $OUT
 cpu_after
 grep -E "^cpu|^settings|^perf:|engines left" $OUT

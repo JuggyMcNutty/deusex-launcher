@@ -1,9 +1,9 @@
-/* Surreal Engine's own settings: <HOME>/.config/SurrealEngine/Settings.json.
+/* DXEngine's own settings: <HOME>/.config/DXEngine/Settings.json.
  *
  * This file, not DeusEx.ini, is where the engine takes its renderer from:
- * Surreal Engine overrides [Engine.Engine] GameRenderDevice with its own
+ * DXEngine overrides [Engine.Engine] GameRenderDevice with its own
  * device class (Engine.cpp, "Override the ini file for things that are
- * internal in Surreal Engine") and reads RenderDevice.Type from here instead.
+ * internal in DXEngine") and reads RenderDevice.Type from here instead.
  * So everything the launcher offers about rendering lands in this file.
  *
  * Every field is described by a table entry -- its JSON location, kind,
@@ -36,7 +36,7 @@ typedef enum {
     DXL_ES_HDR_SCALE,
     DXL_ES_GAMMA_SCREENSHOTS,
     DXL_ES_DEBUG_LAYER,
-    /* Gamepad -- read by the fork's controller support */
+    /* Gamepad -- read by DXEngine's controller support */
     DXL_ES_PAD_ENABLED,
     DXL_ES_PAD_DEADZONE,
     DXL_ES_PAD_LOOK_X,
@@ -44,7 +44,7 @@ typedef enum {
     DXL_ES_PAD_INVERT_Y,
     DXL_ES_PAD_CURSOR_SPEED,
     DXL_ES_PAD_LAYOUT,          /* which preset the launcher last applied */
-    /* Performance -- the fork's speed-for-fidelity choices */
+    /* Performance -- DXEngine's speed-for-fidelity choices */
     DXL_ES_RENDER_SCALE,        /* the scene's size as a fraction of the window's */
     DXL_ES_FIELD_COUNT
 } dxl_es_field;

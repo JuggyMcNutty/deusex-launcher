@@ -1,8 +1,8 @@
-/* Video: the renderer, and the Surreal Engine render options that do
+/* Video: the renderer, and the DXEngine render options that do
  * something on this device.
  *
  * The original's Detail page offered sound quality, skin and world texture
- * detail and a 640x480 mode. Surreal Engine reads none of those -- its
+ * detail and a 640x480 mode. DXEngine reads none of those -- its
  * renderer ignores TextureDetail/SkinDetail and its mixer ignores the Galaxy
  * quality keys -- so they are gone. What is here is what the engine's render
  * device and client actually consume, and each help line says what it does
@@ -223,7 +223,7 @@ static const dxl_row rows[] = {
     { .label = "Gamma curve", .value = es_value, .step = es_step, .reset = es_reset,
       .describe = gamma_describe, .arg = DXL_ES_GAMMA, .choice_labels = gamma_labels },
     { .label = "Bloom",
-      .help = "A soft glow around bright lights, added by Surreal Engine. Costs GPU time, "
+      .help = "A soft glow around bright lights, added by DXEngine. Costs GPU time, "
               "which a handheld rarely has to spare.",
       .value = es_value, .step = es_step, .reset = es_reset, .arg = DXL_ES_BLOOM },
     { .label = "Bloom strength",

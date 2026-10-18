@@ -1,9 +1,8 @@
 /* System: what went wrong, and ways to put it right.
  *
  * This replaces the original's safe mode. Its eight checkboxes became flags
- * on a relaunch (-nosound, -nohard -noddraw, -defaultres, ...), which Surreal
- * Engine honoured none of when the page was dropped; the fork reads four of
- * them since, but only from the original's line (--cmdline=), which the
+ * on a relaunch (-nosound, -nohard -noddraw, -defaultres, ...), which DXEngine
+ * honoured none of when the page was dropped; it reads four of them since, but only from the original's line (--cmdline=), which the
  * ports' run-game.sh does not pass -- so here they would still be buttons
  * that do nothing (docs/LAUNCHER.md, row 1). What actually recovers a broken
  * install here is below: the engine's own log, clearing the crash marker,
@@ -117,8 +116,8 @@ static void do_reset_game(dxl_session *s) {
 }
 static void reset_game(dxl_session *s, const dxl_row *r) {
     open_confirm(s, "Reset game configuration?",
-                 "Deletes DeusEx.ini and User.ini, and the engine's SE-DeusEx.ini and "
-                 "SE-User.ini, then rebuilds them from Default.ini and DefUser.ini. Options "
+                 "Deletes DeusEx.ini and User.ini, and the engine's DXE-DeusEx.ini and "
+                 "DXE-User.ini, then rebuilds them from Default.ini and DefUser.ini. Options "
                  "set in the game and all key bindings return to their defaults. Saved "
                  "games are not touched.", "Delete and rebuild", do_reset_game);
 }
@@ -154,7 +153,7 @@ static void version_describe(dxl_session *s, const dxl_row *r, char *out, size_t
 static const dxl_row rows[] = {
     { .label = "Last run", .value = last_run_value, .describe = last_run_describe },
     { .label = "Engine log",
-      .help = "The end of Surreal Engine's log and of the launch script's, to read what "
+      .help = "The end of DXEngine's log and of the launch script's, to read what "
               "happened without a terminal.",
       .activate = log_activate },
     { .label = "Clear crash marker",

@@ -1,7 +1,7 @@
 # Cross-compile C++20 for the TrimUI Smart Pro: the engine (engine.cmake).
 #
 # Separate from toolchain-c.cmake because the launcher is C11 on a GCC 9.3
-# toolchain, while Surreal Engine needs C++20. Both must stay at or below the
+# toolchain, while DXEngine needs C++20. Both must stay at or below the
 # device's glibc 2.33:
 #
 #   Bootlin bleeding-edge 2021.05-1 -- GCC 10.3, glibc 2.33 (exact match)

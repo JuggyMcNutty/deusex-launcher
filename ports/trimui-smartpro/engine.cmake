@@ -1,4 +1,4 @@
-# Initial cache for Surreal Engine on the Smart Pro (scripts/engine.sh build).
+# Initial cache for DXEngine on the Smart Pro (scripts/engine.sh build).
 #
 # SDL2 only: the vendor SDL2 is the one display path on the device, and there
 # is no X11, no Wayland compositor and no desktop GL. The toolchain links
@@ -14,4 +14,4 @@ set(ENABLE_X11     OFF CACHE BOOL "" FORCE)
 set(ENABLE_WAYLAND OFF CACHE BOOL "" FORCE)
 # Fullscreen as a borderless window covering the display: the vendor SDL2
 # deadlocks switching a GL window with SDL_SetWindowFullscreen.
-set(VIBE_SDL2_BORDERLESS_FULLSCREEN ON CACHE BOOL "" FORCE)
+set(DXE_SDL2_BORDERLESS_FULLSCREEN ON CACHE BOOL "" FORCE)

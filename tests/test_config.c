@@ -162,7 +162,7 @@ static char *empty_dir(const char *tag) {
 
 static void scrub_all(const char *dir) {
     static const char *names[] = { "DeusEx.ini", "Default.ini", "User.ini", "DefUser.ini",
-                                   "SE-DeusEx.ini", "SE-User.ini", "Running.ini" };
+                                   "DXE-DeusEx.ini", "DXE-User.ini", "Running.ini" };
     for (size_t i = 0; i < sizeof names / sizeof *names; i++) {
         char p[640];
         snprintf(p, sizeof p, "%s/%s", dir, names[i]);
@@ -218,7 +218,7 @@ static void test_stub_ini_is_rebuilt_keeping_its_values(void) {
     scrub_all(dir);
 }
 
-/* Once the engine has written SE-DeusEx.ini it reads only that, with client
+/* Once the engine has written DXE-DeusEx.ini it reads only that, with client
  * settings under its own section. Writing DeusEx.ini would change nothing. */
 static void test_client_settings_follow_the_engine_file(void) {
     char *dir = scratch_install("client");
@@ -228,9 +228,9 @@ static void test_client_settings_follow_the_engine_file(void) {
     CHECK_STR(dxl_ini_get(dxl_config_ini(c), "WinDrv.WindowsClient", "Brightness"), "0.750000");
     dxl_config_free(c);
 
-    put_file(dir, "SE-DeusEx.ini", "[Engine.SurrealClient]\nBrightness=0.500000\nDecals=True\n");
+    put_file(dir, "DXE-DeusEx.ini", "[Engine.DXEngineClient]\nBrightness=0.500000\nDecals=True\n");
     c = dxl_config_open(dir, "DeusEx");
-    CHECK_STR(dxl_config_client_section(c), "Engine.SurrealClient");
+    CHECK_STR(dxl_config_client_section(c), "Engine.DXEngineClient");
     CHECK(dxl_config_brightness(c) > 0.49 && dxl_config_brightness(c) < 0.51);
     dxl_config_set_brightness(c, 0.9);
     dxl_config_set_decals(c, 0);
@@ -263,11 +263,11 @@ static void test_user_ini_prefers_the_engine_copy(void) {
     snprintf(p, sizeof p, "%s/User.ini", dir);
     CHECK(access(p, F_OK) == 0);
 
-    /* SE-User.ini wins once it exists. */
-    put_file(dir, "SE-User.ini", "[Engine.Input]\nJoy1=Jump\n");
+    /* DXE-User.ini wins once it exists. */
+    put_file(dir, "DXE-User.ini", "[Engine.Input]\nJoy1=Jump\n");
     c = dxl_config_open(dir, "DeusEx");
     CHECK_STR(dxl_ini_get(dxl_config_user_ini(c), "Engine.Input", "Joy1"), "Jump");
-    CHECK(strstr(dxl_config_user_path(c), "SE-User.ini") != NULL);
+    CHECK(strstr(dxl_config_user_path(c), "DXE-User.ini") != NULL);
     dxl_config_free(c);
     scrub_all(dir);
 }
@@ -276,8 +276,8 @@ static void test_reset_deletes_and_rebuilds(void) {
     char *dir = empty_dir("reset");
     copy_fixture(dir, "Default.ini", "Default.ini");
     copy_fixture(dir, "DefUser.ini", "DefUser.ini");
-    put_file(dir, "SE-DeusEx.ini", "[Engine.SurrealClient]\nBrightness=0.1\n");
-    put_file(dir, "SE-User.ini", "[Engine.Input]\nJoy1=Jump\n");
+    put_file(dir, "DXE-DeusEx.ini", "[Engine.DXEngineClient]\nBrightness=0.1\n");
+    put_file(dir, "DXE-User.ini", "[Engine.Input]\nJoy1=Jump\n");
 
     dxl_err e;
     CHECK_INT(dxl_config_reset_files(dir, "DeusEx", &e), 0);

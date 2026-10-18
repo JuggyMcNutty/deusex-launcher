@@ -15,14 +15,14 @@ It keeps part of the original, which `main` recreates
 
 ## Where the settings actually live
 
-Surreal Engine does not read the keys the original launcher writes. It reads:
+DXEngine does not read the keys the original launcher writes. It reads:
 
 | File | What the engine takes from it | Who writes it |
 |---|---|---|
-| `<AppDir>/home/.config/SurrealEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; the fork's `Gamepad` block (all but `Layout`) and its `Performance` block | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine only reads it |
-| `System/DeusEx.ini` | Everything else (`[Core.System]` etc.); client settings (`[WinDrv.WindowsClient]` `Brightness`, `Decals`, viewport) **only while there is no** `SE-DeusEx.ini` | The launcher, from `Default.ini` when missing; the game's options |
-| `System/SE-DeusEx.ini` | Written by the engine on its **first clean exit** (`PackageManager::SaveAllIniFiles`), then the **only** one it reads; client settings under `[Engine.SurrealClient]` | The engine; the launcher's client settings when it exists |
-| `System/User.ini`, then `System/SE-User.ini` | Key and pad bindings (`[Engine.Input]`), the same way round | The launcher's pad layouts; the game's key menu |
+| `<AppDir>/home/.config/DXEngine/Settings.json` | The renderer (`RenderDevice.Type`), VSync, anti-aliasing, lighting and gamma mode, bloom, HDR; DXEngine's `Gamepad` block (all but `Layout`) and its `Performance` block | The launcher (`core/engine_settings.c`), before a launch and on Quit, when it is missing, incomplete or changed. The engine only reads it |
+| `System/DeusEx.ini` | Everything else (`[Core.System]` etc.); client settings (`[WinDrv.WindowsClient]` `Brightness`, `Decals`, viewport) **only while there is no** `DXE-DeusEx.ini` | The launcher, from `Default.ini` when missing; the game's options |
+| `System/DXE-DeusEx.ini` | Written by the engine on its **first clean exit** (`PackageManager::SaveAllIniFiles`), then the **only** one it reads; client settings under `[Engine.DXEngineClient]` | The engine; the launcher's client settings when it exists |
+| `System/User.ini`, then `System/DXE-User.ini` | Key and pad bindings (`[Engine.Input]`), the same way round | The launcher's pad layouts; the game's key menu |
 
 - **The renderer goes to `Settings.json`**: the engine overrides
   `[Engine.Engine] GameRenderDevice` (`Engine.cpp`).
@@ -34,7 +34,7 @@ Surreal Engine does not read the keys the original launcher writes. It reads:
 - **`Settings.json` is parsed inside a catch-all**: one malformed byte
   reverts every setting to the engine's defaults, 4x MSAA included (speckle
   on a PowerVR). A missing `RenderDevice` flag or number reads as false or 0
-  (`HdrScale` 0); its choices and the fork's blocks fall back to the
+  (`HdrScale` 0); its choices and DXEngine's blocks fall back to the
   engine's defaults. So the launcher always writes every member of every
   block it knows (`RenderDevice`, `Gamepad`, `Performance`) and replaces a
   file it cannot parse. A member the file lacks takes the port's
@@ -93,7 +93,7 @@ settings and creates no sentinel.
 `launcher.ini` `GameCommand` (default `./run-game.sh`) with the command line
 as given. `run-game.sh` (`ports/common/packaging/run-game.sh`, adjusted by
 the port's `packaging/port-hooks.sh`) starts
-[the engine](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md)
+[the engine](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md)
 and clears `Running.ini` only on a clean exit, so a crash shows on the next
 launch.
 
@@ -101,7 +101,7 @@ launch.
 decides and does to `System/DeusExLauncher.log`, beside the game's own, and
 to stderr. In the app directory, `run-game.sh` appends each run to
 `run-game.log`, and the engine writes
-`home/.config/SurrealEngine/SE-Log-LastRun.txt`; the System tab shows both.
+`home/.config/DXEngine/DXE-Log-LastRun.txt`; the System tab shows both.
 
 **The device profile** (`platform/target.h`) is the port's `target.c`
 ([what it holds](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#what-a-port-is));
@@ -119,12 +119,12 @@ quit. Keyboard (`ui/ui.c`): arrows/WASD, Enter/Space/Z, Backspace/X, R,
 PageUp/PageDown (or `,`/`.`/Tab), P/F5, Escape/Q.
 
 **In the game**
-([the engine's gamepad support](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#running-on-our-devices)):
+([the engine's gamepad support](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices)):
 the engine's SDL2 backend reads the pad, and `GamepadInput` turns it into
 UE1's joystick keys and axes. Each control is then an ordinary `User.ini`
 `[Engine.Input]` binding in the keyboard's table, which the game's key menu
 edits
-([lists](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#lists)).
+([lists](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#lists)).
 
 - Buttons: A=`Joy1` B=`Joy2` X=`Joy3` Y=`Joy4` L1=`Joy5` R1=`Joy6`
   SELECT=`Joy7` START=`Joy8` L2=`Joy11` R2=`Joy12` (past half travel), d-pad
@@ -180,12 +180,12 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
 
 | # | Original | The launcher | Why |
 |---|---|---|---|
-| 1 | Safe mode: eight checkboxes become flags (`-nosound`, `-nohard -noddraw`, `-defaultres`, ...) on a re-exec; three are dead in the shipped binary | Dropped; the System tab (engine log, clear crash marker, resets) replaces it | The engine takes four of them only through `--cmdline=` ([the command line](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-command-line)), which this port's `run-game.sh` does not pass ([known defects](#known-defects)); `main` keeps the page |
+| 1 | Safe mode: eight checkboxes become flags (`-nosound`, `-nohard -noddraw`, `-defaultres`, ...) on a re-exec; three are dead in the shipped binary | Dropped; the System tab (engine log, clear crash marker, resets) replaces it | The engine takes four of them only through `--cmdline=` ([the command line](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-command-line)), which this port's `run-game.sh` does not pass ([known defects](#known-defects)); `main` keeps the page |
 | 2 | Missing splash bitmap → assert → process dies before the wizard | No splash | Nothing to be missing (`0x109090A4`, [`launch-flow.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md)) |
 | 3 | `MPLAYER` / `HEAT` console commands, one `HKLM\software\mpath` read | Dropped | Dead services; `GotoHEAT.exe` is not shipped ([`launch-flow.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md)) |
 | 4 | `.ICD`→`.EXE` rewrite in `InitPathnames` | Dropped | SafeDisc artifact; the GOG build is not wrapped |
 | 5 | `-make` rejected with a fatal error | Dropped | Points at `ucc`, shipped separately |
-| 6 | Renderer page: Win32 3D device detection, the program run again to test Direct3D, `GameRenderDevice` written | Crash-isolated GPU probe; the choice in `Settings.json` `RenderDevice.Type` | Surreal Engine overrides `GameRenderDevice`. `-testrendev` is parsed and names `dxl-cli --probe`, its replacement |
+| 6 | Renderer page: Win32 3D device detection, the program run again to test Direct3D, `GameRenderDevice` written | Crash-isolated GPU probe; the choice in `Settings.json` `RenderDevice.Type` | DXEngine overrides `GameRenderDevice`. `-testrendev` is parsed and names `dxl-cli --probe`, its replacement |
 | 7 | CD check loops on `<CdPath>Textures\Palettes.utx` with a modal box | Install-validation screen | Missing game files are the real first-run failure here |
 | 8 | Driver page (2022) names the detected Direct3D card | The renderer picker's status line (GPU, API version) | The page names a D3D card and points at a driver download |
 | 9 | FirstTime page (2019) | Dropped; a first run opens on Video with a note on Play | It holds one line of text and a Run button |
@@ -216,11 +216,11 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
   launcher gives the engine no line (`DXL_LAUNCHER_FD`), so the Display
   screen's Rendering Device does nothing, and a dedicated server from the Host
   screen is started again by the engine itself
-  ([the menus' settings](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/NATIVES.md#the-menus-settings)).
+  ([the menus' settings](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-menus-settings)).
 - **The Resolution row is Vulkan's only** (`src/ui/tab_video.c`,
-  `render_enabled`), though the fork's GL device (OpenGL and OpenGL ES)
+  `render_enabled`), though DXEngine's GL device (OpenGL and OpenGL ES)
   honours `Performance.RenderScale`
-  ([rendering](https://github.com/JuggyMcNutty/VibeEngine/blob/deusex/vibe/docs/ENGINE.md#rendering)):
+  ([rendering](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)):
   under either, the game draws at the stored scale, which the row cannot
   change.
 - **`test_target_trimui_smartpro` passes a CPU mode named anywhere in

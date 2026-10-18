@@ -14,8 +14,8 @@ typedef struct {
 
 struct dxl_config {
     ini_file base;      /* <Package>.ini */
-    ini_file se;        /* SE-<Package>.ini, when the engine has made one */
-    ini_file user;      /* SE-User.ini or User.ini */
+    ini_file dxe;       /* DXE-<Package>.ini, when the engine has made one */
+    ini_file user;      /* DXE-User.ini or User.ini */
     int      seeded;
 };
 
@@ -84,11 +84,11 @@ dxl_config *dxl_config_open_files(const char *system_dir, const char *package, c
     }
     if (!c->base.ini) c->base.ini = dxl_ini_new();
 
-    char *se_path = leaf_path(system_dir, "SE-", package);
-    if (dxl_path_exists(se_path)) file_load(&c->se, se_path);
-    else free(se_path);
+    char *dxe_path = leaf_path(system_dir, "DXE-", package);
+    if (dxl_path_exists(dxe_path)) file_load(&c->dxe, dxe_path);
+    else free(dxe_path);
 
-    char *user_path = user_ini ? NULL : leaf_path(system_dir, "SE-", "User");
+    char *user_path = user_ini ? NULL : leaf_path(system_dir, "DXE-", "User");
     if (user_path && dxl_path_exists(user_path)) {
         file_load(&c->user, user_path);
     } else {
@@ -113,7 +113,7 @@ dxl_config *dxl_config_open(const char *system_dir, const char *package) {
 void dxl_config_free(dxl_config *c) {
     if (!c) return;
     file_free(&c->base);
-    file_free(&c->se);
+    file_free(&c->dxe);
     file_free(&c->user);
     free(c);
 }
@@ -142,7 +142,7 @@ void dxl_config_reload(dxl_config *c) {
 
 int dxl_config_save(dxl_config *c, dxl_err *err) {
     if (file_save(&c->base, err) != 0) return -1;
-    if (file_save(&c->se, err) != 0) return -1;
+    if (file_save(&c->dxe, err) != 0) return -1;
     if (file_save(&c->user, err) != 0) return -1;
     return 0;
 }
@@ -152,7 +152,7 @@ static int file_pending(const ini_file *f) {
 }
 
 int dxl_config_dirty(const dxl_config *c) {
-    return file_pending(&c->base) || file_pending(&c->se) || file_pending(&c->user);
+    return file_pending(&c->base) || file_pending(&c->dxe) || file_pending(&c->user);
 }
 
 const char *dxl_config_path(const dxl_config *c) { return c->base.path; }
@@ -160,13 +160,13 @@ dxl_ini *dxl_config_ini(dxl_config *c) { return c->base.ini; }
 int dxl_config_seeded(const dxl_config *c) { return c->seeded; }
 
 dxl_ini *dxl_config_client_ini(dxl_config *c) {
-    return c->se.ini ? c->se.ini : c->base.ini;
+    return c->dxe.ini ? c->dxe.ini : c->base.ini;
 }
 const char *dxl_config_client_section(const dxl_config *c) {
-    return c->se.ini ? "Engine.SurrealClient" : "WinDrv.WindowsClient";
+    return c->dxe.ini ? "Engine.DXEngineClient" : "WinDrv.WindowsClient";
 }
 const char *dxl_config_client_path(const dxl_config *c) {
-    return c->se.ini ? c->se.path : c->base.path;
+    return c->dxe.ini ? c->dxe.path : c->base.path;
 }
 
 dxl_ini *dxl_config_user_ini(dxl_config *c) { return c->user.ini; }
@@ -196,7 +196,7 @@ const char *dxl_config_game_engine(const dxl_config *c) {
 double dxl_config_brightness(dxl_config *c) {
     const char *v = dxl_ini_get(dxl_config_client_ini(c), dxl_config_client_section(c),
                                 "Brightness");
-    double b = v ? atof(v) : 0.5;   /* USurrealClient's default */
+    double b = v ? atof(v) : 0.5;   /* UDXEngineClient's default */
     return b < 0 ? 0 : b > 1 ? 1 : b;
 }
 
@@ -231,8 +231,8 @@ int dxl_config_reset_files(const char *system_dir, const char *package, dxl_err 
         return -1;
     }
     char *paths[4] = {
-        leaf_path(system_dir, "SE-", package),
-        leaf_path(system_dir, "SE-", "User"),
+        leaf_path(system_dir, "DXE-", package),
+        leaf_path(system_dir, "DXE-", "User"),
         leaf_path(system_dir, "", package),
         leaf_path(system_dir, "", "User"),
     };

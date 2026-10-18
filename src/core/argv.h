@@ -6,7 +6,7 @@
  * platform's: platform/launch.h.
  *
  * The original also re-executed itself for safe mode with a flag string built
- * from eight checkboxes. Surreal Engine honours none of those flags, so that
+ * from eight checkboxes. DXEngine honours none of those flags, so that
  * path is gone; dx-reverse-info/README.md records why.
  */
 #ifndef DXL_ARGV_H
