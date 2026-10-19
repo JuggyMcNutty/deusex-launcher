@@ -249,6 +249,35 @@ static void test_prefixes(void) {
     free(home);
 }
 
+/* A Windows Steam in a Wine prefix: the libraries its libraryfolders.vdf
+ * lists as Windows paths, found where the prefix's dosdevices lead, in any
+ * case; a UNC path passed over. */
+static void test_prefix_steam(void) {
+    char *home = dxl_xstrdup(scratch_dir("finder-winsteam"));
+    install_at(home, "disk-d/games/steamlib/steamapps/common/Deus Ex");
+    scratch_write(home, ".wine/drive_c/Program Files (x86)/Steam/steamapps/libraryfolders.vdf",
+                  "\"libraryfolders\"\n{\n"
+                  "\t\"0\"\n\t{\n\t\t\"path\"\t\t\"C:\\\\Program Files (x86)\\\\Steam\"\n\t}\n"
+                  "\t\"1\"\n\t{\n\t\t\"path\"\t\t\"\\\\\\\\server\\\\share\\\\lib\"\n\t}\n"
+                  "\t\"2\"\n\t{\n\t\t\"path\"\t\t\"D:\\\\Games\\\\SteamLib\"\n\t}\n}\n");
+    char *devices = scratch_path(home, ".wine/dosdevices/c:");
+    CHECK_INT(symlink("../drive_c", devices), 0);
+    free(devices);
+    char *disk = dxl_path_join(home, "disk-d");
+    devices = scratch_path(home, ".wine/dosdevices/d:");
+    CHECK_INT(symlink(disk, devices), 0);
+    free(devices);
+    free(disk);
+
+    dxl_found_list l;
+    find_in(&l, home);
+    CHECK_INT(l.count, 1);
+    check_item(&l, 0, "in a Wine prefix", "disk-d/games/steamlib/steamapps/common/Deus Ex");
+    dxl_found_list_free(&l);
+    scratch_remove(home);
+    free(home);
+}
+
 /* The drives mountinfo has mounted in the folders for them, however deep
  * -- a user's, the automounter's /run/media/system -- at a drive's top and
  * two folders down, and where Windows' installers put the game; a folder
@@ -347,6 +376,7 @@ TEST_MAIN_BEGIN
     RUN(test_heroic);
     RUN(test_lutris);
     RUN(test_prefixes);
+    RUN(test_prefix_steam);
     RUN(test_drives);
     RUN(test_stop_and_full);
 TEST_MAIN_END
