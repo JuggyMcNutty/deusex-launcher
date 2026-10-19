@@ -2,13 +2,12 @@
  * it says, where it was made, when, and how long the game had been played;
  * the one chosen -- the row last focused -- beside them with its snapshot.
  * One is loaded: the game started on it (its start URL ?loadgame=N, with
- * an engine that starts on one); one deleted: its folder to the desktop's
- * trash, to be put back from there. */
+ * an engine that starts on one); one deleted for good, once asked. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
 #include "core/paths.h"
-#include "platform/trash.h"
+#include "platform/delete.h"
 #include "ui/draw.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
@@ -208,7 +207,7 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
     int b_delete = dxl_button_id(ui, del_id, dxl_cut_top(&side, 48), "Delete...", DXL_W_LEFT | (chosen ? 0 : DXL_W_DISABLED));
     int b_back = dxl_button(ui, "saves back", back_r, "Back", DXL_W_LEFT);
     if (ui->focus == del_id)
-        why = "The save's folder to the trash, to be put back from there.";
+        why = "The save deleted for good: there is no trash to put it back from.";
     if (!can_load && l->count)
         why = !ss->install.ok ? "The profile's game is not there to play: Home sets it right."
               : s->engine_ok ? "This engine starts on no save: a DXEngine with the loadgame-url feature does."
@@ -221,11 +220,11 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
         snprintf(name, sizeof name, "%.150s", chosen->readable && chosen->info.description[0] ? chosen->info.description
                                                                                                 : chosen->folder);
         dxl_err e;
-        if (dxl_trash(path, ss->xdg.data_home, NULL, 0, &e) != 0) {
+        if (dxl_delete(path, &e) != 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
         } else {
-            dxl_log("saves: %s to the trash", path);
-            dxl_shell_toast(s, "%s is in the trash.", name);
+            dxl_log("saves: %s deleted", path);
+            dxl_shell_toast(s, "%s is deleted.", name);
             dxl_saves_reload(s);
         }
         free(path);
@@ -238,7 +237,7 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
         char title[200], text[400];
         snprintf(title, sizeof title, "Delete %.150s?",
                  chosen->readable && chosen->info.description[0] ? chosen->info.description : chosen->folder);
-        snprintf(text, sizeof text, "The save goes to the trash, and can be put back from there.");
+        snprintf(text, sizeof text, "The save is deleted for good.");
         dxl_shell_confirm(s, del_id, title, text, "Delete", "Keep it");
     } else if (b_back || (ui->in.back && !ui->text_id)) {
         dxl_shell_go(s, s->from == DXL_PAGE_RECOVERY ? DXL_PAGE_RECOVERY : DXL_PAGE_HOME);

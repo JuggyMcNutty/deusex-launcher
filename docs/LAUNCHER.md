@@ -34,7 +34,6 @@ the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
-| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. A mod's profile
@@ -149,8 +148,9 @@ marked; its buttons act on the one chosen, the row last focused:
   `CachePath`, the engine folder's `Settings.json` and a class's config
   files -- and none of its saves, shots or logs (`dxl_profile_copy`).
 - **Name**, under the list: the chosen one's, edited in place.
-- **Delete...**: the chosen one's four folders to the desktop's trash, all
-  or none (`src/platform/posix/trash.c`); never the one in use.
+- **Delete...**: the chosen one's four folders deleted for good, once
+  asked, its settings first (`src/platform/posix/delete.c`): the Smart Pro
+  has no trash to put them back from. Never the one in use.
 
 ## Mods
 
@@ -219,15 +219,15 @@ played, its snapshot; the newest first, one whose info does not read last.
 - **Saves**, from Home: each save, the one chosen beside the list with its
   snapshot (the game's 160 x 120 of its picture), when it was made, how long
   it had been played, its map and folder. Load, or Enter or a click on its
-  row, starts the game on it; Delete... puts its folder in the desktop's
-  trash.
+  row, starts the game on it; Delete... deletes its folder for good, once
+  asked.
 - **Screenshots**, from Home: the profile's `Screenshots` folder's pictures,
   the engine's `ShotNNNN.bmp` and those the import copied, BMPs and PNGs,
   newest first (`src/core/shotlist.c`), as a gallery of thumbnails read off
   the window's thread (`src/ui/thumbs.c`), the one chosen beside it with
   when it was taken and its size. Show, or Enter or a click on one, shows
-  it whole, Previous and Next stepping through them; Delete... puts it in
-  the trash.
+  it whole, Previous and Next stepping through them; Delete... deletes it
+  for good, once asked.
 
 The game starts on a save by the engine's start URL, `?loadgame=N` in
 `--url`, which only an engine whose `--version` names `loadgame-url` takes
@@ -687,7 +687,7 @@ the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`). `test_profile` imports from a fake
 install made read-only, which it leaves as it was, and makes, lists and
-copies profiles; `test_trash` puts folders in a scratch trash;
+copies profiles; `test_delete` deletes a folder, its link not followed;
 `test_gamefiles`, on a
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
@@ -730,14 +730,14 @@ read before it was, and finds the bindings in `User.ini`, the mappings in
 a virtual pad, whose buttons move nothing of the window until its back is
 held; `engine_and_game` starts with an engine this system cannot start,
 puts another in its place from Home, and the game's folder from Settings;
-`profiles` makes a profile, duplicates one, renames and deletes the copy to
-the trash, and uses the first again; `mods` makes a made-up mod's profile
+`profiles` makes a profile, duplicates one, renames and deletes the copy,
+and uses the first again; `mods` makes a made-up mod's profile
 from Mods, and finds its paths, its settings and its save in it; `continue`
 starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
-the save's URL on the engine's command line or what was deleted in the
-trash; `multiplayer` joins
+the save's URL on the engine's command line or what was deleted gone;
+`multiplayer` joins
 the server a master on this machine lists, `multiplayer_address` an address
 left half typed by a Tab, which joins nothing, then typed and joined,
 `multiplayer_link` the server of a start's `deusex://` link once asked, and

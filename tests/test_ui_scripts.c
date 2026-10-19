@@ -363,8 +363,7 @@ static void test_engine_and_game(void) {
 }
 
 /* The Profiles page: a profile made, named after its name, used; a copy
- * renamed and deleted, its four folders in the trash; the first in use
- * again. */
+ * renamed and deleted, its four folders gone; the first in use again. */
 static void test_profiles(void) {
     CHECK_INT(fresh_home(), 0);
     launch("profiles.script", "ready");
@@ -379,25 +378,19 @@ static void test_profiles(void) {
     CHECK(strstr(log, "profile mod-test made from") != NULL);
     CHECK(strstr(log, "profile deus-ex-copy: a copy of default's settings") != NULL);
     CHECK(strstr(log, "profile deus-ex-copy: named Copy") != NULL);
-    CHECK(strstr(log, "profile deus-ex-copy: to the trash") != NULL);
+    CHECK(strstr(log, "profile deus-ex-copy: deleted") != NULL);
     CHECK(strstr(log, "named Wrong") == NULL);
     free(log);
-    char *gone = home_file("config/dxlauncher/profiles/deus-ex-copy");
-    CHECK(access(gone, F_OK) != 0);
-    free(gone);
-    char *trashed = home_file("data/Trash/files/deus-ex-copy/profile.ini");
-    CHECK(access(trashed, F_OK) == 0);
-    free(trashed);
-    char *info = read_home("data/Trash/info/deus-ex-copy.trashinfo");
-    CHECK(strstr(info, "/config/dxlauncher/profiles/deus-ex-copy\n") != NULL);
-    free(info);
-    for (int i = 2; i <= 4; i++) {
-        char rel[96];
-        snprintf(rel, sizeof rel, "data/Trash/info/deus-ex-copy.%d.trashinfo", i);
-        char *p = home_file(rel);
-        CHECK(access(p, F_OK) == 0);
-        free(p);
+    const char *folders[] = { "config/dxlauncher/profiles/deus-ex-copy", "data/dxlauncher/profiles/deus-ex-copy",
+                              "state/dxlauncher/profiles/deus-ex-copy", "cache/dxlauncher/profiles/deus-ex-copy" };
+    for (int i = 0; i < 4; i++) {
+        char *gone = home_file(folders[i]);
+        CHECK(access(gone, F_OK) != 0);
+        free(gone);
     }
+    char *trash = home_file("data/Trash");
+    CHECK(access(trash, F_OK) != 0);
+    free(trash);
 }
 
 /* A mod of its own made in the launcher's mods folder: its profile made
@@ -640,7 +633,7 @@ static void test_continue(void) {
     started_with("--url=?loadgame=3");
 }
 
-/* The Saves page: a save loaded by its row; then deleted, to the trash. */
+/* The Saves page: a save loaded by its row; then deleted, for good. */
 static void test_saves_page(void) {
     CHECK_INT(fresh_home(), 0);
     write_saves(0);
@@ -652,12 +645,9 @@ static void test_saves_page(void) {
     char *gone = home_file("data/dxlauncher/profiles/default/Save/Save0010");
     CHECK(access(gone, F_OK) != 0);
     free(gone);
-    char *trashed = home_file("data/Trash/files/Save0010/SaveInfo.dxs");
-    CHECK(access(trashed, F_OK) == 0);
-    free(trashed);
-    char *info = read_home("data/Trash/info/Save0010.trashinfo");
-    CHECK(strstr(info, "/data/dxlauncher/profiles/default/Save/Save0010\n") != NULL);
-    free(info);
+    char *trash = home_file("data/Trash");
+    CHECK(access(trash, F_OK) != 0);
+    free(trash);
 }
 
 /* A picture of 2 x 2 pixels, a 24-bit BMP as the engine writes its shots. */
@@ -679,8 +669,8 @@ static void write_bmp(const char *path) {
     }
 }
 
-/* The gallery: the profile's shot shown whole, deleted from there to the
- * trash. */
+/* The gallery: the profile's shot shown whole, deleted from there for
+ * good. */
 static void test_shots_page(void) {
     CHECK_INT(fresh_home(), 0);
     char *shot = home_file("data/dxlauncher/profiles/default/Screenshots/Shot0001.bmp");
@@ -689,11 +679,8 @@ static void test_shots_page(void) {
     script_ok();
     CHECK(access(shot, F_OK) != 0);
     free(shot);
-    char *trashed = home_file("data/Trash/files/Shot0001.bmp");
-    CHECK(access(trashed, F_OK) == 0);
-    free(trashed);
     char *log = read_home("state/dxlauncher/launcher.log");
-    CHECK(strstr(log, "Shot0001.bmp to the trash") != NULL);
+    CHECK(strstr(log, "Shot0001.bmp deleted") != NULL);
     free(log);
 }
 

@@ -90,8 +90,8 @@ int  dxl_session_copy_profile(dxl_session *s, const char *from, const char *name
                               dxl_err *err);
 /* A profile's name, profile.ini's Name. */
 int  dxl_session_rename_profile(dxl_session *s, const char *id, const char *name, dxl_err *err);
-/* A profile's four folders to the desktop's trash (platform/trash.h), all
- * or none: never the active profile's. */
+/* A profile's four folders deleted for good (platform/delete.h), its
+ * settings first: never the active profile's. */
 int  dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err);
 
 /* The launcher's own engine, the one beside it. Caller frees. */

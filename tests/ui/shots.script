@@ -1,5 +1,5 @@
 # The profile's screenshot shown whole from the gallery, deleted from
-# there: test_ui_scripts.c finds it in the trash; the gallery again, empty,
+# there: test_ui_scripts.c finds it gone; the gallery again, empty,
 # Home, Quit.
 wait 1.5
 expect home

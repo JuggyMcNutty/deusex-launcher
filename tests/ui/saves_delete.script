@@ -1,5 +1,5 @@
 # The profile's save deleted from the Saves page, Keep it first, then
-# Delete: test_ui_scripts.c finds it in the trash, none left in the
+# Delete: test_ui_scripts.c finds it gone, none left in the
 # profile; Home again, Quit.
 wait 1.5
 expect home

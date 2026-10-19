@@ -3,8 +3,8 @@
  * is used from now on; a new one made from an install, as the first run
  * makes one (The game, then Your profile, its Back the way out), or of a
  * mod, from Mods (screens/mods.c); one's settings duplicated, not its
- * saves; one renamed; one deleted -- its four folders to the desktop's
- * trash, never the one in use. The rows are the profiles; the buttons
+ * saves; one renamed; one deleted -- its four folders, for good, once
+ * asked, never the one in use. The rows are the profiles; the buttons
  * beside them act on the one chosen, the row last focused. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
@@ -244,7 +244,8 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     else if (ui->focus == dxl_ui_id(ui, "profiles copy"))
         why = "A new profile with the chosen one's settings, keys and controller: none of its saves.";
     else if (ui->focus == del_id)
-        why = "The chosen profile's settings, saves and screenshots to the trash, to be put back from there.";
+        why = "The chosen profile's settings, saves and screenshots deleted for good: there is no trash to put "
+              "them back from.";
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
     if (dxl_shell_answer(s, del_id) == 1 && sel >= 0 && !sel_active) {
@@ -254,7 +255,7 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         if (dxl_session_delete_profile(ss, s->profiles[sel].id, &e) != 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
         } else {
-            dxl_shell_toast(s, "%s is in the trash.", name);
+            dxl_shell_toast(s, "%s is deleted.", name);
             load(s, ss->profile.id);
         }
         return;
@@ -279,8 +280,7 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     } else if (b_delete && sel >= 0) {
         char title[140], text[400];
         snprintf(title, sizeof title, "Delete %s?", s->profiles[sel].name);
-        snprintf(text, sizeof text, "Its settings, its saves and its screenshots go to the trash, and can be put "
-                 "back from there.");
+        snprintf(text, sizeof text, "Its settings, its saves and its screenshots are deleted for good.");
         dxl_shell_confirm(s, del_id, title, text, "Delete", "Keep it");
     } else if (b_back || (ui->in.back && !ui->text_id)) {
         dxl_shell_go(s, DXL_PAGE_HOME);

@@ -1,7 +1,7 @@
 # Profiles from Home: a new one made from the install The game lists first,
 # named Mod test on Your profile, the one in use after; the first profile
 # duplicated, the copy renamed Copy, its name's whole edit undone once by
-# Esc, then deleted to the trash; the first used again by its row.
+# Esc, then deleted; the first used again by its row.
 wait 1
 expect home
 find Profiles

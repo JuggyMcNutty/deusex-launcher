@@ -2,12 +2,12 @@
  * gallery of thumbnails read off the window's thread (ui/thumbs.h); the
  * one chosen -- the tile last focused -- beside them with when it was taken
  * and its size. One is shown whole, the others stepped to from it; one
- * deleted to the desktop's trash. */
+ * deleted for good, once asked. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
 #include "core/paths.h"
-#include "platform/trash.h"
+#include "platform/delete.h"
 #include "ui/draw.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
@@ -114,11 +114,11 @@ static void whole(dxl_shell *s, dxl_rect r) {
         dxl_err e;
         char name[256];
         snprintf(name, sizeof name, "%s", sh->name);
-        if (dxl_trash(sh->path, s->run->session.xdg.data_home, NULL, 0, &e) != 0) {
+        if (dxl_delete(sh->path, &e) != 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
         } else {
-            dxl_log("shots: %s to the trash", sh->path);
-            dxl_shell_toast(s, "%s is in the trash.", name);
+            dxl_log("shots: %s deleted", sh->path);
+            dxl_shell_toast(s, "%s is deleted.", name);
             /* The next in its place, or the one before the last. */
             dxl_thumbs_clear(s->shot_whole);
             reload(s);
@@ -137,7 +137,7 @@ static void whole(dxl_shell *s, dxl_rect r) {
     else if (del) {
         char title[320];
         snprintf(title, sizeof title, "Delete %s?", sh->name);
-        dxl_shell_confirm(s, del_id, title, "The picture goes to the trash, and can be put back from there.", "Delete",
+        dxl_shell_confirm(s, del_id, title, "The picture is deleted for good.", "Delete",
                           "Keep it");
     } else if (close || ui->in.back) {
         s->shot_open = 0;
@@ -158,7 +158,6 @@ static uint32_t tile_id(const dxl_ui *ui, int i, int cols) {
 void dxl_page_shots(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
-    dxl_session *ss = &s->run->session;
     dxl_shots *l = &s->shot_list;
     dxl_thumbs_update(s->thumbs, ui->renderer);
     if (s->shot_open && s->shot_sel < l->count) {
@@ -248,18 +247,18 @@ void dxl_page_shots(dxl_shell *s, dxl_rect r) {
     uint32_t del_id = dxl_ui_id(ui, "shots delete");
     int b_delete = dxl_button_id(ui, del_id, dxl_cut_top(&side, 48), "Delete...", DXL_W_LEFT | (chosen ? 0 : DXL_W_DISABLED));
     int b_back = dxl_button(ui, "shots back", back_r, "Back", DXL_W_LEFT);
-    if (ui->focus == del_id) why = "The picture to the trash, to be put back from there.";
+    if (ui->focus == del_id) why = "The picture deleted for good: there is no trash to put it back from.";
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
     if (dxl_shell_answer(s, del_id) == 1 && chosen) {
         dxl_err e;
         char name[256];
         snprintf(name, sizeof name, "%s", chosen->name);
-        if (dxl_trash(chosen->path, ss->xdg.data_home, NULL, 0, &e) != 0) {
+        if (dxl_delete(chosen->path, &e) != 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
         } else {
-            dxl_log("shots: %s to the trash", chosen->path);
-            dxl_shell_toast(s, "%s is in the trash.", name);
+            dxl_log("shots: %s deleted", chosen->path);
+            dxl_shell_toast(s, "%s is deleted.", name);
             int at = sel;
             reload(s);
             if (at < l->count) s->shot_sel = at;
@@ -275,7 +274,7 @@ void dxl_page_shots(dxl_shell *s, dxl_rect r) {
     } else if (b_delete && chosen) {
         char title[320];
         snprintf(title, sizeof title, "Delete %s?", chosen->name);
-        dxl_shell_confirm(s, del_id, title, "The picture goes to the trash, and can be put back from there.", "Delete",
+        dxl_shell_confirm(s, del_id, title, "The picture is deleted for good.", "Delete",
                           "Keep it");
     } else if (b_back || ui->in.back) {
         dxl_shell_go(s, DXL_PAGE_HOME);

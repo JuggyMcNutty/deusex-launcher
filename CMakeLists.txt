@@ -104,12 +104,12 @@ target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
 # What is the platform's: the processes the launcher starts, the game among
-# them (platform/process.h), the crash-isolated GPU probe, and the
-# desktop's trash.
+# them (platform/process.h), the crash-isolated GPU probe, and deleting
+# for good (platform/delete.h).
 add_library(dxl_platform STATIC
     src/platform/posix/process.c
     src/platform/posix/gpu_probe.c
-    src/platform/posix/trash.c
+    src/platform/posix/delete.c
     src/platform/posix/net.c
 )
 # The GPU probe dlopens the Vulkan loader and EGL rather than linking them;

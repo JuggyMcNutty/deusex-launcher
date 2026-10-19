@@ -17,12 +17,11 @@
  *   Recovery    how the last run ended, the end of its log, Play again
  *   Profiles    every profile, its game, saves and last run: use one, make
  *               a new one (The game, Your profile), duplicate, rename,
- *               delete to the trash
+ *               delete
  *   Saves       the profile's saves (core/saves.h), newest first, the one
- *               chosen with its snapshot: load it, delete it to the trash
+ *               chosen with its snapshot: load it, delete it
  *   Screenshots the profile's shots (core/shotlist.h) as a gallery of
- *               thumbnails (ui/thumbs.h): one shown whole, its folder
- *               opened, one deleted to the trash
+ *               thumbnails (ui/thumbs.h): one shown whole, one deleted
  *   Multiplayer the servers the profile's master server lists, and its
  *               favourites, each as it answers (screens/servers.c): join
  *               one, or an address
