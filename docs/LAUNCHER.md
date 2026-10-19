@@ -476,8 +476,9 @@ finds in a child process as the page needs them.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
-anti-aliasing is Off: its row disabled, saying so; Off written for it by a
-preset or the defaults, and a preset matched without it. Before a game
+anti-aliasing is Off: its row has Off alone, and its help line says why;
+Off written for it by a preset or the defaults, and a preset matched
+without it. Before a game
 that would multisample, by the profile's `Settings.json` or, with none,
 by the engine's own 4x (a first run's engine defaults), the launcher asks
 `dxl-cli --probe`, once a run, and on such a GPU writes Off there, the

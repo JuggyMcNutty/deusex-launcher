@@ -267,13 +267,15 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
     case DXL_SET_CHOICE: {
         static const char *labels[DXL_PICK_MAX];
         static char values[DXL_PICK_MAX][64], shown[DXL_PICK_MAX][64];
-        /* Anti-aliasing on a GPU that multisamples badly: Off, and why. */
+        /* Anti-aliasing on a GPU that multisamples badly: Off alone. The row
+         * still takes the focus, so the list's moves pass through it and its
+         * help line says why (dxl_page_settings). */
         if (!strcmp(st->id, DXL_ANTIALIAS_ROW)) {
             dxl_shell_probe(s);
             if (s->stores.no_msaa) {
-                static const char *const off[] = { "Off: this GPU speckles with it" };
+                static const char *const off[] = { "Off" };
                 int index = 0;
-                dxl_spinner(ui, id, r, st->label, &index, off, 1, DXL_W_DISABLED);
+                dxl_spinner(ui, id, r, st->label, &index, off, 1, 0);
                 break;
             }
         }
@@ -501,6 +503,11 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
     if (!why && focused && focused->kind == DXL_SET_ACTION) {
         row_why(s, focused, now, sizeof now);
         if (now[0]) why = now;
+    }
+    if (!why && focused && !strcmp(focused->id, DXL_ANTIALIAS_ROW) && s->stores.no_msaa) {
+        snprintf(now, sizeof now, "Off, and kept off: this GPU, %s, resolves multisampling into speckle at the "
+                 "edges of what it draws.", s->probe.vulkan_device);
+        why = now;
     }
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
     else help(s, focused, help_r);
