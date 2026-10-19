@@ -25,12 +25,14 @@ port_deps() {
 #
 # Sends build/trimui-smartpro/app (built and staged by dx.sh just before) with
 # dx_ssh_sync: changed files only, the device's previous copies kept in
-# .prev-<date-time>, every file verified. launcher.ini belongs to the device's
-# owner (it holds the path to their game files): it is installed only when
-# missing, from launcher.ini.default. exFAT has no permission bits worth
-# trusting, so the executables are chmod'ed on arrival.
+# .prev-<date-time>, every file verified. The launcher's own files --
+# launcher.ini, the profiles, their saves -- are in the app's home/
+# (DXL_HOME, launch.sh), which nothing staged touches. exFAT has no
+# permission bits worth trusting, so the executables are chmod'ed on
+# arrival. --run starts it as the menu does, through launch.sh, with the
+# menu paused while it runs.
 port_deploy() {
-    local run=0 args=() skip=(./launcher.ini)
+    local run=0 args=() skip=()
     while [ $# -gt 0 ]; do
         case "$1" in
             --run)       run=1; shift ;;
@@ -41,18 +43,12 @@ port_deploy() {
     done
     local d="$DEVICE_APPDIR"
     say "deploying $APP to $DEVICE_USER@$DEVICE:$d ..."
-    dx_ssh_sync "$APP" "$d" "${skip[@]}"
+    dx_ssh_sync "$APP" "$d" ${skip[@]+"${skip[@]}"}
     dx_ssh "chmod +x '$d'/deusex-launcher '$d'/dxl-cli '$d'/*.sh && { [ ! -f '$d/DXEngine' ] || chmod +x '$d/DXEngine'; }"
-    dx_ssh "[ -s '$d/launcher.ini' ] || cp '$d/launcher.ini.default' '$d/launcher.ini'"
-    # MSAA must be off on the PowerVR GE8300 (speckle). The launcher writes
-    # Settings.json before a launch when it is missing, incomplete or changed,
-    # and run-game.sh seeds it; this is the last fallback, for an engine run by
-    # hand.
-    dx_ssh "[ -s '$d/home/.config/DXEngine/Settings.json' ] || { mkdir -p '$d/home/.config/DXEngine'; cp '$d/engine-settings.json.default' '$d/home/.config/DXEngine/Settings.json'; }"
     say "done"
     if [ "$run" = 1 ]; then
         say "--- running ---"
-        dx_ssh "cd '$d' && LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib ./deusex-launcher ${args[*]:-} 2>&1; echo \"exit=\$?\""
+        dx_ssh "M=\$(pidof MainUI); [ -z \"\$M\" ] || kill -STOP \$M; cd '$d' && sh ./launch.sh ${args[*]:-} 2>&1; echo \"exit=\$?\"; [ -z \"\$M\" ] || kill -CONT \$M"
     fi
 }
 
