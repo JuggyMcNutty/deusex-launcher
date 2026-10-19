@@ -111,4 +111,14 @@ int dxl_es_render_heights(int panel_h, int *heights, int max);
 void dxl_es_reset(dxl_engine_settings *s, dxl_es_field f);
 void dxl_es_reset_section(dxl_engine_settings *s, const char *section);
 
+/* The anti-aliasing the engine takes from the Settings.json at path: the
+ * file's, or the engine's own MSAA4x where it reads none there -- no file,
+ * one it cannot parse, a member it does not know. */
+void dxl_es_antialias_taken(const char *path, char *out, size_t size);
+/* Antialias Off in the Settings.json at path, made from default_path when
+ * it is missing or unreadable: for a GPU whose multisampling is broken.
+ * 1 when the file changed, 0 when the engine takes Off from it already, -1
+ * when it could not be written. */
+int  dxl_es_antialias_off(const char *path, const char *default_path, dxl_err *err);
+
 #endif

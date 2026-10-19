@@ -469,6 +469,15 @@ Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2
 and OpenGL ES 3.2 (`data/renderers.ini`), which `dxl-cli --probe --ini`
 finds in a child process as the page needs them.
 
+**On a GPU that multisamples badly**, a PowerVR, whose resolve turns
+partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
+anti-aliasing is Off: its row disabled, saying so; Off written for it by a
+preset or the defaults, and a preset matched without it. Before a game
+that would multisample, by the profile's `Settings.json` or, with none,
+by the engine's own 4x (a first run's engine defaults), the launcher asks
+`dxl-cli --probe`, once a run, and on such a GPU writes Off there, the
+file made from the defaults file when there is none (`src/app/run.c`).
+
 **Keyboard & mouse** has the game's key menu's actions, and the commands
 the game's defaults bind besides (the pause menu, the belt's slots, the
 augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A

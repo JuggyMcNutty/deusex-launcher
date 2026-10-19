@@ -4,6 +4,7 @@
 #include "core/cmdline.h"
 #include "core/engine_args.h"
 #include "core/engine_sections.h"
+#include "core/engine_settings.h"
 #include "core/padmap.h"
 #include "core/log.h"
 #include "core/servers.h"
@@ -503,11 +504,49 @@ static void decide(dxl_run *r) {
             r->decision.effective_first_run, in.running_ini_exists, view_name(r->view));
 }
 
+/* Anti-aliasing off where the GPU multisamples badly (dxl_gpu_msaa_broken,
+ * the PowerVR's speckle): whatever the profile's Settings.json asks, or the
+ * engine's own 4x where it has none -- a first run's "the engine's
+ * defaults". The GPU is asked through dxl-cli --probe, in a process of its
+ * own, once a run, and only for a game that would multisample. */
+static void antialias_check(dxl_run *r) {
+    char *json = dxl_path_join(r->session.profile.engine_dir, "Settings.json");
+    char taken[16];
+    dxl_es_antialias_taken(json, taken, sizeof taken);
+    if (!strcmp(taken, "Off")) {
+        free(json);
+        return;
+    }
+    if (!r->gpu_asked) {
+        char *cli = dxl_path_join(r->session.app_dir, "dxl-cli");
+        char *argv[] = { cli, "--probe", "--ini", NULL };
+        char out[4096];
+        int status = 0;
+        dxl_err e;
+        if (dxl_run_capture(argv, 10000, out, sizeof out, NULL, 0, &status, &e) != 0 ||
+            dxl_gpu_probe_from_ini(out, &r->gpu) != 0) {
+            memset(&r->gpu, 0, sizeof r->gpu);
+            dxl_log("anti-aliasing: %s --probe gave no answer; %s as it is", cli, taken);
+        }
+        r->gpu_asked = 1;
+        free(cli);
+    }
+    if (dxl_gpu_msaa_broken(&r->gpu)) {
+        char *def = dxl_path_join(r->session.data_dir, "engine-settings.json.default");
+        dxl_err e;
+        if (dxl_es_antialias_off(json, def, &e) < 0) dxl_log("warning: %s", dxl_err_msg(&e));
+        else dxl_log("anti-aliasing: Off, not %s: %s multisamples badly", taken, r->gpu.vulkan_device);
+        free(def);
+    }
+    free(json);
+}
+
 /* Saved, FirstRun raised, the sentinel made: after the screens, before the
  * game, in the original's order (dx-reverse-info/launch-flow.md section
  * 5). */
 static void commit(dxl_run *r) {
     dxl_err e;
+    antialias_check(r);
     /* The engine's own sections whole before it runs, a profile made by an
      * earlier launcher's too (core/engine_sections.h). */
     if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");

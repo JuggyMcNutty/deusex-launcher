@@ -311,6 +311,7 @@ static int normalise(const dxl_setting *s, const char *in, char *out, size_t siz
 int dxl_setting_set(dxl_stores *st, const dxl_setting *s, const char *value) {
     char v[512];
     if (!value || !normalise(s, value, v, sizeof v)) return -1;
+    if (st->no_msaa && !strcmp(s->id, DXL_ANTIALIAS_ROW)) snprintf(v, sizeof v, "Off");
     int rc = 0;
     for (int i = 0; i < DXL_SET_PLACES && s->at[i].store != DXL_STORE_NONE; i++) {
         const char *part = v;
@@ -364,6 +365,7 @@ const dxl_preset *dxl_preset_matching(const dxl_stores *st) {
         for (const dxl_preset_value *v = dxl_presets[i].values; v->setting && all; v++) {
             const dxl_setting *s = dxl_setting_find(v->setting);
             char now[512], want[512];
+            if (s && st->no_msaa && !strcmp(s->id, DXL_ANTIALIAS_ROW)) continue;
             if (!s || !normalise(s, v->value, want, sizeof want)) {
                 all = 0;
                 break;
