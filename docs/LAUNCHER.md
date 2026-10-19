@@ -461,7 +461,7 @@ buttons. Recovery's The defaults...
 does it for a page or for all.
 
 **Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
-drew it: no multisampling, bloom or detail textures), Enhanced (4x
+drew it: no multisampling or bloom, detail textures), Enhanced (4x
 multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom once a row is changed by itself. Its
 Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2
