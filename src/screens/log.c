@@ -143,13 +143,8 @@ void dxl_page_log(dxl_shell *s, dxl_rect r) {
                   t->help, DXL_W_RIGHT | DXL_W_MAY_CUT);
     }
 
-    int open = dxl_button(ui, "log open", dxl_cut_left(&buttons, 200), "Open it", 0);
     int back = dxl_button(ui, "log back", dxl_cut_right(&buttons, 150), "Back", 0);
-    if (open) {
-        char *path = path_of(s, s->log_which);
-        dxl_shell_open(s, path);
-        free(path);
-    } else if (back || ui->in.back) {
+    if (back || ui->in.back) {
         dxl_shell_go(s, s->from == DXL_PAGE_LOG ? DXL_PAGE_HOME : s->from);
     }
 }

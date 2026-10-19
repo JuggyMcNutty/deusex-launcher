@@ -6,7 +6,6 @@
 #include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
-#include "platform/desktop.h"
 #include "platform/process.h"
 #include "ui/icon.h"
 #include "ui/text.h"
@@ -83,7 +82,7 @@ struct dxl_window {
     int            vsync;
     int            sdl, pads, kit;
     int            audio_up;       /* SDL's audio subsystem, up with the window */
-    Uint32         wake_event, pick_event;
+    Uint32         wake_event;
     double         opened;
     int            cursor_hidden;
     int            diags;          /* the kit's diagnostics last logged */
@@ -108,13 +107,10 @@ struct dxl_window {
      * browser's. */
     find_job      *find;
     browse_job    *browse;
-
-    /* The system's folder dialog's answer, from its thread. */
-    SDL_Mutex     *pick_lock;
-    int            pick_state;     /* 1 a folder; 2 none chosen; 3 no dialog to show */
-    char          *picked;
-    char           pick_error[256];
 };
+
+/* The launcher's id, its window's to SDL. */
+#define DXL_APP_ID "io.github.juggymcnutty.DXLauncher"
 
 static int signal_pipe[2] = { -1, -1 };
 
@@ -208,55 +204,6 @@ static void take_lines(dxl_window *w) {
         dxl_shell_toast(&w->shell, "DXLauncher is open already: here it is.");
     }
     if (w->drained) SDL_SignalSemaphore(w->drained);
-}
-
-/* ---- the system's folder dialog ----------------------------------------- */
-
-static void SDLCALL on_pick(void *ctx, const char *const *files, int filter) {
-    (void)filter;
-    dxl_window *w = ctx;
-    SDL_LockMutex(w->pick_lock);
-    free(w->picked);
-    w->picked = NULL;
-    if (!files) {
-        w->pick_state = 3;
-        snprintf(w->pick_error, sizeof w->pick_error, "%s", SDL_GetError());
-    } else if (!files[0]) {
-        w->pick_state = 2;
-    } else {
-        w->pick_state = 1;
-        w->picked = dxl_xstrdup(files[0]);
-    }
-    SDL_UnlockMutex(w->pick_lock);
-    SDL_Event e;
-    SDL_zero(e);
-    e.type = w->pick_event;
-    SDL_PushEvent(&e);
-}
-
-static void pick_folder(dxl_shell *s) {
-    dxl_window *w = s->window;
-    char *dir = s->pick_for == DXL_BROWSE_ENGINE && s->run ? dxl_path_dirname(s->run->session.engine) : NULL;
-    SDL_ShowOpenFolderDialog(on_pick, w, w->window, dir ? dir : getenv("HOME"), false);
-    free(dir);
-}
-
-static void picked(dxl_window *w) {
-    dxl_shell *s = &w->shell;
-    SDL_LockMutex(w->pick_lock);
-    int state = w->pick_state;
-    char *path = w->picked;
-    w->picked = NULL;
-    w->pick_state = 0;
-    SDL_UnlockMutex(w->pick_lock);
-    if (state == 1 && path) {
-        dxl_shell_folder_picked(s, path);
-    } else if (state == 3) {
-        dxl_log("no system folder dialog: %s", w->pick_error);
-        dxl_shell_message(s, "No folder dialog", "The system has none to show here (%s). Browse... finds the folder "
-                          "as well.", w->pick_error);
-    }
-    free(path);
 }
 
 /* ---- the GPU probe ----------------------------------------------------- */
@@ -521,59 +468,6 @@ static void browse_collect(dxl_window *w) {
     dxl_shell_browsed(&w->shell, failed ? error : NULL);
 }
 
-/* ---- the app menu's entry ------------------------------------------------- */
-
-static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
-    if (!install) return dxl_desktop_remove(data_home, err);
-    for (int i = 0; i < dxl_desktop_icon_count; i++) {
-        char *icon = dxl_desktop_icon_path(data_home, dxl_desktop_icon_sizes[i]);
-        int rc = dxl_icon_save(icon, dxl_desktop_icon_sizes[i]);
-        if (rc != 0) dxl_err_set(err, "cannot write %s: %s", icon, SDL_GetError());
-        free(icon);
-        if (rc != 0) return -1;
-    }
-    char *tmpl = dxl_path_join(data_dir, DXL_APP_ID ".desktop.in");
-    char *self = dxl_path_self();
-    int rc = dxl_desktop_install(data_home, tmpl, self ? self : "deusex-launcher", err);
-    free(self);
-    free(tmpl);
-    return rc;
-}
-
-static void desktop(dxl_shell *s, int install) {
-    const dxl_session *ss = &s->run->session;
-    dxl_err e;
-    if (write_entry(ss->xdg.data_home, ss->data_dir, install, &e) == 0) {
-        dxl_log("app menu entry %s", install ? "added" : "removed");
-        dxl_shell_toast(s, install ? "DXLauncher is on the app menu." : "DXLauncher is off the app menu.");
-    } else {
-        dxl_shell_message(s, install ? "Not on the app menu" : "Still on the app menu", "%s", dxl_err_msg(&e));
-    }
-    s->desktop_entry = dxl_desktop_installed(ss->xdg.data_home);
-}
-
-int dxl_window_desktop_entry(int install) {
-    dxl_xdg x;
-    dxl_err e;
-    if (dxl_xdg_open(&x, &e) != 0) {
-        fprintf(stderr, "%s\n", dxl_err_msg(&e));
-        return 1;
-    }
-    char *self = dxl_path_self();
-    char *app = self ? dxl_path_dirname(self) : dxl_xstrdup(".");
-    char *data = dxl_path_join(app, "data");
-    int rc = write_entry(x.data_home, data, install, &e);
-    char *entry = dxl_desktop_entry_path(x.data_home);
-    if (rc == 0) printf("%s %s\n", install ? "wrote" : "removed", entry);
-    else fprintf(stderr, "%s\n", dxl_err_msg(&e));
-    free(entry);
-    free(data);
-    free(app);
-    free(self);
-    dxl_xdg_free(&x);
-    return rc == 0 ? 0 : 1;
-}
-
 /* ---- the window ---------------------------------------------------------- */
 
 /* The window's points to a dp: the display's scale and the launcher's own
@@ -713,9 +607,8 @@ static int open_window(dxl_window *w, dxl_run *r) {
             SDL_Quit();
             return -1;
         }
-        w->wake_event = SDL_RegisterEvents(3);
-        w->pick_event = w->wake_event + 1;
-        w->job_event = w->wake_event + 2;
+        w->wake_event = SDL_RegisterEvents(2);
+        w->job_event = w->wake_event + 1;
         w->sdl = 1;
     }
     /* With the controllers the mapping wizard made known. */
@@ -800,13 +693,10 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->audio = w->audio_up ? dxl_audio_open() : NULL;
     s->audio_given = 0;
     s->window = w;
-    s->pick_folder = pick_folder;
-    s->desktop = desktop;
     s->start_probe = start_probe;
     s->start_find = start_find;
     s->start_browse = start_browse;
     s->set_big = set_big;
-    s->desktop_entry = dxl_desktop_installed(r->session.xdg.data_home);
     return 0;
 }
 
@@ -835,8 +725,6 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         dxl_shell_toast(s, "A controller was disconnected.");
     } else if (e->type == w->wake_event) {
         take_lines(w);
-    } else if (e->type == w->pick_event) {
-        picked(w);
     } else if (e->type == w->job_event) {
         probe_collect(w);
         find_collect(w);
@@ -954,7 +842,6 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
     w->stop = stop;
     w->quit_pipe[0] = w->quit_pipe[1] = -1;
     dxl_shell_init(&w->shell, version);
-    w->pick_lock = SDL_CreateMutex();
     w->script = dxl_uiscript_open();
     if (signal_pipe[0] < 0 && pipe2(signal_pipe, O_CLOEXEC | O_NONBLOCK) != 0) signal_pipe[0] = signal_pipe[1] = -1;
     return w;
@@ -972,10 +859,8 @@ void dxl_window_free(dxl_window *w) {
         TTF_Quit();
         SDL_Quit();
     }
-    SDL_DestroyMutex(w->pick_lock);
     dxl_uiscript_free(w->script);
     free(w->words_before);
-    free(w->picked);
     free(w);
 }
 

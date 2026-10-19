@@ -328,8 +328,6 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
         s->go_to = p;
         return;
     }
-    /* The system's folder dialog's answer is the page's it was shown from. */
-    s->pick_open = 0;
     if (s->page != p) {
         s->focus[s->page] = s->ui.focus;
         s->from = s->page;
@@ -487,7 +485,7 @@ int dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief, size_t 
 }
 
 /* The pick's choices, in its order. */
-enum { ENGINE_OWN, ENGINE_BROWSE, ENGINE_DIALOG };
+enum { ENGINE_OWN, ENGINE_BROWSE };
 
 void dxl_shell_engine_pick(dxl_shell *s, uint32_t id) {
     dxl_session *ss = &s->run->session;
@@ -497,9 +495,9 @@ void dxl_shell_engine_pick(dxl_shell *s, uint32_t id) {
     if (dxl_engine_check(own, &v, brief, sizeof brief, why, sizeof why) == 0) snprintf(detail, sizeof detail, "%s", v.version);
     else snprintf(detail, sizeof detail, "%s", brief);
     free(own);
-    const char *labels[3] = { "The launcher's own", "Another, in a folder...", "Another, by the system's dialog..." };
-    const char *details[3] = { detail, "DXEngine in it, a build of your own", "" };
-    dxl_shell_pick_with(s, id, "The engine", labels, details, s->pick_folder ? 3 : 2,
+    const char *labels[2] = { "The launcher's own", "Another, in a folder..." };
+    const char *details[2] = { detail, "DXEngine in it, a build of your own" };
+    dxl_shell_pick_with(s, id, "The engine", labels, details, 2,
                         ss->engine_by_env || !dxl_ini_get(ss->ini, "Launcher", "Engine") ? ENGINE_OWN : ENGINE_BROWSE);
 }
 
@@ -520,52 +518,7 @@ void dxl_shell_engine_answer(dxl_shell *s, uint32_t id) {
         char *dir = dxl_path_dirname(ss->engine);
         dxl_browser_open(s, dxl_path_is_dir(dir) ? dir : getenv("HOME"), DXL_BROWSE_ENGINE);
         free(dir);
-    } else if (got == ENGINE_DIALOG) {
-        dxl_shell_pick_folder(s, DXL_BROWSE_ENGINE);
     }
-}
-
-void dxl_shell_pick_folder(dxl_shell *s, int what) {
-    if (!s->pick_folder) return;
-    s->pick_for = what;
-    s->pick_open = 1;
-    s->pick_page = s->page;
-    s->pick_repoint = s->repoint;
-    s->pick_making = s->making;
-    s->pick_folder(s);
-}
-
-void dxl_shell_folder_picked(dxl_shell *s, const char *path) {
-    char shown[1024];
-    if (!s->pick_open || s->page != s->pick_page || s->repoint != s->pick_repoint || s->making != s->pick_making ||
-        s->dialog != DXL_DIALOG_NONE) {
-        dxl_log("the folder dialog's answer, %s, is for a page gone: dropped", path);
-        s->pick_open = 0;
-        return;
-    }
-    s->pick_open = 0;
-    if (s->pick_for == DXL_BROWSE_ENGINE) {
-        char brief[200], why[800];
-        if (!dxl_shell_choose_engine(s, path, brief, sizeof brief, why, sizeof why))
-            dxl_shell_message(s, "Not an engine to play with", "%s", why);
-        return;
-    }
-    if (s->pick_for == DXL_BROWSE_MOD) {
-        dxl_mod m;
-        dxl_err e;
-        if (dxl_mod_check(path, &m, &e) == 0) {
-            dxl_shell_mod_shown(s, &m);
-            dxl_mod_free(&m);
-        } else {
-            dxl_shell_message(s, "Not a mod", "%s.", dxl_err_msg(&e));
-        }
-        return;
-    }
-    dxl_install in;
-    dxl_install_check(path, &in);
-    if (in.ok) dxl_shell_choose(s, &in);
-    else dxl_shell_message(s, "Not one to play", "%s: %s.", dxl_shell_tilde(in.root, shown, sizeof shown), in.problem);
-    dxl_install_free(&in);
 }
 
 void dxl_shell_repoint(dxl_shell *s, dxl_page back_to) {
@@ -639,22 +592,6 @@ void dxl_shell_begin_defaults(dxl_shell *s) {
         if (bound && (!now || strcmp(now->id, "classic") != 0)) s->begin_layout = 0;
         dxl_ini_free(usr);
     }
-}
-
-void dxl_shell_open(dxl_shell *s, const char *path) {
-    if (!s->window || !path) return;
-    /* A file URL, its bytes outside the unreserved ones escaped. */
-    char url[4096];
-    size_t n = snprintf(url, sizeof url, "file://");
-    for (const unsigned char *p = (const unsigned char *)path; *p && n + 4 < sizeof url; p++) {
-        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') ||
-            strchr("/-._~", *p))
-            url[n++] = (char)*p;
-        else
-            n += snprintf(url + n, sizeof url - n, "%%%02X", *p);
-    }
-    url[n] = '\0';
-    if (dxl_open_url(url) != 0) dxl_shell_toast(s, "Nothing opened %s", path);
 }
 
 void dxl_shell_probe(dxl_shell *s) {

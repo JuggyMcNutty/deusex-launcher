@@ -23,8 +23,4 @@ void        dxl_window_ui(dxl_window *w, dxl_run_ui *ui);
 /* From a signal handler: wakes the window, if it is up. */
 void        dxl_window_wake(void);
 
-/* --install-desktop and --remove-desktop: the app menu's entry and icons,
- * with no window. Returns the exit code. */
-int         dxl_window_desktop_entry(int install);
-
 #endif

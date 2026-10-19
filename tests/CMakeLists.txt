@@ -44,8 +44,6 @@ dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
 
-dxl_test(test_desktop)
-target_link_libraries(test_desktop PRIVATE dxl_platform)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
 # The Smart Pro's CPU modes and its game hook, run as the launcher runs it.

@@ -3,9 +3,8 @@
  * each with where it is, whose settings it starts from and the profiles
  * that play it. The one chosen is played with its profile, or has one
  * made, Your profile showing what it is made of before it is; another is
- * shown by the launcher's folder browser or the system's dialog, and is
- * listed while the launcher runs, and by its profile from then on; the
- * launcher's mods folder opens in the desktop's file manager. The rows are
+ * shown by the launcher's folder browser, and is listed while the launcher
+ * runs, and by its profile from then on. The rows are
  * the mods; the buttons beside them act on the one chosen, the row last
  * focused. */
 #define _GNU_SOURCE
@@ -173,10 +172,6 @@ void dxl_page_mods(dxl_shell *s, dxl_rect r) {
                             DXL_W_LEFT | (sel < 0 ? DXL_W_DISABLED : has_profile ? 0 : DXL_W_PRIMARY));
     dxl_cut_top(&side, 10);
     int b_browse = dxl_button(ui, "mods browse", dxl_cut_top(&side, 48), "Browse...", DXL_W_LEFT);
-    dxl_cut_top(&side, 10);
-    int b_dialog = dxl_button(ui, "mods system", dxl_cut_top(&side, 48), "The system's dialog...", DXL_W_LEFT);
-    dxl_cut_top(&side, 10);
-    int b_folder = dxl_button(ui, "mods folder", dxl_cut_top(&side, 48), "The mods folder", DXL_W_LEFT);
     int b_back = dxl_button(ui, "mods back", dxl_cut_bottom(&side, 48), "Back", DXL_W_LEFT);
     if (ui->focus == dxl_ui_id(ui, "mods use") && has_profile) {
         snprintf(text, sizeof text, "%s, its profile, played from now on.", s->mod_rows[sel].profile_name);
@@ -184,11 +179,8 @@ void dxl_page_mods(dxl_shell *s, dxl_rect r) {
     } else if (ui->focus == dxl_ui_id(ui, "mods make")) {
         why = "A profile of its own, on the game the profile in use plays: the mod's folders before the game's, "
               "its own settings and saves.";
-    } else if (ui->focus == dxl_ui_id(ui, "mods browse") || ui->focus == dxl_ui_id(ui, "mods system")) {
+    } else if (ui->focus == dxl_ui_id(ui, "mods browse")) {
         why = "A mod's folder anywhere else, the one with its System folder in it.";
-    } else if (ui->focus == dxl_ui_id(ui, "mods folder")) {
-        why = "The launcher's own mods folder, in the desktop's file manager: a mod's folder put in it is listed "
-              "here.";
     }
     /* A mod's text is its own .int files', which only an engine with
      * int-paths reads from its folder. */
@@ -211,13 +203,6 @@ void dxl_page_mods(dxl_shell *s, dxl_rect r) {
     } else if (b_browse) {
         const char *home = getenv("HOME");
         dxl_browser_open(s, sel >= 0 ? s->mods.items[sel].dir : home ? home : "/", DXL_BROWSE_MOD);
-    } else if (b_dialog) {
-        dxl_shell_pick_folder(s, DXL_BROWSE_MOD);
-    } else if (b_folder) {
-        char *folder = dxl_session_mods_dir(ss);
-        dxl_path_mkdirs(folder);
-        dxl_shell_open(s, folder);
-        free(folder);
     } else if (b_back || ui->in.back) {
         dxl_shell_go(s, DXL_PAGE_PROFILES);
     }

@@ -52,8 +52,7 @@ permissions to keep (exFAT, FAT) refusing that is no failure.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
-window's type (`data/fonts`), the app menu's entry
-([the app menu](#the-app-menu)), the engine's renderers and what each needs
+window's type (`data/fonts`), the engine's renderers and what each needs
 of the machine (`renderers.ini`), and `Settings.json`'s defaults
 (`engine-settings.json.default`). That engine is the one played with
 unless another is chosen, on Settings' Launcher page or Home's The
@@ -97,8 +96,8 @@ in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library. A
 Windows Steam in a prefix gives its libraries too, its list's Windows
 paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
 any letter case; a network path (`\\server\share`) is passed over.
-Another is shown by the launcher's folder browser, which a pad works, or
-by the system's folder dialog. `dxl-cli` makes the profile from
+Another is shown by the launcher's folder browser, which a pad works.
+`dxl-cli` makes the profile from
 `--game=<dir>`'s install. Either way the profile is made from the
 install by `dxl_profile_import` (`src/core/profile.c`), reading it and
 writing nothing there:
@@ -179,9 +178,8 @@ is a copy of the game (its `System/DeusEx.exe`).
   profile, as a new profile's, on the game the profile in use plays, named
   after the mod; Back leaves the one in use as it was. Made, it is the one
   in use.
-- **Browse...** and **The system's dialog...**: a mod's folder anywhere
-  else, listed while the launcher runs, and by its profile from then on.
-- **The mods folder**: the launcher's, in the desktop's file manager.
+- **Browse...**: a mod's folder anywhere else, listed while the launcher
+  runs, and by its profile from then on.
 
 A mod's profile is made as the first run makes one
 (`dxl_profile_import_mod`, `src/core/profile.c`), but:
@@ -228,8 +226,8 @@ played, its snapshot; the newest first, one whose info does not read last.
   newest first (`src/core/shotlist.c`), as a gallery of thumbnails read off
   the window's thread (`src/ui/thumbs.c`), the one chosen beside it with
   when it was taken and its size. Show, or Enter or a click on one, shows
-  it whole, Previous and Next stepping through them; Open the folder opens
-  it in the file manager; Delete... puts it in the trash.
+  it whole, Previous and Next stepping through them; Delete... puts it in
+  the trash.
 
 The game starts on a save by the engine's start URL, `?loadgame=N` in
 `--url`, which only an engine whose `--version` names `loadgame-url` takes
@@ -281,8 +279,7 @@ network's, as the game's Join LAN screen adds it (the client's LAN speed),
 and `?password=` after that when it asks for one; the launcher's log and
 the last run keep where it went, not the password.
 
-A `deusex://host:port` link, of which the app menu's entry is the handler,
-opens Multiplayer asking whether to join its server; with `--play`, with no
+A `deusex://host:port` link on the command line opens Multiplayer asking whether to join its server; with `--play`, with no
 window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
 is half done there -- a dialog, the game's folder or a profile being
@@ -336,13 +333,13 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
 | Profiles | [the profiles](#profiles): use one, a new one, the mods, a copy, a name, delete one |
-| Mods | [the mods](#mods): one's profile used or made, another's folder shown, the mods folder opened |
+| Mods | [the mods](#mods): one's profile used or made, another's folder shown |
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
-| Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
+| Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, one deleted |
 | Multiplayer | [the servers](#multiplayer): the local network's, the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
 | Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
-| The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
-| About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
+| The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad |
+| About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts |
 
 Graphics (`-changevideo`, and an engine's `RELAUNCH` with it) opens
 Settings on its Graphics tab, whose Done is Play.
@@ -495,8 +492,8 @@ Escape.
 
 **Launcher** begins with the engine and the game's folder. The engine:
 its version, or what is wrong with it, and as its choices the launcher's
-own or another, in a folder shown by the launcher's browser or the
-system's dialog, DXEngine in it, checked before it is
+own or another, in a folder shown by the launcher's browser, DXEngine in
+it, checked before it is
 taken (one that finds no `DXEngine.pk3` where the engine looks is said
 to). The game's folder: the profile's install, another chosen on The game.
 
@@ -575,20 +572,6 @@ then the file (`src/app/run.c`): each mapping, and a copy of it for an
 SDL2 before 2.26, whose GUIDs have no CRC of the pad's name: its GUID
 without the CRC, a `crc:` field naming it, which a newer SDL reads, so that
 the copy maps the pad of that name alone.
-
-## The app menu
-
-`deusex-launcher --install-desktop`, or About's button, puts the launcher on
-the desktop's app menu:
-`$XDG_DATA_HOME/applications/io.github.juggymcnutty.DXLauncher.desktop`,
-from `data/`'s template with the launcher's own path, and its icon, our own
-drawing, at 32 to 256 px under `$XDG_DATA_HOME/icons/hicolor`
-(`src/platform/posix/desktop.c`, `src/ui/icon.c`). The window has the same
-id, so the desktop puts the two together; its Big screen action starts it
-with `--big-screen`, and its MimeType makes it the handler of `deusex://`
-links, `update-desktop-database` (where the desktop has it) putting it in
-the applications folder's cache. `--remove-desktop`, or the button again,
-takes them away; nothing else writes them.
 
 ## The game and the launcher
 
@@ -794,4 +777,4 @@ it whatever the install. Changed:
 
 - **The finder reads no database**: a Lutris game whose program is named
   from its folder, which only Lutris' `pga.db` holds, is found by the
-  folder browser, the system's dialog or `--game=<dir>`.
+  folder browser or `--game=<dir>`.

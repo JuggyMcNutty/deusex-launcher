@@ -104,12 +104,11 @@ target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
 # What is the platform's: the processes the launcher starts, the game among
-# them (platform/process.h), the crash-isolated GPU probe, the app menu's
-# entry, and the desktop's trash.
+# them (platform/process.h), the crash-isolated GPU probe, and the
+# desktop's trash.
 add_library(dxl_platform STATIC
     src/platform/posix/process.c
     src/platform/posix/gpu_probe.c
-    src/platform/posix/desktop.c
     src/platform/posix/trash.c
     src/platform/posix/net.c
 )
@@ -202,8 +201,7 @@ target_include_directories(dxl-shots PRIVATE tests)
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
 # programs, data/ and the notices of what is in them.
 install(TARGETS deusex-launcher dxl-cli RUNTIME DESTINATION .)
-install(FILES data/renderers.ini data/engine-settings.json.default
-              data/io.github.juggymcnutty.DXLauncher.desktop.in DESTINATION data)
+install(FILES data/renderers.ini data/engine-settings.json.default DESTINATION data)
 install(DIRECTORY data/fonts DESTINATION data)
 install(FILES THIRD-PARTY.md DESTINATION .)
 

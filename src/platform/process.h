@@ -56,9 +56,6 @@ void dxl_game_signal(dxl_game *g, int sig);
 /* A clean end: the game exited with 0. */
 int dxl_game_clean(const dxl_game *g);
 
-/* Opens a URL with the desktop's handler, not waiting for it -- the
- * original's ShellExecute of a web page. */
-int  dxl_open_url(const char *url);
 
 /* Runs argv to its end, at most timeout_ms (then it is killed), its output
  * into out and its errors into errs (NULL: nowhere), each cut at its size

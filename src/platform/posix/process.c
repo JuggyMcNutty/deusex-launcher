@@ -200,22 +200,6 @@ void dxl_game_signal(dxl_game *g, int sig) {
 int dxl_game_clean(const dxl_game *g) { return g->ended && g->status == 0; }
 
 
-int dxl_open_url(const char *url) {
-    /* Two forks, so the opener is nobody's child to wait for. */
-    pid_t pid = fork();
-    if (pid < 0) return -1;
-    if (pid == 0) {
-        if (fork() == 0) {
-            cloexec_all(-1);
-            execlp("xdg-open", "xdg-open", url, (char *)NULL);
-            _exit(127);
-        }
-        _exit(0);
-    }
-    waitpid(pid, NULL, 0);
-    return 0;
-}
-
 /* What a pipe has, onto buf's end (cut at size, NUL-terminated); 0 at the
  * pipe's end. */
 static int take_pipe(int fd, char *buf, size_t size, size_t *got) {

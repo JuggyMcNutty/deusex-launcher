@@ -160,12 +160,6 @@ typedef struct dxl_shell {
     int          repoint;         /* The game is for the profile's install, not a first run */
     int          repoint_back;    /* ...asked for from a page, which its Back goes to: */
     dxl_page     repoint_to;
-    int          pick_for;        /* what the system's folder dialog is for: DXL_BROWSE_* */
-    /* The system's folder dialog up: from which page, in which state; its
-     * answer is dropped once any of them has changed. */
-    int          pick_open;
-    dxl_page     pick_page;
-    int          pick_repoint, pick_making;
     int          looked;          /* the finder has been asked */
     int          finding;         /* ...and still looks: the list grows as it finds */
     int          find_focus;      /* the first found to take the page's focus as it comes */
@@ -358,11 +352,6 @@ typedef struct dxl_shell {
      * offscreen, where the two are set alone. */
     void       (*set_big)(struct dxl_shell *s, int on);
 
-    /* The window's: the system's folder dialog, and the app menu's entry.
-     * NULL offscreen, where the buttons do nothing. */
-    void       (*pick_folder)(struct dxl_shell *s);
-    void       (*desktop)(struct dxl_shell *s, int install);
-    int          desktop_entry;   /* the app menu has the launcher's entry */
     void        *window;
 } dxl_shell;
 
@@ -425,18 +414,9 @@ void        dxl_shell_repoint(dxl_shell *s, dxl_page back_to);
 int         dxl_shell_choose_engine(dxl_shell *s, const char *path, char *brief, size_t brief_size, char *why,
                                     size_t why_size);
 /* The engine's choices, a pick for the control id -- the launcher's own,
- * another by the browser, by the system's dialog -- and, read on id's
- * frames, its answer done. */
+ * another by the browser -- and, read on id's frames, its answer done. */
 void        dxl_shell_engine_pick(dxl_shell *s, uint32_t id);
 void        dxl_shell_engine_answer(dxl_shell *s, uint32_t id);
-/* The system's folder dialog shown for what (DXL_BROWSE_*), from the page
- * as it is now. */
-void        dxl_shell_pick_folder(dxl_shell *s, int what);
-/* A folder it gave: for what it was shown for, if the page it was shown
- * from is still up as it was; else dropped. */
-void        dxl_shell_folder_picked(dxl_shell *s, const char *path);
-/* A folder or file with the desktop's handler. */
-void        dxl_shell_open(dxl_shell *s, const char *path);
 /* The GPU probe asked for, once: renderers.ini's list loaded now, resolved
  * as dxl_shell_probed hands the answer in. */
 void        dxl_shell_probe(dxl_shell *s);

@@ -166,8 +166,6 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
 
     int browse = dxl_button(ui, "find browse", dxl_cut_left(&buttons, 170), "Browse...",
                             s->found.count ? 0 : DXL_W_PRIMARY);
-    dxl_cut_left(&buttons, 12);
-    int dialog = dxl_button(ui, "find system", dxl_cut_left(&buttons, 230), "The system's dialog...", 0);
     int quits = s->repoint && !s->repoint_back;
     int back = dxl_button(ui, "find back", dxl_cut_right(&buttons, 150), quits ? "Quit" : "Back", 0);
     if (s->making && (back || ui->in.back)) {
@@ -183,8 +181,6 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
     } else if (browse) {
         const char *start = s->has_chosen ? s->chosen.root : getenv("HOME");
         dxl_browser_open(s, start ? start : "/", DXL_BROWSE_GAME);
-    } else if (dialog) {
-        dxl_shell_pick_folder(s, DXL_BROWSE_GAME);
     } else if (quits) {
         if (back) s->result = 0;
     } else if (s->repoint && (back || ui->in.back)) {

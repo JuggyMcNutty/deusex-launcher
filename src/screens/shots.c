@@ -1,9 +1,8 @@
 /* Screenshots: the profile's shots (core/shotlist.h), newest first, as a
  * gallery of thumbnails read off the window's thread (ui/thumbs.h); the
  * one chosen -- the tile last focused -- beside them with when it was taken
- * and its size. One is shown whole, the others stepped to from it; their
- * folder opened with the desktop's file manager; one deleted to the
- * desktop's trash. */
+ * and its size. One is shown whole, the others stepped to from it; one
+ * deleted to the desktop's trash. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
@@ -246,14 +245,10 @@ void dxl_page_shots(dxl_shell *s, dxl_rect r) {
     int b_show = dxl_button(ui, "shots show", dxl_cut_top(&side, 48), "Show", DXL_W_PRIMARY | DXL_W_LEFT |
                             (chosen ? 0 : DXL_W_DISABLED));
     dxl_cut_top(&side, 10);
-    uint32_t folder_id = dxl_ui_id(ui, "shots folder");
-    int b_folder = dxl_button_id(ui, folder_id, dxl_cut_top(&side, 48), "Open the folder", DXL_W_LEFT);
-    dxl_cut_top(&side, 10);
     uint32_t del_id = dxl_ui_id(ui, "shots delete");
     int b_delete = dxl_button_id(ui, del_id, dxl_cut_top(&side, 48), "Delete...", DXL_W_LEFT | (chosen ? 0 : DXL_W_DISABLED));
     int b_back = dxl_button(ui, "shots back", back_r, "Back", DXL_W_LEFT);
-    if (ui->focus == folder_id) why = "The profile's Screenshots folder, in the desktop's file manager.";
-    else if (ui->focus == del_id) why = "The picture to the trash, to be put back from there.";
+    if (ui->focus == del_id) why = "The picture to the trash, to be put back from there.";
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
     if (dxl_shell_answer(s, del_id) == 1 && chosen) {
@@ -277,9 +272,6 @@ void dxl_page_shots(dxl_shell *s, dxl_rect r) {
         s->shot_open = 1;
         ui->focus = 0;
         dxl_ui_animate(ui);
-    } else if (b_folder) {
-        dxl_path_mkdirs(ss->profile.shots_dir);
-        dxl_shell_open(s, ss->profile.shots_dir);
     } else if (b_delete && chosen) {
         char title[320];
         snprintf(title, sizeof title, "Delete %s?", chosen->name);
