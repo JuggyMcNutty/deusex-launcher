@@ -90,7 +90,7 @@ Windows' installers put the game: `DeusEx`, the CD's folder; each folder
 in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library. A
 Windows Steam in a prefix gives its libraries too, its list's Windows
 paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
-any case; a network path (`\\server\share`) is passed over.
+any letter case; a network path (`\\server\share`) is passed over.
 Another is shown by the launcher's folder browser, which a pad works, or
 by the system's folder dialog. `dxl-cli` makes the profile from
 `--game=<dir>`'s install. Either way the profile is made from the
@@ -461,9 +461,10 @@ buttons. Recovery's The defaults...
 does it for a page or for all.
 
 **Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
-drew it: no multisampling or bloom, detail textures), Enhanced (4x
+drew it: detail textures, and no multisampling or bloom), Enhanced (4x
 multisampling, bloom, detail textures) and Performance (less to draw, three
-quarters of the window's size); Custom once a row is changed by itself. Its
+quarters of the window's size); Custom whenever the rows match none of them,
+a first run's engine defaults among them. Its
 Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2
 and OpenGL ES 3.2 (`data/renderers.ini`), which `dxl-cli --probe --ini`
 finds in a child process as the page needs them.
@@ -541,8 +542,8 @@ menus and, advanced, whether the game reads the controller at all,
 
 **Test the controller...** shows the controller's model larger, and while
 it is up every pad's input drives the model alone, none of the window: each
-control pressed lit and its line's label with it, the sticks no longer
-turning the view, the triggers rumbling the controller as far as they are
+control pressed lit and its line's label with it, the sticks not turning
+the view, the triggers rumbling the controller as far as they are
 pulled, each its own motor. Its back button held a second ends it, as do
 Esc, Stop testing and the controller going.
 
