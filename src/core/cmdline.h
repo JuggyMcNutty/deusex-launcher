@@ -25,7 +25,9 @@
 
 /* Joins argv[1..] with single spaces -- the engine sees one string, not a
  * vector, and the substring semantics above only make sense on the joined
- * form. Caller frees. */
+ * form -- its leading blanks skipped, as Windows skips them after the
+ * program's name for WinMain's lpCmdLine: a relaunch hands its line over
+ * whole, safe mode's flags with the space before each. Caller frees. */
 char *dxl_cmdline_join(int argc, char *const *argv);
 
 /* ParseParam: token preceded by '-' or '/' and followed by end-of-string,

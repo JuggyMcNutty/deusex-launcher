@@ -26,6 +26,8 @@ char *dxl_cmdline_join(int argc, char *const *argv) {
     dxl_buf_init(&b);
     for (int i = 1; i < argc; i++) dxl_buf_word(&b, argv[i]);
     if (!b.data) dxl_buf_puts(&b, "");
+    size_t blanks = strspn(b.data, " \t");
+    memmove(b.data, b.data + blanks, strlen(b.data + blanks) + 1);
     return b.data;
 }
 

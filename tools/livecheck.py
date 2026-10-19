@@ -321,9 +321,12 @@ def scenario_safe():
 
 def scenario_ini():
     text = open(SYS + "/DeusEx.ini", encoding="latin1", newline="").read()
+    # In every section that has them: the game's [WinDrv.WindowsClient], and
+    # the engine's [Engine.DXEngineClient] once it has run, which it reads in
+    # an ini that has its sections.
     for key, value in (("WindowedViewportX", "800"), ("WindowedViewportY", "600"), ("StartupFullscreen", "False")):
-        text, n = re.subn(r"^%s=[^\r\n]*" % key, lambda m: "%s=%s" % (key, value), text, count=1, flags=re.M)
-        assert n == 1, key
+        text, n = re.subn(r"^%s=[^\r\n]*" % key, lambda m: "%s=%s" % (key, value), text, flags=re.M)
+        assert n >= 1, key
     mod = SYS + "/My Mod.ini"
     open(mod, "w", encoding="latin1", newline="").write(text)
     try:

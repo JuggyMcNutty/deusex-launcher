@@ -116,6 +116,12 @@ static void test_join(void) {
     j = dxl_cmdline_join(1, argv2);
     CHECK_STR(j, "");
     free(j);
+
+    /* A relaunch's line, handed over whole: lpCmdLine skips its blanks. */
+    char *argv3[] = { "deusex-launcher", " -nosound -nojoy" };
+    j = dxl_cmdline_join(2, argv3);
+    CHECK_STR(j, "-nosound -nojoy");
+    free(j);
 }
 
 /* argv[0] is excluded from the joined command line, the one core/policy.c
