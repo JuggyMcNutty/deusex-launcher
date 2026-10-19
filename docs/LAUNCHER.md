@@ -484,6 +484,12 @@ by the engine's own 4x (a first run's engine defaults), the launcher asks
 `dxl-cli --probe`, once a run, and on such a GPU writes Off there, the
 file made from the defaults file when there is none (`src/app/run.c`).
 
+**CPU mode**, on Graphics: how fast the Smart Pro's CPU runs while the
+game does, spruceOS's own modes, Smart, Performance (four cores at
+1.8 GHz) and Overclock (2.0 GHz, the default), kept in `launcher.ini`'s
+`[Launcher] CpuMode` (`src/core/cpumode.c`);
+[the game hook](#the-game-and-the-launcher) sets it.
+
 **Keyboard & mouse** has the game's key menu's actions, and the commands
 the game's defaults bind besides (the pause menu, the belt's slots, the
 augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A
@@ -628,6 +634,17 @@ The launcher waits on the line and its own socket, waking once a second
 besides. Stopped (SIGINT, SIGTERM, SIGHUP), it passes SIGTERM on, and
 SIGKILL 5 s later to an engine that takes no notice of SIGTERM, as
 DXEngine's under SDL does.
+
+**The game hook**: `port-hooks.sh` beside the launcher, the Smart Pro's,
+run with `/bin/sh` around each game (`src/app/gamehook.c`):
+`before <CPU mode>` once the window is gone, `after` once the game has
+ended, however it ended. Each runs at most 10 s, its output in the run's `last-run.log`
+and a line in `launcher.log`; one missing, failing or late never stops
+the game. The Smart Pro's sets the CPU mode with spruceOS's own helpers
+and puts back the state from before, kept in `/tmp/dxlauncher-cpu`,
+written only where there is none: a launcher killed mid-game leaves the
+CPU as the game had it, and the next game's `after` gives the menu its
+own back.
 
 ## Recovery
 

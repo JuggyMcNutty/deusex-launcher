@@ -4,6 +4,7 @@
  * User.ini's keys the class's (DefUser.ini's are what a profile starts
  * with: dxl_profile_defaults), for Settings.json the launcher's defaults
  * file's. */
+#include "core/cpumode.h"
 #include "core/settings.h"
 
 const char *const dxl_settings_pages[] = {
@@ -160,6 +161,10 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "graphics.renderer", .page = "Graphics", .label = "Renderer",
       .help = "What draws the game: the renderers this engine has, those this machine runs offered.",
       .kind = DXL_SET_CHOICE, .def = "Vulkan", .at = { JSON(DXL_ES_RENDER_TYPE) }, .flags = DXL_SET_RENDERER },
+    { .id = "graphics.cpu_mode", .page = "Graphics", .label = "CPU mode",
+      .help = "How fast the handheld's CPU runs while the game does; the menu's own speed comes back as it ends.",
+      .kind = DXL_SET_CHOICE, .choices = dxl_cpu_modes, .def = DXL_CPU_MODE_DEFAULT,
+      .at = { LAUNCHER("CpuMode", DXL_CODEC_TEXT) } },
     { .id = "graphics.antialias", .page = "Graphics", .label = "Anti-aliasing",
       .help = "Multisampling smooths the edges of polygons; 2x and 4x cost the GPU time and memory.",
       .kind = DXL_SET_CHOICE, .choices = antialiasing, .def = "MSAA4x", .at = { JSON(DXL_ES_ANTIALIAS) } },

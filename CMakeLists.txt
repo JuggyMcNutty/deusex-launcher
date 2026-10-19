@@ -98,6 +98,7 @@ add_library(dxl_core STATIC
     src/core/theme_colors.c
     src/core/saves.c
     src/core/shotlist.c
+    src/core/cpumode.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
@@ -127,6 +128,7 @@ add_library(dxl_app STATIC
     src/app/play.c
     src/app/run.c
     src/app/browser.c
+    src/app/gamehook.c
 )
 target_link_libraries(dxl_app PUBLIC dxl_platform)
 

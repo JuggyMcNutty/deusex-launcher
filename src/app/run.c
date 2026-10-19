@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "app/run.h"
+#include "app/gamehook.h"
 #include "core/argv.h"
 #include "core/cmdline.h"
 #include "core/engine_args.h"
@@ -577,8 +578,10 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
         .stop = stop,
     };
     if (ui && ui->before_play) ui->before_play(ui->ctx, r);
+    dxl_gamehook(r, log, "before");
     dxl_play_result_free(&r->played);
     dxl_play(&req, &r->played);
+    dxl_gamehook(r, log, "after");
     if (ui && ui->after_play) ui->after_play(ui->ctx, r);
     dxl_argv_free(argv);
 

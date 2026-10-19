@@ -48,6 +48,11 @@ dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
+# The Smart Pro's CPU modes and its game hook, run as the launcher runs it.
+dxl_test(test_cpumode)
+target_link_libraries(test_cpumode PRIVATE dxl_platform)
+target_compile_definitions(test_cpumode PRIVATE
+    DXL_PORT_HOOKS="${DXL_ROOT}/ports/trimui-smartpro/packaging/port-hooks.sh")
 # The server browser against a master and servers of its own on 127.0.0.1.
 find_package(Threads REQUIRED)
 dxl_test(test_browser)
