@@ -221,13 +221,14 @@ static void status_line(const dxl_shell *s, int shown, char *out, size_t size) {
                  shown < s->server_count ? ", the rest left out by the filter" : "");
 }
 
-/* One of n choices on a button, "Sort: By ping": left and right step
- * through them, choosing it lists them. The choice as it is now. */
+/* One of n choices on a button, "Sort: By ping": choosing it lists them.
+ * Left and right are not its own: in the page's top row they move to
+ * Refresh and the filter, which a pad reaches no other way. The choice as
+ * it is now. */
 static int choice(dxl_shell *s, uint32_t id, dxl_rect r, const char *what, const char *const *labels, int n, int now) {
     dxl_ui *ui = &s->ui;
     int a = dxl_shell_answer(s, id);
     if (a >= 0 && a < n) now = a;
-    now = (now + dxl_ui_take_lr(ui, id) % n + n) % n;
     char label[96];
     snprintf(label, sizeof label, "%s: %s", what, labels[now]);
     if (dxl_button_id(ui, id, r, label, DXL_W_LEFT)) dxl_shell_pick(s, id, what, labels, n, now);
