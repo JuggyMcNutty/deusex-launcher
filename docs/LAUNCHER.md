@@ -23,7 +23,8 @@ Screenshots, Multiplayer, Recovery, the log, About
 Nothing is written to the game's folder. The launcher's files are in the
 home's XDG folders, each with a `dxlauncher` folder in it
 (`src/core/xdg.h`); `DXL_HOME=<dir>` puts all four under one folder, a
-scratch home:
+scratch home. On the Smart Pro the app's `launch.sh` names one, `home` in
+the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
 
 | Folder | What is in it |
 |---|---|

@@ -1,0 +1,10 @@
+{
+  "label": "Deus Ex",
+  "icon": "deusex.png",
+  "launch": "launch.sh",
+  "description": "DXLauncher: Deus Ex on DXEngine. The game's files in Roms/PORTS/DeusEx.",
+  "devices": [
+    "TRIMUI_SMART_PRO"
+  ],
+  "hideInSimpleMode": false
+}
