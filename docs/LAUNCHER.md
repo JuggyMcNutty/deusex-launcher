@@ -346,7 +346,7 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
 | Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, one deleted |
 | Multiplayer | [the servers](#multiplayer): the local network's, the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
-| Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
+| Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Home, Quit ([Recovery](#recovery)) |
 | The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts |
 
@@ -458,7 +458,7 @@ the defaults file's for `Settings.json`.
 **Back to the defaults** gives a page what a new profile has: the install's
 `Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
 defaults file; on Keyboard & mouse the keys too, on Controller its
-buttons. Recovery's The defaults...
+buttons. Recovery's Defaults...
 does it for a page or for all.
 
 **Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
@@ -649,7 +649,8 @@ says the likely cause, and has its fix as a button: another renderer, of
 those that run here; a run without sound; the game's folder; Saves. Below
 are the end of the log where it fits, the [next
 run's words](#settings), and Play, the fix, the log, the defaults of a
-page or of all, Quit.
+page or of all, Home, Quit. Home, or the back button, goes to Home with
+the run as it was: its Play plays, as Recovery's does.
 
 ## dxl-cli
 
