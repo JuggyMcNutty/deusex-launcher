@@ -146,7 +146,7 @@ reproduce it.
 | SDL | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`** (`SDL_malivideo.c`) |
 | Surface | 1280x720 @60Hz, `SDL_PIXELFORMAT_RGBX8888`, fullscreen |
 | SDL renderer | **`opengles2`**, accelerated + vsync, max texture 8192² |
-| GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s. Vulkan: no `VK_EXT_descriptor_indexing`; BC1–5, RGB8 and RGBA32F not sampled or filtered as the engine needs (`probe-vulkan-caps.c`, `probe-texture-formats.c`). OpenGL ES: no S3TC, float-linear filtering, anisotropy or `glBufferStorage`; `GL_MIRROR_CLAMP_TO_EDGE` rejected (`probe-gles-sampler.c`) |
+| GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s. Vulkan: no `VK_EXT_descriptor_indexing`; BC1–5, RGB8 and RGBA32F not sampled or filtered as the engine needs (`probe-vulkan-caps.c`, `probe-texture-formats.c`). OpenGL ES: no S3TC, float-linear filtering, anisotropy or `glBufferStorage`; `GL_MIRROR_CLAMP_TO_EDGE` rejected (`probe-gles-sampler.c`); no `EXT_clip_cull_distance`; RGB10_A2 drawn, resolved, sampled and read with its ten bits, multisampled up to 4x but 1 beside the R32UI hit buffer (`probe-gles-scene.c`) |
 | Pad | `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, with SDL_GameController's built-in mapping |
 | Pad controls | A B X Y, L1 R1, SELECT START MENU (MENU is spruceOS's), d-pad (a hat), two sticks. **L2/R2 are digital**, though mapped to axes `a2`/`a5`. **No L3/R3**: the sticks do not click, though the mapping lists `leftstick:b9`/`rightstick:b10` |
 | Fonts | `/usr/trimui/res/regular.ttf`, `full.ttf`; `/mnt/SDCARD/spruce/Font Files/Noto.ttf` |
@@ -195,12 +195,18 @@ device shows it, in a desktop font.
 
 Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
 Overclock; milliseconds a frame, averaged over 60 frames, measured with the profiling hooks at
-the engine each row names: `503e90d` with every pawn thinking, `15392c0` with Distant AI on, an
-option of that engine's: far pawns skipping their thinking.
+the engine each row names: `503e90d`, `590635b` and `a8c47c3` with every pawn thinking,
+`15392c0` with Distant AI on, an option of that engine's: far pawns skipping their thinking.
+`590635b`'s second row has Surreal Engine's one pass of detail texture in place of `D3DDrv`'s
+three bands, which sample it only nearer than 380 units: the bands take the GPU wait from ~9.5
+to ~2.2.
 
 | Engine | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 |---|---|---|---|---|---|---|
 | `503e90d` | Vulkan, 853x480 | 16.8 | ~60 | ~14 | ~42 | ~10.5 |
+| `590635b` | Vulkan, 853x480 | 20.0 | ~50 | ~14 | ~33 | ~2.2 |
+| `590635b`, one pass of detail | Vulkan, 853x480 | 17.0 | ~59 | ~15 | ~40 | ~9.5 |
+| `a8c47c3` | OpenGL ES, 853x480 | 17.3 | ~58 | ~12.5 | ~44 | |
 | `15392c0` | Vulkan, 1280x720 (native) | 10.4 | ~96 | ~19 | ~73 | ~31 |
 | `15392c0` | Vulkan, 853x480 | 15.0 | ~67 | ~19 | ~44 | ~6 |
 | `15392c0` | OpenGL ES, 1280x720 | 12.1 | ~83 | ~19 | ~61 | |
@@ -222,8 +228,8 @@ frame while the input, tick and view run
 and its time is the longer at both resolutions: ~54 at native and ~29 at 853x480, against their
 ~23. So **a frame is about the render CPU plus the GPU's time**: render-CPU and GPU savings
 count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (~50 ms) at
-853x480 therefore needs some 17 off the render CPU and the GPU's time together, and at native
-the GPU's ~54 well under ~50.
+853x480 needed some 17 off the render CPU and the GPU's time together, as `590635b` takes them
+(the table above); at native it needs the GPU's ~54 well under ~50.
 
 - **Game tick ~19** over the ~770 dynamic actors (the level ticks no static actor, as the
   original's):
