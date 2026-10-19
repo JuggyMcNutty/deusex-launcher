@@ -54,8 +54,12 @@ void dxl_profile_free(dxl_profile *p);
 /* Made already: profile.ini and DeusEx.ini are there. */
 int  dxl_profile_exists(const dxl_profile *p);
 
-/* Its folders, and engine/Screenshots linked to the shots folder. */
-int  dxl_profile_make_dirs(const dxl_profile *p, dxl_err *err);
+/* Its folders, and engine/Screenshots linked to the shots folder. On a
+ * filesystem with no links (exFAT, FAT) engine/Screenshots is a folder, and
+ * the shots folder, then and as the profile opens again. */
+int  dxl_profile_make_dirs(dxl_profile *p, dxl_err *err);
+/* What makes the link; symlink, a test's own to make it fail. */
+extern int (*dxl_profile_link)(const char *target, const char *link);
 
 /* Its saves: the save folder's SaveNNNN folders and QuickSave. */
 int  dxl_profile_count_saves(const dxl_profile *p);
@@ -79,7 +83,7 @@ void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t si
  * own SavePath and CachePath, the engine folder's Settings.json and a
  * class's own config files -- not its saves, shots, runs or logs. to must
  * not be made yet. */
-int  dxl_profile_copy(const dxl_profile *from, const dxl_profile *to, dxl_err *err);
+int  dxl_profile_copy(const dxl_profile *from, dxl_profile *to, dxl_err *err);
 
 /* profile.ini's [Profile] keys: Name, Install (an id of launcher.ini's
  * installs), Mod (a mod's folder, for a mod's profile). */
