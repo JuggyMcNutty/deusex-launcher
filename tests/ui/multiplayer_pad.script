@@ -1,0 +1,26 @@
+# Multiplayer on a pad: from Sort, the d-pad's left to Refresh, not a sort
+# of its own, and A asks again -- test_ui_scripts.c finds the look made
+# twice. The pad has no Tab: its left and right are the top row's way.
+pad attach xbox
+wait 2
+expect home
+find Multiplayer
+key Return
+wait 2.5
+expect multiplayer
+find Sort: By ping
+pad button 13 down
+wait 0.15
+pad button 13 up
+wait 0.3
+pad button 0 down
+wait 0.15
+pad button 0 up
+wait 2.5
+expect multiplayer
+find Back
+key Return
+wait 0.5
+expect home
+find Quit
+key Return

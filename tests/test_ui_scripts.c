@@ -650,6 +650,16 @@ static void test_multiplayer(void) {
     free(log);
     fakes_stop(&f);
 
+    /* On a pad, Refresh reached from Sort by the d-pad: the look again. */
+    CHECK_INT(fresh_home(), 0);
+    fakes_start(&f, 0);
+    CHECK_INT(launch("multiplayer_pad.script", "ready"), 0);
+    script_ok();
+    log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "multiplayer: asking"), 2);
+    free(log);
+    fakes_stop(&f);
+
     CHECK_INT(fresh_home(), 0);
     master_here(1);   /* no master there: the address alone */
     CHECK_INT(launch("multiplayer_address.script", "ready"), 0);
