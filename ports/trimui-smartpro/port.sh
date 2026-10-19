@@ -8,11 +8,15 @@ DEVICE_USER="${DEVICE_USER:-spruce}"
 DEVICE_PASS="${DEVICE_PASS:-happygaming}"
 DEVICE_APPDIR="${DEVICE_APPDIR:-/mnt/SDCARD/App/DeusEx}"
 
-# Two toolchains, both at or below the device's glibc 2.33: the launcher is
-# C11 on GCC 9.3, the engine needs C++20 and GCC 10.3.
+# One toolchain for the launcher and the engine: linux-aarch64's, Godot's
+# Buildroot SDK, GCC 13.2 on glibc 2.28, pinned by our own SHA256 (its
+# release publishes none).
+A64_SDK=aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4
+A64_SDK_URL=https://github.com/godotengine/buildroot/releases/download/godot-2023.08.x-4/aarch64-godot-linux-gnu_sdk-buildroot.tar.bz2
+A64_SDK_SHA256=d7b673823e8078ac70ffa202b4471356eca360b80960c6d1a722af0c03aea29d
+
 port_deps() {
-    dx_fetch_bootlin aarch64--glibc--stable-2020.08-1        2.33
-    dx_fetch_bootlin aarch64--glibc--bleeding-edge-2021.05-1 2.33
+    dx_fetch_buildroot "$A64_SDK" "$A64_SDK_URL" "$A64_SDK_SHA256" 2.28
     "$PORT_DIR/fetch-sysroot.sh" "$@"
 }
 

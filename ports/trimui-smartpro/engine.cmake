@@ -2,7 +2,7 @@
 #
 # SDL2 only: the vendor SDL2 is the one display path on the device, and there
 # is no X11, no Wayland compositor and no desktop GL. The toolchain links
-# libstdc++ statically and keeps every symbol at or below glibc 2.33.
+# libstdc++ statically and keeps every symbol at or below glibc 2.28.
 
 # FORCE: this file is the truth, re-applied on every configure (an initial
 # cache alone never overrides a value already in an existing build).

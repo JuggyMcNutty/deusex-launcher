@@ -15,7 +15,7 @@ Video tab's choice), at 853x480 by default: [Performance](#performance) has the 
 ```sh
 # from Port Ex Machina
 scripts/dx.sh fetch                        # once: the engine, the launcher's branches, the RE
-scripts/dx.sh deps   trimui-smartpro       # toolchains + sysroot (the device must be awake)
+scripts/dx.sh deps   trimui-smartpro       # toolchain + sysroot (the device must be awake)
 scripts/dx.sh deploy trimui-smartpro       # build, stage, send; --no-engine, --run to start it over SSH
 ```
 
@@ -52,8 +52,8 @@ System tab shows the engine log and `run-game.log`'s last run.
 
 | File | What it is |
 |---|---|
-| `port.cmake` | links the device's vendor SDL2 from the sysroot; glibc ceiling 2.33 |
-| `toolchain-c.cmake`, `toolchain-cxx.cmake` | Bootlin GCC 9.3 (launcher, C11) and GCC 10.3 (engine, C++20) |
+| `port.cmake` | links the device's vendor SDL2 from the sysroot; glibc ceiling 2.28 |
+| `toolchain-c.cmake`, `toolchain-cxx.cmake` | linux-aarch64's SDK, GCC 13.2 on glibc 2.28: the launcher, and the engine with its own link |
 | `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland; fullscreen as a borderless window (`DXE_SDL2_BORDERLESS_FULLSCREEN`) |
 | `port.sh` | the device's address; `deps`, `deploy` over SSH, `profile` on the device |
 | `fetch-sysroot.sh` | the link sysroot: libraries off the device, pinned headers |
@@ -75,23 +75,25 @@ is DXLauncher, the desktop's own); its code makes these choices for the device:
 
 ### The toolchains
 
-The device runs glibc 2.33, so every toolchain is built against 2.33 or older
-([the glibc ceiling](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time)).
-Two Bootlin toolchains:
+The device runs glibc 2.33; the launcher and the engine are built at 2.28, as every Linux build
+is ([the glibc ceiling](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time)),
+by one toolchain, linux-aarch64's: Godot's Buildroot SDK
+`aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4`, GCC 13.2 on glibc 2.28, kernel headers
+5.15. The launcher references `GLIBC_2.17` only, the engine up to `GLIBC_2.27`.
 
-| Toolchain | gcc | glibc | Builds |
-|---|---|---|---|
-| `aarch64--glibc--stable-2020.08-1` | 9.3 | 2.31 | the launcher (C11); emits only `GLIBC_2.17` |
-| `aarch64--glibc--bleeding-edge-2021.05-1` | 10.3 | 2.33 | the engine (C++20, beyond gcc 9.3) |
+The device's own libraries need more than 2.28: its SDL2 and ALSA reference `exp`, `log` and
+`pow` at `GLIBC_2.29`, its SDL2_mixer `pow`, and its `libstdc++.so.6.0.28` (which `libopenal`
+needs) `stat`, `lstat` and `fstat64` at `GLIBC_2.33`. The device's glibc has them, so they load;
+GNU ld rejects them against the SDK's 2.28, so both links ignore what shared libraries leave
+undefined (`-Wl,--unresolved-symbols=ignore-in-shared-libs`: `port.cmake`,
+`toolchain-cxx.cmake`), and any probe linked to them needs the same.
 
-One modern compiler aimed at the old sysroot does not work: the sysroot's `libc.so` linker
-script hardcodes absolute `/lib/...` paths, which resolve to the host's libraries.
-
-The engine links `libstdc++` and `libgcc` statically (~1 MB): the device's `libstdc++.so.6.0.28`
-(`GLIBCXX_3.4.28`) would serve, but static linking removes the question.
-`scripts/check-abi.sh --max 2.33` runs on every build of both and fails on any reference above
-2.33: the launcher's build runs it because `port.cmake` sets `DXL_PORT_GLIBC_MAX`, and
-`scripts/engine.sh build` runs it on the engine.
+The engine links `libstdc++` and `libgcc` statically (~1 MB): the SDK's `libstdc++` is 6.0.32
+(`GLIBCXX_3.4.32`), newer than the device's 6.0.28. `toolchain-cxx.cmake` keeps pkg-config on
+the device's sysroot alone: the SDK's sysroot has glib and fontconfig, which DXWidgets would
+otherwise link. `scripts/check-abi.sh --max 2.28` runs on every build of both and fails on any
+reference above 2.28: the launcher's build runs it because `port.cmake` sets
+`DXL_PORT_GLIBC_MAX`, and `scripts/engine.sh build` runs it on the engine.
 
 ### The device's own SDL2
 
@@ -167,12 +169,12 @@ each one compile against this port's sysroot, run over SSH:
 
 ```sh
 # from the parent folder of Port Ex Machina's repositories
-TC=deps/toolchains/aarch64--glibc--stable-2020.08-1/bin/aarch64-linux-gcc
+TC=deps/toolchains/aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4/bin/aarch64-godot-linux-gnu-gcc
 SYS=deps/sysroots/trimui-smartpro
 $TC -O2 -mcpu=cortex-a53 -std=c11 -I $SYS/include -I $SYS/include/SDL2 \
     port-ex-machina/tools/probes/probe-vulkan-caps.c -o /tmp/probe \
-    -L $SYS/lib -lvulkan -Wl,-rpath-link,$SYS/lib
-deusex-launcher/trimui-smartpro/scripts/check-abi.sh --max 2.33 /tmp/probe
+    -L $SYS/lib -lvulkan -Wl,-rpath-link,$SYS/lib -Wl,--unresolved-symbols=ignore-in-shared-libs
+deusex-launcher/trimui-smartpro/scripts/check-abi.sh --max 2.28 /tmp/probe
 # scp to the device, then: LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib ./probe
 ```
 
@@ -184,7 +186,7 @@ device shows it, in a desktop font.
 
 | Check on the device | Result |
 |---|---|
-| glibc ABI | the launcher's binaries reference `GLIBC_2.17` only; the engine ≤ 2.33 |
+| glibc ABI | the launcher's binaries reference `GLIBC_2.17` only; the engine ≤ 2.27 (built at 2.28) |
 | `dxl-cli --probe`, `--dry-run` | the GPU [as measured](#the-device-as-measured), in 0.5 s; a dry run writes nothing (checksums unchanged) |
 | CPU mode | Performance (cores 0–3, 1.8 GHz) or Overclock (2.0 GHz) while the engine runs; power-save restored after |
 | Home screen on the panel | renders with the device font; detected `X360 Controller`; upgrades a retired layout preset |
@@ -195,8 +197,10 @@ device shows it, in a desktop font.
 
 Liberty Island's level start (`01_NYC_UNATCOIsland.dx`) unless a row names another map;
 Overclock; milliseconds a frame, averaged over 60 frames, measured with the profiling hooks at
-the engine each row names: `503e90d`, `590635b` and `a8c47c3` with every pawn thinking,
-`15392c0` with Distant AI on, an option of that engine's: far pawns skipping their thinking.
+the engine each row names: `503e90d`, `590635b`, `a8c47c3` and `cfb396b` with every pawn
+thinking, `15392c0` with Distant AI on, an option of that engine's: far pawns skipping their
+thinking. `cfb396b` is measured with both toolchains, the same engine and launcher: Bootlin's
+GCC 10.3 (glibc 2.33) and the SDK's GCC 13.2 (2.28), [the toolchain](#the-toolchains) since.
 `590635b`'s second row has Surreal Engine's one pass of detail texture in place of `D3DDrv`'s
 three bands, which sample it only nearer than 380 units: the bands take the GPU wait from ~9.5
 to ~2.2.
@@ -213,6 +217,10 @@ to ~2.2.
 | `15392c0` | OpenGL ES, 853x480 | 14.0 | ~72 | ~16 | ~53 | |
 | `15392c0` | UNATCO HQ (indoors), Vulkan, 853x480 | ~32 | | | | |
 | `15392c0` | Battery Park (outdoors), Vulkan, 853x480 | ~22 | | | | |
+| `cfb396b`, GCC 10.3 | Vulkan, 853x480 | 20.0 | ~49.9 | ~12.4 | ~34.2 | ~3.5 |
+| `cfb396b`, GCC 13.2 | Vulkan, 853x480 | 20.7 | ~48.3 | ~11.6 | ~33.6 | ~4.3 |
+| `cfb396b`, GCC 10.3 | OpenGL ES, 853x480 | 17.3 | ~57.7 | ~11.8 | ~44.3 | |
+| `cfb396b`, GCC 13.2 | OpenGL ES, 853x480 | 18.1 | ~55.4 | ~11.2 | ~42.5 | |
 
 The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
 only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU. The
@@ -319,7 +327,7 @@ made them, for
 ```sh
 # from the parent folder of Port Ex Machina's repositories
 SAMPLE=1 port-ex-machina/scripts/dx.sh profile trimui-smartpro 90 mylabel
-NM=deps/toolchains/aarch64--glibc--bleeding-edge-2021.05-1/bin/aarch64-linux-nm \
+NM=deps/toolchains/aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4/bin/aarch64-godot-linux-gnu-nm \
     DXEngine/tools/perf/sample-report.py build/trimui-smartpro/profile/samples-mylabel \
     build/trimui-smartpro/profile/samples-mylabel.engine --sysroot deps/sysroots/trimui-smartpro \
     --root ULevel::Tick
