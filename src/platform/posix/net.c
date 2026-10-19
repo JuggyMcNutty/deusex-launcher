@@ -4,6 +4,8 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -195,6 +197,30 @@ int dxl_udp_open(dxl_err *err) {
     int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd < 0) dxl_err_set(err, "no socket: %s", strerror(errno));
     return fd;
+}
+
+int dxl_udp_broadcast(int fd) {
+    int on = 1;
+    return setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &on, sizeof on) == 0 ? 0 : -1;
+}
+
+int dxl_net_broadcasts(char (*out)[64], int max) {
+    int n = 0;
+    if (n < max) snprintf(out[n++], 64, "255.255.255.255");
+    struct ifaddrs *all = NULL;
+    if (getifaddrs(&all) != 0) return n;
+    for (struct ifaddrs *i = all; i && n < max; i = i->ifa_next) {
+        if (!i->ifa_addr || i->ifa_addr->sa_family != AF_INET || !(i->ifa_flags & IFF_UP) ||
+            !(i->ifa_flags & IFF_BROADCAST) || !i->ifa_broadaddr)
+            continue;
+        char a[64];
+        if (!inet_ntop(AF_INET, &((struct sockaddr_in *)i->ifa_broadaddr)->sin_addr, a, sizeof a)) continue;
+        int seen = 0;
+        for (int k = 0; k < n; k++) seen |= !strcmp(out[k], a);
+        if (!seen) snprintf(out[n++], 64, "%s", a);
+    }
+    freeifaddrs(all);
+    return n;
 }
 
 int dxl_udp_send(int fd, const char *address, int port, const char *data, size_t len) {

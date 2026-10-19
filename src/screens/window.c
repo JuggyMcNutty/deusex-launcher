@@ -54,7 +54,7 @@ typedef struct {
  * event; freed by the last of the two to let go. */
 typedef struct {
     char  address[64];
-    int   port, ping;
+    int   port, ping, lan;
     char *status;       /* NULL: listed, not answered */
 } browse_got;
 
@@ -66,6 +66,7 @@ typedef struct {
     Uint32         event;
     char          *master;
     char         **also;
+    dxl_browse_lan lan;
     browse_got    *got;
     int            got_count, got_cap;
     char           error[300];
@@ -418,7 +419,7 @@ static void browse_tell(browse_job *j) {
     SDL_PushEvent(&e);
 }
 
-static void browse_put(browse_job *j, const char *address, int port, int ping, const char *status) {
+static void browse_put(browse_job *j, const char *address, int port, int lan, int ping, const char *status) {
     SDL_LockMutex(j->lock);
     if (j->got_count == j->got_cap) {
         j->got_cap = j->got_cap ? j->got_cap * 2 : 64;
@@ -427,16 +428,19 @@ static void browse_put(browse_job *j, const char *address, int port, int ping, c
     browse_got *g = &j->got[j->got_count++];
     snprintf(g->address, sizeof g->address, "%s", address);
     g->port = port;
+    g->lan = lan;
     g->ping = ping;
     g->status = status ? dxl_xstrdup(status) : NULL;
     browse_tell(j);
     SDL_UnlockMutex(j->lock);
 }
 
-static void browse_listed(void *ctx, const char *address, int port) { browse_put(ctx, address, port, -1, NULL); }
+static void browse_listed(void *ctx, const char *address, int port, int lan) {
+    browse_put(ctx, address, port, lan, -1, NULL);
+}
 
 static void browse_answered(void *ctx, const char *address, int port, int ping, const char *status) {
-    browse_put(ctx, address, port, ping, status);
+    browse_put(ctx, address, port, 0, ping, status);
 }
 
 static int SDLCALL browse_main(void *p) {
@@ -444,7 +448,7 @@ static int SDLCALL browse_main(void *p) {
     dxl_browse_fns fns = { browse_listed, browse_answered };
     dxl_err e;
     e.msg[0] = '\0';
-    int rc = dxl_browse(j->master, (const char *const *)j->also, &fns, j, &j->stop, &e);
+    int rc = dxl_browse(j->master, (const char *const *)j->also, &j->lan, &fns, j, &j->stop, &e);
     SDL_LockMutex(j->lock);
     j->done = 1;
     j->failed = rc != 0;
@@ -466,7 +470,7 @@ static void browse_drop(dxl_window *w) {
     browse_unref(j);
 }
 
-static void start_browse(dxl_shell *s, const char *master, const char *const *also) {
+static void start_browse(dxl_shell *s, const char *master, const char *const *also, const dxl_browse_lan *lan) {
     dxl_window *w = s->window;
     browse_drop(w);
     browse_job *j = dxl_xmalloc(sizeof *j);
@@ -475,6 +479,8 @@ static void start_browse(dxl_shell *s, const char *master, const char *const *al
     j->lock = SDL_CreateMutex();
     j->event = w->job_event;
     j->master = dxl_xstrdup(master ? master : "");
+    if (lan) j->lan = *lan;
+    else j->lan.none = 1;
     size_t n = 0;
     while (also && also[n]) n++;
     j->also = dxl_xmalloc((n + 1) * sizeof *j->also);
@@ -502,7 +508,7 @@ static void browse_collect(dxl_window *w) {
     for (int i = 0; i < j->got_count; i++) {
         browse_got *g = &j->got[i];
         if (g->status) dxl_shell_server_answered(&w->shell, g->address, g->port, g->ping, g->status);
-        else dxl_shell_server_listed(&w->shell, g->address, g->port);
+        else dxl_shell_server_listed(&w->shell, g->address, g->port, g->lan);
         free(g->status);
     }
     j->got_count = 0;

@@ -41,6 +41,7 @@
 #ifndef DXL_SHELL_H
 #define DXL_SHELL_H
 
+#include "app/browser.h"
 #include "app/run.h"
 #include "core/finder.h"
 #include "core/servers.h"
@@ -328,7 +329,8 @@ typedef struct dxl_shell {
     /* The window's: the server browser's look in its worker, each server
      * handed in with dxl_shell_server_listed and _answered, its end with
      * dxl_shell_browsed. NULL offscreen, where nothing is asked. */
-    void       (*start_browse)(struct dxl_shell *s, const char *master, const char *const *also);
+    void       (*start_browse)(struct dxl_shell *s, const char *master, const char *const *also,
+                               const dxl_browse_lan *lan);
 
     struct { char text[200]; double at; } toasts[DXL_TOASTS];
     int          toast_count;
@@ -486,13 +488,13 @@ void dxl_shell_profile_mod(dxl_shell *s);
 /* The servers asked for again: the profile's master's, and its favourites. */
 #define DXL_SERVERS_MAX 256
 void dxl_shell_browse(dxl_shell *s);
-void dxl_shell_server_listed(dxl_shell *s, const char *address, int query_port);
+void dxl_shell_server_listed(dxl_shell *s, const char *address, int query_port, int lan);
 void dxl_shell_server_answered(dxl_shell *s, const char *address, int query_port, int ping_ms, const char *status);
 /* The look's end: error, the master's failure, or NULL. */
 void dxl_shell_browsed(dxl_shell *s, const char *error);
 /* The game started joining host:port, with a password for it or none: the
  * screen done, to play. */
-void dxl_shell_join(dxl_shell *s, const char *host, int port, const char *password);
+void dxl_shell_join(dxl_shell *s, const char *host, int port, int lan, const char *password);
 /* A deusex:// link's server, host:port: Multiplayer, once a page is up
  * between flows -- no dialog, no game or profile being chosen -- asking
  * whether to join it. */

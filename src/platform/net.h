@@ -28,6 +28,12 @@ long dxl_tcp_recv(int fd, char *buf, size_t size, int timeout_ms);
 
 /* A UDP socket on any port. */
 int  dxl_udp_open(dxl_err *err);
+/* It may send to a broadcast address too (SO_BROADCAST); -1 when not. */
+int  dxl_udp_broadcast(int fd);
+/* The local network's broadcast addresses, a.b.c.d each into out, at most
+ * max: 255.255.255.255, then each interface's that is up (getifaddrs),
+ * each once. How many. */
+int  dxl_net_broadcasts(char (*out)[64], int max);
 /* A datagram to address:port; -1 when it did not go. */
 int  dxl_udp_send(int fd, const char *address, int port, const char *data, size_t len);
 /* A datagram, waiting timeout_ms for one: its length, its sender's address

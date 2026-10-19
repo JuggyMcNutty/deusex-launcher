@@ -111,6 +111,7 @@ int dxl_server_compare(const dxl_server *a, const dxl_server *b, dxl_server_sort
 int dxl_server_shown(const dxl_server *s, const dxl_server_filter *f, const char *favourites) {
     if (!f) return 1;
     if (f->favourites && !dxl_favourite_has(favourites, s->address, s->port)) return 0;
+    if (f->lan && !s->lan) return 0;
     /* A server not answered yet is shown till it answers, but under a
      * filter that asks of its answer. */
     int answered = s->state == DXL_SERVER_ANSWERED;
@@ -118,6 +119,11 @@ int dxl_server_shown(const dxl_server *s, const dxl_server_filter *f, const char
     if (f->not_full && (!answered || (s->max_players > 0 && s->players >= s->max_players))) return 0;
     if (f->no_password && (!answered || s->password)) return 0;
     return 1;
+}
+
+void dxl_server_join_url(const char *host, int port, int lan, const char *password, char *out, size_t size) {
+    snprintf(out, size, "%s:%d%s%s%s", host, port, lan ? "?lan" : "", password && *password ? "?password=" : "",
+             password && *password ? password : "");
 }
 
 int dxl_server_link(const char *link, char *out, size_t size) {

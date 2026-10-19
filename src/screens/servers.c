@@ -1,10 +1,12 @@
-/* Multiplayer: the servers the profile's master server lists
- * ([DeusEx.MenuScreenJoinGame] MasterServerAddress; app/browser.h) and the
- * profile's favourites, each as it answers -- its name, map, game, players
- * and ping -- in the order they came while the look is on, then by the
- * sort chosen; the filter chosen. The one chosen beside them: its players,
- * Join, with its password when it asks for one, and favourite or not. An
- * address typed is joined as it is. */
+/* Multiplayer: the servers on the local network, as the game's Join LAN
+ * screen finds them ([DeusEx.DeusExLocalLink]; app/browser.h), those the
+ * profile's master server lists ([DeusEx.MenuScreenJoinGame]
+ * MasterServerAddress) and the profile's favourites, in one list, each as
+ * it answers -- its name, map, game, players and ping, LAN for one of the
+ * local network's -- in the order they came while the look is on, then by
+ * the sort chosen; the filter chosen. The one chosen beside them: its
+ * players, Join, with its password when it asks for one, and favourite or
+ * not. An address typed is joined as it is. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
@@ -24,8 +26,9 @@
 #define GAME_PORT 7790
 
 static const char *const sorts[DXL_SORT_COUNT] = { "By ping", "By players", "By name" };
-enum { SHOW_ALL, SHOW_PLAYERS, SHOW_NOT_FULL, SHOW_OPEN, SHOW_FAVOURITES, SHOW_COUNT };
-static const char *const shows[SHOW_COUNT] = { "All servers", "With players", "Not full", "No password", "Favourites" };
+enum { SHOW_ALL, SHOW_PLAYERS, SHOW_NOT_FULL, SHOW_OPEN, SHOW_FAVOURITES, SHOW_LAN, SHOW_COUNT };
+static const char *const shows[SHOW_COUNT] = { "All servers", "With players", "Not full", "No password", "Favourites",
+                                               "On this network" };
 
 static dxl_server_filter filter_of(int show) {
     dxl_server_filter f = { 0 };
@@ -33,6 +36,7 @@ static dxl_server_filter filter_of(int show) {
     f.not_full = show == SHOW_NOT_FULL;
     f.no_password = show == SHOW_OPEN;
     f.favourites = show == SHOW_FAVOURITES;
+    f.lan = show == SHOW_LAN;
     return f;
 }
 
@@ -53,15 +57,22 @@ static dxl_server *find(dxl_shell *s, const char *address, int port) {
 
 /* ---- the look ------------------------------------------------------------ */
 
-void dxl_shell_server_listed(dxl_shell *s, const char *address, int port) {
-    if (!s->servers || s->server_count >= DXL_SERVERS_MAX || find(s, address, port)) return;
-    dxl_server_init(&s->servers[s->server_count++], address, port);
+void dxl_shell_server_listed(dxl_shell *s, const char *address, int port, int lan) {
+    dxl_server *v = s->servers ? find(s, address, port) : NULL;
+    if (v) {
+        v->lan |= lan;
+        return;
+    }
+    if (!s->servers || s->server_count >= DXL_SERVERS_MAX) return;
+    v = &s->servers[s->server_count++];
+    dxl_server_init(v, address, port);
+    v->lan = lan;
 }
 
 void dxl_shell_server_answered(dxl_shell *s, const char *address, int port, int ping, const char *status) {
     dxl_server *v = find(s, address, port);
     if (!v) {
-        dxl_shell_server_listed(s, address, port);
+        dxl_shell_server_listed(s, address, port, 0);
         v = find(s, address, port);
     }
     if (!v) return;
@@ -119,9 +130,15 @@ void dxl_shell_browse(dxl_shell *s) {
     }
     also[n] = NULL;
     const char *master = master_of(s);
+    /* The local network as the game's Join LAN screen asks it. */
+    dxl_ini *sys = s->run->config ? dxl_config_ini(s->run->config) : NULL;
+    const char *beacon = sys ? dxl_ini_get(sys, "DeusEx.DeusExLocalLink", "ServerBeaconPort") : NULL;
+    dxl_browse_lan lan;
+    dxl_browse_lan_init(&lan, beacon ? atoi(beacon) : 0, sys ? dxl_ini_get(sys, "DeusEx.DeusExLocalLink", "BeaconProduct") : NULL);
     s->browsing = 1;
-    dxl_log("multiplayer: asking %s, and %d favourite(s)", master, n);
-    s->start_browse(s, master, also);
+    dxl_log("multiplayer: asking %s, %d favourite(s) and %s", master, n,
+            lan.none ? "not the local network" : lan.to[0] ? lan.to : "the local network");
+    s->start_browse(s, master, also, &lan);
     free(list);
 }
 
@@ -130,13 +147,11 @@ void dxl_page_servers_enter(dxl_shell *s) {
     if (!s->browsed && !s->browsing) dxl_shell_browse(s);
 }
 
-void dxl_shell_join(dxl_shell *s, const char *host, int port, const char *password) {
+void dxl_shell_join(dxl_shell *s, const char *host, int port, int lan, const char *password) {
     if (!s->run) return;
-    if (password && *password)
-        snprintf(s->run->url, sizeof s->run->url, "%s:%d?password=%s", host, port, password);
-    else
-        snprintf(s->run->url, sizeof s->run->url, "%s:%d", host, port);
-    dxl_log("play: joining %s:%d%s", host, port, password && *password ? ", with its password" : "");
+    dxl_server_join_url(host, port, lan, password, s->run->url, sizeof s->run->url);
+    dxl_log("play: joining %s:%d%s%s", host, port, lan ? " on the local network" : "",
+            password && *password ? ", with its password" : "");
     s->result = 1;
 }
 
@@ -180,13 +195,13 @@ static dxl_rgba describe(const dxl_shell *s, const dxl_server *v, int favourite,
     const dxl_theme *t = &s->ui.theme;
     if (v->state != DXL_SERVER_ANSWERED) {
         snprintf(title, tsize, "%s:%d", v->address, v->port);
-        snprintf(detail, dsize, "%s%s", v->state == DXL_SERVER_SILENT ? "no answer" : "asking...",
-                 favourite ? "  \xc2\xb7  a favourite" : "");
+        snprintf(detail, dsize, "%s%s%s", v->state == DXL_SERVER_SILENT ? "no answer" : "asking...",
+                 v->lan ? "  \xc2\xb7  LAN" : "", favourite ? "  \xc2\xb7  a favourite" : "");
         return v->state == DXL_SERVER_SILENT ? t->warn : t->help;
     }
     snprintf(title, tsize, "%s", v->name[0] ? v->name : v->address);
-    snprintf(detail, dsize, "%.60s  \xc2\xb7  %.40s  \xc2\xb7  %d/%d  \xc2\xb7  %d ms%s%s%s", v->map, v->game_type, v->players,
-             v->max_players, v->ping_ms, v->password ? "  \xc2\xb7  password" : "",
+    snprintf(detail, dsize, "%.60s  \xc2\xb7  %.40s  \xc2\xb7  %d/%d  \xc2\xb7  %d ms%s%s%s%s", v->map, v->game_type, v->players,
+             v->max_players, v->ping_ms, v->lan ? "  \xc2\xb7  LAN" : "", v->password ? "  \xc2\xb7  password" : "",
              favourite ? "  \xc2\xb7  a favourite" : "", dxl_server_joinable(v) ? "" : "  \xc2\xb7  another version");
     return dxl_server_joinable(v) ? t->help : t->warn;
 }
@@ -196,7 +211,7 @@ static void status_line(const dxl_shell *s, int shown, char *out, size_t size) {
     int answers = 0;
     for (int i = 0; i < s->server_count; i++) answers += s->servers[i].state == DXL_SERVER_ANSWERED;
     if (s->browsing)
-        snprintf(out, size, "Asking the master server and each server it lists: %d listed, %d answered...",
+        snprintf(out, size, "Asking the local network, the master server and each server listed: %d listed, %d answered...",
                  s->server_count, answers);
     else if (s->browse_error[0])
         snprintf(out, size, "The master server gave no list: %s.%s", s->browse_error,
@@ -362,7 +377,7 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
                   DXL_W_LEFT | DXL_W_MAY_CUT);
         dxl_cut_top(&side, 6);
         char val[200];
-        snprintf(val, sizeof val, "%s:%d", v->address, v->port);
+        snprintf(val, sizeof val, "%s:%d%s", v->address, v->port, v->lan ? ", on this network" : "");
         dxl_field(ui, &side, 26, 90, "Address", val, t->text, DXL_W_MAY_CUT);
         if (answered) {
             snprintf(val, sizeof val, "%s%s%s", v->map, v->map_title[0] && strcmp(v->map_title, "Untitled") ? ", " : "",
@@ -426,7 +441,7 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
     if (dxl_shell_answer(s, link_id) == 1) {
         char host[256];
         int port;
-        if (address_of(s->link_asked, host, sizeof host, &port)) dxl_shell_join(s, host, port, NULL);
+        if (address_of(s->link_asked, host, sizeof host, &port)) dxl_shell_join(s, host, port, 0, NULL);
         s->link_asked[0] = '\0';
         return;
     } else if (s->join_link[0] && s->dialog == DXL_DIALOG_NONE && !s->answered) {
@@ -453,13 +468,13 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
             dxl_ui_focus(ui, password_id);
             dxl_shell_toast(s, "%s asks for a password.", to->name[0] ? to->name : to->address);
         } else if (to) {
-            dxl_shell_join(s, to->address, to->port, to->password ? s->join_password : NULL);
+            dxl_shell_join(s, to->address, to->port, to->lan, to->password ? s->join_password : NULL);
             s->join_password[0] = '\0';
         }
     } else if (address) {
         char host[256];
         int port;
-        if (address_of(s->join_address, host, sizeof host, &port)) dxl_shell_join(s, host, port, NULL);
+        if (address_of(s->join_address, host, sizeof host, &port)) dxl_shell_join(s, host, port, 0, NULL);
         else if (s->join_address[0]) dxl_shell_message(s, "Not an address", "%s is no server's address: a name or "
                                                       "a.b.c.d, and :port when it is not 7790.", s->join_address);
     } else if (refresh) {

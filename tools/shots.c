@@ -343,7 +343,8 @@ static void found(dxl_shell *s) {
     s->found.count = 2;
 }
 
-/* Made-up servers, as their answers would have them. */
+/* Made-up servers, as their answers would have them; one at a 192.168
+ * address a beacon on the local network's. */
 static void server(dxl_shell *s, const char *address, int port, int ping, const char *name, const char *map,
                    const char *game, int players, int max, const char *more) {
     char status[1024];
@@ -351,7 +352,7 @@ static void server(dxl_shell *s, const char *address, int port, int ping, const 
              "\\gamename\\deusex\\gamever\\1100\\minnetver\\1100\\hostname\\%s\\hostport\\%d\\mapname\\%s"
              "\\maptitle\\Untitled\\gametype\\%s\\numplayers\\%d\\maxplayers\\%d%s",
              name, port - 1, map, game, players, max, more);
-    dxl_shell_server_listed(s, address, port);
+    dxl_shell_server_listed(s, address, port, !strncmp(address, "192.168.", 8));
     if (ping >= 0) dxl_shell_server_answered(s, address, port, ping, status);
 }
 
@@ -376,6 +377,7 @@ static void servers(dxl_shell *s, scene sc) {
            "\\TimeToWin\\15\\player_0\\Cozmo\\frags_0\\15\\ping_0\\ 40\\player_1\\JC Denton\\frags_1\\9\\ping_1\\ 75"
            "\\player_2\\Gunther\\frags_2\\3\\ping_2\\ 130");
     server(s, "198.51.100.7", 7791, 61, "A Favourite Server", "DXMP_Smuggler", "DeathMatchGame", 1, 8, "");
+    server(s, "192.168.1.20", 7791, 2, "Upstairs", "DXMP_Cathedral", "DeathMatchGame", 2, 8, "");
     server(s, "203.0.113.20", 7771, 95, "EZ8 | a Deus Ex community", "DXMP_Area51Bunker", "MTLDeathMatch", 0, 8,
            "\\password\\True");
     server(s, "203.0.113.21", 7791, 120, "Sunny Side", "DXMP_Abandoned", "MTLTeam", 0, 7, "");
@@ -388,13 +390,13 @@ static void servers(dxl_shell *s, scene sc) {
     server(s, "203.0.113.30", 7791, -1, "", "", "", 0, 0, "");
     dxl_shell_browsed(s, NULL);
     if (sc == SCENE_SERVERS_PASSWORD) {
-        /* Its row the focus's, the third by ping, once the shot's first
-         * move is made: the second's before it. */
+        /* Its row the focus's, the fourth by ping, once the shot's first
+         * move is made: the third's before it. */
         dxl_list l;
         memset(&l, 0, sizeof l);
         l.id = dxl_ui_id(&s->ui, "servers");
         l.count = s->server_count;
-        dxl_ui_focus(&s->ui, dxl_list_row_id(&l, 1));
+        dxl_ui_focus(&s->ui, dxl_list_row_id(&l, 2));
     }
 }
 

@@ -806,6 +806,9 @@ int main(void) {
         printf("skipped: no install in %s\n", DXL_GAME);
         return 77;
     }
+    /* No beacon of the local network's in the scripts' server lists: what
+     * a server on this network says changes no script. */
+    setenv("DXL_LAN", "none", 1);
     snprintf(app, sizeof app, "/tmp/dxl-uiapp-%d", (int)getpid());
     snprintf(home, sizeof home, "/tmp/dxl-uihome-%d", (int)getpid());
     /* The programs copied, so each finds data/ beside itself. */
