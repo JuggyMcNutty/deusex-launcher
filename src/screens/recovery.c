@@ -1,7 +1,7 @@
 /* Recovery: after a run that did not end cleanly (its Running.ini still
  * there), or -safe. How the last run ended, the engine's error, what to
  * do about it, the end of its log, the next run's own words; Play again,
- * the fix, the log itself, the defaults, Quit. */
+ * the fix, the log itself, the defaults, Home, Quit. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/advice.h"
@@ -199,16 +199,18 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
         dxl_cut_top(&in, h);
     }
     dxl_cut_top(&in, 10);
-    /* The log's end where three lines of it fit: Read the log has it all. */
+    /* The log's end where three lines of it fit: The log has it all. */
     if (in.h >= 28 + 3 * dxl_text_line(ui, DXL_FONT_MONO) + 20) {
         dxl_label(ui, dxl_cut_top(&in, 24), DXL_FONT_LABEL, "The end of its log", t->help, DXL_W_LEFT);
         dxl_cut_top(&in, 4);
         tail(s, in);
     }
 
-    /* Play; the advice's fix; the log; the defaults; Quit. */
+    /* Play; the advice's fix; the log; the defaults; Home; Quit. */
     int fix = advice ? advice->fix : DXL_FIX_NONE;
-    int play = dxl_button(ui, "recovery play", dxl_cut_left(&buttons, 140), "Play", DXL_W_PRIMARY);
+    /* All in one row in the narrowest window, 960 dp: 800 dp of them with
+     * the widest fix. */
+    int play = dxl_button(ui, "recovery play", dxl_cut_left(&buttons, 110), "Play", DXL_W_PRIMARY);
     dxl_cut_left(&buttons, 10);
     int fixed = 0;
     const char *fix_label = fix == DXL_FIX_RENDERER ? "Another renderer..."
@@ -220,10 +222,12 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
         fixed = dxl_button(ui, "recovery fix", dxl_cut_left(&buttons, fix == DXL_FIX_SAVES ? 140 : 210), fix_label, 0);
         dxl_cut_left(&buttons, 10);
     }
-    int read = dxl_button(ui, "recovery read", dxl_cut_left(&buttons, 160), "Read the log", 0);
+    int read = dxl_button(ui, "recovery read", dxl_cut_left(&buttons, 120), "The log", 0);
     dxl_cut_left(&buttons, 10);
-    int defaults = dxl_button(ui, "recovery defaults", dxl_cut_left(&buttons, 170), "The defaults...", 0);
-    int quit = dxl_button(ui, "recovery quit", dxl_cut_right(&buttons, 120), "Quit", 0);
+    int defaults = dxl_button(ui, "recovery defaults", dxl_cut_left(&buttons, 130), "Defaults...", 0);
+    int quit = dxl_button(ui, "recovery quit", dxl_cut_right(&buttons, 90), "Quit", 0);
+    dxl_cut_right(&buttons, 10);
+    int home = dxl_button(ui, "recovery home", dxl_cut_right(&buttons, 90), "Home", 0);
     /* After the buttons, so Play is the page's first focus. */
     next_run(s, words);
 
@@ -256,6 +260,9 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
         for (int i = 0; i < pages && n < 15; i++) labels[n++] = dxl_settings_page((size_t)i);
         labels[n++] = "Every page";
         dxl_shell_pick(s, defaults_id, "Back to the defaults", labels, n, 0);
+    } else if (home || (ui->in.back && !ui->text_id)) {
+        /* Home, the run's choice as it was: its Play plays, as Recovery's. */
+        dxl_shell_go(s, DXL_PAGE_HOME);
     } else if (quit) {
         s->result = 0;
     }
