@@ -37,6 +37,7 @@
 #include "core/instance.h"
 #include "core/lastrun.h"
 #include "core/policy.h"
+#include "core/renderers.h"
 #include "core/sentinel.h"
 
 /* Exit codes besides the game's own status. */
@@ -82,6 +83,10 @@ typedef struct {
      * "" for the game's own start. One game's: cleared as it ends. */
     char            url[512];
     char            message[512];   /* why the run stopped short */
+    /* The GPU as dxl-cli --probe found it, asked once a run, before the
+     * first game that would multisample (commit). */
+    int             gpu_asked;
+    dxl_gpu_probe   gpu;
 } dxl_run;
 
 typedef struct {

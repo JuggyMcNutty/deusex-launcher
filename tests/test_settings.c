@@ -272,6 +272,35 @@ static void test_presets(void) {
     close_all(&st);
 }
 
+/* A GPU that multisamples badly: anti-aliasing takes Off alone, from a
+ * preset, a reset or the row, and each preset is matched without it. */
+static void test_no_msaa(void) {
+    dxl_stores st;
+    open_all(&st);
+    dxl_engine_sections_seed(st.system);
+    st.no_msaa = 1;
+    for (size_t i = 0; i < dxl_preset_count(); i++) {
+        const dxl_preset *p = dxl_preset_at(i);
+        dxl_preset_apply(&st, p);
+        CHECK_STR(get(&st, DXL_ANTIALIAS_ROW), "Off");
+        CHECK(dxl_preset_matching(&st) == p);
+    }
+    CHECK_INT(set(&st, DXL_ANTIALIAS_ROW, "MSAA4x"), 0);
+    CHECK_STR(get(&st, DXL_ANTIALIAS_ROW), "Off");
+    CHECK_INT(set(&st, DXL_ANTIALIAS_ROW, "Sixteen"), -1);
+    dxl_settings_reset(&st, NULL, "Graphics");
+    CHECK_STR(get(&st, DXL_ANTIALIAS_ROW), "Off");
+    /* Multisampling the file holds from elsewhere: the preset still matches. */
+    const dxl_preset *p = dxl_preset_at(0);
+    dxl_preset_apply(&st, p);
+    dxl_es_set_choice(st.engine, DXL_ES_ANTIALIAS, "MSAA2x");
+    CHECK(dxl_preset_matching(&st) == p);
+    st.no_msaa = 0;
+    CHECK_INT(set(&st, DXL_ANTIALIAS_ROW, "MSAA4x"), 0);
+    CHECK_STR(get(&st, DXL_ANTIALIAS_ROW), "MSAA4x");
+    close_all(&st);
+}
+
 /* Back to the defaults: what a new profile has (the install's Default.ini
  * as the import seeds it, its DefUser.ini), a page at a time; with none,
  * the rows' own. */
@@ -346,6 +375,7 @@ TEST_MAIN_BEGIN
     RUN(test_next_run);
     RUN(test_engine_json);
     RUN(test_presets);
+    RUN(test_no_msaa);
     RUN(test_reset);
     RUN(test_engine_keys_seeded);
 TEST_MAIN_END

@@ -238,7 +238,44 @@ static void test_clean_file_is_not_dirty(void) {
     teardown();
 }
 
+/* The anti-aliasing the engine takes: the file's, or its own 4x where it
+ * reads none; and Off written for a GPU that multisamples badly, the file
+ * made from the packaged default when there is none, the rest kept. */
+static void test_antialias_taken_and_off(void) {
+    setup("aa");
+    put("default.json", "{\"RenderDevice\": {\"Type\": \"Vulkan\", \"Antialias\": \"MSAA4x\", \"UseVSync\": true}}");
+    char aa[16];
+    dxl_err e;
+    dxl_es_antialias_taken(in_dir("Settings.json"), aa, sizeof aa);
+    CHECK_STR(aa, "MSAA4x");
+    CHECK_INT(dxl_es_antialias_off(in_dir("Settings.json"), in_dir("default.json"), &e), 1);
+    dxl_es_antialias_taken(in_dir("Settings.json"), aa, sizeof aa);
+    CHECK_STR(aa, "Off");
+    dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), NULL);
+    CHECK_INT(dxl_es_bool(s, DXL_ES_VSYNC), 1);
+    dxl_es_free(s);
+    CHECK_INT(dxl_es_antialias_off(in_dir("Settings.json"), in_dir("default.json"), &e), 0);
+
+    put("Settings.json", "{\"RenderDevice\": {\"Type\": \"GLES\", \"Antialias\": \"MSAA2x\"}}");
+    dxl_es_antialias_taken(in_dir("Settings.json"), aa, sizeof aa);
+    CHECK_STR(aa, "MSAA2x");
+    CHECK_INT(dxl_es_antialias_off(in_dir("Settings.json"), in_dir("default.json"), &e), 1);
+    s = dxl_es_open(in_dir("Settings.json"), NULL);
+    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "Off");
+    CHECK_STR(dxl_es_choice(s, DXL_ES_RENDER_TYPE), "GLES");
+    dxl_es_free(s);
+
+    put("Settings.json", "{\"RenderDevice\": {\"Type\": \"GLES\"}}");
+    dxl_es_antialias_taken(in_dir("Settings.json"), aa, sizeof aa);
+    CHECK_STR(aa, "MSAA4x");
+    put("Settings.json", "{not json");
+    dxl_es_antialias_taken(in_dir("Settings.json"), aa, sizeof aa);
+    CHECK_STR(aa, "MSAA4x");
+    teardown();
+}
+
 TEST_MAIN_BEGIN
+    RUN(test_antialias_taken_and_off);
     RUN(test_missing_file_seeds_from_default);
     RUN(test_corrupt_file_is_replaced);
     RUN(test_save_writes_every_field_and_keeps_games);

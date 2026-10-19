@@ -8,9 +8,9 @@
  * Neither library is linked: a device with no Vulkan loader must still start
  * the launcher and simply show Vulkan as unavailable.
  *
- * Call it before SDL brings up the display. On the handheld the probe and the
- * vendor SDL driver talk to the same PowerVR stack, and the child should be
- * done with it before the launcher's own window exists.
+ * dxl-cli --probe runs it. The launcher asks dxl-cli, a process of its own,
+ * with its window up: for the renderers the Graphics page offers and its
+ * anti-aliasing, and before a game that would multisample (app/run.c).
  */
 #ifndef DXL_GPU_PROBE_H
 #define DXL_GPU_PROBE_H

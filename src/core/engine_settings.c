@@ -3,6 +3,7 @@
 #include "core/paths.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -249,4 +250,25 @@ void dxl_es_reset(dxl_engine_settings *s, dxl_es_field f) {
 void dxl_es_reset_section(dxl_engine_settings *s, const char *section) {
     for (int f = 0; f < DXL_ES_FIELD_COUNT; f++)
         if (strcmp(fields[f].section, section) == 0) dxl_es_reset(s, (dxl_es_field)f);
+}
+
+/* LauncherSettings.cpp's, with no Settings.json to read. */
+#define ENGINE_OWN_ANTIALIAS "MSAA4x"
+
+void dxl_es_antialias_taken(const char *path, char *out, size_t size) {
+    dxl_engine_settings *s = dxl_es_open(path, NULL);
+    int read = s->existed && !s->corrupt && s->present[DXL_ES_ANTIALIAS];
+    snprintf(out, size, "%s", read ? dxl_es_choice(s, DXL_ES_ANTIALIAS) : ENGINE_OWN_ANTIALIAS);
+    dxl_es_free(s);
+}
+
+int dxl_es_antialias_off(const char *path, const char *default_path, dxl_err *err) {
+    char now[16];
+    dxl_es_antialias_taken(path, now, sizeof now);
+    if (!strcmp(now, "Off")) return 0;
+    dxl_engine_settings *s = dxl_es_open(path, default_path);
+    dxl_es_set_choice(s, DXL_ES_ANTIALIAS, "Off");
+    int rc = dxl_es_save(s, err) == 0 ? 1 : -1;
+    dxl_es_free(s);
+    return rc;
 }

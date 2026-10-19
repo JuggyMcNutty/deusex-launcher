@@ -267,6 +267,16 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
     case DXL_SET_CHOICE: {
         static const char *labels[DXL_PICK_MAX];
         static char values[DXL_PICK_MAX][64], shown[DXL_PICK_MAX][64];
+        /* Anti-aliasing on a GPU that multisamples badly: Off, and why. */
+        if (!strcmp(st->id, DXL_ANTIALIAS_ROW)) {
+            dxl_shell_probe(s);
+            if (s->stores.no_msaa) {
+                static const char *const off[] = { "Off: this GPU speckles with it" };
+                int index = 0;
+                dxl_spinner(ui, id, r, st->label, &index, off, 1, DXL_W_DISABLED);
+                break;
+            }
+        }
         int count = choices_of(s, st, labels, values, shown, DXL_PICK_MAX);
         const char *picked = dxl_shell_picked(s, dxl_shell_answer(s, id));
         for (int i = 0; picked && i < count; i++)
@@ -435,6 +445,7 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
         dxl_paragraph(ui, r, DXL_FONT_BODY, "There is no profile to keep settings in yet.", t->warn);
         return;
     }
+    s->stores.no_msaa = s->probe_state == 2 && dxl_gpu_msaa_broken(&s->probe);
     int pages = (int)dxl_settings_page_count();
     const char *names[16];
     for (int i = 0; i < pages && i < 16; i++) names[i] = dxl_settings_page((size_t)i);

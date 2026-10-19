@@ -86,6 +86,9 @@ int dxl_settings_engine_generation(const dxl_ini *system);
 #define DXL_SET_PRESET   0x02   /* the graphics preset's: no place of its own */
 #define DXL_SET_RENDERER 0x04   /* its choices the renderers this machine runs, the page's */
 
+/* The anti-aliasing row, the one no_msaa holds at Off (dxl_stores). */
+#define DXL_ANTIALIAS_ROW "graphics.antialias"
+
 typedef struct {
     const char *id;             /* "display.fullscreen" */
     const char *page;           /* "Display" */
@@ -115,11 +118,15 @@ const dxl_setting *dxl_setting_find(const char *id);
 
 /* The open stores a value is read from and written to; NULL for one the
  * launcher has not opened. next_run is this run's words, appended by
- * dxl_setting_set for DXL_STORE_NEXT_RUN rows. */
+ * dxl_setting_set for DXL_STORE_NEXT_RUN rows. no_msaa: the GPU's
+ * multisampling is broken (dxl_gpu_msaa_broken), and anti-aliasing takes
+ * Off alone -- a preset's, a reset's or a row's value for it written as
+ * Off, and a preset matched without it. */
 typedef struct {
     dxl_ini             *system, *user, *launcher, *profile;
     dxl_engine_settings *engine;
     char                 next_run[512];
+    int                  no_msaa;
 } dxl_stores;
 
 /* The value, from the first place that holds one, as text; the default
@@ -158,7 +165,8 @@ typedef struct {
 size_t            dxl_preset_count(void);
 const dxl_preset *dxl_preset_at(size_t i);
 void              dxl_preset_apply(dxl_stores *st, const dxl_preset *p);
-/* The preset every value of which the stores hold, or NULL: "Custom". */
+/* The preset every value of which the stores hold, or NULL: "Custom". With
+ * no_msaa, its anti-aliasing is not looked at. */
 const dxl_preset *dxl_preset_matching(const dxl_stores *st);
 
 #endif
