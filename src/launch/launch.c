@@ -283,12 +283,12 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     r.id = real ? real : dxl_xstrdup(r.base);
     dxl_sentinel_init(&r.sentinel, r.base);
 
-    /* 1. Forwarding, before anything else. */
-    static const char *const bypass[] = { "Server", "NewWindow", "changevideo", "TestRenDev" };
-    int skip = 0;
-    for (size_t i = 0; i < sizeof bypass / sizeof *bypass; i++)
-        if (dxl_cmd_find(r.raw, bypass[i])) skip = 1;
-    if (!skip) {
+    /* 1. Forwarding, before anything else: the decision as far as the
+     * command line alone takes it, its bypass read on the raw line. */
+    dxl_policy_input pre = { .cmdline = r.cmd, .raw_cmdline = r.raw, .forward_tried = 1 };
+    dxl_decision first;
+    dxl_policy_decide(&pre, &first);
+    if (!first.skip_handoff) {
         dxl_err e;
         if (dxl_instance_forward(r.id, r.cmd, HANDOFF_TIMEOUT_MS, &e) == 0) {
             out->exit_code = 0;
@@ -321,9 +321,8 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     }
     int client = !dxl_cmd_param(r.cmd, "server");
 
-    /* 3. The splash. */
-    if (!dxl_cmd_param(r.raw, "log") && !dxl_cmd_param(r.raw, "server") &&
-        !dxl_cmd_find(r.raw, "TestRenDev")) {
+    /* 3. The splash, unless the first decision keeps it away. */
+    if (first.show_splash) {
         char *bmp = splash_bitmap(&r);
         if (bmp) splash_show(&r, bmp);
         else dxl_log("no splash bitmap");
@@ -338,6 +337,7 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     /* 5. InitEngine. */
     dxl_policy_input in = {
         .cmdline = r.cmd,
+        .raw_cmdline = r.raw,
         .first_run = dxl_config_first_run(r.cfg),
         .other_instance = other,
         .running_ini_exists = dxl_sentinel_exists(&r.sentinel),

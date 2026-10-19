@@ -324,6 +324,22 @@ static void test_forwarding(void) {
     scratch_remove(root);
 }
 
+/* The bypass reads the line the program's path starts: an install whose
+ * folder holds a token is never forwarded, as the original's is not. */
+static void test_forwarding_bypassed_by_the_path(void) {
+    install("l-fwd-NewWindow", NULL);
+    dxl_instance *primary = dxl_instance_acquire(id);
+    scratch_write(root, "System/Running.ini", "");
+    dxl_launch_result r;
+    launch((const char *[]){ "DXMP_Cathedral", NULL }, &r);
+    CHECK_STR(r.ended, "the game ran");
+    char got[256];
+    CHECK_INT(dxl_instance_poll(primary, got, sizeof got), 0);
+    dxl_launch_result_free(&r);
+    dxl_instance_release(primary);
+    scratch_remove(root);
+}
+
 /* -server: no splash, no wizard even on a first run. */
 static void test_server(void) {
     install("l-server", "[FirstRun]\r\nFirstRun=0\r\n[Engine.Engine]\r\nCdPath=..\\\r\n");
@@ -537,6 +553,7 @@ TEST_MAIN_BEGIN
     RUN(test_make_is_fatal);
     RUN(test_the_two_exits_that_never_launch);
     RUN(test_forwarding);
+    RUN(test_forwarding_bypassed_by_the_path);
     RUN(test_server);
     RUN(test_splash_bitmaps);
     RUN(test_ready_and_relay);

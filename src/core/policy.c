@@ -14,6 +14,7 @@ static const char *const bypass_tokens[] = {
 
 void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
     const char *cmd = in->cmdline ? in->cmdline : "";
+    const char *raw = in->raw_cmdline ? in->raw_cmdline : cmd;
 
     memset(out, 0, sizeof *out);
     out->action      = DXL_ACTION_LAUNCH;
@@ -25,15 +26,17 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
     out->effective_first_run = dxl_cmd_param(cmd, "firstrun") ? 0 : in->first_run;
     out->migrate_saves = out->effective_first_run < DXL_FIRSTRUN_MIGRATE_BELOW;
 
+    /* The bypass and the splash read the line the program's path starts, as
+     * the original's read the one Windows gives: a token in the path counts. */
     for (size_t i = 0; i < sizeof bypass_tokens / sizeof *bypass_tokens; i++)
-        if (dxl_cmd_find(cmd, bypass_tokens[i])) { out->skip_handoff = 1; break; }
+        if (dxl_cmd_find(raw, bypass_tokens[i])) { out->skip_handoff = 1; break; }
 
     /* dx-reverse-info/launch-flow.md section 3. Note the asymmetry: -log and -server
      * are ParseParam, TestRenDev is appStrfind's. Both halves of this
      * condition were confirmed live. */
-    out->show_splash = !dxl_cmd_param(cmd, "log") &&
-                       !dxl_cmd_param(cmd, "server") &&
-                       !dxl_cmd_find(cmd, "TestRenDev");
+    out->show_splash = !dxl_cmd_param(raw, "log") &&
+                       !dxl_cmd_param(raw, "server") &&
+                       !dxl_cmd_find(raw, "TestRenDev");
 
     dxl_cmd_value(cmd, "exec", out->exec_file, sizeof out->exec_file);
 

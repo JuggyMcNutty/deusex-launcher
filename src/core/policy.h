@@ -32,6 +32,10 @@ typedef enum {
 
 typedef struct {
     const char *cmdline;        /* argv[1..] joined; never NULL */
+    /* The line Windows gives, the program's path first, which two of the
+     * original's checks read: the handoff's bypass and the splash's
+     * (dx-reverse-info/cli-flags.md). NULL: cmdline. */
+    const char *raw_cmdline;
     int first_run;              /* [FirstRun] FirstRun as read from config */
     int other_instance;         /* another launcher/game is live */
     /* The caller forwarded, or tried to, before deciding -- as the original
@@ -53,8 +57,8 @@ typedef struct {
 
     int effective_first_run;    /* after -firstrun forces it to 0 */
     int migrate_saves;          /* effective_first_run < 220 */
-    int show_splash;            /* suppressed by -log, -server, TestRenDev */
-    int skip_handoff;           /* one of the four bypass tokens present */
+    int show_splash;            /* suppressed by -log, -server, TestRenDev: raw_cmdline's */
+    int skip_handoff;           /* one of the four bypass tokens in raw_cmdline */
 
     char console_command[512];  /* DXL_ACTION_CONSOLE_CMD */
     char test_rendev[160];      /* DXL_ACTION_TEST_RENDEV */

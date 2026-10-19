@@ -146,6 +146,44 @@ static void test_bypass_tokens_skip_forwarding(void) {
     CHECK_INT(decide("-changevideo", 1100, 1, 0).screen, DXL_SCREEN_RENDERER_VIDEO);
 }
 
+/* The bypass and the splash read the whole line, the program's path first,
+ * as the original's do: a token in the path counts, where the line after it
+ * holds none. */
+static void test_raw_line_bypass_and_splash(void) {
+    dxl_policy_input in = {
+        .cmdline = "",
+        .raw_cmdline = "/games/Server/System/DeusEx",
+        .first_run = 1100,
+        .other_instance = 1,
+        .is_client = 1,
+    };
+    dxl_decision d;
+    dxl_policy_decide(&in, &d);
+    CHECK_INT(d.skip_handoff, 1);
+    CHECK(d.action != DXL_ACTION_FORWARD);
+    CHECK_INT(d.show_splash, 1);
+
+    in.raw_cmdline = "/games/TestRenDev/System/DeusEx -x";
+    in.cmdline = "-x";
+    dxl_policy_decide(&in, &d);
+    CHECK_INT(d.skip_handoff, 1);
+    CHECK_INT(d.show_splash, 0);
+
+    /* A name that runs straight on from a letter is no token, in the path
+     * as anywhere. */
+    in.raw_cmdline = "/games/MyServer/System/DeusEx";
+    in.cmdline = "";
+    dxl_policy_decide(&in, &d);
+    CHECK_INT(d.skip_handoff, 0);
+    CHECK_INT(d.action, DXL_ACTION_FORWARD);
+
+    /* The rest of the decision reads the line without the path. */
+    in.raw_cmdline = "/games/safe/System/DeusEx";
+    in.other_instance = 0;
+    dxl_policy_decide(&in, &d);
+    CHECK_INT(d.screen, DXL_SCREEN_NONE);
+}
+
 /* --- exits that never launch --- */
 
 static void test_consolecommand_exits(void) {
@@ -204,6 +242,7 @@ TEST_MAIN_BEGIN
     RUN(test_changevideo_beats_recovery);
     RUN(test_forwards_to_running_instance);
     RUN(test_bypass_tokens_skip_forwarding);
+    RUN(test_raw_line_bypass_and_splash);
     RUN(test_forward_tried_decides_on);
     RUN(test_consolecommand_exits);
     RUN(test_testrendev_exits);

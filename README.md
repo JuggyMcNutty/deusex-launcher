@@ -102,14 +102,6 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   dedicated-server `RELAUNCH` puts `-server` among them.
   `tests/test_cmdline.c` asserts the launcher's way.
 
-## Known defects
-
-- **`src/launch/launch.c` keeps its own copies of `policy.c`'s bypass and
-  splash rules** (`bypass[]`, its splash step) beside its call to
-  `dxl_policy_decide`, and reads neither of the decision's two fields,
-  `skip_handoff` and `show_splash`. The fix:
-  `launch.c` takes both from the decision, and the copies go.
-
 ## The game and the launcher
 
 The original's process becomes the game, so its launcher code stays for the
