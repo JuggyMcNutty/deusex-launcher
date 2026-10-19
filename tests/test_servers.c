@@ -95,6 +95,13 @@ static void test_sort_and_filter(void) {
     f.favourites = 1;
     CHECK_INT(dxl_server_shown(&fast, &f, "2.2.2.2:7790 1.1.1.1:7790"), 1);
     CHECK_INT(dxl_server_shown(&named, &f, "2.2.2.2:7790 1.1.1.1:7790"), 0);
+    /* On this network: those a beacon there answered for, asked or not. */
+    f.favourites = 0;
+    f.lan = 1;
+    fast.lan = quiet.lan = 1;
+    CHECK_INT(dxl_server_shown(&fast, &f, NULL), 1);
+    CHECK_INT(dxl_server_shown(&quiet, &f, NULL), 1);
+    CHECK_INT(dxl_server_shown(&named, &f, NULL), 0);
     dxl_server_free(&quiet);
     dxl_server_free(&fast);
     dxl_server_free(&full);
@@ -111,6 +118,20 @@ static void test_links(void) {
     CHECK_INT(dxl_server_link("deusex://", out, sizeof out), 0);
     CHECK_INT(dxl_server_link("unreal://host:7777", out, sizeof out), 0);
     CHECK_INT(dxl_server_link("203.0.113.9:7790", out, sizeof out), 0);
+}
+
+/* The URL that joins a server: ?lan for the local network's, as the game's
+ * Join LAN screen adds it, before the password. */
+static void test_join_url(void) {
+    char out[128];
+    dxl_server_join_url("203.0.113.9", 7790, 0, NULL, out, sizeof out);
+    CHECK_STR(out, "203.0.113.9:7790");
+    dxl_server_join_url("192.168.1.5", 7790, 1, "", out, sizeof out);
+    CHECK_STR(out, "192.168.1.5:7790?lan");
+    dxl_server_join_url("192.168.1.5", 7780, 1, "sesame", out, sizeof out);
+    CHECK_STR(out, "192.168.1.5:7780?lan?password=sesame");
+    dxl_server_join_url("dx.example.org", 7790, 0, "sesame", out, sizeof out);
+    CHECK_STR(out, "dx.example.org:7790?password=sesame");
 }
 
 static void test_favourites(void) {
@@ -132,5 +153,6 @@ TEST_MAIN_BEGIN
     RUN(test_status);
     RUN(test_sort_and_filter);
     RUN(test_links);
+    RUN(test_join_url);
     RUN(test_favourites);
 TEST_MAIN_END

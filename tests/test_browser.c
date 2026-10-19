@@ -4,7 +4,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 /* A socket on 127.0.0.1, any port: its fd, the port in *port. */
@@ -98,15 +100,18 @@ static void *server_main(void *p) {
 }
 
 typedef struct {
-    int  listed, answered, ping;
+    int  listed, lan, answered, ping;
+    int  listed_port[4];
     int  answered_port[3];
     char status[3][512];
 } seen;
 
-static void on_listed(void *ctx, const char *address, int port) {
+static void on_listed(void *ctx, const char *address, int port, int lan) {
     (void)address;
-    (void)port;
-    ((seen *)ctx)->listed++;
+    seen *w = ctx;
+    if (w->listed < 4) w->listed_port[w->listed] = port;
+    w->listed++;
+    w->lan += lan;
 }
 
 static void on_answered(void *ctx, const char *address, int port, int ping, const char *status) {
@@ -140,7 +145,7 @@ static void run(int wrong, seen *w, int *rc, dxl_err *e) {
     snprintf(at, sizeof at, "127.0.0.1:%d", master_port);
     dxl_browse_fns fns = { on_listed, on_answered };
     memset(w, 0, sizeof *w);
-    *rc = dxl_browse(at, NULL, &fns, w, NULL, e);
+    *rc = dxl_browse(at, NULL, NULL, &fns, w, NULL, e);
     pthread_join(mt, NULL);
     /* The servers wait on: their sockets shut, they end. */
     for (int i = 0; i < 3; i++) shutdown(s[i].fd, SHUT_RDWR);
@@ -192,12 +197,114 @@ static void test_master_errors(void) {
     char at[64];
     snprintf(at, sizeof at, "127.0.0.1:%d", port);
     dxl_browse_fns fns = { on_listed, on_answered };
-    CHECK_INT(dxl_browse(at, NULL, &fns, &w, NULL, &e), -1);
+    CHECK_INT(dxl_browse(at, NULL, NULL, &fns, &w, NULL, &e), -1);
     CHECK(e.msg[0] != '\0');
-    CHECK_INT(dxl_browse("host:0", NULL, &fns, &w, NULL, &e), -1);
+    CHECK_INT(dxl_browse("host:0", NULL, NULL, &fns, &w, NULL, &e), -1);
+}
+
+/* A beacon as a server's UdpBeacon is one: REPORTQUERY answered with the
+ * product and its query port; anything else, nothing. */
+typedef struct {
+    int fd, asked;
+    char answer[64];
+} beacon;
+
+static void *beacon_main(void *p) {
+    beacon *b = p;
+    char buf[64];
+    for (;;) {
+        struct sockaddr_in from;
+        socklen_t len = sizeof from;
+        ssize_t n = recvfrom(b->fd, buf, sizeof buf - 1, 0, (struct sockaddr *)&from, &len);
+        if (n <= 0) break;
+        buf[n] = '\0';
+        if (strcmp(buf, "REPORTQUERY") != 0) continue;
+        b->asked++;
+        sendto(b->fd, b->answer, strlen(b->answer), 0, (struct sockaddr *)&from, len);
+    }
+    return NULL;
+}
+
+static long ms_now(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec * 1000L + t.tv_nsec / 1000000L;
+}
+
+/* The local network as the game's Join LAN screen asks it, at DXL_LAN's
+ * place: REPORTQUERY to the ten ports from its, each beacon's server asked
+ * for its status and handed over as LAN; another game's beacon passed
+ * over; a second given to the beacons, though the one server answers at
+ * once; DXL_LAN=none, no beacon asked. */
+static void test_lan(void) {
+    beacon b[2];
+    int beacon_port[2];
+    for (int i = 0; i < 2; i++) {
+        memset(&b[i], 0, sizeof b[i]);
+        b[i].fd = local_socket(SOCK_DGRAM, &beacon_port[i]);
+    }
+    int query_port = 0;
+    s[0] = (server){ local_socket(SOCK_DGRAM, &query_port), ANSWERS, 0 };
+    snprintf(b[0].answer, sizeof b[0].answer, "DeusEx %d", query_port);
+    snprintf(b[1].answer, sizeof b[1].answer, "UnrealTournament %d", query_port + 1);
+    pthread_t bt[2], st;
+    for (int i = 0; i < 2; i++) pthread_create(&bt[i], NULL, beacon_main, &b[i]);
+    pthread_create(&st, NULL, server_main, &s[0]);
+
+    /* The first beacon on the third of the ten ports asked. */
+    char env[64];
+    snprintf(env, sizeof env, "127.0.0.1:%d", beacon_port[0] - 2);
+    setenv("DXL_LAN", env, 1);
+    dxl_browse_lan lan;
+    dxl_browse_lan_init(&lan, 0, NULL);
+    CHECK_INT(lan.beacon_port, beacon_port[0] - 2);
+    CHECK_STR(lan.product, "DeusEx");
+    CHECK_STR(lan.to, "127.0.0.1");
+    seen w;
+    memset(&w, 0, sizeof w);
+    dxl_browse_fns fns = { on_listed, on_answered };
+    dxl_err e;
+    long t0 = ms_now();
+    CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
+    CHECK(ms_now() - t0 >= 1000);
+    CHECK_INT(b[0].asked, 1);
+    CHECK_INT(w.listed, 1);
+    CHECK_INT(w.lan, 1);
+    CHECK_INT(w.listed_port[0], query_port);
+    CHECK_INT(w.answered, 1);
+    CHECK(strstr(w.status[0], "\\hostname\\Fake One\\") != NULL);
+
+    /* The other game's beacon, at its own place: its server never asked. */
+    snprintf(env, sizeof env, "127.0.0.1:%d", beacon_port[1]);
+    setenv("DXL_LAN", env, 1);
+    dxl_browse_lan_init(&lan, 0, NULL);
+    memset(&w, 0, sizeof w);
+    CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
+    CHECK_INT(b[1].asked, 1);
+    CHECK_INT(w.listed, 0);
+
+    setenv("DXL_LAN", "none", 1);
+    dxl_browse_lan_init(&lan, 0, NULL);
+    CHECK_INT(lan.none, 1);
+    memset(&w, 0, sizeof w);
+    t0 = ms_now();
+    CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
+    CHECK(ms_now() - t0 < 1000);
+    CHECK_INT(b[0].asked, 1);
+    unsetenv("DXL_LAN");
+
+    for (int i = 0; i < 2; i++) shutdown(b[i].fd, SHUT_RDWR);
+    shutdown(s[0].fd, SHUT_RDWR);
+    for (int i = 0; i < 2; i++) {
+        pthread_join(bt[i], NULL);
+        close(b[i].fd);
+    }
+    pthread_join(st, NULL);
+    close(s[0].fd);
 }
 
 TEST_MAIN_BEGIN
     RUN(test_browse);
     RUN(test_master_errors);
+    RUN(test_lan);
 TEST_MAIN_END

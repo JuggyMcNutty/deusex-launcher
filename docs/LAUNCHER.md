@@ -236,8 +236,15 @@ crash, or an error Recovery knows, has its own advice.
 ## Multiplayer
 
 Multiplayer, from Home (`src/screens/servers.c`), lists the game's
-servers as the game's own Join Internet screen asks for them, in a worker
-of the window's (`src/app/browser.c`): the profile's master server,
+servers in one list, as the game's own Join LAN and Join Internet screens
+ask for them, in a worker of the window's (`src/app/browser.c`). First the
+local network, as `DeusEx.DeusExLocalLink` asks it: `REPORTQUERY` to the
+ten ports from `DeusEx.ini`'s `[DeusEx.DeusExLocalLink] ServerBeaconPort`
+(8777 when none), at 255.255.255.255 and each broadcast address of the
+machine's interfaces; a beacon's answer that begins with its
+`BeaconProduct` (`DeusEx`) and a space names its server's query port, and
+the server is listed as LAN; the beacons are given a second at least.
+Then the profile's master server,
 `DeusEx.ini`'s `[DeusEx.MenuScreenJoinGame] MasterServerAddress`
 (333networks' since the first run), over TCP on 28900, its challenge
 answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4 keyed by six
@@ -252,18 +259,21 @@ packet lost, or all of them -- asked again, its answer begun again, three
 times at most, and given up two seconds after the last
 (`src/core/gamespy.c`). Refresh asks them all again.
 Each shows as it answers -- its name, map, game, players and ping, the
-time to its first packet -- and, once all have, by the sort chosen: ping,
-players or name; the filter shows them all, those with players, those not
-full, those with no password, or the favourites. Beside the one chosen:
-its address, map, game, players and each player's frags and ping, a version
+time to its first packet, LAN for one of the local network's -- and, once
+all have, by the sort chosen: ping, players or name; the filter shows them
+all, those with players, those not full, those with no password, the
+favourites, or those on this network. Beside the one chosen: its address,
+on this network for a LAN server, map, game, players and each player's
+frags and ping, a version
 not the game's 1100 said; Join, with the password typed for it in its field
 when it asks for one; a favourite or not. One the filter hides is still
 the one chosen, shown again with it. An address the list does not have,
 typed, `host` or `host:port` (7790 when none), is joined by Enter or Join
 it; a Tab or a click away keeps it. A server joined is the game's start,
-its `--url` the server's `host:port`, `?password=` after it when it asks
-for one; the launcher's log and the last run keep where it went, not the
-password.
+its `--url` the server's `host:port`, `?lan` after it for one of the local
+network's, as the game's Join LAN screen adds it (the client's LAN speed),
+and `?password=` after that when it asks for one; the launcher's log and
+the last run keep where it went, not the password.
 
 A `deusex://host:port` link, of which the app menu's entry is the handler,
 opens Multiplayer asking whether to join its server; with `--play`, with no
@@ -323,7 +333,7 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 | Mods | [the mods](#mods): one's profile used or made, another's folder shown, the mods folder opened |
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
 | Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
-| Multiplayer | [the servers](#multiplayer): the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
+| Multiplayer | [the servers](#multiplayer): the local network's, the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
 | Recovery | how the last run ended and when, the engine's error, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Quit ([Recovery](#recovery)) |
 | The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
@@ -634,6 +644,7 @@ page or of all, Quit.
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |
+| `--lan` | the servers on the local network, found and asked as Multiplayer finds and asks them, each LAN; `DXL_LAN=<host>[:<port>]` asks that one place's beacons, from that port, in place of the network's, and `DXL_LAN=none` no beacon (Multiplayer's too) |
 
 ## How it is tested
 
@@ -657,9 +668,12 @@ environment and `--big-screen`;
 found, and their profiles' paths, settings and saves, of mods it makes up;
 `test_gamespy` the master's and the servers' words, the challenge's answer
 against the original's own; `test_servers` a server's answer, the sort,
-the filters and the favourites; `test_browser` a look at a master and
-servers of its own on this machine, one of them silent, one losing a
-packet of its first answer. The stand-in
+the filters (on this network among them), the join URL and the
+favourites; `test_browser` a look at a master and servers of its own on
+this machine, one of them silent, one losing a packet of its first answer,
+and at beacons of its own (`DXL_LAN`): the game's, its server asked and
+handed over as LAN, another game's passed over, a second given them, none
+asked with `none`. The stand-in
 engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
 that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
@@ -694,8 +708,9 @@ controllers, page checks and shots, through its own event queue
 (`src/screens/uiscript.h`): a first
 run from a fresh home to the game and its clean end, a crash into Recovery,
 and a second start handed over are run that way. `test_ui_scripts` runs
-`tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home and
-with the stub for the engine, and reads what they changed:
+`tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home,
+with the stub for the engine and no beacon asked (`DXL_LAN=none`), and
+reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
 in its file as its reader takes it, and the next run's words on that run;
 `recovery` goes from a crash to Recovery's log, the next run in a window
@@ -752,14 +767,11 @@ it whatever the install. Changed:
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
 | Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
 | The save migration below FirstRun 220; the Detail page | Not carried | The engine reads none of the Detail page's keys; the saves are 1112fm's |
-| No server browser: the game's menus have one | Multiplayer: the master's servers and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
+| No server browser: the game's menus have one | Multiplayer: the local network's servers, the master's and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
 | A mod started by a shortcut of its own, `INI=` and `USERINI=` naming its inis; its `.int` files in the game's `System` | Mods: a profile of its own for each, its folders first in its paths by their absolute paths; its text read from its folders | A mod in a folder of its own, anywhere, with the game's folder left as it is |
 
 ## Known defects
 
-- **Multiplayer lists no servers on the local network**: the game's own
-  LAN screen asks the servers' beacons (`REPORTQUERY`, port 8777); the
-  launcher does not. An address typed joins one.
 - **The finder reads no database**: a Lutris game whose program is named
   from its folder, which only Lutris' `pga.db` holds, is found by the
   folder browser, the system's dialog or `--game=<dir>`.

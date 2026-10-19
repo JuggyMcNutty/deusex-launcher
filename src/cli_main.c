@@ -9,6 +9,7 @@
  *   dxl-cli --mods [--game=<dir>]     the mods a profile can be made of (core/mods.h)
  *   dxl-cli --import --game=<dir> --mod=<dir> --profile=<id>   a mod's profile
  *   dxl-cli --servers[=<master>]      the servers a master lists, as the browser asks them
+ *   dxl-cli --lan                     the servers on the local network, as the browser asks them
  *
  * The words are the original's command line (-safe, -changevideo, a map
  * with -hax0r, ...), as deusex-launcher takes them.
@@ -40,7 +41,7 @@ static void on_signal(int sig) {
 static void usage(FILE *f) {
     fprintf(f,
         "usage: dxl-cli --dry-run | --print-command | --import | --play | --probe | --find | --mods |\n"
-        "               --servers [--game=<dir>] [--mod=<dir>] [--profile=<id>] [the original's command line...]\n"
+        "               --servers | --lan [--game=<dir>] [--mod=<dir>] [--profile=<id>] [the original's command line...]\n"
         "\n"
         "  --dry-run        what the launcher would decide, make and run; nothing is written\n"
         "  --print-command  the engine's command line for this profile; nothing is run\n"
@@ -55,6 +56,8 @@ static void usage(FILE *f) {
         "  --mod=<dir>      with --import, the profile made a mod's: its folders first in its paths\n"
         "  --servers[=<master>]  the servers the master (master.333networks.com) lists, each\n"
         "                   asked as the browser asks it: name, map, players, ping, address\n"
+        "  --lan            the servers on the local network, as the game's Join LAN screen finds\n"
+        "                   them (REPORTQUERY to ports 8777-8786), each asked so\n"
         "  --game=<dir>     the game's folder: the first run's, or the profile's from now on\n"
         "  --profile=<id>   another profile than launcher.ini's (default: default)\n"
         "\n"
@@ -62,7 +65,8 @@ static void usage(FILE *f) {
         "and $XDG_CACHE_HOME, each in dxlauncher/ (DXL_HOME=<dir>: all four under <dir>);\n"
         "nothing in the game's folder. The engine is the launcher's own, beside it, or\n"
         "launcher.ini's [Launcher] Engine; DXL_ENGINE=<path> runs another over both, and\n"
-        "DXL_ENGINE_ARGS adds more of its own options.\n");
+        "DXL_ENGINE_ARGS adds more of its own options. DXL_LAN=<host>[:<port>] asks that one\n"
+        "place's beacons in place of the network's, DXL_LAN=none no beacon.\n");
 }
 
 static int probe(int as_ini) {
@@ -153,9 +157,17 @@ typedef struct {
     int        count;
 } servers;
 
-static void listed(void *ctx, const char *address, int port) {
+static void listed(void *ctx, const char *address, int port, int lan) {
     servers *l = ctx;
-    if (l->count < DXL_BROWSE_MAX) dxl_server_init(&l->s[l->count++], address, port);
+    for (int i = 0; i < l->count; i++)
+        if (l->s[i].query_port == port && !strcmp(l->s[i].address, address)) {
+            l->s[i].lan |= lan;
+            return;
+        }
+    if (l->count < DXL_BROWSE_MAX) {
+        dxl_server_init(&l->s[l->count], address, port);
+        l->s[l->count++].lan = lan;
+    }
 }
 
 static void answered(void *ctx, const char *address, int port, int ping, const char *status) {
@@ -178,11 +190,14 @@ static const char *clean(const char *in, char *out, size_t size) {
     return out;
 }
 
+/* master's servers, or (NULL) the local network's. */
 static int list_servers(const char *master) {
     static servers l;
     dxl_browse_fns fns = { listed, answered };
     dxl_err e;
-    if (dxl_browse(master, NULL, &fns, &l, NULL, &e) != 0) {
+    dxl_browse_lan lan;
+    dxl_browse_lan_init(&lan, DXL_BEACON_PORT, DXL_BEACON_PRODUCT);
+    if (dxl_browse(master, NULL, master ? NULL : &lan, &fns, &l, NULL, &e) != 0) {
         fprintf(stderr, "%s\n", dxl_err_msg(&e));
         return 1;
     }
@@ -196,11 +211,12 @@ static int list_servers(const char *master) {
         }
         answers++;
         char name[256], map[128], game[128];
-        printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s\n", clean(s->name, name, sizeof name), clean(s->map, map, sizeof map),
+        printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s%s\n", clean(s->name, name, sizeof name), clean(s->map, map, sizeof map),
                clean(s->game_type, game, sizeof game), s->players, s->max_players, s->ping_ms, s->address, s->port,
-               s->password ? ", password" : "", dxl_server_joinable(s) ? "" : ", not this version");
+               s->lan ? ", LAN" : "", s->password ? ", password" : "", dxl_server_joinable(s) ? "" : ", not this version");
     }
-    printf("%d listed by %s, %d answered\n", l.count, master, answers);
+    if (master) printf("%d listed by %s, %d answered\n", l.count, master, answers);
+    else printf("%d on the local network, %d answered\n", l.count, answers);
     for (int i = 0; i < l.count; i++) dxl_server_free(&l.s[i]);
     return 0;
 }
@@ -214,6 +230,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--mods") == 0) return list_mods(argc, argv);
         if (strcmp(argv[i], "--servers") == 0) return list_servers("master.333networks.com");
         if (strncmp(argv[i], "--servers=", 10) == 0) return list_servers(argv[i] + 10);
+        if (strcmp(argv[i], "--lan") == 0) return list_servers(NULL);
         if (strcmp(argv[i], "--probe") == 0) {
             int as_ini = i + 1 < argc && strcmp(argv[i + 1], "--ini") == 0;
             return probe(as_ini);
