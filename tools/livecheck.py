@@ -25,6 +25,9 @@ Needs Xvfb, xdotool and ImageMagick's import. The scenarios, in order:
   safe         -safe: SafeMode, its options, Run! -- the launcher again
                with the flags alone; the engine silent, in a 640x480
                window, with no pad
+  ini          INI= quoting an ini with a space in its name, as a shortcut
+               passes it: the line as given, to the launcher and the
+               engine, which opens that ini's 800x600 window
   crash        a killed game: Running.ini stays, the next launch is
                RecoveryMode, whose Cancel deletes it
   cd           CdPath pointed nowhere: the prompt, over the splash; its
@@ -316,6 +319,27 @@ def scenario_safe():
     check("safe: clean end", rc == 0, "exit %s" % rc)
 
 
+def scenario_ini():
+    text = open(SYS + "/DeusEx.ini", encoding="latin1", newline="").read()
+    for key, value in (("WindowedViewportX", "800"), ("WindowedViewportY", "600"), ("StartupFullscreen", "False")):
+        text, n = re.subn(r"^%s=[^\r\n]*" % key, lambda m: "%s=%s" % (key, value), text, count=1, flags=re.M)
+        assert n == 1, key
+    mod = SYS + "/My Mod.ini"
+    open(mod, "w", encoding="latin1", newline="").write(text)
+    try:
+        p = launch(['INI="My Mod.ini"'], timeline("ini", "start 15 exit\n"))
+        rc = p.wait(90)
+        keep_log("ini")
+        L = log()
+        check("ini: the line as given", 'Init: command line: INI="My Mod.ini"\n' in L)
+        check("ini: the engine opens My Mod.ini's window", "Window: 800x600, in a window" in L)
+        check("ini: no ini named My", not os.path.exists(SYS + "/My"))
+        check("ini: clean end", rc == 0, "exit %s" % rc)
+    finally:
+        os.remove(mod)
+        remove("My")
+
+
 def scenario_crash():
     p = launch([])
     check("crash: the game, with no wizard", wait_log(r"the engine is up", 60) and "wizard:" not in log())
@@ -373,7 +397,7 @@ def scenario_server():
     remove("Running.ini")
 
 
-ALL = ["quick", "make", "changevideo", "firstrun", "safe", "crash", "cd", "server"]
+ALL = ["quick", "make", "changevideo", "firstrun", "safe", "ini", "crash", "cd", "server"]
 
 os.makedirs(OUT, exist_ok=True)
 make_copy()

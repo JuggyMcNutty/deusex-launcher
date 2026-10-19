@@ -22,7 +22,7 @@ static void exec_child(const char *exe, const char *flags, const char *workdir, 
         (void)w;
         _exit(127);
     }
-    char **argv = dxl_argv_build(exe, flags);
+    char **argv = dxl_argv_line(exe, flags);
     execv(exe, argv);
     int e = errno;
     ssize_t w = write(report_fd, &e, sizeof e);

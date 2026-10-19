@@ -31,8 +31,8 @@ typedef struct {
     int    ended;
 } dxl_game;
 
-/* Starts exe with flags split into its arguments, in workdir. Its output and
- * errors are appended to log_path (NULL: this process's). */
+/* Starts exe with flags as its one argument (dxl_argv_line), in workdir. Its
+ * output and errors are appended to log_path (NULL: this process's). */
 int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *workdir,
                    const char *log_path, dxl_err *err);
 
@@ -53,8 +53,8 @@ void dxl_game_signal(dxl_game *g, int sig);
 /* A clean end: the game exited with 0. */
 int dxl_game_clean(const dxl_game *g);
 
-/* Starts exe with flags in workdir and lets it go (the Renderer page's
- * detection run). Reaped by dxl_child_reap. */
+/* Starts exe with flags as its one argument in workdir and lets it go (the
+ * Renderer page's detection run). Reaped by dxl_child_reap. */
 int  dxl_child_start(const char *exe, const char *flags, const char *workdir, pid_t *pid,
                      dxl_err *err);
 /* 1 when the child has ended (and is gone), 0 while it runs. */

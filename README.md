@@ -104,14 +104,6 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 
 ## Known defects
 
-- **The command line's quotes are lost on the way to the engine.**
-  `src/launch/launch.c` starts `run-game.sh` through `dxl_game_start`, which
-  splits the line as a shell would (`src/core/argv.c`: quotes group words
-  and are dropped), and `run-game.sh` joins the words with `$*` for
-  `--cmdline=`. So `INI="My Mod.ini"` arrives as `INI=My Mod.ini`, which the
-  engine, reading a quoted value whole as the original does, takes as
-  `INI=My`; `EXEC=` and `USERINI=` alike. Handing `run-game.sh` the line as
-  one argument (`--cmdline="$1"`) would keep it as given.
 - **`src/launch/launch.c` keeps its own copies of `policy.c`'s bypass and
   splash rules** (`bypass[]`, its splash step) beside its call to
   `dxl_policy_decide`, and reads neither of the decision's two fields,

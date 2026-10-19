@@ -16,8 +16,8 @@
 #include "core/common.h"
 
 /* Replaces this process with exe -- the launcher again, for safe mode --
- * with flags split by dxl_argv_build, in workdir (may be NULL). Only
- * returns on failure. */
+ * with flags as its one argument (dxl_argv_line), in workdir (may be NULL).
+ * Only returns on failure. */
 int dxl_platform_launch(const char *exe, const char *flags, const char *workdir, dxl_err *err);
 
 #endif

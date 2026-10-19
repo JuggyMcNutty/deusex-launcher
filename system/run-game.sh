@@ -3,8 +3,8 @@
 # installed in the game's System folder with it -- given the
 # original's command line as the player gave it.
 #
-# DeusEx runs this from System/, with its command line's words as the
-# arguments, and waits for it: the engine's output goes into DeusEx's log,
+# DeusEx runs this from System/, with its command line as the one argument,
+# quotes and all, and waits for it: the engine's output goes into DeusEx's log,
 # and DXL_LAUNCHER_FD, when set, is the line between the two (main's README.md,
 # "The game and the launcher"). The engine reads and writes the game's own
 # DeusEx.ini and User.ini, unless the command line's INI= and USERINI= name
@@ -24,4 +24,4 @@ export DXE_DISPLAY_BACKEND="${DXE_DISPLAY_BACKEND:-SDL3}"
 # DXL_ENGINE_ARGS: more of the engine's own options, for a scripted run
 # (--timeline=<file>, DXEngine's ENGINE.md).
 exec "$engine" --no-launcher "$game" --ini="$here/DeusEx.ini" --userini="$here/User.ini" \
-    ${DXL_ENGINE_ARGS:-} --cmdline="$*"
+    ${DXL_ENGINE_ARGS:-} --cmdline="$1"

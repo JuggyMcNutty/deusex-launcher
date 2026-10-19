@@ -17,7 +17,7 @@ int dxl_platform_launch(const char *exe, const char *flags, const char *workdir,
         dxl_err_set(err, "cannot enter %s: %s", workdir, strerror(errno));
         return -1;
     }
-    char **argv = dxl_argv_build(exe, flags);
+    char **argv = dxl_argv_line(exe, flags);
     execv(exe, argv);
 
     /* Only reached on failure -- exec does not return on success. */

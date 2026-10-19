@@ -2,13 +2,16 @@
 #include "scratch.h"
 #include "launch/launch.h"
 #include "core/instance.h"
+#include "platform/launch.h"
 
 #include <limits.h>
+#include <sys/wait.h>
 
 /* The whole run, dx-reverse-info/launch-flow.md, down every road it can
  * end by. The screens are stand-ins that record what they were asked and
  * answer as each test says; the game is a shell script that records its
- * arguments, talks on the launcher's line when told to, and exits as told. */
+ * arguments, one a line, talks on the launcher's line when told to, and
+ * exits as told. */
 
 static char root[256], sys[300], exe[320], id[PATH_MAX];
 
@@ -84,7 +87,7 @@ static const dxl_launch_ui UI = {
 static const char *GAME =
     "#!/bin/sh\n"
     "here=$(dirname \"$0\")\n"
-    "echo \"$@\" > \"$here/game-args.txt\"\n"
+    "for a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$here/game-args.txt\"\n"
     "echo \"engine output line\"\n"
     "fd=$DXL_LAUNCHER_FD\n"
     "case \"$(cat \"$here/game-mode.txt\" 2>/dev/null)\" in\n"
@@ -443,7 +446,86 @@ static void test_stop_kills_a_stubborn_game(void) {
     scratch_remove(root);
 }
 
+/* A quoted value reaches the game as given, quotes and all: the command
+ * line is the game's one argument, and the configuration is the named
+ * file's, its space and all. */
+static void test_quoted_ini(void) {
+    install("l-quoted", "[FirstRun]\r\nFirstRun=0\r\n");
+    scratch_write(root, "System/My Mod.ini",
+                  "[FirstRun]\r\nFirstRun=1100\r\n[Engine.Engine]\r\nCdPath=..\\\r\n");
+    dxl_launch_result r;
+    launch((const char *[]){ "INI=\"My Mod.ini\" -nosound", NULL }, &r);
+    CHECK_INT(S.wizards, 0);                    /* My Mod.ini's FirstRun */
+    CHECK_STR(r.ended, "the game ran");
+    char *args = read_file("System/game-args.txt");
+    CHECK_STR(args, "INI=\"My Mod.ini\" -nosound\n");
+    free(args);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
+/* The real run-game.sh, with an engine that records its arguments: the
+ * line reaches the engine whole, as --cmdline=. */
+static void test_run_game_script(void) {
+    install("l-script", NULL);
+    scratch_write(root, "System/My Mod.ini",
+                  "[FirstRun]\r\nFirstRun=1100\r\n[Engine.Engine]\r\nCdPath=..\\\r\n");
+    size_t n = 0;
+    char *script = slurp(DXL_RUN_GAME, &n);
+    CHECK(script != NULL);
+    if (!script) return;
+    scratch_write(root, "System/run-game.sh", script);
+    free(script);
+    scratch_write(root, "System/DXEngine",
+                  "#!/bin/sh\n"
+                  "for a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$(dirname \"$0\")/engine-args.txt\"\n");
+    char *p = scratch_path(root, "System/run-game.sh");
+    chmod(p, 0755);
+    free(p);
+    p = scratch_path(root, "System/DXEngine");
+    chmod(p, 0755);
+    free(p);
+    unsetenv("DXL_ENGINE_ARGS");
+    dxl_launch_result r;
+    launch((const char *[]){ "INI=\"My Mod.ini\"", "-log", NULL }, &r);
+    CHECK_STR(r.ended, "the game ran");
+    char *args = read_file("System/engine-args.txt");
+    CHECK(strstr(args, "--no-launcher\n") != NULL);
+    CHECK(strstr(args, "\n--cmdline=INI=\"My Mod.ini\" -log\n") != NULL);
+    free(args);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
+/* Safe mode's relaunch, and the engine's RELAUNCH: the launcher started
+ * again with the line as its one argument, as it is. */
+static void test_relaunch_line(void) {
+    install("l-line", NULL);
+    scratch_write(root, "System/relaunched",
+                  "#!/bin/sh\n"
+                  "for a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$(dirname \"$0\")/relaunch-args.txt\"\n");
+    char *p = scratch_path(root, "System/relaunched");
+    chmod(p, 0755);
+    pid_t pid = fork();
+    if (pid == 0) {
+        dxl_err e;
+        dxl_platform_launch(p, "INI=\"My Mod.ini\" -nosound -nojoy", sys, &e);
+        _exit(127);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    free(p);
+    CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    char *args = read_file("System/relaunch-args.txt");
+    CHECK_STR(args, "INI=\"My Mod.ini\" -nosound -nojoy\n");
+    free(args);
+    scratch_remove(root);
+}
+
 TEST_MAIN_BEGIN
+    RUN(test_quoted_ini);
+    RUN(test_run_game_script);
+    RUN(test_relaunch_line);
     RUN(test_other_inis);
     RUN(test_stop_kills_a_stubborn_game);
     RUN(test_settled_install_runs_the_game);
