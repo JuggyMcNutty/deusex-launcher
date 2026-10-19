@@ -40,9 +40,10 @@ DXEngine does not read the keys the original launcher writes. It reads:
   file it cannot parse. A member the file lacks takes the port's
   `engine-settings.json.default`, so a new setting reaches an existing
   install with the port's value.
-- **Texture and skin detail, sound quality and `MinDesiredFrameRate` are
-  read by neither the engine's renderer nor its mixer**, so the original
-  Detail page's choices are left out.
+- **Skin detail, sound quality and `MinDesiredFrameRate` are read by
+  neither the engine's renderer nor its mixer, and texture detail only to
+  leave the detail textures out below High** (the game's ini has High), so
+  the original Detail page's choices are left out.
 
 ## The screens
 
@@ -191,7 +192,7 @@ protocol (its gaps are [known defects](#known-defects)). Changed or dropped:
 | 9 | FirstTime page (2019) | Dropped; a first run opens on Video with a note on Play | It holds one line of text and a Run button |
 | 10 | Web button `ShellExecute`s a troubleshooting URL | Dropped | No browser to hand off to; the URL is dead |
 | 11 | Six-page modal wizard, only on first run, `-changevideo`, `-safe` or after a crash | Tabbed home screen on every launch; `DXL_NO_HOME=1` for the original's behaviour | Settings must be reachable with a pad, not only after a crash or a flag |
-| 12 | Detail page (sound quality, skin/world texture detail, 640×480) writes `[WinDrv.WindowsClient]`/`[Galaxy...]` keys | Dropped; the Video tab has the engine's real options | The engine's renderer and mixer read none of those keys |
+| 12 | Detail page (sound quality, skin/world texture detail, 640×480) writes `[WinDrv.WindowsClient]`/`[Galaxy...]` keys | Dropped; the Video tab has the engine's real options | The engine's mixer reads none of those keys, nor its renderer but world texture detail (`TextureDetail`), and that only for the detail textures, drawn while it is High, as the game's ini has it |
 | 13 | RecoveryMode page ("was not shut down properly") | Crash banner on Play quoting the engine's error; Troubleshoot opens System | The engine log can say *why* |
 | 14 | `<Game>.ini` missing: UE1's Core creates it from `Default.ini` before the launcher runs | The launcher does it, and rebuilds a stub with no `[Core.System] Paths` | [Where the settings actually live](#where-the-settings-actually-live) |
 

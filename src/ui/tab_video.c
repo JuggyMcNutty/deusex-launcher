@@ -2,11 +2,13 @@
  * something on this device.
  *
  * The original's Detail page offered sound quality, skin and world texture
- * detail and a 640x480 mode. DXEngine reads none of those -- its
- * renderer ignores TextureDetail/SkinDetail and its mixer ignores the Galaxy
- * quality keys -- so they are gone. What is here is what the engine's render
- * device and client actually consume, and each help line says what it does
- * in the renderer rather than repeating its name.
+ * detail and a 640x480 mode. DXEngine reads none of those but world texture
+ * detail (TextureDetail), and that only to drop its detail textures below
+ * High, as the original's renderer does -- the game's ini has High; its
+ * mixer ignores the Galaxy quality keys -- so they are gone. What is here is
+ * what the engine's render device and client actually consume, and each
+ * help line says what it does in the renderer rather than repeating its
+ * name.
  */
 #include "screens_internal.h"
 
