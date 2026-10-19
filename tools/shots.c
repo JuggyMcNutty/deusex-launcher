@@ -1,17 +1,16 @@
 /* dxl-shots: the launcher's window, every page and dialog of it, drawn
  * offscreen -- SDL's software renderer on a surface, a clock of its own --
- * through the code the window runs, at the sizes it meets: 1280x720,
- * 1280x800, 1920x1080, 2560x1440 at 1.5 px a dp, 3840x2160 at 2, and
- * 960x600, the smallest; 1920x1080 and 1280x800 on the big screen, a
- * television's and a Steam Deck's; with the keyboard, the mouse, and virtual pads
- * with an Xbox's, a DualSense's, a Switch Pro's and an unknown pad's ids.
+ * through the code the window runs, at the one size it meets on the Smart
+ * Pro: its panel's 1280x720, on the big screen; with the keyboard, the
+ * mouse, and virtual pads with an Xbox's, a DualSense's, a Switch Pro's
+ * and an unknown pad's ids.
  * A kit diagnostic in any frame -- a label cut short, focusables on one
  * another or off the window -- fails it.
  *
  *   dxl-shots [--out=<dir>] [--all] [--only=<shot>] [--fonts=<dir>]
  *
- * With --out it writes PNGs for review: every page at 1280x720 with the
- * keyboard, Home at each size and with each device; --all writes them all.
+ * With --out it writes PNGs for review: every page with the keyboard, Home
+ * with each device; --all writes them all.
  * The states are made up, in memory and in a scratch home it makes under
  * $TMPDIR and removes after (its HOME, so the paths shown read ~/...):
  * nothing of the game's is read, and nothing is written anywhere else.
@@ -47,8 +46,7 @@ typedef struct {
 } size;
 
 static const size sizes[] = {
-    { 1280, 720, 1, 0 }, { 1280, 800, 1, 0 }, { 1920, 1080, 1, 0 }, { 2560, 1440, 1.5f, 0 }, { 3840, 2160, 2, 0 },
-    { 960, 600, 1, 0 }, { 1920, 1080, 1, 1 }, { 1280, 800, 1, 1 },
+    { 1280, 720, 1, 1 },
 };
 
 typedef enum { MODE_KEYBOARD, MODE_MOUSE, MODE_XBOX, MODE_PS, MODE_SWITCH, MODE_PAD, MODE_COUNT } mode;

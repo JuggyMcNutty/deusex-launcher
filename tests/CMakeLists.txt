@@ -71,12 +71,9 @@ dxl_test(test_ui_thumbs)
 target_link_libraries(test_ui_thumbs PRIVATE dxl_ui)
 target_compile_definitions(test_ui_audio PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System")
 
-# Every page at every size and with every device, without a diagnostic
-# (tools/shots.c): a test for each size, so they run side by side.
-foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600- 1920x1080big 1280x800big)
-    string(REPLACE "-" "" name "${size}")
-    add_test(NAME test_ui_shots_${name} COMMAND dxl-shots --only=${size})
-endforeach()
+# Every page with every device, without a diagnostic (tools/shots.c), at
+# the Smart Pro's one size: its panel's, on the big screen.
+add_test(NAME test_ui_shots_1280x720big COMMAND dxl-shots --only=1280x720big)
 
 # The processes the launcher starts and the game's run, with a stand-in for
 # the engine (stub_engine.c) in its place.

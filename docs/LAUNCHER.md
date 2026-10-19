@@ -706,12 +706,10 @@ keyboard (`test_ui_controls`), the sound on SDL's dummy output
 (`test_ui_audio`) and the thumbnails (`test_ui_thumbs`). `dxl-shots`
 (`tools/shots.c`) draws every
 page and dialog, each settings page too, from states it makes up in a
-scratch home, at
-1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160 at 2 and
-960x600, and on the big screen at 1920x1080 and 1280x800, with the keyboard,
-the mouse and four virtual pads, and fails on
+scratch home, at the Smart Pro's 1280x720 on the big screen, with the
+keyboard, the mouse and four virtual pads, and fails on
 any diagnostic of the kit's: a label cut short, focusables on one another
-or off the window (`test_ui_shots_*`); with `--out=<dir>` it writes them as
+or off the window (`test_ui_shots_1280x720big`); with `--out=<dir>` it writes them as
 PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
 window a script of keys, text, controls found by their labels, virtual
 controllers, page checks and shots, through its own event queue
