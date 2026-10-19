@@ -13,11 +13,18 @@ set(DXL_PORT_DEPS_ENV
     "PKG_CONFIG_LIBDIR=${DXL_PORT_SYSROOT}/lib/pkgconfig"
     "PKG_CONFIG_SYSROOT_DIR=${DXL_PORT_SYSROOT}")
 set(DXL_PORT_DEPS_C_FLAGS "-mcpu=cortex-a53")
-# SDL3 with nothing the device cannot use: no window system (a console
-# build), no desktop GL, no Vulkan, no udev, D-Bus or HIDAPI. A video driver
-# that fails then shows as no window, not as an invisible one. ALSA is
-# opened at run time; the pads are found by an inotify scan.
+# SDL3 with this port's video driver first (sdl3/: fb0 and the PowerVR EGL,
+# the device's only display path) and nothing the device cannot use: no
+# window system (a console build), no desktop GL, no Vulkan, no udev, D-Bus
+# or HIDAPI. A driver that fails then shows as no window, not as an
+# invisible one. ALSA is opened at run time; the pads are found by an
+# inotify scan.
+set(DXL_PORT_SDL3_DRIVER
+    "${CMAKE_CURRENT_LIST_DIR}/sdl3/sdl3.cmake"
+    "${CMAKE_CURRENT_LIST_DIR}/sdl3/SDL_fbvideo.c")
 set(DXL_PORT_SDL3_ARGS
+    -DSDL_VIDEO_DRIVER_PRIVATE=ON
+    -DCMAKE_PROJECT_SDL3_INCLUDE=${CMAKE_CURRENT_LIST_DIR}/sdl3/sdl3.cmake
     -DSDL_UNIX_CONSOLE_BUILD=ON
     -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_KMSDRM=OFF -DSDL_RPI=OFF -DSDL_ROCKCHIP=OFF
     -DSDL_OFFSCREEN=OFF -DSDL_DUMMYVIDEO=OFF

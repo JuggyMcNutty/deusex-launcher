@@ -16,7 +16,8 @@
 # A cross build's vendored libraries see the port's sysroot through
 # DXL_PORT_DEPS_ENV (VAR=value words for their configure steps, pkg-config's
 # among them) and DXL_PORT_DEPS_C_FLAGS; a port's own SDL3 options follow
-# SDL3's, in DXL_PORT_SDL3_ARGS.
+# SDL3's, in DXL_PORT_SDL3_ARGS, and SDL3 is configured again when a file in
+# DXL_PORT_SDL3_DRIVER (a video driver of the port's own) changes.
 
 set(DXL_DEPS_SRC "${DXL_ROOT}/deps/cache/src" CACHE PATH "Where cmake/deps.lock's sources are fetched to")
 
@@ -109,6 +110,9 @@ ExternalProject_Add(dep_sdl3
         -DSDL_LIBURING=OFF -DSDL_CAMERA=OFF
         ${DXL_PORT_SDL3_ARGS}
     BUILD_BYPRODUCTS "${dxl_prefix}/lib/libSDL3.a")
+if(DXL_PORT_SDL3_DRIVER)
+    ExternalProject_Add_StepDependencies(dep_sdl3 configure ${DXL_PORT_SDL3_DRIVER})
+endif()
 
 dxl_dep(freetype)
 ExternalProject_Add(dep_freetype

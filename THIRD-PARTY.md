@@ -20,7 +20,9 @@ music played with [libxmp-lite](https://github.com/libxmp/libxmp), under the MIT
 Where the system has them they are its own; where it has not they are built into the programs
 from the sources `cmake/deps.lock` pins, and with them [FreeType](https://freetype.org), under
 the FreeType License: portions of this software are copyright © 2026 The FreeType Project
-(www.freetype.org). All rights reserved.
+(www.freetype.org). All rights reserved. On the TrimUI Smart Pro they are always built in, and
+SDL3 carries a video driver of this port's own, `ports/trimui-smartpro/sdl3/SDL_fbvideo.c`,
+under the zlib licence as SDL is.
 
 libxmp-lite's notice:
 
