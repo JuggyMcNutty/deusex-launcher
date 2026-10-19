@@ -87,7 +87,10 @@ the drives `/proc/self/mountinfo` has mounted in `/run/media`, `/media`
 and `/mnt`, however deep, each once, at its top and two folders down. In
 a prefix's `drive_c`, and on a drive, it looks where
 Windows' installers put the game: `DeusEx`, the CD's folder; each folder
-in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library.
+in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library. A
+Windows Steam in a prefix gives its libraries too, its list's Windows
+paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
+any case; a network path (`\\server\share`) is passed over.
 Another is shown by the launcher's folder browser, which a pad works, or
 by the system's folder dialog. `dxl-cli` makes the profile from
 `--game=<dir>`'s install. Either way the profile is made from the
@@ -757,7 +760,6 @@ it whatever the install. Changed:
 - **Multiplayer lists no servers on the local network**: the game's own
   LAN screen asks the servers' beacons (`REPORTQUERY`, port 8777); the
   launcher does not. An address typed joins one.
-- **The finder reads no database and no Windows path**: a Lutris game
-  whose program is named from its folder, which only Lutris' `pga.db`
-  holds, and a library a Windows Steam in a Wine prefix lists, are found
-  by the folder browser, the system's dialog or `--game=<dir>`.
+- **The finder reads no database**: a Lutris game whose program is named
+  from its folder, which only Lutris' `pga.db` holds, is found by the
+  folder browser, the system's dialog or `--game=<dir>`.

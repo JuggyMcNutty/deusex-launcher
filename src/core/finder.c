@@ -4,6 +4,7 @@
 #include "core/paths.h"
 #include "core/vdf.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
 #include <pwd.h>
@@ -191,10 +192,21 @@ static void drive(finder *f, const char *source, const char *root) {
     }
 }
 
-/* A Wine prefix: its drive_c. */
+static void steam(finder *f, const char *source, const char *root, const char *wine);
+
+/* A Wine prefix: its drive_c, and a Windows Steam there, with the
+ * libraries its list puts on the prefix's drives. */
 static void prefix(finder *f, const char *source, const char *dir) {
     char *c = dir && *dir ? dxl_path_resolve_ci(dir, "drive_c") : NULL;
-    if (c && dxl_path_is_dir(c)) drive(f, source, c);
+    if (c && dxl_path_is_dir(c)) {
+        drive(f, source, c);
+        static const char *const steams[] = { "Program Files (x86)/Steam", "Program Files/Steam" };
+        for (size_t i = 0; i < sizeof steams / sizeof *steams && !stopped(f); i++) {
+            char *s = dxl_path_resolve_ci(c, steams[i]);
+            if (s) steam(f, source, s, dir);
+            free(s);
+        }
+    }
     free(c);
 }
 
@@ -234,9 +246,29 @@ static void steam_library(finder *f, const char *source, const char *lib) {
     free(apps);
 }
 
+/* A Windows path, X:\..., where a Wine prefix's dosdevices/x: leads, each
+ * part found in any case; NULL for any other (a UNC path) or none there. */
+static char *wine_path(const char *wine, const char *path) {
+    if (!isalpha((unsigned char)path[0]) || path[1] != ':' || (path[2] && path[2] != '\\' && path[2] != '/'))
+        return NULL;
+    char device[16];
+    snprintf(device, sizeof device, "dosdevices/%c:", tolower((unsigned char)path[0]));
+    char *drive_root = dxl_path_join(wine, device);
+    char *rest = dxl_xstrdup(path + 2);
+    for (char *p = rest; *p; p++)
+        if (*p == '\\') *p = '/';
+    const char *r = rest + strspn(rest, "/");
+    char *at = *r ? dxl_path_resolve_ci(drive_root, r) : dxl_path_is_dir(drive_root) ? dxl_xstrdup(drive_root) : NULL;
+    free(rest);
+    free(drive_root);
+    return at;
+}
+
 /* A Steam: its own library, then each its libraryfolders.vdf lists -- by
- * a block's "path", or an older Steam's key's value -- under number keys. */
-static void steam(finder *f, const char *source, const char *root) {
+ * a block's "path", or an older Steam's key's value -- under number keys.
+ * A Windows Steam's, in the Wine prefix wine (NULL: a native Steam), names
+ * its libraries as Windows paths. */
+static void steam(finder *f, const char *source, const char *root, const char *wine) {
     if (!dxl_path_is_dir(root)) return;
     steam_library(f, source, root);
     static const char *const lists[] = { "steamapps/libraryfolders.vdf", "config/libraryfolders.vdf" };
@@ -249,7 +281,13 @@ static void steam(finder *f, const char *source, const char *root) {
             const char *key = dxl_vdf_key(lib);
             if (!key || !*key || strspn(key, "0123456789") != strlen(key)) continue;
             const char *at = dxl_vdf_value(lib) ? dxl_vdf_value(lib) : dxl_vdf_get_string(lib, "path");
-            if (at && *at == '/') steam_library(f, source, at);
+            if (at && *at == '/') {
+                steam_library(f, source, at);
+            } else if (at && wine) {
+                char *windows = wine_path(wine, at);
+                if (windows) steam_library(f, source, windows);
+                free(windows);
+            }
         }
         dxl_vdf_free(v);
         free(path);
@@ -573,7 +611,7 @@ static void home_places(finder *f) {
     };
     for (size_t i = 0; i < sizeof steams / sizeof *steams && !stopped(f); i++) {
         char *root = in_home(f, steams[i].steam);
-        steam(f, steams[i].source, root);
+        steam(f, steams[i].source, root, NULL);
         free(root);
     }
 
