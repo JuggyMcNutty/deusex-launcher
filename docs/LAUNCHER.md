@@ -612,7 +612,9 @@ window the port's engine is built with, the one with the pad, unless the
 environment names a backend,
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
 ([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the launcher's
-end of a socket pair. On that line the
+end of a socket pair. Of the launcher's descriptors the engine is given
+that one alone: the rest, the window's fonts among them, close as it
+starts, as for every program the launcher runs. On that line the
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the

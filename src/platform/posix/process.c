@@ -9,10 +9,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+/* In a child, after fork: every descriptor from 3 up closes as it execs,
+ * but keep. Not all the launcher's are marked so -- the window's fonts,
+ * which SDL_ttf opens without it -- and the game or a helper is given none
+ * of them. glibc 2.28 has no close_range, nor a 4.9 kernel the call: each
+ * one marked, up to the open files' limit. */
+static void cloexec_all(int keep) {
+    struct rlimit rl;
+    int max = 1024;
+    if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY)
+        max = rl.rlim_cur < 65536 ? (int)rl.rlim_cur : 65536;
+    for (int fd = 3; fd < max; fd++)
+        if (fd != keep) fcntl(fd, F_SETFD, FD_CLOEXEC);
+}
 
 /* In the child, after fork: exec, or report why not through report_fd. */
 static void exec_child(char *const argv[], char *const env[], const char *workdir, int report_fd) {
@@ -67,6 +82,7 @@ static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *
     if (*pid == 0) {
         signal(SIGPIPE, SIG_DFL);
         if (log_fd >= 0) { dup2(log_fd, STDOUT_FILENO); dup2(log_fd, STDERR_FILENO); }
+        cloexec_all(keep_fd);
         if (keep_fd >= 0) {
             fcntl(keep_fd, F_SETFD, 0);   /* the one descriptor the game keeps */
             char n[16];
@@ -190,6 +206,7 @@ int dxl_open_url(const char *url) {
     if (pid < 0) return -1;
     if (pid == 0) {
         if (fork() == 0) {
+            cloexec_all(-1);
             execlp("xdg-open", "xdg-open", url, (char *)NULL);
             _exit(127);
         }
@@ -256,6 +273,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         if (null >= 0) dup2(null, STDIN_FILENO);
         if (errfd[1] >= 0) dup2(errfd[1], STDERR_FILENO);
         else if (null >= 0) dup2(null, STDERR_FILENO);
+        cloexec_all(-1);
         execve(argv[0], argv, envp);
         /* Why, as a shell says it, on the errors' line: write alone, the
          * launcher's other threads' locks being anyone's after the fork. */

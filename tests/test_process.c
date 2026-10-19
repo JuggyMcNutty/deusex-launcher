@@ -5,6 +5,7 @@
 #include "core/engine_args.h"
 #include "platform/process.h"
 
+#include <fcntl.h>
 #include <signal.h>
 
 /* The stub engine (tests/stub_engine.c), built beside the tests. */
@@ -177,6 +178,44 @@ static void test_capture(void) {
     CHECK(strstr(errs, "/nonexistent/engine") != NULL);
 }
 
+/* Whether a listing of /proc/<pid>/fd, one a line, has fd. */
+static int lists_fd(const char *text, int fd) {
+    char want[32];
+    snprintf(want, sizeof want, "\n%d\n", fd);
+    return text && strstr(text, want) != NULL;
+}
+
+/* A descriptor the launcher holds without close-on-exec -- the window's
+ * fonts, as SDL_ttf opens them -- reaches neither the game nor a helper;
+ * the game's own line does. */
+static void test_descriptors_kept(void) {
+    char *dir = dxl_xstrdup(scratch_dir("process-fds"));
+    char *log = scratch_path(dir, "run.log");
+    int held = open("/dev/null", O_RDONLY);
+    CHECK(held > 2);
+    char *argv[] = { "/bin/sh", "-c", "echo; ls /proc/$$/fd; echo \"line $DXL_LAUNCHER_FD\"", NULL };
+    dxl_game g;
+    dxl_err e;
+    CHECK_INT(dxl_game_start_argv(&g, argv, NULL, dir, log, &e), 0);
+    char said[256];
+    CHECK_INT(wait_end(&g, 5000, said, sizeof said), 1);
+    char *text = slurp(log, NULL);
+    CHECK(!lists_fd(text, held));
+    const char *line = text ? strstr(text, "line ") : NULL;
+    CHECK(line && lists_fd(text, atoi(line + 5)));
+    free(text);
+    char out[1024];
+    int status = -1;
+    char *ls[] = { "/bin/sh", "-c", "echo; ls /proc/$$/fd", NULL };
+    CHECK_INT(dxl_run_capture(ls, 3000, out, sizeof out, NULL, 0, &status, &e), 0);
+    CHECK(lists_fd(out, 1));
+    CHECK(!lists_fd(out, held));
+    close(held);
+    free(log);
+    scratch_remove(dir);
+    free(dir);
+}
+
 /* The engine asked as the launcher asks it, and why it is refused said:
  * not there, one the loader cannot start (a glibc newer than this one's, a
  * library this system lacks), one without the userdir feature. */
@@ -270,6 +309,7 @@ TEST_MAIN_BEGIN
     RUN(test_crash);
     RUN(test_cannot_run);
     RUN(test_capture);
+    RUN(test_descriptors_kept);
     RUN(test_engine_check);
     RUN(test_engine_chosen);
 TEST_MAIN_END
