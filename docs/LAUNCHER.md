@@ -28,7 +28,7 @@ the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
 
 | Folder | What is in it |
 |---|---|
-| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
+| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`, `CpuMode`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`) |
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
@@ -363,29 +363,18 @@ theme and added to what is under them, as the game draws them
 packages are read by our own code from their format (`src/core/upkg.c`).
 Its type is in `data/fonts` (`THIRD-PARTY.md` says whose). It is laid out in dp,
 which the display's scale makes pixels, so it is as sharp at any size: for
-1280 x 720 dp, and no smaller than 960 x 600; the window opens at
-1280 x 720, or as it last closed.
+1280 x 720 dp, and no smaller than 960 x 600.
 
-**The big screen**, for a television or a handheld
-(`src/core/bigscreen.h`): the window full screen, its layout 1280 x 720 dp
-an eighth larger -- the screen 640 dp tall, and no narrower than 960 dp --
-and the hints a pad's when one is there as it opens. Settings' Launcher
-page has it Always, Never, or Automatic, the default: the big screen under
-Steam's Big Picture (`SteamTenfoot` or `SteamGamepadUI` set to 1), on a
-Steam Deck (`SteamDeck=1`) or in gamescope (`GAMESCOPE_WAYLAND_DISPLAY`).
-`--big-screen`, as the app menu's Big screen, asks for it whatever the
-setting.
-F11 switches it while the window is up, and a second start's
-`--big-screen` -- the app menu's Big screen with the launcher up -- puts
-it on; the desktop taking the window out of full screen ends it. In a
-window, Home and Welcome offer it once, as a pad is first pressed there,
-the press the question's; switched to, it is Always. Its size is the
-screen's, not kept as the window's.
+**The big screen** is the Smart Pro's only one (`src/screens/window.c`):
+the window the panel's 1280 x 720, full screen, its layout 1280 x 720 dp
+an eighth larger -- the screen 640 dp tall -- and the hints the pad's from
+the first frame, the handheld's own pad being the way in. There is no
+setting for it, no F11, and nothing offers it.
 
 **Controls.** The keyboard: the arrows or WASD move, Enter or Space
 chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
 Up and Page Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs,
-F5 plays, F11 switches the big screen. The mouse: the pointer focuses
+F5 plays. The mouse: the pointer focuses
 what it moves onto (not what the window, coming up or changing size, puts
 under it), a click chooses, the wheel scrolls a list and a list's
 scroll bar drags by its thumb or pages by its track, the back button goes
@@ -443,7 +432,7 @@ takes (`src/core/settings.c`):
 | `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
-| `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer, its volumes; the profile's game, the engine's extra words |
+| `launcher.ini`, `profile.ini` | the launcher's own: the engine, reduced motion, Home after playing, its renderer, its volumes, the CPU mode; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
 `[Engine.DXEngineAudioDevice]` has a key, else the retail ones
@@ -521,8 +510,8 @@ Recovery's: added to the original's command line of the run Play starts
 next, and of no other.
 
 The changes are in the open files at once, and written as Settings is
-left, by Done or otherwise. The launcher's size, volumes, the big screen and
-reduced motion apply at once, its renderer from the window's next opening.
+left, by Done or otherwise. The launcher's volumes and reduced motion
+apply at once, its renderer from the window's next opening.
 
 ## The controller
 
@@ -765,11 +754,7 @@ starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
 the save's URL on the engine's command line or what was deleted in the
-trash; `big_screen` is offered the big screen on a pad's first press, an
-A that does not play, and stays as it is, switches it by F11, then has it
-Always on Settings' Launcher page, and finds the two in `launcher.ini`;
-`big_screen_switch` is offered it and switches to it, and
-`big_screen_handover` is put on it by a second start; `multiplayer` joins
+trash; `multiplayer` joins
 the server a master on this machine lists, `multiplayer_address` an address
 left half typed by a Tab, which joins nothing, then typed and joined,
 `multiplayer_link` the server of a start's `deusex://` link once asked, and

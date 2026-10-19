@@ -339,7 +339,6 @@ static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
     case SDLK_PAGEDOWN: ui->in.page_down++; break;
     case SDLK_F5:       if (!k->repeat) ui->in.start++; break;
     case SDLK_DELETE:   if (!k->repeat) ui->in.clear++; break;
-    case SDLK_F11:      if (!k->repeat) ui->in.toggle_big++; break;
     default: return;
     }
     ui->mode = DXL_INPUT_KEYBOARD;

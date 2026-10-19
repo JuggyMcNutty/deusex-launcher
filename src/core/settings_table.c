@@ -102,13 +102,6 @@ static const dxl_set_choice hud_themes[] = {
     THEME("Violet"), { NULL, NULL, NULL },
 };
 
-static const dxl_set_choice big_screens[] = {
-    { "auto", "Automatic", "Under Steam's Big Picture, on a Steam Deck, in gamescope, or with --big-screen." },
-    { "on", "Always", NULL },
-    { "off", "Never", NULL },
-    { NULL, NULL, NULL },
-};
-
 static const dxl_set_choice render_drivers[] = {
     { "", "Chosen by SDL", "The renderer SDL starts first here: OpenGL, Vulkan, or the software one." },
     { "opengl", "OpenGL", NULL },
@@ -370,15 +363,6 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "profile.game", .page = "Launcher", .label = "The game's folder",
       .help = "The copy of Deus Ex this profile plays: another the launcher finds, or one shown to it.",
       .kind = DXL_SET_ACTION },
-    { .id = "launcher.ui_scale", .page = "Launcher", .label = "The launcher's size",
-      .help = "Everything in the launcher's window larger or smaller, over the size the display's own "
-              "scale gives it; the big screen's is the screen's.",
-      .kind = DXL_SET_NUMBER, .min = 0.75, .max = 2, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
-      .def = "1", .at = { LAUNCHER("UIScale", DXL_CODEC_FLOAT) } },
-    { .id = "launcher.big_screen", .page = "Launcher", .label = "Big screen",
-      .help = "The launcher full screen, its type larger, for a television or a handheld; F11 switches it while "
-              "the window is up.",
-      .kind = DXL_SET_CHOICE, .choices = big_screens, .def = "auto", .at = { LAUNCHER("BigScreen", DXL_CODEC_TEXT) } },
     { .id = "launcher.reduced_motion", .page = "Launcher", .label = "Reduced motion",
       .help = "Pages come up at once, and the focus brackets jump instead of gliding.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { LAUNCHER("ReducedMotion", DXL_CODEC_BOOL) } },

@@ -727,12 +727,11 @@ static int open_window(dxl_window *w, dxl_run *r) {
         return -1;
     }
     size_window(w);
+    /* The Smart Pro's screen is the big screen alone: the panel, no desktop. */
     if (!w->big_decided) {
-        const char *why = NULL;
-        w->big = dxl_big_screen_wanted(dxl_big_setting_of(dxl_ini_get(r->session.ini, "Launcher", "BigScreen")),
-                                       r->opt.big_screen, &why);
+        w->big = 1;
         w->big_decided = 1;
-        if (w->big) dxl_log("the big screen, by %s", why);
+        dxl_log("the big screen, the handheld's");
     }
     if (w->big && !SDL_SetWindowFullscreen(w->window, true)) dxl_log("no full screen: %s", SDL_GetError());
     SDL_Surface *icon = dxl_icon(64);
@@ -775,6 +774,8 @@ static int open_window(dxl_window *w, dxl_run *r) {
     }
     s->big = w->big;
     s->ui.reduced_motion = dxl_ini_get_bool(r->session.ini, "Launcher", "ReducedMotion", 0);
+    /* The handheld's own pad is the way in: its hints from the first frame. */
+    s->ui.mode = DXL_INPUT_PAD;
     if (rc != 0) {
         fprintf(stderr, "DXLauncher cannot draw: %s\n", SDL_GetError());
         dxl_ui_detach(&s->ui);

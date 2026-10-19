@@ -479,59 +479,6 @@ static void write_saves(int newer) {
     free(saves);
 }
 
-/* launcher.ini's [Launcher] BigScreen and BigScreenOffered as a run left
- * them. */
-static void big_keys(const char *setting, int offered) {
-    char *ini = home_file("config/dxlauncher/launcher.ini");
-    dxl_ini *li = dxl_ini_load(ini, NULL);
-    CHECK_STR(value(li, "Launcher", "BigScreen"), setting);
-    CHECK_INT(dxl_ini_get_bool(li, "Launcher", "BigScreenOffered", 0), offered);
-    dxl_ini_free(li);
-    free(ini);
-}
-
-/* The big screen offered on a pad's first press, its A taken by the
- * question, not Play; stayed away from, kept as offered; on F11 and off;
- * Always on Settings' Launcher page, kept. Offered again and switched to:
- * Always. Asked for by a second start, as the app menu's Big screen with
- * the launcher up: switched to. */
-static void test_big_screen(void) {
-    CHECK_INT(fresh_home(), 0);
-    CHECK_INT(launch("big_screen.script", "ready"), 0);
-    script_ok();
-    big_keys("on", 1);
-    char *log = read_home("state/dxlauncher/launcher.log");
-    CHECK_INT(count(log, "the big screen: on"), 3);
-    CHECK_INT(count(log, "the big screen: off"), 2);
-    CHECK(strstr(log, "starting the game") == NULL);
-    free(log);
-
-    CHECK_INT(fresh_home(), 0);
-    CHECK_INT(launch("big_screen_switch.script", "ready"), 0);
-    script_ok();
-    big_keys("on", 1);
-    log = read_home("state/dxlauncher/launcher.log");
-    CHECK_INT(count(log, "the big screen: on"), 1);
-    CHECK(strstr(log, "starting the game") == NULL);
-    free(log);
-
-    CHECK_INT(fresh_home(), 0);
-    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/big_screen_handover.script' "
-                 "'%s/deusex-launcher' >>'%s/out.txt' 2>&1 & sleep 4; DXL_HOME='%s' %s '%s/deusex-launcher' "
-                 "--big-screen >>'%s/out.txt' 2>&1; wait",
-                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, app, home, home, OUR_PADS, app, home),
-              0);
-    script_ok();
-    big_keys("", 0);
-    char *out = read_home("out.txt");
-    CHECK(strstr(out, "the launcher already running took this command line") != NULL);
-    free(out);
-    log = read_home("state/dxlauncher/launcher.log");
-    CHECK(strstr(log, "a second start's command line: --big-screen") != NULL);
-    CHECK_INT(count(log, "the big screen: on"), 1);
-    free(log);
-}
-
 /* ---- a master and a server on this machine -------------------------- */
 
 static int local_socket(int type, int *port) {
@@ -824,7 +771,6 @@ int main(void) {
     RUN(test_engine_and_game);
     RUN(test_profiles);
     RUN(test_mods);
-    RUN(test_big_screen);
     RUN(test_multiplayer);
     RUN(test_continue);
     RUN(test_saves_page);
