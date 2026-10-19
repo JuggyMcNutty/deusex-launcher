@@ -173,7 +173,8 @@ const dxl_setting dxl_settings_table[] = {
       .step = 0.0625, .format = "%.0f%%", .shown_scale = 100, .def = "0.501961",
       .at = { JSON_SCALED(DXL_ES_BLOOM_AMOUNT, 255) } },
     { .id = "graphics.detail_textures", .page = "Graphics", .label = "Detail textures",
-      .help = "The fine grain the game lays over near walls and floors, drawn in one pass.", .kind = DXL_SET_BOOL,
+      .help = "The fine grain the game lays over near walls and floors, as its Direct3D renderer drew it.",
+      .kind = DXL_SET_BOOL,
       .def = "1", .at = { RENDER("DetailTextures", DXL_CODEC_BOOL) } },
     { .id = "graphics.volumetric", .page = "Graphics", .label = "Volumetric lighting",
       .help = "The fog that fills fog zones.", .kind = DXL_SET_BOOL, .def = "1",
@@ -405,13 +406,14 @@ const dxl_setting dxl_settings_table[] = {
 const size_t dxl_settings_table_count = sizeof dxl_settings_table / sizeof *dxl_settings_table;
 
 /* The graphics presets. As in 2000: the game as its Direct3D renderer drew
- * it here -- no multisampling, no bloom, no detail textures, Direct3D's
- * light and brightness curve. Enhanced: DXEngine's own on top.
+ * it on the hardware of its day -- no multisampling, no bloom, the detail
+ * textures, which the engine draws as D3DDrv's passes do, Direct3D's light
+ * and brightness curve. Enhanced: DXEngine's own on top.
  * Performance: less to draw. Each value one its place keeps as it is (a
  * bloom of 128/255, Settings.json's step), or the preset never matches. */
 static const dxl_preset_value as_in_2000[] = {
     { "graphics.antialias", "Off" }, { "graphics.light", "Normal" }, { "display.gamma", "D3D9" },
-    { "graphics.bloom", "0" }, { "graphics.detail_textures", "0" }, { "graphics.volumetric", "1" },
+    { "graphics.bloom", "0" }, { "graphics.detail_textures", "1" }, { "graphics.volumetric", "1" },
     { "graphics.dynamic_lights", "1" }, { "graphics.hdr", "0" }, { "display.render_scale", "1" },
     { NULL, NULL },
 };
