@@ -1,14 +1,14 @@
 # Port: TrimUI Smart Pro (spruceOS)
 
 An Allwinner A133 handheld (4× Cortex-A53, PowerVR GE8300) running spruceOS. The port is
-cross-built from a PC against the device's own libraries, and the performance work is measured
-here. The launcher is the app the spruceOS menu starts.
+cross-built from a PC, and the performance work is measured here. The launcher is DXLauncher,
+linux-aarch64's, tailored to the handheld: the app the spruceOS menu starts.
 
 ## Status
 
 The launcher and the engine run on the device, and the game plays on Vulkan or OpenGL ES (the
-Video tab's choice), at 853x480 by default: [Performance](#performance) has the numbers, and
-[where a frame goes](#where-a-frame-goes) the work left.
+Graphics page's choice), at 853x480 by default: [Performance](#performance) has the numbers,
+and [where a frame goes](#where-a-frame-goes) the work left.
 
 ## Build and run
 
@@ -24,12 +24,13 @@ uncommitted changes (the profiling hooks, say). It sends only the files whose ch
 keeps the device's copies of those in `.prev-<date-time>` (the device's clock) in the app
 directory, and checksums every file there afterwards. Nothing is ever deleted on the device:
 copying a previous copy back is a rollback (newest last). `--no-engine` leaves the engine and
-its `DXEngine.pk3` out.
+its `DXEngine.pk3` out. `--run` starts the app as the menu does, through `launch.sh`, the menu
+paused while it runs.
 
-The app lives in `/mnt/SDCARD/App/DeusEx`, the game data in `/mnt/SDCARD/Roms/PORTS/DeusEx`
-(all 38 `.u` packages). `launcher.ini` belongs to the device's owner: `deploy` installs it only
-when missing (from `launcher.ini.default`), touches `home/` only to seed a missing
-`Settings.json` (from `engine-settings.json.default`), and never touches `run-game.log`.
+The app lives in `/mnt/SDCARD/App/DeusEx`, the game in `/mnt/SDCARD/Roms/PORTS/DeusEx` (all 38
+`.u` packages), which the first run finds there. The launcher's own files -- `launcher.ini`, the
+profiles, their saves and logs -- are in the app's `home/` (`DXL_HOME`, set by `launch.sh`),
+which `deploy` never touches.
 
 **Access.** `spruce@192.168.1.211`, password `happygaming`: the stock firmware password, a
 default in `port.sh` on purpose; SSH is root. Override with `DEVICE`, `DEVICE_USER`,
@@ -39,39 +40,39 @@ out): ask its owner to wake it.
 ### Diagnosing
 
 ```sh
-./dxl-cli --dry-run              # decision, game config, Settings.json, renderers; writes nothing
-./dxl-cli --dry-run --probe      # ...with the renderer list checked against this GPU
-./dxl-cli --probe                # just the GPU: Vulkan device, OpenGL ES version
+DXL_HOME=home ./dxl-cli --dry-run          # decision, the profile, Settings.json, renderers; writes nothing
+DXL_HOME=home ./dxl-cli --dry-run --probe  # ...with the renderer list checked against this GPU
+./dxl-cli --probe                          # just the GPU: Vulkan device, OpenGL ES version
+DXL_HOME=home ./dxl-cli --print-command    # the engine's command line for the profile in use
 ```
 
-Run them in the app directory with `LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib`. Where the
-launcher, `run-game.sh` and the engine log: [the logs](../../docs/LAUNCHER.md#the-screens); the
-System tab shows the engine log and `run-game.log`'s last run.
+Run them in the app directory. The launcher's log is `home/state/dxlauncher/launcher.log`, a
+game's output its profile's `last-run.log`
+([where everything lives](../../docs/LAUNCHER.md#where-everything-lives)); the window's log page
+shows them.
 
-## What differs from linux-x86_64
+## What differs from linux-aarch64
 
-| File | What it is |
-|---|---|
-| `port.cmake` | links the device's vendor SDL2 from the sysroot; glibc ceiling 2.28 |
-| `toolchain-c.cmake`, `toolchain-cxx.cmake` | linux-aarch64's SDK, GCC 13.2 on glibc 2.28: the launcher, and the engine with its own link |
-| `engine.cmake` | the engine for this device: SDL2 only, no X11/Wayland; fullscreen as a borderless window (`DXE_SDL2_BORDERLESS_FULLSCREEN`) |
-| `port.sh` | the device's address; `deps`, `deploy` over SSH, `profile` on the device |
-| `fetch-sysroot.sh` | the link sysroot: libraries off the device, pinned headers |
-| `target.c` | the device profile: fonts, spruceOS CPU modes, the pad note |
-| `packaging/` | the spruceOS app (`config.json`, `launch.sh`, icon), `port-hooks.sh` (vendor library path, CPU mode), `launcher.ini`, `renderers.ini`, `engine-settings.json.default` |
-| `tools/profile-map.sh` | frame-time profile of one map, run on the device |
+The branch is linux-aarch64's launcher, with this port in place of linux-aarch64's and the
+handheld's tailoring, each a commit of its own. The shared files each one touches are where a
+cherry-pick from linux-aarch64 may meet them:
 
-The launcher is this branch's own, the tabbed home screen (linux-x86_64's and linux-aarch64's
-is DXLauncher, the desktop's own); its code makes these choices for the device:
+| Edit | Its own files | Shared files touched |
+|---|---|---|
+| The port: the SDK's toolchain for both, SDL3 without what the device cannot use | `ports/trimui-smartpro/*` | `CMakePresets.json` (the preset swapped); `ports/linux-aarch64/` removed (the host build's `ports/linux-x86_64` kept); `cmake/deps.cmake` (`DXL_PORT_SDL3_ARGS`) |
+| [The video driver](#the-video-driver) | `ports/trimui-smartpro/sdl3/` | `cmake/deps.cmake` (`DXL_PORT_SDL3_DRIVER`); `THIRD-PARTY.md` |
+| The spruceOS app | `packaging/{config.json,launch.sh,deusex.png}` | |
+| [CPU modes](#cpu-mode) and the game hook | `src/core/cpumode.{c,h}`, `src/app/gamehook.{c,h}`, `packaging/port-hooks.sh`, `tests/test_cpumode.c` | `src/app/run.c` (two calls), `src/core/settings_table.c` (one Graphics row), `CMakeLists.txt`, `tests/CMakeLists.txt` |
+| The big screen alone, the pad's hints from the first frame | | `src/screens/window.c`, `src/ui/kit.c` (no F11), `src/core/settings_table.c` (Big screen and the launcher's size gone); the `big_screen*` UI scripts gone |
+| No desktop: no app menu, `xdg-open` or folder dialog | | `src/platform/desktop.{h,c}`, `test_desktop` and the `.desktop.in` gone; `src/main.c`, `src/screens/{window,about,log,shots,mods,firstrun,shell}.c`, `shell.h`, `window.h`, `src/platform/process.{c,h}`, `CMakeLists.txt` |
+| Deleting for good, after the page's confirm: no trash to put back from | `src/platform/delete.h`, `src/platform/posix/delete.c`, `tests/test_delete.c` | `trash.{h,c}` and `test_trash` gone; `src/app/session.{c,h}`, `src/screens/{shots,saves,profiles}.c`, `shell.h`; the `profiles`, `saves_delete` and `shots` UI scripts |
+| A pad without stick clicks | | `src/core/bindings.{c,h}` (Modern and its swap leave `Joy9`/`Joy10` unbound; fourteen rows), `src/screens/controller.c`; `tests/test_bindings.c` |
+| spruceOS's Ports folder in the finder | | `src/core/finder.c` (`Roms/PORTS` among a drive's folders); `tests/test_finder.c` |
+| `dxl-shots` at 1280x720 on the big screen | | `tools/shots.c`, `tests/CMakeLists.txt` |
+| The device's data | | `data/renderers.ini` (Vulkan, OpenGL ES), `data/engine-settings.json.default` (Off, VSync off, RenderScale 0.6666667); `tests/test_settings.c`, the `settings_roundtrip` UI script |
+| Deploy and profile | `port.sh`, `tools/profile-map.sh` | |
 
-| What | Here |
-|---|---|
-| Window | fullscreen-desktop: the vendor `mali` driver hands out one surface at the panel's size |
-| Device profile | `target.c`, compiled in by `DXL_PROFILE`: the device's fonts, [CPU modes](#cpu-mode), the pad note; `test_target_trimui_smartpro` checks it against `port-hooks.sh` |
-| `run-game.sh` | sources `packaging/port-hooks.sh`: the vendor library path, the CPU mode |
-| Anti-aliasing | locked off on any PowerVR the GPU probe finds ([engine settings](#engine-settings)) |
-| `Settings.json`'s built-in defaults | MSAA off, VSync off |
-| The pad | L3/R3 not offered, as the pad has none; a retired preset (`retired[]`) is upgraded |
+Each commit's own paragraphs of [`docs/LAUNCHER.md`](../../docs/LAUNCHER.md) come with it.
 
 ### The toolchains
 
@@ -79,13 +80,16 @@ The device runs glibc 2.33; the launcher and the engine are built at 2.28, as ev
 is ([the glibc ceiling](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time)),
 by one toolchain, linux-aarch64's: Godot's Buildroot SDK
 `aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4`, GCC 13.2 on glibc 2.28, kernel headers
-5.15. The launcher references `GLIBC_2.17` only, the engine up to `GLIBC_2.27`.
+5.15. The launcher references `GLIBC_2.17` and `GLIBC_2.27`, the engine up to `GLIBC_2.27`.
 
-The device's own libraries need more than 2.28: its SDL2 and ALSA reference `exp`, `log` and
-`pow` at `GLIBC_2.29`, its SDL2_mixer `pow`, and its `libstdc++.so.6.0.28` (which `libopenal`
-needs) `stat`, `lstat` and `fstat64` at `GLIBC_2.33`. The device's glibc has them, so they load;
-GNU ld rejects them against the SDK's 2.28, so both links ignore what shared libraries leave
-undefined (`-Wl,--unresolved-symbols=ignore-in-shared-libs`: `port.cmake`,
+The launcher links none of the device's libraries: SDL3, FreeType, SDL3_ttf and libxmp-lite
+are built into it from `cmake/deps.lock`'s sources, SDL3 opening ALSA (`libasound.so.2`) at run
+time; it needs only libc, libm, libdl, libpthread and librt. The engine links the device's SDL2
+and OpenAL. Those libraries need more than 2.28: the device's SDL2 and ALSA reference `exp`,
+`log` and `pow` at `GLIBC_2.29`, its SDL2_mixer `pow`, and its `libstdc++.so.6.0.28` (which
+`libopenal` needs) `stat`, `lstat` and `fstat64` at `GLIBC_2.33`. The device's glibc has them,
+so they load; GNU ld rejects them against the SDK's 2.28, so the engine's link ignores what
+shared libraries leave undefined (`-Wl,--unresolved-symbols=ignore-in-shared-libs`,
 `toolchain-cxx.cmake`), and any probe linked to them needs the same.
 
 The engine links `libstdc++` and `libgcc` statically (~1 MB): the SDK's `libstdc++` is 6.0.32
@@ -95,49 +99,65 @@ otherwise link. `scripts/check-abi.sh --max 2.28` runs on every build of both an
 reference above 2.28: the launcher's build runs it because `port.cmake` sets
 `DXL_PORT_GLIBC_MAX`, and `scripts/engine.sh build` runs it on the engine.
 
-### The device's own SDL2
-
-The vendor SDL2 in `/usr/trimui/lib` is the only display path: no X11, no Wayland, no desktop
-GL. Its `mali` video driver, absent upstream, is an EGL/fbdev driver: OpenGL ES draws through
-it, and it wires Vulkan surface creation to the PowerVR implementation
-(`SDL_Vulkan_CreateSurface` works, via `VK_KHR_display`). An upstream KMSDRM build would have no
-window system to attach to: the PowerVR stack ships only `libpvrNULL_WSEGL.so`.
-
 [`fetch-sysroot.sh`](fetch-sysroot.sh) (run by `deps`) copies the device's own libraries into
-`deps/sysroots/trimui-smartpro/lib` and fetches the headers to build against, pinned (SDL
-2.30.8, SDL_ttf 2.0.15; Vulkan, EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's
-two EGL extension headers). Vulkan is not linked: DXGPU loads the loader through
-volk, and the launcher's GPU probe `dlopen`s it and EGL, so a device without either still
-starts the launcher.
+`deps/sysroots/trimui-smartpro/lib` -- SDL2, OpenAL, EGL, GLESv2, the Vulkan loader, ALSA,
+zlib, libstdc++ -- and fetches the headers to build against, pinned (SDL 2.30.8; Vulkan,
+EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's two EGL extension headers).
+Vulkan is not linked: DXGPU loads the loader through volk, and the launcher's GPU probe
+`dlopen`s it and EGL.
+
+### The video driver
+
+The device has no DRM, X11 or Wayland: its display is `/dev/fb0` and the PowerVR stack's EGL,
+which only the vendor's SDL2 (`/usr/trimui/lib`, its `mali` driver, the engine's) draws on.
+SDL3 has no driver for it, so the launcher's SDL3 carries one of this port's own,
+[`sdl3/SDL_fbvideo.c`](sdl3/SDL_fbvideo.c), SDL's private driver: `SDL_VIDEO_DRIVER_PRIVATE`
+puts it first, and [`sdl3/sdl3.cmake`](sdl3/sdl3.cmake), SDL3's project include, adds it to the
+library, with no patch to SDL's sources.
+
+- One display, fb0's 1280x720; every window that size and full screen
+  (`VIDEO_DEVICE_CAPS_FULLSCREEN_ONLY`).
+- OpenGL ES through SDL's EGL code on the default display with a **NULL native window**, the
+  only one the PowerVR EGL takes; its swaps flip fb0 between its first two pages at 60 Hz, at
+  any swap interval. The launcher draws with SDL's `opengles2` renderer, VSync on.
+- A framebuffer path for the software renderer, copied into the page fb0 shows.
+- No ShowWindow: SDL then gives the window the keyboard focus, without which it drops the pads'
+  events. The pads are SDL's own joystick driver's, found by an inotify scan; the driver reads
+  no input.
+- The console's cursor hidden through `/dev/tty0` while the video is up; fb0's mode and page
+  put back as it goes, the menu's.
+
+SDL3 is built with no window system (a console build), no desktop GL, Vulkan, udev, D-Bus or
+HIDAPI (`port.cmake`): a driver that fails shows as no window. The launcher's EGL is gone
+before the game starts: its window closes, SDL unloads EGL with the last GL window, and the
+engine's vendor SDL2 opens its own; it draws again after.
 
 ### CPU mode
 
 The spruceOS menu leaves the handheld in power-save ([as measured](#the-device-as-measured)),
-far too slow for the game. The Video tab offers spruceOS's own modes
-(`target.c`), kept in `launcher.ini` `CpuMode`: Smart, Performance (all four cores at 1.8 GHz)
-and Overclock (2.0 GHz), the default: the game is CPU-bound. `packaging/port-hooks.sh`
-applies the mode with the spruceOS helpers its Ports launcher uses, just before the engine
-starts, and restores the exact previous state (online cores, governor, min/max) when it exits.
-
-In `port-hooks.sh` the helpers are sourced in subshells only: `helperFunctions.sh` exports its
-own `LD_LIBRARY_PATH`, which would replace the engine's. (`launch.sh` sources them directly, as
-spruceOS's apps do, then puts its own library path first; `run-game.sh` puts the app's first.)
+far too slow for the game. The Graphics page's CPU mode (`launcher.ini`'s `[Launcher]
+CpuMode`) offers spruceOS's own: Smart, Performance (all four cores at 1.8 GHz) and Overclock
+(2.0 GHz), the default: the game is CPU-bound. The game hook, `packaging/port-hooks.sh`,
+applies it with the spruceOS helpers its Ports launcher uses just before the engine starts,
+and puts the state from before back (online cores, governor, min/max) as the game ends,
+however it ends ([the game hook](../../docs/LAUNCHER.md#the-game-and-the-launcher)). The
+helpers are sourced in subshells only: `helperFunctions.sh` exports its own `LD_LIBRARY_PATH`.
+`test_cpumode` runs the hook against stand-in helpers and a scratch sysfs.
 
 ### Engine settings
 
-The launcher writes the app directory's `home/.config/DXEngine/Settings.json` before a
-launch ([where the settings live](../../docs/LAUNCHER.md#where-the-settings-actually-live)),
-filling missing fields from `engine-settings.json.default`. This port's values:
-`Antialias: Off`, non-negotiable, as the GE8300's resolve turns partially covered pixels into
-speckle (the launcher locks it off on any PowerVR); VSync off, as below the panel's 60 Hz vsync
-would hold the game to 30 or 20; `Performance.RenderScale` 0.6666667, 853x480, unless the Video
-tab's Resolution asks for 960x540 or the panel's 1280x720 (under Vulkan only: a
-[known defect](../../docs/LAUNCHER.md#known-defects)).
+The profile's engine folder has the engine's `Settings.json`; the defaults file
+(`data/engine-settings.json.default`) is the device's: `Antialias: Off`, as the GE8300's
+resolve turns partially covered pixels into speckle (the launcher holds it off on any PowerVR,
+and writes Off before a game that would multisample, a first run's "the engine's defaults"
+too); VSync off, as below the panel's 60 Hz vsync would hold the game to 30 or 20; and
+`Performance.RenderScale` 0.6666667, 853x480. The Display page's render scale changes it.
 
 ## The device, as measured
 
-Probed over SSH, not assumed; Port Ex Machina's `tools/probes/probe-sdl.c` and `dxl-cli --probe`
-reproduce it.
+Probed over SSH, not assumed; Port Ex Machina's
+[device probes](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes)
+and `dxl-cli --probe` reproduce it.
 
 | Fact | As measured |
 |---|---|
@@ -145,14 +165,15 @@ reproduce it.
 | SoC | Allwinner A133 `sun50iw10p1`, 4× Cortex-A53; 3 GB RAM (`free`) |
 | CPU modes | the spruceOS menu: **power-save, cores 0 and 3 only, `conservative`, 408 MHz–1.49 GHz**. `set_performance`: all four cores, `performance`, 1.8 GHz; `set_overclock`: 2.0 GHz (`spruce/scripts/platform/SmartPro.cfg`) |
 | OS | TinaLinux "Neptune", kernel 4.9.191, **glibc 2.33**, busybox 1.36.1 |
-| SDL | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`** (`SDL_malivideo.c`) |
-| Surface | 1280x720 @60Hz, `SDL_PIXELFORMAT_RGBX8888`, fullscreen |
-| SDL renderer | **`opengles2`**, accelerated + vsync, max texture 8192² |
+| Framebuffer | `/dev/fb0` alone (`/sys/class/graphics`); 1280x720, 32 bpp, BGRA in memory (red at bit 16), `line_length` 5120, 64 MB, found at a virtual 1280x13107; takes a 2x and 3x `yres_virtual`, pans to any page; `FBIO_WAITFORVSYNC` returns at once. A 1280x720 copy into it ~3.5 ms at power-save (`probe-fbdev-egl.c`) |
+| EGL | 1.4, Imagination's `1.19@6345021`, OpenGL ES alone; `libEGL.so.1`, `libEGL.so`, `libGLESv2.so.2` and `libGLESv2.so` all load. Window surfaces: a NULL native window only (`{ushort w,h}` and `{int w,h}` refused, `EGL_BAD_NATIVE_WINDOW`); the surface's height not given by `eglQuerySurface`; swaps flip fb0 between pages 0 and 1, 16.6 ms apart at interval 0 and 1. Five create-draw-terminate cycles in one process draw, ~170 ms each; `dxl-cli --probe` beside a live surface works; a process killed mid-draw leaves the next drawing; the vendor SDL2 draws after all of it |
+| Consoles | `/dev/tty0`, `/dev/tty1` in text mode; no fbcon cursor control in sysfs |
+| SDL (the engine's) | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`**; 1280x720 @60Hz, `opengles2` |
 | GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s. Vulkan: no `VK_EXT_descriptor_indexing`; BC1–5, RGB8 and RGBA32F not sampled or filtered as the engine needs (`probe-vulkan-caps.c`, `probe-texture-formats.c`). OpenGL ES: no S3TC, float-linear filtering, anisotropy or `glBufferStorage`; `GL_MIRROR_CLAMP_TO_EDGE` rejected (`probe-gles-sampler.c`); no `EXT_clip_cull_distance`; RGB10_A2 drawn, resolved, sampled and read with its ten bits, multisampled up to 4x but 1 beside the R32UI hit buffer (`probe-gles-scene.c`) |
-| Pad | `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, with SDL_GameController's built-in mapping |
-| Pad controls | A B X Y, L1 R1, SELECT START MENU (MENU is spruceOS's), d-pad (a hat), two sticks. **L2/R2 are digital**, though mapped to axes `a2`/`a5`. **No L3/R3**: the sticks do not click, though the mapping lists `leftstick:b9`/`rightstick:b10` |
-| Fonts | `/usr/trimui/res/regular.ttf`, `full.ttf`; `/mnt/SDCARD/spruce/Font Files/Noto.ttf` |
-| Storage | SD is **exFAT**: case-insensitive, no meaningful permission bits |
+| Input | one pad, `event3` `"TRIMUI Player1"`, USB ids `045e:028e` (an Xbox 360 pad's), 11 keys, both sticks ±32767, triggers 0–255, a hat; besides it the power key, the audio jack and two keys (`sunxi-keyboard`). `libudev.so.1` loads |
+| Pad | to SDL `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, with SDL's built-in mapping |
+| Pad controls | A B X Y, L1 R1, SELECT START MENU (MENU is spruceOS's), d-pad (a hat), two sticks. **L2/R2 are digital**, though mapped to axes `a2`/`a5`. **No L3/R3**: the sticks do not click, though the device reports `BTN_THUMBL` and the mapping lists `leftstick:b9`/`rightstick:b10` |
+| Storage | SD is **exFAT**: case-insensitive, no links, no meaningful permission bits |
 | Profiling | no `perf` (`CONFIG_PERF_EVENTS` off); CPU-time timers fire only on the scheduler tick, every 4 ms |
 
 ### What is not available
@@ -165,7 +186,7 @@ the menu on far stronger hardware.
 
 Port Ex Machina's
 [device probes](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#device-probes),
-each one compile against this port's sysroot, run over SSH:
+each one compiled against this port's sysroot, run over SSH:
 
 ```sh
 # from the parent folder of Port Ex Machina's repositories
@@ -178,20 +199,29 @@ deusex-launcher/trimui-smartpro/scripts/check-abi.sh --max 2.28 /tmp/probe
 # scp to the device, then: LD_LIBRARY_PATH=/usr/trimui/lib:/usr/lib:/lib ./probe
 ```
 
-Pause the spruceOS menu before `probe-sdl.c --pad` ([gotchas](#gotchas)). `dxl-shots` from a
-host build configured with `-DDXL_PROFILE=trimui-smartpro` renders every launcher screen as this
-device shows it, in a desktop font.
+Pause the spruceOS menu before one that draws, or `probe-sdl.c --pad` ([gotchas](#gotchas)).
+`dxl-shots` from the host build renders every launcher screen at the device's 1280x720 on the
+big screen.
 
 ## Verified
 
-| Check on the device | Result |
+On the device, with the launcher started through `launch.sh` on a fresh `DXL_HOME`:
+
+| Check | Result |
 |---|---|
-| glibc ABI | the launcher's binaries reference `GLIBC_2.17` only; the engine ≤ 2.27 (built at 2.28) |
-| `dxl-cli --probe`, `--dry-run` | the GPU [as measured](#the-device-as-measured), in 0.5 s; a dry run writes nothing (checksums unchanged) |
-| CPU mode | Performance (cores 0–3, 1.8 GHz) or Overclock (2.0 GHz) while the engine runs; power-save restored after |
-| Home screen on the panel | renders with the device font; detected `X360 Controller`; upgrades a retired layout preset |
-| Pad in game | moving, looking and firing work |
+| glibc ABI | the launcher references `GLIBC_2.17` and `GLIBC_2.27`, `dxl-cli` `GLIBC_2.17` only, the engine ≤ 2.27 (built at 2.28); the launcher needs libc, libm, libdl, libpthread, librt alone |
+| The first run | finds the game in `Roms/PORTS`; makes the profile on the exFAT card, the engine's `Screenshots` a folder |
+| The first play | `Settings.json` made with Antialias Off ("Off, not MSAA4x: PowerVR Rogue GE8300 multisamples badly"), VSync off, RenderScale 0.6666667 |
+| The window | the big screen through the driver, `opengles2` with VSync, the pad's hints from the first frame; its EGL gone before the game, back for Recovery; fb0 at page 0 as it quits |
+| Vulkan and OpenGL ES | Liberty Island drawn on both, through the launcher |
+| CPU mode | Overclock (cores 0–3, 2.0 GHz) while the engine runs, the hook's lines in `last-run.log`; power-save restored after, a SIGKILLed engine's too, Recovery then up |
+| Descriptors | the engine holds none of the launcher's: its fonts not among them |
+| A second start | handed to the running launcher, which takes its line |
+| The launcher while a game runs | 17 MB resident, no CPU; up in ~1 s |
+| `dxl-cli --probe` | the GPU [as measured](#the-device-as-measured), in 0.5 s |
+| Profiles on exFAT | `dxl-cli --import` on the card: the profile made, the engine's `Screenshots` a folder |
 | `scripts/dx.sh deploy` | sends only the changed files, keeps the previous copies; every file's checksum matches |
+| [A profile](#measuring) | within noise of the tabbed launcher's at the same engine: 20.7 FPS on Vulkan, 18.1 on OpenGL ES |
 
 ## Performance
 
@@ -315,10 +345,12 @@ arguments, `SHOT`, `SAMPLE` and `DXE_PERF_DETAIL`) and brings back
 GPU wait, lightmaps and texture uploads, the render CPU by section, the visibility pass by part,
 and the time under script calls.
 
-The script applies `launcher.ini`'s CPU mode through `port-hooks.sh`, as a launch does. It uses
-the device's own `Settings.json` and switches nothing: check the log's `settings:` line before
-taking a run as native (one at 0.6666667 is an 853x480 run, whatever its label). For another
-resolution, set `RenderScale` there for the run and put the owner's value back after.
+The script starts the engine as the launcher does for the profile in use (its command line
+`dxl-cli --print-command`'s, `--url=<map>` added) and applies `launcher.ini`'s CPU mode through
+`port-hooks.sh`, as a launch does. It uses the profile's own `Settings.json` and switches
+nothing: check the log's `settings:` line (renderer, anti-aliasing, render scale) before taking
+a run as native (one at 0.6666667 is an 853x480 run, whatever its label). For another renderer
+or resolution, set it there for the run and put the owner's value back after.
 
 `SAMPLE=1` also brings back samples of the main thread's CPU (4 ms apart) and the engine that
 made them, for
@@ -357,8 +389,9 @@ A profile stops the engine with SIGKILL; started without the launcher, it leaves
 - **busybox has no `timeout` and no `nohup`.** Use `setsid` with all three fds redirected, or
   SSH hangs waiting on the pipes.
 - **The screen is seen over SSH only by dumping the framebuffer** (`SHOT=<seconds>` does it
-  mid-profile): `cat /dev/fb0 > /tmp/fb.raw` (64 MB), gzip it to copy, and decode the first
-  1280x720 as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
+  mid-profile): the page shown is at the pan's line (`/sys/class/graphics/fb0/pan`, `x,y`; EGL
+  flips between 0 and 720), so `dd if=/dev/fb0 bs=5120 skip=<y> count=720`, gzip it to copy,
+  and decode it as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
 - **A missing `Save/` directory is fatal to the engine**
   (`directory iterator cannot open directory`). A fresh install has it empty, so a `tar` that
   lists only populated directories loses it.

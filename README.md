@@ -1,10 +1,11 @@
-# deusex-launcher: linux-aarch64
+# deusex-launcher: trimui-smartpro
 
 This branch is the launcher of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina)'s port
-for aarch64 devices with an ordinary distro: DXLauncher, the desktop's own,
-as linux-x86_64 has it, an app outside the game's folder that keeps the
-player's settings and saves in a profile, starts
+for the TrimUI Smart Pro under spruceOS: DXLauncher, the desktop's own, as
+linux-aarch64 has it, tailored to the handheld -- its screen and pad, no
+desktop -- an app outside the game's folder that keeps the player's
+settings and saves in a profile, starts
 [DXEngine](https://github.com/JuggyMcNutty/DXEngine) and stays with it
 ([`docs/LAUNCHER.md`](docs/LAUNCHER.md)). Its window has Home, the first
 run, Settings, Profiles, Mods, Saves, Screenshots, Multiplayer, Recovery,
@@ -15,21 +16,26 @@ are included.
 
 ## The branch
 
-`linux-aarch64` is the default of its platform, Linux on aarch64 with an
-ordinary distro, cross-built from a PC or built natively: DXLauncher's
-source, and the port (`ports/linux-aarch64`, its preset in
-`CMakePresets.json`). Cross-built it makes `deusex-launcher`, `dxl-cli` and
-`dxl-shots`; its host build, `ports/linux-x86_64/port.cmake` and its
-preset, makes them for the PC and runs the tests. Its launcher is
-linux-x86_64's, and each launcher commit comes over from one to the other by
-a deliberate cherry-pick; nothing merges into it, `main` included
+`trimui-smartpro` is linux-aarch64's launcher with the Smart Pro's port
+(`ports/trimui-smartpro`, its preset in `CMakePresets.json`) and its
+tailoring, each a commit of its own on top of linux-aarch64's
+([what differs](ports/trimui-smartpro/README.md#what-differs-from-linux-aarch64)):
+an SDL3 video driver for the device's framebuffer and EGL, the spruceOS
+app, the CPU modes, the big screen alone, no desktop, deleting for good, a
+pad without stick clicks, spruceOS's Ports folder, the device's data.
+Cross-built it makes `deusex-launcher` and `dxl-cli`; its host build,
+`ports/linux-x86_64/port.cmake` and its preset, makes them and `dxl-shots`
+for the PC and runs the tests. Nothing merges into it, `main` included: a
+change from linux-aarch64 comes over by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
+The tabbed launcher this branch had before is tag `trimui-smartpro-tabbed`.
 
 ## Where to read
 
 - [`docs/LAUNCHER.md`](docs/LAUNCHER.md): the launcher, from the files it
   writes to its known defects.
-- [`ports/linux-aarch64/README.md`](ports/linux-aarch64/README.md): the port.
+- [`ports/trimui-smartpro/README.md`](ports/trimui-smartpro/README.md): the
+  port, the device as measured, its performance.
 - The other ports, each a branch of its own:
   [Port Ex Machina's ports](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#engine-ports).
 - Building and running:

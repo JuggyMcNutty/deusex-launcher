@@ -8,13 +8,19 @@ and stays with it. Two programs: `deusex-launcher`, the launcher, and
 `dxl-cli`, the same with no window, for scripts and for looking. C11, its
 core with no SDL; the desktop Linux branches', linux-x86_64's and
 linux-aarch64's, whose launcher commits each come over to the other by a
-cherry-pick, so this file is the same on both
+cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
+This is the TrimUI Smart Pro's copy: linux-aarch64's, tailored to the
+handheld, its screen and pad and no desktop, each change in the paragraphs
+it makes
+([what differs](../ports/trimui-smartpro/README.md#what-differs-from-linux-aarch64)).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
 
 `deusex-launcher`'s screens are a window of its own, drawn with SDL3 and
-SDL3_ttf: Home, the first run, Settings, Profiles, Mods, Saves,
+SDL3_ttf, on the Smart Pro through SDL3 with a video driver of the port's
+own ([the video driver](../ports/trimui-smartpro/README.md#the-video-driver)):
+Home, the first run, Settings, Profiles, Mods, Saves,
 Screenshots, Multiplayer, Recovery, the log, About
 ([the window](#the-window)).
 
@@ -693,6 +699,8 @@ ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`). `test_profile` imports from a fake
 install made read-only, which it leaves as it was, and makes, lists and
 copies profiles; `test_delete` deletes a folder, its link not followed;
+`test_cpumode` runs the Smart Pro's game hook against stand-in spruceOS
+helpers and a scratch sysfs, each CPU mode and the state put back;
 `test_gamefiles`, on a
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
