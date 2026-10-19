@@ -63,8 +63,9 @@ const char *dxl_joy_key_label(const char *key);
 /* ---- per-button remapping ------------------------------------------- */
 
 /* The buttons a player can remap, in display order: the face buttons, the
- * shoulders, the triggers, the stick clicks, the middle two, the d-pad. The
- * sticks are chosen by preset (moves/looks, or swapped), not per axis. */
+ * shoulders, the triggers, the middle two, the d-pad -- the Smart Pro's
+ * sticks do not click. The sticks are chosen by preset (moves/looks, or
+ * swapped), not per axis. */
 size_t      dxl_pad_button_count(void);
 const char *dxl_pad_button_at(size_t i);   /* a Joy key name */
 

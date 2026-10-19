@@ -138,16 +138,18 @@ static void test_remap_one_button(void) {
     dxl_ini_free(ini);
 }
 
-/* A desktop pad's sixteen buttons, the stick clicks among them; each named
- * by its place on a pad of each kind. */
+/* The Smart Pro's fourteen buttons, no stick clicks among them, nor bound
+ * by a preset; each named by its place on a pad of each kind. */
 static void test_buttons_and_labels(void) {
-    CHECK_INT(dxl_pad_button_count(), 16);
-    int l3 = 0, r3 = 0;
+    CHECK_INT(dxl_pad_button_count(), 14);
     for (size_t b = 0; b < dxl_pad_button_count(); b++) {
-        l3 |= !strcmp(dxl_pad_button_at(b), "Joy9");
-        r3 |= !strcmp(dxl_pad_button_at(b), "Joy10");
+        CHECK(strcmp(dxl_pad_button_at(b), "Joy9") != 0);
+        CHECK(strcmp(dxl_pad_button_at(b), "Joy10") != 0);
     }
-    CHECK(l3 && r3);
+    for (size_t p = 0; p < dxl_pad_preset_count(); p++) {
+        CHECK_STR(dxl_pad_preset_binding(dxl_pad_preset_at(p), "Joy9"), "");
+        CHECK_STR(dxl_pad_preset_binding(dxl_pad_preset_at(p), "Joy10"), "");
+    }
     CHECK_STR(dxl_pad_control_label(DXL_PAD_KIND_XBOX, "Joy1"), "A");
     CHECK_STR(dxl_pad_control_label(DXL_PAD_KIND_PLAYSTATION, "Joy1"), "Cross");
     CHECK_STR(dxl_pad_control_label(DXL_PAD_KIND_NINTENDO, "Joy1"), "B");

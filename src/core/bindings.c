@@ -55,7 +55,8 @@ const char *dxl_joy_key_label(const char *key) { return dxl_pad_control_label(DX
 
 /* Every command is one the game's own key menu offers (MenuScreenCustomizeKeys
  * in DeusEx.u), but the pause menu, which its defaults bind to Escape.
- * Walk/run is left out: a half-pushed stick already walks. */
+ * Walk/run is left out: a half-pushed stick already walks. The Smart Pro's
+ * sticks do not click (no L3/R3): Joy9 and Joy10 are left unbound. */
 static const dxl_binding modern[] = {
     { "Joy1",  "Jump" },
     { "Joy2",  "Duck" },
@@ -65,8 +66,6 @@ static const dxl_binding modern[] = {
     { "Joy6",  "NextBeltItem" },
     { "Joy7",  "ShowMainMenu" },
     { "Joy8",  "ShowMainMenu" },
-    { "Joy9",  "DropItem" },
-    { "Joy10", "ToggleLaser" },
     { "Joy11", "ParseRightClick" },
     { "Joy12", "ParseLeftClick|Fire" },
     { "JoyX",  "Axis aStrafe Speed=3.75" },
@@ -89,8 +88,6 @@ static const dxl_binding southpaw[] = {
     { "Joy6",  "NextBeltItem" },
     { "Joy7",  "ShowMainMenu" },
     { "Joy8",  "ShowMainMenu" },
-    { "Joy9",  "DropItem" },
-    { "Joy10", "ToggleLaser" },
     { "Joy11", "ParseRightClick" },
     { "Joy12", "ParseLeftClick|Fire" },
     { "JoyX",  "Axis aBaseX Speed=3.75" },
@@ -121,8 +118,7 @@ static const dxl_pad_preset presets[] = {
       "Left stick moves, right stick looks. The right trigger fires, the left uses and picks up. "
       "The bottom face button jumps, the right one crouches, the left reloads, the top opens the "
       "inventory. Either middle button pauses (save, load). The shoulders cycle the belt. D-pad: up "
-      "the scope, down the ammunition, left and right lean. A click of the left stick drops what is "
-      "in hand, of the right the laser sight.",
+      "the scope, down the ammunition, left and right lean.",
       modern, N(modern) },
     { "southpaw", "Modern, sticks swapped",
       "As Modern, but the left stick looks and the right stick moves.",
@@ -204,11 +200,11 @@ void dxl_bindings_set(dxl_ini *ini, const char *joy_key, const char *command) {
 
 /* ---- remapping --------------------------------------------------------- */
 
-/* A desktop pad's buttons: the face buttons, the shoulders, the triggers,
- * the stick clicks, the middle two, the d-pad. */
+/* The Smart Pro's buttons: the face buttons, the shoulders, the triggers,
+ * the middle two, the d-pad; its sticks do not click. */
 static const char *const remappable[] = {
     "Joy1", "Joy2", "Joy3", "Joy4", "Joy5", "Joy6", "Joy11", "Joy12",
-    "Joy9", "Joy10", "Joy7", "Joy8", "JoyPovUp", "JoyPovDown", "JoyPovLeft", "JoyPovRight",
+    "Joy7", "Joy8", "JoyPovUp", "JoyPovDown", "JoyPovLeft", "JoyPovRight",
 };
 
 size_t dxl_pad_button_count(void) { return N(remappable); }

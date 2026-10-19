@@ -61,7 +61,8 @@ static dxl_pad_kind kind_of(const pad_entry *p) {
 }
 
 /* The control of a part, as the game has it: its Joy key; NULL for one that
- * is none of the game's (the guide button, the sticks' axes). */
+ * is none of the game's (the guide button, the sticks: the Smart Pro's do
+ * not click). */
 static const char *key_of(int part) {
     switch (part) {
     case DXL_PADPART_SOUTH: return "Joy1";
@@ -72,8 +73,6 @@ static const char *key_of(int part) {
     case DXL_PADPART_RSHOULDER: return "Joy6";
     case DXL_PADPART_BACK: return "Joy7";
     case DXL_PADPART_START: return "Joy8";
-    case DXL_PADPART_LSTICK: return "Joy9";
-    case DXL_PADPART_RSTICK: return "Joy10";
     case DXL_PADPART_LTRIGGER: return "Joy11";
     case DXL_PADPART_RTRIGGER: return "Joy12";
     case DXL_PADPART_DPUP: return "JoyPovUp";
@@ -225,15 +224,15 @@ static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, cons
         leader *l = &side[right][count[right]++];
         l->part = p;
         l->y = spots[p].y;
+        if (p == DXL_PADPART_LSTICK || p == DXL_PADPART_RSTICK) {
+            snprintf(l->text, sizeof l->text, "%s", stick_does(s->stores.user, p == DXL_PADPART_LSTICK));
+            continue;
+        }
         char what[64];
         const char *b = binding_of(s->stores.user, key_of(p));
         if (*b) dxl_binding_describe(b, what, sizeof what);
         else snprintf(what, sizeof what, "\xe2\x80\x94");
-        if (p == DXL_PADPART_LSTICK || p == DXL_PADPART_RSTICK)
-            snprintf(l->text, sizeof l->text, "%s; %.40s", stick_does(s->stores.user, p == DXL_PADPART_LSTICK),
-                     *b ? what : "no click");
-        else
-            snprintf(l->text, sizeof l->text, "%s", what);
+        snprintf(l->text, sizeof l->text, "%s", what);
     }
     for (int k = 0; k < 2; k++) {
         /* A side's labels taller than the panel: the lit controls' alone. */

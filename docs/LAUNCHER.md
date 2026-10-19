@@ -520,6 +520,8 @@ and `Joy10` the stick clicks, `Joy11` and `Joy12` the triggers,
 `JoyPovUp` to `JoyPovRight` the d-pad; in the game's menus they have uses of
 their own
 ([the gamepad](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices)).
+The Smart Pro's sticks do not click: no preset binds `Joy9` or `Joy10`,
+and the Controller page has no row for them.
 
 Settings' Controller page (`src/screens/controller.c`) has on its left the
 controller shown: a model of its family, of our own shapes, no maker's --
@@ -540,7 +542,7 @@ swapped, Original Deus Ex, the game's own -- or Custom once a button is
 changed by itself (`src/core/bindings.c`); Test the controller...; Find a
 button, the next button pressed or trigger pulled then its row, as a click
 on the model's is; a
-row for each of the sixteen buttons, named as the controller's maker names
+row for each of the fourteen buttons, named as the controller's maker names
 it (the bottom face button A on an Xbox pad, Cross on a PlayStation pad, B
 on a Nintendo pad), whose choice is Keyboard & mouse's actions; the dead
 zone, the look speeds, inverted looking, the pointer's speed in the game's
