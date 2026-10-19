@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* The engine's own sections of the system ini, which it reads once they are
@@ -56,7 +57,16 @@ int dxl_profile_open(dxl_profile *p, const dxl_xdg *x, const char *id, dxl_err *
     p->engine_dir = dxl_path_join(p->dir, "engine");
     char *data = join3(x->data, "profiles", id);
     p->save_dir = dxl_path_join(data, "Save");
-    p->shots_dir = dxl_path_join(data, "Screenshots");
+    /* The engine's own Screenshots, where it is a folder, not a link: a
+     * profile made on a filesystem without links (dxl_profile_make_dirs). */
+    char *own = dxl_path_join(p->engine_dir, "Screenshots");
+    struct stat st;
+    if (lstat(own, &st) == 0 && S_ISDIR(st.st_mode)) {
+        p->shots_dir = own;
+    } else {
+        free(own);
+        p->shots_dir = dxl_path_join(data, "Screenshots");
+    }
     free(data);
     p->state_dir = join3(x->state, "profiles", id);
     p->logs_dir = dxl_path_join(p->state_dir, "logs");
@@ -79,7 +89,9 @@ int dxl_profile_exists(const dxl_profile *p) {
     return dxl_path_exists(p->ini_path) && dxl_path_exists(p->system_ini);
 }
 
-int dxl_profile_make_dirs(const dxl_profile *p, dxl_err *err) {
+int (*dxl_profile_link)(const char *target, const char *link) = symlink;
+
+int dxl_profile_make_dirs(dxl_profile *p, dxl_err *err) {
     const char *dirs[] = { p->dir, p->engine_dir, p->save_dir, p->shots_dir, p->state_dir,
                            p->logs_dir, p->cache_dir };
     for (size_t i = 0; i < sizeof dirs / sizeof *dirs; i++) {
@@ -89,12 +101,24 @@ int dxl_profile_make_dirs(const dxl_profile *p, dxl_err *err) {
         }
     }
     /* The engine writes its shots into its folder's Screenshots (--userdir):
-     * a link to the profile's own. */
+     * a link to the profile's own. A filesystem with no links (exFAT, FAT, a
+     * handheld's card) refuses it: that folder is then the profile's shots
+     * folder, and the other, empty, goes. */
     char *link = dxl_path_join(p->engine_dir, "Screenshots");
     int rc = 0;
-    if (!dxl_path_exists(link) && symlink(p->shots_dir, link) != 0) {
-        dxl_err_set(err, "cannot link %s to %s: %s", link, p->shots_dir, strerror(errno));
-        rc = -1;
+    if (!dxl_path_exists(link) && dxl_profile_link(p->shots_dir, link) != 0) {
+        if (errno != EPERM && errno != EOPNOTSUPP && errno != ENOSYS) {
+            dxl_err_set(err, "cannot link %s to %s: %s", link, p->shots_dir, strerror(errno));
+            rc = -1;
+        } else if (dxl_path_mkdirs(link) != 0) {
+            dxl_err_set(err, "cannot create %s", link);
+            rc = -1;
+        } else {
+            rmdir(p->shots_dir);
+            free(p->shots_dir);
+            p->shots_dir = link;
+            link = NULL;
+        }
     }
     free(link);
     return rc;
@@ -188,7 +212,7 @@ static int engine_file_kept(const char *name) {
     return !dxl_stricmp(name, "Settings.json") || (n > 4 && !dxl_stricmp(name + n - 4, ".ini"));
 }
 
-int dxl_profile_copy(const dxl_profile *from, const dxl_profile *to, dxl_err *err) {
+int dxl_profile_copy(const dxl_profile *from, dxl_profile *to, dxl_err *err) {
     if (dxl_profile_exists(to)) {
         dxl_err_set(err, "profile %s is made already", to->id);
         return -1;

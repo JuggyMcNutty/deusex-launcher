@@ -4,6 +4,7 @@
 #include "core/paths.h"
 #include "core/profile.h"
 
+#include <errno.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <utime.h>
@@ -205,6 +206,61 @@ static void test_import(void) {
 /* A DeusEx.ini with no Paths is a stub the engine cannot start from: the
  * profile's is Default.ini with the stub's values over it. With no
  * DXE-User.ini or User.ini, DefUser.ini. */
+/* A filesystem that makes no links, as exFAT and FAT: how it refuses. */
+static int link_errno;
+static int no_link(const char *target, const char *link) {
+    (void)target;
+    (void)link;
+    errno = link_errno;
+    return -1;
+}
+
+/* There, the engine's Screenshots is a folder and the profile's shots
+ * folder, the import's shot in it, as the profile opens again too; any
+ * other refusal is an error. */
+static void test_no_links(void) {
+    char *game = make_install();
+    char *home = dxl_xstrdup(scratch_dir("profile-nolinks"));
+    setenv("DXL_HOME", home, 1);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *system_dir = scratch_path(game, "System");
+    char *data_shots = dxl_xstrdup(p.shots_dir);
+    char *engine_shots = dxl_path_join(p.engine_dir, "Screenshots");
+
+    dxl_profile_link = no_link;
+    link_errno = EPERM;
+    dxl_import r;
+    dxl_err e;
+    CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, &e), 0);
+    struct stat st;
+    CHECK(lstat(engine_shots, &st) == 0 && S_ISDIR(st.st_mode));
+    CHECK_STR(p.shots_dir, engine_shots);
+    CHECK_INT(dxl_path_exists(data_shots), 0);
+    CHECK_INT(scratch_exists(engine_shots, "Shot0003.bmp"), 1);
+    dxl_profile_free(&p);
+    dxl_profile_open(&p, &x, "default", NULL);
+    CHECK_STR(p.shots_dir, engine_shots);
+    dxl_profile_free(&p);
+
+    dxl_profile_open(&p, &x, "other", NULL);
+    link_errno = EACCES;
+    CHECK_INT(dxl_profile_make_dirs(&p, &e), -1);
+    CHECK(strstr(dxl_err_msg(&e), "cannot link") != NULL);
+    dxl_profile_free(&p);
+    dxl_profile_link = symlink;
+
+    dxl_xdg_free(&x);
+    unsetenv("DXL_HOME");
+    free(engine_shots);
+    free(data_shots);
+    free(system_dir);
+    free(home);
+    free(game);
+}
+
 static void test_import_from_defaults(void) {
     char *game = dxl_xstrdup(scratch_dir("profile-stub"));
     scratch_write(game, "System/DeusEx.exe", "x");
@@ -324,6 +380,7 @@ static void test_profiles(void) {
 TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
+    RUN(test_no_links);
     RUN(test_import_from_defaults);
     RUN(test_profiles);
 TEST_MAIN_END

@@ -169,6 +169,16 @@ long dxl_path_mtime(const char *p) {
     return stat(p, &st) == 0 ? (long)st.st_mtime : -1;
 }
 
+/* The file's mode as it was, or 0644: changed only where it differs, and a
+ * filesystem with no permissions to keep (exFAT, FAT) refusing the change
+ * is no failure. ENOTSUP is EOPNOTSUPP on Linux. */
+static int keep_mode(int fd, mode_t mode) {
+    struct stat st;
+    if (fstat(fd, &st) == 0 && (st.st_mode & 07777) == mode) return 0;
+    if (fchmod(fd, mode) == 0) return 0;
+    return errno == EPERM || errno == EOPNOTSUPP ? 0 : -1;
+}
+
 int dxl_path_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
     char *dir = dxl_path_dirname(path);
     size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 16;
@@ -192,7 +202,7 @@ int dxl_path_write_atomic(const char *path, const void *data, size_t len, dxl_er
     }
     struct stat old;
     mode_t mode = stat(path, &old) == 0 ? (old.st_mode & 07777) : 0644;
-    int ok = left == 0 && fchmod(fd, mode) == 0 && fsync(fd) == 0;
+    int ok = left == 0 && keep_mode(fd, mode) == 0 && fsync(fd) == 0;
     ok = close(fd) == 0 && ok;
     if (!ok) {
         dxl_err_set(err, "cannot write %s: %s", tmp, strerror(errno));
