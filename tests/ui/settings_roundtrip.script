@@ -20,7 +20,7 @@ find Graphics
 key Return
 wait 0.3
 find Anti-aliasing
-key Left
+key Right
 
 # Audio: a volume, a byte in DeusEx.ini.
 find Audio

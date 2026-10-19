@@ -53,7 +53,9 @@ The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
 window's type (`data/fonts`), the engine's renderers and what each needs
 of the machine (`renderers.ini`), and `Settings.json`'s defaults
-(`engine-settings.json.default`). That engine is the one played with
+(`engine-settings.json.default`), the Smart Pro's: no multisampling and
+no VSync, which below the panel's 60 Hz would hold the game to 30 or 20,
+and a render scale of 0.6666667, 853x480. That engine is the one played with
 unless another is chosen, on Settings' Launcher page or Home's The
 engine..., `launcher.ini`'s `[Launcher] Engine`; `DXL_ENGINE=<path>` names
 one over both.
@@ -458,8 +460,8 @@ drew it: detail textures, and no multisampling or bloom), Enhanced (4x
 multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
 a first run's engine defaults among them. Its
-Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2
-and OpenGL ES 3.2 (`data/renderers.ini`), which `dxl-cli --probe --ini`
+Renderer offers the engine's renderers that run here, Vulkan and OpenGL
+ES 3.2 (`data/renderers.ini`), the Smart Pro's two, which `dxl-cli --probe --ini`
 finds in a child process as the page needs them.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns

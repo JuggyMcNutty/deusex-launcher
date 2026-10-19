@@ -320,7 +320,9 @@ static void test_reset(void) {
     set(&st, "display.fullscreen", "0");
     set(&st, "audio.rate", "11025");
     set(&st, "mouse.sensitivity", "8");
-    set(&st, "graphics.antialias", "Off");
+    set(&st, "graphics.antialias", "MSAA2x");
+    set(&st, "display.vsync", "1");
+    set(&st, "display.render_scale", "1");
     dxl_settings_reset(&st, &fresh, "Display");
     CHECK_STR(get(&st, "display.brightness"), "0.6");    /* Default.ini's */
     CHECK_STR(get(&st, "display.fullscreen"), "1");
@@ -328,7 +330,10 @@ static void test_reset(void) {
     dxl_settings_reset(&st, &fresh, NULL);
     CHECK_STR(get(&st, "audio.rate"), "22050");
     CHECK_STR(get(&st, "mouse.sensitivity"), "3");        /* DefUser.ini's */
-    CHECK_STR(get(&st, "graphics.antialias"), "MSAA4x");  /* the defaults file's */
+    /* The defaults file's, the Smart Pro's: no multisampling, no VSync, 853x480. */
+    CHECK_STR(get(&st, "graphics.antialias"), "Off");
+    CHECK_STR(get(&st, "display.vsync"), "0");
+    CHECK(same_number(get(&st, "display.render_scale"), "0.6666667"));
     dxl_settings_reset(&st, NULL, "Keyboard & mouse");
     CHECK_STR(get(&st, "mouse.sensitivity"), "5");        /* the engine's, with nothing kept */
     close_all(&st);

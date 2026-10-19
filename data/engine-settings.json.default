@@ -1,11 +1,11 @@
 {
   "RenderDevice": {
     "Type": "Vulkan",
-    "Antialias": "MSAA4x",
+    "Antialias": "Off",
     "Light": "Normal",
     "Gamma": "D3D9",
     "GammaCorrectScreenshots": false,
-    "UseVSync": true,
+    "UseVSync": false,
     "Hdr": false,
     "HdrScale": 128,
     "Bloom": false,
@@ -19,5 +19,8 @@
     "LookSensitivityY": 1,
     "InvertY": false,
     "CursorSpeed": 1
+  },
+  "Performance": {
+    "RenderScale": 0.6666667
   }
 }
