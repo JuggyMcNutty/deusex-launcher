@@ -9,7 +9,7 @@ static size_t count(char **v) {
 }
 
 /* The vector in its order; a quoted word kept whole, as no shell splits
- * it again: main's launcher lost these quotes (its known defects). */
+ * it again. */
 static void test_argv(void) {
     dxl_engine_command c = {
         .engine = "/app/DXEngine", .game = "/games/Deus Ex",
