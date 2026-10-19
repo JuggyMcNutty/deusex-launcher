@@ -1,0 +1,46 @@
+# Cross-compile C11 for the TrimUI Smart Pro (Allwinner A133, spruceOS /
+# TinaLinux): DXLauncher, and SDL3, FreeType, SDL3_ttf and libxmp-lite built
+# with it (cmake/deps.cmake).
+#
+# Two sysroots are in play and they are not interchangeable:
+#   - the toolchain's own (glibc 2.28 headers + crt objects), set as CMAKE_SYSROOT
+#   - deps/sysroots/trimui-smartpro, the DEVICE's libraries and pinned
+#     headers (fetch-sysroot.sh), added as an extra search path: the GPU
+#     probe's Vulkan and EGL headers, and the ALSA library SDL3 opens by name.
+#     The launcher links none of the device's libraries.
+#
+# Godot's Buildroot SDK godot-2023.08.x-4 (GCC 13.2, glibc 2.28), as
+# linux-aarch64's, for the engine too (toolchain-cxx.cmake). Its glibc is the
+# floor the binary needs. Fetched by scripts/dx.sh deps trimui-smartpro.
+
+set(CMAKE_SYSTEM_NAME      Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+get_filename_component(DXL_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(TRIMUI_TOOLCHAIN "${DXL_ROOT}/deps/toolchains/aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4")
+set(TRIMUI_SYSROOT   "${DXL_ROOT}/deps/sysroots/trimui-smartpro")
+
+if(NOT EXISTS "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-gcc")
+    message(FATAL_ERROR "toolchain missing -- run scripts/dx.sh deps trimui-smartpro")
+endif()
+if(NOT EXISTS "${TRIMUI_SYSROOT}/lib/libasound.so")
+    message(FATAL_ERROR "device sysroot missing -- run scripts/dx.sh deps trimui-smartpro")
+endif()
+
+set(CMAKE_C_COMPILER   "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-gcc")
+set(CMAKE_CXX_COMPILER "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-g++")
+set(CMAKE_AR           "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-ar"      CACHE FILEPATH "")
+set(CMAKE_RANLIB       "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-ranlib"  CACHE FILEPATH "")
+set(CMAKE_STRIP        "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-strip"   CACHE FILEPATH "")
+set(CMAKE_OBJDUMP      "${TRIMUI_TOOLCHAIN}/bin/aarch64-godot-linux-gnu-objdump" CACHE FILEPATH "")
+
+set(CMAKE_SYSROOT "${TRIMUI_TOOLCHAIN}/aarch64-godot-linux-gnu/sysroot")
+
+set(CMAKE_C_FLAGS_INIT "-mcpu=cortex-a53")
+
+# Find headers/libs in the device sysroot, but never look at the host's.
+list(APPEND CMAKE_FIND_ROOT_PATH "${TRIMUI_SYSROOT}")
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
