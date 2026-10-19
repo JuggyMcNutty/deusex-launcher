@@ -91,7 +91,8 @@ the drives `/proc/self/mountinfo` has mounted in `/run/media`, `/media`
 and `/mnt`, however deep, each once, at its top and two folders down. In
 a prefix's `drive_c`, and on a drive, it looks where
 Windows' installers put the game: `DeusEx`, the CD's folder; each folder
-in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library. A
+in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library; and
+each folder in spruceOS's `Roms/PORTS`, the Smart Pro's card's. A
 Windows Steam in a prefix gives its libraries too, its list's Windows
 paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
 any letter case; a network path (`\\server\share`) is passed over.

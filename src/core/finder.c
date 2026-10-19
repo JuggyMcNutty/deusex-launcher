@@ -174,9 +174,10 @@ static const char *const drive_games[] = {
     "DeusEx", "Program Files (x86)/Steam/steamapps/common/" STEAM_FOLDER,
     "Program Files/Steam/steamapps/common/" STEAM_FOLDER, "SteamLibrary/steamapps/common/" STEAM_FOLDER,
 };
-/* The folders a game is one of: GOG's installer's, GOG Galaxy's, a player's. */
+/* The folders a game is one of: GOG's installer's, GOG Galaxy's, a player's,
+ * spruceOS's Ports folder on a handheld's card. */
 static const char *const drive_folders[] = {
-    "GOG Games", "Program Files (x86)/GOG Galaxy/Games", "Program Files/GOG Galaxy/Games", "Games",
+    "GOG Games", "Program Files (x86)/GOG Galaxy/Games", "Program Files/GOG Galaxy/Games", "Games", "Roms/PORTS",
 };
 
 static void drive(finder *f, const char *source, const char *root) {

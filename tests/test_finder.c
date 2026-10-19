@@ -280,7 +280,8 @@ static void test_prefix_steam(void) {
 
 /* The drives mountinfo has mounted in the folders for them, however deep
  * -- a user's, the automounter's /run/media/system -- at a drive's top and
- * two folders down, and where Windows' installers put the game; a folder
+ * two folders down, where Windows' installers put the game, and in a
+ * handheld card's Roms/PORTS, three down, in its own letter case; a folder
  * of them that links to another, and a drive mounted twice, looked in
  * once; what is mounted elsewhere, not at all. */
 static void test_drives(void) {
@@ -292,6 +293,7 @@ static void test_drives(void) {
     install_at(home, "run-media/system/Win/GOG Games/Deus Ex B");
     install_at(home, "run-media/system/Win/SteamLibrary/steamapps/common/Deus Ex");
     install_at(home, "mnt/win/Program Files (x86)/Steam/steamapps/common/Deus Ex");
+    install_at(home, "mnt/SDCARD/Roms/ports/DeusEx");
     install_at(home, "elsewhere/disk/DeusEx");                  /* mounted, but not for drives */
     char *run = dxl_path_join(home, "run-media"), *media_link = dxl_path_join(home, "media"),
          *mnt = dxl_path_join(home, "mnt"), *empty = dxl_path_join(home, "home");
@@ -308,8 +310,9 @@ static void test_drives(void) {
              "45 29 8:3 / %s/run-media/system/Win rw shared:5 - ntfs3 /dev/sda3 rw\n"
              "46 29 8:3 / %s/run-media/system/Win rw shared:5 - ntfs3 /dev/sda3 rw\n"
              "47 29 8:4 / %s/mnt/win rw shared:6 - ntfs3 /dev/sda4 rw\n"
-             "48 29 8:5 / %s/elsewhere/disk rw shared:7 - ext4 /dev/sda5 rw\n",
-             home, home, home, home, home, home, home, home);
+             "48 29 8:5 / %s/elsewhere/disk rw shared:7 - ext4 /dev/sda5 rw\n"
+             "49 29 179:9 / %s/mnt/SDCARD rw shared:8 - exfat /dev/mmcblk1p1 rw\n",
+             home, home, home, home, home, home, home, home, home);
 
     dxl_found_list l;
     dxl_finder_where w;
@@ -318,13 +321,14 @@ static void test_drives(void) {
     w.media = media;
     w.mounts = mounts;
     dxl_finder_find(&l, &w);
-    CHECK_INT(l.count, 6);
+    CHECK_INT(l.count, 7);
     check_item(&l, 0, "on a mounted drive", "run-media/me/USB/Games/Deus Ex");
     check_item(&l, 1, "on a mounted drive", "run-media/me/My Disk/DeusEx");
     check_item(&l, 2, "on a mounted drive", "run-media/SD/DeusEx");
     check_item(&l, 3, "on a mounted drive", "run-media/system/Win/GOG Games/Deus Ex B");
     check_item(&l, 4, "on a mounted drive", "run-media/system/Win/SteamLibrary/steamapps/common/Deus Ex");
     check_item(&l, 5, "on a mounted drive", "mnt/win/Program Files (x86)/Steam/steamapps/common/Deus Ex");
+    check_item(&l, 6, "on a mounted drive", "mnt/SDCARD/Roms/ports/DeusEx");
     dxl_found_list_free(&l);
     free(empty);
     free(mnt);
