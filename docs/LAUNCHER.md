@@ -15,7 +15,8 @@ It keeps part of the original, which `main` recreates
 
 ## Where the settings actually live
 
-DXEngine does not read the keys the original launcher writes. It reads:
+Of the keys the original launcher writes, DXEngine reads world texture detail
+alone (below). It reads:
 
 | File | What the engine takes from it | Who writes it |
 |---|---|---|
@@ -92,8 +93,10 @@ settings and creates no sentinel.
 
 **The hand-over** (`platform/launch.h`). On POSIX the launcher execs
 `launcher.ini` `GameCommand` (default `./run-game.sh`) with the command line
-as given. `run-game.sh` (`ports/common/packaging/run-game.sh`, adjusted by
-the port's `packaging/port-hooks.sh`) starts
+split into words as a shell splits them, the quotes taken out (`core/argv.c`;
+[known defects](#known-defects)). `run-game.sh`
+(`ports/common/packaging/run-game.sh`, adjusted by the port's
+`packaging/port-hooks.sh`) starts
 [the engine](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md)
 and clears `Running.ini` only on a clean exit, so a crash shows on the next
 launch.

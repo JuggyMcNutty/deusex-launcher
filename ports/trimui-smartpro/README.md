@@ -228,8 +228,8 @@ frame while the input, tick and view run
 and its time is the longer at both resolutions: ~54 at native and ~29 at 853x480, against their
 ~23. So **a frame is about the render CPU plus the GPU's time**: render-CPU and GPU savings
 count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (~50 ms) at
-853x480 needed some 17 off the render CPU and the GPU's time together, as `590635b` takes them
-(the table above); at native it needs the GPU's ~54 well under ~50.
+853x480 takes some 17 off the render CPU and the GPU's time together, as `590635b` does (the
+table above); at native it takes the GPU's ~54 well under ~50.
 
 - **Game tick ~19** over the ~770 dynamic actors (the level ticks no static actor, as the
   original's):
@@ -240,9 +240,9 @@ count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (
     evaluator's core. How the original does it:
     [the script interpreter](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-script-interpreter).
   - physics ~5.4 (`TickPhysics`), mostly walking pawns, in 0.02 s steps, 3 to 5 a tick at these
-    frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: a measurement on the current
-    engine, whose walking, swimming and flying pawns and anything falling take the tick at once,
-    as the original's, without `TryStepToGround`
+    frame rates: `TryMove` ~2.0, `TryStepToGround` ~1.5. Left: a measurement on an engine after
+    `15392c0`, whose walking, swimming and flying pawns and anything falling take the tick at
+    once, as the original's, without `TryStepToGround`
     ([game tick](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#game-tick));
   - collision traces ~3.7 (`TraceTester::Trace`; `TraceAABBModel::Trace` ~1.4 and the sight
     rays' `NodeRayIntersect` ~0.9 of own time);
@@ -277,9 +277,9 @@ count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (
   light reaches
   ([lighting](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#lighting)).
   In Battery Park, its one volumetric light rebuilds some 60 fog maps a frame (~72,000 texels),
-  each sent whole: texture uploads ~1.7 there. Left: a measurement on the current engine, whose
-  fog maps are the original's, only with the viewer's zone and the surface's both fog zones;
-  then the fog maps only where a fog light reaches.
+  each sent whole: texture uploads ~1.7 there. Left: a measurement on an engine after
+  `15392c0`, whose fog maps are the original's, only with the viewer's zone and the surface's
+  both fog zones; then the fog maps only where a fog light reaches.
 - **GPU**, the time above: the render's wait plus the input, tick and view it overlaps. CPU and
   GPU compete for the SoC's shared memory.
 - **`view+audio` ~3** is mostly `UDXEngineAudioDevice::StartAmbience` reading every actor's
@@ -287,10 +287,10 @@ count in full, and the tick's not until the GPU's time comes under it. ~20 FPS (
   ([each frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)):
   nothing to port.
 
-**OpenGL ES** leads Vulkan at native, where Vulkan waits on the GPU, and trails it at 853x480
-(the table above): the GL driver's time lands in its render CPU, ~53 against Vulkan's ~38 there
-less its GPU wait, and is not overlapped by the tick. The GL device's workarounds for this
-driver: ENGINE.md's
+**OpenGL ES** leads Vulkan at native, where Vulkan waits on the GPU (`15392c0`), and trails it
+at 853x480 (the table above): the GL driver's time lands in its render CPU, `a8c47c3`'s ~44
+against `590635b` Vulkan's ~33 less its GPU wait, and is not overlapped by the tick. The GL
+device's workarounds for this driver: ENGINE.md's
 [rendering](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)
 and, for fullscreen,
 [running on our devices](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices).
