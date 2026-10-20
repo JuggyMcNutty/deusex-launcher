@@ -46,7 +46,8 @@ typedef struct {
 } dxl_play_result;
 
 /* How long a game the launcher stops has to end before SIGKILL: DXEngine
- * under SDL takes no notice of SIGTERM (its ENGINE.md, running it). */
+ * quits on SIGTERM at its next frame, so only a stuck one is killed (its
+ * ENGINE.md, running it). */
 #define DXL_PLAY_KILL_AFTER_MS 5000
 
 void dxl_play(const dxl_play_request *req, dxl_play_result *out);

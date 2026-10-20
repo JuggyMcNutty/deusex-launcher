@@ -120,8 +120,8 @@ static const dxl_set_choice render_drivers[] = {
 const dxl_setting dxl_settings_table[] = {
     /* ---- Display ---------------------------------------------------------- */
     { .id = "display.fullscreen", .page = "Display", .label = "Full screen",
-      .help = "The game on the whole display, at its own resolution, as a window without borders: the display's "
-              "mode never changes.",
+      .help = "The game on the whole display: at the desktop's resolution, as a window without borders, unless "
+              "the ini names a full screen size, which the display switches to its nearest mode for.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { CLIENT("StartupFullscreen", DXL_CODEC_BOOL) } },
     { .id = "display.window_size", .page = "Display", .label = "The window's size",
       .help = "The game's window when it is not full screen, in pixels; under X11 SDL scales it by the "
