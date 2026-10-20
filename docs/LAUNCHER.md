@@ -116,7 +116,10 @@ writing nothing there:
   the engine reads, and taken out of the other.
 - `SavePath` and `CachePath` the profile's; GameSpy's closed master server
   (`[DeusEx.MenuScreenJoinGame] MasterServerAddress=master0.gamespy.com`)
-  given 333networks', `master.333networks.com`.
+  given 333networks', `master.333networks.com`; full screen at the
+  desktop's size (`FullscreenViewportX` and `Y` 0), where the install's
+  size would switch the display's mode; one chosen in the game's Screen
+  Resolution is kept.
 - **The saves** (every folder of the game's save folder but `Current`) and
   the shots (`System/Shot*.bmp`) copied. `main`'s launcher's files in
   `System` (its `DeusEx`, `run-game.sh`, `Running.ini`) are not read.
