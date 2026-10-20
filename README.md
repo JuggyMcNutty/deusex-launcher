@@ -132,9 +132,9 @@ original's log window drops one before its main loop runs.
 stop (SIGINT, SIGTERM, SIGHUP), the launcher sends the game SIGTERM, and
 SIGKILL if it still runs 5 s later
 ([how the engine takes them](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-it)).
-A game stopped so has not ended cleanly: `Running.ini` stays, and the next
-launch opens RecoveryMode, as after a crash -- the usual end of a `-server`
-run, which has no window to quit.
+DXEngine quits on SIGTERM as a closed window does, a `-server` run's too, so
+the game ends cleanly. One killed has not: `Running.ini` stays, and the next
+launch opens RecoveryMode, as after a crash.
 
 ## Building
 
