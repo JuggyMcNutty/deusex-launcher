@@ -396,7 +396,9 @@ def scenario_server():
     L = log()
     check("server: no wizard", "wizard:" not in L)
     check("server: the engine dedicated", "UdpServerQuery" in L or "DoUplink" in L)
-    check("server: stopped by the signal", "stopping the game" in L and rc in (130, 137, 143), "exit %s" % rc)
+    # DXEngine quits on the SIGTERM the launcher passes on: a clean end.
+    check("server: stopped by the signal, a clean end", "stopping the game" in L and rc == 0, "exit %s" % rc)
+    check("server: Running.ini gone", not os.path.exists(SYS + "/Running.ini"))
     remove("Running.ini")
 
 
