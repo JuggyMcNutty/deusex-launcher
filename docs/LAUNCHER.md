@@ -626,8 +626,8 @@ engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
 
 The launcher waits on the line and its own socket, waking once a second
 besides. Stopped (SIGINT, SIGTERM, SIGHUP), it passes SIGTERM on, and
-SIGKILL 5 s later to an engine that takes no notice of SIGTERM, as
-DXEngine's under SDL does.
+SIGKILL 5 s later to an engine still running: DXEngine quits on
+SIGTERM at its next frame, so only a stuck one is killed.
 
 ## Recovery
 
