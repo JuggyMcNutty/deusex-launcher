@@ -24,6 +24,15 @@ static const char *const engine_sections[] = {
 #define DEAD_MASTER "master0.gamespy.com"
 #define LIVE_MASTER "master.333networks.com"
 
+/* Full screen at the desktop's size: an ini's full screen size, the
+ * original's 640x480 or what a player set there, would switch the display to
+ * its nearest mode as the game starts (DXEngine's NATIVES.md, the menus'
+ * settings). A size chosen in the game's Screen Resolution is kept. */
+static void desktop_fullscreen(dxl_ini *system) {
+    dxl_ini_set(system, "Engine.DXEngineClient", "FullscreenViewportX", "0");
+    dxl_ini_set(system, "Engine.DXEngineClient", "FullscreenViewportY", "0");
+}
+
 static int id_valid(const char *id) {
     if (!id || !*id || strlen(id) > 64) return 0;
     for (const char *c = id; *c; c++)
@@ -388,6 +397,7 @@ void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini
         if (master && dxl_stricmp(master, DEAD_MASTER) == 0)
             dxl_ini_set(*system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", LIVE_MASTER);
         dxl_engine_sections_seed(*system);
+        desktop_fullscreen(*system);
     }
     free(def_ini);
     free(def_user);
@@ -448,7 +458,10 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
         if (!dry) dxl_ini_copy_section(sys, dxe, engine_sections[i]);
     }
     /* Every key of them there before the first run (core/engine_sections.h). */
-    if (!dry) dxl_engine_sections_seed(sys);
+    if (!dry) {
+        dxl_engine_sections_seed(sys);
+        desktop_fullscreen(sys);
+    }
 
     /* User.ini: a mod's own, else the newer of the game's and the engine's
      * own, else DefUser.ini. */

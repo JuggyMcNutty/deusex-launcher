@@ -24,7 +24,8 @@ static char *make_install(void) {
                   "CachePath=..\\Cache\r\nPaths=..\\System\\*.u\r\nPaths=..\\Maps\\*.dx\r\n\r\n"
                   "[DeusEx.MenuScreenJoinGame]\r\nMasterServerAddress=master0.gamespy.com\r\n");
     scratch_write(g, "System/DXE-DeusEx.ini",
-                  "[Engine.DXEngineClient]\nBrightness=0.7\nStartupFullscreen=False\n\n"
+                  "[Engine.DXEngineClient]\nBrightness=0.7\nStartupFullscreen=False\nFullscreenViewportX=1024\n"
+                  "FullscreenViewportY=768\n\n"
                   "[Engine.DXEngineAudioDevice]\nMusicVolume=128\n");
     scratch_write(g, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
     scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=Older\r\n");
@@ -142,6 +143,9 @@ static void test_import(void) {
         CHECK_STR(dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"),
                   "master.333networks.com");
         CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineClient", "Brightness"), "0.7");
+        /* Full screen at the desktop's size, whatever the install's says. */
+        CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineClient", "FullscreenViewportX"), "0");
+        CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineClient", "FullscreenViewportY"), "0");
         CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineAudioDevice", "MusicVolume"), "128");
         dxl_ini_free(sys);
     }
