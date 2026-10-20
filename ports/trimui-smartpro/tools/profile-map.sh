@@ -42,9 +42,9 @@
 # 1280x720 is BGRA (magick -size 1280x720 -depth 8 bgra:fb -alpha off out.png).
 #
 # The spruceOS menu is paused while the engine runs (two programs drawing to
-# one framebuffer fight) and resumed on exit. The engine ignores SIGTERM, so
-# it is stopped with SIGKILL; started without the launcher, it leaves no
-# Running.ini.
+# one framebuffer fight) and resumed on exit. The engine is stopped with
+# SIGKILL, at once, not at its next frame; started without the launcher, it
+# leaves no Running.ini.
 SECS=${1:-60}; LABEL=${2:-run}; MODE=${3:-launcher}; TURN=${4:-0}; MAP=${5:-01_NYC_UNATCOIsland.dx}
 APPDIR=/mnt/SDCARD/App/DeusEx
 export DXL_HOME=$APPDIR/home
