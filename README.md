@@ -2,8 +2,8 @@
 
 This branch is the launcher of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina)'s port
-for the TrimUI Smart Pro under spruceOS: DXLauncher, the desktop's own, as
-linux-aarch64 has it, tailored to the handheld -- its screen and pad, no
+for the TrimUI Smart Pro under spruceOS: DXLauncher, linux-aarch64's,
+tailored to the handheld -- its screen and pad, no
 desktop -- an app outside the game's folder that keeps the player's
 settings and saves in a profile, starts
 [DXEngine](https://github.com/JuggyMcNutty/DXEngine) and stays with it
@@ -28,7 +28,7 @@ Cross-built it makes `deusex-launcher` and `dxl-cli`; its host build,
 for the PC and runs the tests. Nothing merges into it, `main` included: a
 change from linux-aarch64 comes over by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
-The tabbed launcher this branch had before is tag `trimui-smartpro-tabbed`.
+The tabbed launcher is tag `trimui-smartpro-tabbed`.
 
 ## Where to read
 

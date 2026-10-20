@@ -1,6 +1,6 @@
 # DXLauncher
 
-DXLauncher is the desktop's launcher for Deus Ex: an app of its own,
+DXLauncher is a launcher for Deus Ex: an app of its own,
 outside the game's folder, that finds the game, keeps the player's settings
 and saves in a profile, and starts
 [DXEngine](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md)
@@ -134,8 +134,8 @@ is made. `--game=<dir>` on a profile that has one points it at that install
 from then on, as Settings' Launcher page's The game's folder does, and
 Home's The game's folder... when the install is not there to play: The
 game, the one chosen its install from then on, and back to the page it came
-from. A profile whose install is not there to play any more (moved, or
-deleted) opens on The game.
+from. A profile whose install is not there to play (moved or deleted) opens
+on The game.
 
 ## Profiles
 
@@ -211,7 +211,7 @@ A mod's profile is made as the first run makes one
   when that is a folder in the mod's other than its `System`; none of the
   game's, and no shots.
 - **`profile.ini`'s `Mod`**: the mod's folder. A profile whose mod is not
-  there any more says so on Home and Profiles, and does not play.
+  there says so on Home and Profiles, and does not play.
 
 ## Saves and screenshots
 
@@ -259,7 +259,7 @@ machine's interfaces; a beacon's answer that begins with its
 the server is listed as LAN; the beacons are given a second at least.
 Then the profile's master server,
 `DeusEx.ini`'s `[DeusEx.MenuScreenJoinGame] MasterServerAddress`
-(333networks' since the first run), over TCP on 28900, its challenge
+(333networks', which the import writes), over TCP on 28900, its challenge
 answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4 keyed by six
 spaces for Deus Ex, and its list asked for
 ([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server));
@@ -682,8 +682,8 @@ writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
 `test_finder` each of the finder's places, in homes it makes up;
-`test_bigscreen` when the big screen is wanted, by the setting, the
-environment and `--big-screen`;
+`test_bigscreen` the core's test of when the big screen is wanted, which
+this branch's window, always on it, does not ask;
 `test_mods` which folders are mods, their settings and where they are
 found, and their profiles' paths, settings and saves, of mods it makes up;
 `test_gamespy` the master's and the servers' words, the challenge's answer
@@ -751,7 +751,8 @@ latest save from Home, `saves_load` on a save from Saves, `saves_delete`
 deletes one, and `shots` shows a shot whole and deletes it, each finding
 the save's URL on the engine's command line or what was deleted gone;
 `multiplayer` joins
-the server a master on this machine lists, `multiplayer_address` an address
+the server a master on this machine lists, `multiplayer_pad` goes from Sort
+to Refresh by a pad's d-pad and asks again, `multiplayer_address` an address
 left half typed by a Tab, which joins nothing, then typed and joined,
 `multiplayer_link` the server of a start's `deusex://` link once asked, and
 `multiplayer_password` a server that asks for a password, the engine's and

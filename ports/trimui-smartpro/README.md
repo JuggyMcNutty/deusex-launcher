@@ -64,7 +64,7 @@ cherry-pick from linux-aarch64 may meet them:
 | The spruceOS app | `packaging/{config.json,launch.sh,deusex.png}` | |
 | [CPU modes](#cpu-mode) and the game hook | `src/core/cpumode.{c,h}`, `src/app/gamehook.{c,h}`, `packaging/port-hooks.sh`, `tests/test_cpumode.c` | `src/app/run.c` (two calls), `src/core/settings_table.c` (one Graphics row), `CMakeLists.txt`, `tests/CMakeLists.txt` |
 | The big screen alone, the pad's hints from the first frame | | `src/screens/window.c`, `src/ui/kit.c` (no F11), `src/core/settings_table.c` (Big screen and the launcher's size gone); the `big_screen*` UI scripts gone |
-| No desktop: no app menu, `xdg-open` or folder dialog | | `src/platform/desktop.{h,c}`, `test_desktop` and the `.desktop.in` gone; `src/main.c`, `src/screens/{window,about,log,shots,mods,firstrun,shell}.c`, `shell.h`, `window.h`, `src/platform/process.{c,h}`, `CMakeLists.txt` |
+| No desktop: no app menu, `xdg-open` or folder dialog | | `src/platform/desktop.{h,c}`, `test_desktop` and the `.desktop.in` gone; `src/main.c`, `src/screens/{window,about,log,shots,mods,firstrun,shell}.c`, `shell.h`, `window.h`, `src/platform/process.h`, `src/platform/posix/process.c`, `CMakeLists.txt` |
 | Deleting for good, after the page's confirm: no trash to put back from | `src/platform/delete.h`, `src/platform/posix/delete.c`, `tests/test_delete.c` | `trash.{h,c}` and `test_trash` gone; `src/app/session.{c,h}`, `src/screens/{shots,saves,profiles}.c`, `shell.h`; the `profiles`, `saves_delete` and `shots` UI scripts |
 | A pad without stick clicks | | `src/core/bindings.{c,h}` (Modern and its swap leave `Joy9`/`Joy10` unbound; fourteen rows), `src/screens/controller.c`; `tests/test_bindings.c` |
 | spruceOS's Ports folder in the finder | | `src/core/finder.c` (`Roms/PORTS` among a drive's folders); `tests/test_finder.c` |
@@ -80,7 +80,7 @@ The device runs glibc 2.33; the launcher and the engine are built at 2.28, as ev
 is ([the glibc ceiling](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#gotchas-that-cost-time)),
 by one toolchain, linux-aarch64's: Godot's Buildroot SDK
 `aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4`, GCC 13.2 on glibc 2.28, kernel headers
-5.15. The launcher references `GLIBC_2.17` and `GLIBC_2.27`, the engine up to `GLIBC_2.27`.
+5.15 ([the glibc ABI](#verified)).
 
 The launcher links none of the device's libraries: SDL3, FreeType, SDL3_ttf and libxmp-lite
 are built into it from `cmake/deps.lock`'s sources, SDL3 opening ALSA (`libasound.so.2`) at run
@@ -210,7 +210,7 @@ On the device, with the launcher started through `launch.sh` on a fresh `DXL_HOM
 | Check | Result |
 |---|---|
 | glibc ABI | the launcher references `GLIBC_2.17` and `GLIBC_2.27`, `dxl-cli` `GLIBC_2.17` only, the engine ≤ 2.27 (built at 2.28); the launcher needs libc, libm, libdl, libpthread, librt alone |
-| The first run | finds the game in `Roms/PORTS`; makes the profile on the exFAT card, the engine's `Screenshots` a folder |
+| The first run | finds the game in `Roms/PORTS`; makes the profile on the exFAT card (as `dxl-cli --import` does), the engine's `Screenshots` a folder |
 | The first play | `Settings.json` made with Antialias Off ("Off, not MSAA4x: PowerVR Rogue GE8300 multisamples badly"), VSync off, RenderScale 0.6666667 |
 | The window | the big screen through the driver, `opengles2` with VSync, the pad's hints from the first frame; its EGL gone before the game, back for Recovery; fb0 at page 0 as it quits |
 | Vulkan and OpenGL ES | Liberty Island drawn on both, through the launcher |
@@ -219,9 +219,8 @@ On the device, with the launcher started through `launch.sh` on a fresh `DXL_HOM
 | A second start | handed to the running launcher, which takes its line |
 | The launcher while a game runs | 17 MB resident, no CPU; up in ~1 s |
 | `dxl-cli --probe` | the GPU [as measured](#the-device-as-measured), in 0.5 s |
-| Profiles on exFAT | `dxl-cli --import` on the card: the profile made, the engine's `Screenshots` a folder |
 | `scripts/dx.sh deploy` | sends only the changed files, keeps the previous copies; every file's checksum matches |
-| [A profile](#measuring) | within noise of the tabbed launcher's at the same engine: 20.7 FPS on Vulkan, 18.1 on OpenGL ES |
+| [A profile](#measuring) | the engine as the launcher starts it: 20.7 FPS on Vulkan, 18.1 on OpenGL ES ([performance](#performance)) |
 
 ## Performance
 
@@ -230,7 +229,7 @@ Overclock; milliseconds a frame, averaged over 60 frames, measured with the prof
 the engine each row names: `503e90d`, `590635b`, `a8c47c3` and `cfb396b` with every pawn
 thinking, `15392c0` with Distant AI on, an option of that engine's: far pawns skipping their
 thinking. `cfb396b` is measured with both toolchains, the same engine and launcher: Bootlin's
-GCC 10.3 (glibc 2.33) and the SDK's GCC 13.2 (2.28), [the toolchain](#the-toolchains) since.
+GCC 10.3 (glibc 2.33) and the SDK's GCC 13.2 (2.28), [the toolchain](#the-toolchains).
 `590635b`'s second row has Surreal Engine's one pass of detail texture in place of `D3DDrv`'s
 three bands, which sample it only nearer than 380 units: the bands take the GPU wait from ~9.5
 to ~2.2.
