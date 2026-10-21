@@ -36,8 +36,8 @@ void dxl_page_welcome(dxl_shell *s, dxl_rect r) {
     float w = r.w < 760 ? r.w : 760;
     static const char *const text[] = {
         "DXLauncher plays your copy of Deus Ex on DXEngine, natively on this computer.",
-        "It keeps its own copy of the game's settings, and your saves and screenshots, in your home "
-        "folder. The game's folder is never written to.",
+        ("It keeps its own copy of the game's settings, and your saves and screenshots, in your home "
+         "folder. The game's folder is never written to."),
         "First, where the game is.",
     };
     float content = 0;
