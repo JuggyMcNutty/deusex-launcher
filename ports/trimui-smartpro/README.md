@@ -40,10 +40,11 @@ out): ask its owner to wake it.
 ### Diagnosing
 
 ```sh
-DXL_HOME=home ./dxl-cli --dry-run          # decision, the profile, Settings.json, renderers; writes nothing
-DXL_HOME=home ./dxl-cli --dry-run --probe  # ...with the renderer list checked against this GPU
-./dxl-cli --probe                          # just the GPU: Vulkan device, OpenGL ES version
-DXL_HOME=home ./dxl-cli --print-command    # the engine's command line for the profile in use
+export DXL_HOME=$PWD/home    # the app's home, as launch.sh names it: an absolute path, or none
+./dxl-cli --dry-run          # decision, the profile, Settings.json, renderers; writes nothing
+./dxl-cli --dry-run --probe  # ...with the renderer list checked against this GPU
+./dxl-cli --probe            # just the GPU: Vulkan device, OpenGL ES version
+./dxl-cli --print-command    # the engine's command line for the profile in use
 ```
 
 Run them in the app directory. The launcher's log is `home/state/dxlauncher/launcher.log`, a
