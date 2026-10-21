@@ -58,7 +58,7 @@ int  dxl_profile_exists(const dxl_profile *p);
  * filesystem with no links (exFAT, FAT) engine/Screenshots is a folder, and
  * the shots folder, then and as the profile opens again. */
 int  dxl_profile_make_dirs(dxl_profile *p, dxl_err *err);
-/* What makes the link; symlink, a test's own to make it fail. */
+/* What makes the link: dxl_fs_link_dir, a test's own to make it fail. */
 extern int (*dxl_profile_link)(const char *target, const char *link);
 
 /* Its saves: the save folder's SaveNNNN folders and QuickSave. */

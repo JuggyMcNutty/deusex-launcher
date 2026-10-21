@@ -1,6 +1,7 @@
 #include "core/lastrun.h"
 #include "core/ini.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -62,7 +63,7 @@ char *dxl_lastrun_rotate(const char *logs_dir) {
     char *last = dxl_path_join(logs_dir, DXL_LASTRUN_LOG);
     char *previous = dxl_path_join(logs_dir, DXL_PREVIOUSRUN_LOG);
     dxl_path_mkdirs(logs_dir);
-    if (dxl_path_exists(last)) rename(last, previous);
+    if (dxl_path_exists(last)) dxl_fs_replace(last, previous);
     free(previous);
     return last;
 }

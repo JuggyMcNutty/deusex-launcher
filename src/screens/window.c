@@ -6,6 +6,7 @@
 #include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 #include "platform/process.h"
 #include "ui/icon.h"
 #include "ui/text.h"
@@ -231,7 +232,7 @@ static void start_probe(dxl_shell *s) {
     dxl_window *w = s->window;
     if (w->probe_thread || !w->run) return;
     free(w->cli);
-    w->cli = dxl_path_join(w->run->session.app_dir, "dxl-cli");
+    w->cli = dxl_path_join(w->run->session.app_dir, "dxl-cli" DXL_EXE_SUFFIX);
     SDL_SetAtomicInt(&w->probe_done, 0);
     w->probe_thread = SDL_CreateThread(probe_main, "dxl-probe", w);
     if (!w->probe_thread) dxl_log("no probe thread: %s", SDL_GetError());

@@ -3,6 +3,7 @@
 #include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 #include "core/upkg_assets.h"
 #include "platform/process.h"
 #include "ui/draw.h"
@@ -429,7 +430,7 @@ void dxl_shell_close_dialog(dxl_shell *s) {
 }
 
 const char *dxl_shell_tilde(const char *path, char *buf, size_t size) {
-    const char *home = getenv("HOME");
+    const char *home = dxl_fs_home();
     size_t n = home ? strlen(home) : 0;
     if (!path) path = "";
     if (n > 1 && strncmp(path, home, n) == 0 && (path[n] == '/' || path[n] == '\0'))
@@ -516,7 +517,7 @@ void dxl_shell_engine_answer(dxl_shell *s, uint32_t id) {
         else dxl_shell_message(s, "The launcher's own engine", "%s", s->engine_problem);
     } else if (got == ENGINE_BROWSE) {
         char *dir = dxl_path_dirname(ss->engine);
-        dxl_browser_open(s, dxl_path_is_dir(dir) ? dir : getenv("HOME"), DXL_BROWSE_ENGINE);
+        dxl_browser_open(s, dxl_path_is_dir(dir) ? dir : dxl_fs_home(), DXL_BROWSE_ENGINE);
         free(dir);
     }
 }

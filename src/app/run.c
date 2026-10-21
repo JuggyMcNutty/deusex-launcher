@@ -10,6 +10,7 @@
 #include "core/log.h"
 #include "core/servers.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 #include "platform/process.h"
 
 #include <signal.h>
@@ -195,10 +196,10 @@ int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brie
 }
 
 char *dxl_engine_in(const char *dir) {
-    static const char *const names[] = { "DXEngine" };
+    static const char *const names[] = { "DXEngine" DXL_EXE_SUFFIX };
     for (size_t i = 0; dir && i < sizeof names / sizeof *names; i++) {
         char *p = dxl_path_join(dir, names[i]);
-        if (dxl_path_exists(p) && !dxl_path_is_dir(p) && access(p, X_OK) == 0) return p;
+        if (dxl_path_exists(p) && !dxl_path_is_dir(p) && dxl_fs_is_program(p)) return p;
         free(p);
     }
     return NULL;
@@ -519,7 +520,7 @@ static void antialias_check(dxl_run *r) {
         return;
     }
     if (!r->gpu_asked) {
-        char *cli = dxl_path_join(r->session.app_dir, "dxl-cli");
+        char *cli = dxl_path_join(r->session.app_dir, "dxl-cli" DXL_EXE_SUFFIX);
         char *argv[] = { cli, "--probe", "--ini", NULL };
         char out[4096];
         int status = 0;

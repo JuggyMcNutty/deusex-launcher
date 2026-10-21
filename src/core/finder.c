@@ -3,16 +3,15 @@
 #include "core/json.h"
 #include "core/paths.h"
 #include "core/vdf.h"
+#include "platform/fs.h"
 
 #include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
-#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 /* Deus Ex: Game of the Year Edition, on Steam, and the folder Steam gives
  * it. */
@@ -39,7 +38,6 @@ typedef struct {
     const char        *home, *config, *data, *wineprefix, *mounts;
     const char *const *media;
     char              *own[3];      /* the paths made up for those */
-    char               home_own[PATH_MAX];
     dxl_found_fn       found;
     void              *ctx;
     const atomic_int  *stop;
@@ -69,23 +67,29 @@ static char *read_small(const char *path, long max) {
  * folder given, listed whatever is there. */
 static void add(finder *f, const char *source, const char *dir, int always) {
     if (stopped(f) || !dir || !*dir) return;
-    char real[PATH_MAX];
-    if (!realpath(dir, real)) {
+    char *real = dxl_fs_real(dir);
+    if (!real) {
         if (!always) return;
-        snprintf(real, sizeof real, "%s", dir);
+        real = dxl_xstrdup(dir);
     } else if (!always && !dxl_path_is_dir(real)) {
+        free(real);
         return;
     }
     for (int i = 0; i < f->seen_count; i++)
-        if (!strcmp(f->seen[i], real)) return;
+        if (!strcmp(f->seen[i], real)) {
+            free(real);
+            return;
+        }
     dxl_found it;
     memset(&it, 0, sizeof it);
     it.source = source;
     dxl_install_check(dir, &it.install);
     if (always || it.install.found) {
-        f->seen[f->seen_count++] = dxl_xstrdup(real);
+        f->seen[f->seen_count++] = real;
+        real = NULL;
         f->found(f->ctx, &it);
     }
+    free(real);
     dxl_install_free(&it.install);
 }
 
@@ -512,7 +516,7 @@ static void drives(finder *f) {
     char *roots[8];
     int nroots = 0;
     for (size_t i = 0; f->media[i] && nroots < 8; i++) {
-        char *r = realpath(f->media[i], NULL);
+        char *r = dxl_fs_real(f->media[i]);
         for (int k = 0; r && k < nroots; k++)
             if (!strcmp(roots[k], r)) {
                 free(r);
@@ -537,7 +541,7 @@ static void drives(finder *f) {
             mount_path(p, (size_t)((q ? q : stop_at) - p), at, sizeof at);
             int in_media = 0;
             for (int k = 0; k < nroots && !in_media; k++) in_media = under(at, roots[k]);
-            char *real = in_media ? realpath(at, NULL) : NULL;
+            char *real = in_media ? dxl_fs_real(at) : NULL;
             for (int k = 0; real && k < nwalked; k++)
                 if (!strcmp(walked[k], real)) {
                     free(real);
@@ -563,22 +567,14 @@ static void drives(finder *f) {
 /* An absolute path from the environment, else NULL. */
 static const char *env_dir(const char *name) {
     const char *v = getenv(name);
-    return v && *v == '/' ? v : NULL;
+    return v && dxl_fs_is_absolute(v) ? v : NULL;
 }
 
 static const char *const media_default[] = { "/run/media", "/media", "/mnt", NULL };
 
 static void setup(finder *f, const dxl_finder_where *w) {
     int own = !w->home;
-    f->home = w->home ? w->home : env_dir("HOME");
-    if (!f->home && own) {
-        struct passwd pw, *got = NULL;
-        char buf[4096];
-        if (getpwuid_r(getuid(), &pw, buf, sizeof buf, &got) == 0 && got && got->pw_dir && *got->pw_dir == '/') {
-            snprintf(f->home_own, sizeof f->home_own, "%s", got->pw_dir);
-            f->home = f->home_own;
-        }
-    }
+    f->home = w->home ? w->home : dxl_fs_home();
     f->config = w->config_home ? w->config_home : own ? env_dir("XDG_CONFIG_HOME") : NULL;
     f->data = w->data_home ? w->data_home : own ? env_dir("XDG_DATA_HOME") : NULL;
     if (!f->config && f->home) f->config = f->own[0] = dxl_path_join(f->home, ".config");
