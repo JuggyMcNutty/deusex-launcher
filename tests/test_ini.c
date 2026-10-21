@@ -246,7 +246,7 @@ static void test_rewrite_normalises_line_ending(void) {
 }
 
 /* A save replaces the file whole: no temporary file is left beside it, and
- * the file keeps the mode it had. */
+ * the file keeps the mode it had, where files have modes (not Windows'). */
 static void test_save_is_atomic_and_keeps_the_mode(void) {
     const char *dir = scratch_dir("ini-save");
     char *path = scratch_path(dir, "DeusEx.ini");
@@ -263,7 +263,9 @@ static void test_save_is_atomic_and_keeps_the_mode(void) {
     free(text);
     struct stat st;
     CHECK_INT(stat(path, &st), 0);
+#ifndef _WIN32
     CHECK_INT(st.st_mode & 0777, 0600);
+#endif
     /* Nothing but the file in the folder. */
     DIR *d = opendir(dir);
     int others = 0;
@@ -276,7 +278,9 @@ static void test_save_is_atomic_and_keeps_the_mode(void) {
     ini = dxl_ini_parse("[B]\ny=1\n", 9);
     CHECK_INT(dxl_ini_save(ini, fresh, &e), 0);
     CHECK_INT(stat(fresh, &st), 0);
+#ifndef _WIN32
     CHECK_INT(st.st_mode & 0777, 0644);
+#endif
     dxl_ini_free(ini);
     free(fresh);
     free(path);
