@@ -237,6 +237,21 @@ int dxl_open_url(const char *url) {
     return 0;
 }
 
+int dxl_open_path(const char *path) {
+    /* A file URL, its bytes outside the unreserved ones escaped. */
+    char url[4096];
+    size_t n = snprintf(url, sizeof url, "file://");
+    for (const unsigned char *p = (const unsigned char *)path; *p && n + 4 < sizeof url; p++) {
+        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') ||
+            strchr("/-._~", *p))
+            url[n++] = (char)*p;
+        else
+            n += snprintf(url + n, sizeof url - n, "%%%02X", *p);
+    }
+    url[n] = '\0';
+    return dxl_open_url(url);
+}
+
 /* What a pipe has, onto buf's end (cut at size, NUL-terminated); 0 at the
  * pipe's end. */
 static int take_pipe(int fd, char *buf, size_t size, size_t *got) {

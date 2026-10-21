@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "platform/trash.h"
+#include "core/log.h"
 #include "core/paths.h"
 
 #include <errno.h>
@@ -110,4 +111,24 @@ int dxl_trash_undo(const char *data_home, const char *name, const char *path, dx
     }
     unlink(info);
     return 0;
+}
+
+int dxl_trash_all(char *const paths[], int n, const char *data_home, dxl_err *err) {
+    int rc = 0, gone = 0;
+    char (*names)[512] = dxl_xmalloc(sizeof *names * (size_t)(n > 0 ? n : 1));
+    for (int i = 0; i < n && rc == 0; i++)
+        if (dxl_path_exists(paths[i]) && !dxl_trash_can(paths[i], data_home)) {
+            dxl_err_set(err, "%s is not on the trash's filesystem: nothing was deleted", paths[i]);
+            rc = -1;
+        }
+    for (; gone < n && rc == 0; gone++) {
+        names[gone][0] = '\0';
+        if (dxl_path_exists(paths[gone])) rc = dxl_trash(paths[gone], data_home, names[gone], sizeof names[gone], err);
+    }
+    if (rc != 0)
+        for (int i = gone - 2; i >= 0; i--)
+            if (names[i][0] && dxl_trash_undo(data_home, names[i], paths[i], NULL) != 0)
+                dxl_log("warning: %s stays in the trash as %s", paths[i], names[i]);
+    free(names);
+    return rc;
 }
