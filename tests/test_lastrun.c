@@ -1,14 +1,13 @@
 #include "test.h"
+#include "ends.h"
 #include "scratch.h"
 #include "core/lastrun.h"
 #include "platform/os.h"
 
-#include <signal.h>
-
 /* A run's end, written and read back. */
 static void test_record(void) {
     const char *dir = scratch_dir("lastrun");
-    dxl_lastrun r = { .ended = 1760000000, .status = 139, .signal = SIGSEGV, .ready = 1,
+    dxl_lastrun r = { .ended = 1760000000, .status = END_CRASH_STATUS, .signal = END_CRASH, .ready = 1,
                       .clean = 0 };
     snprintf(r.error, sizeof r.error, "two\nlines");
     snprintf(r.start, sizeof r.start, "?loadgame=10");
@@ -17,15 +16,15 @@ static void test_record(void) {
     CHECK_INT(dxl_lastrun_load(&back, dir), 0);
     CHECK_INT(back.known, 1);
     CHECK_INT(back.ended, 1760000000);
-    CHECK_INT(back.status, 139);
-    CHECK_INT(back.signal, SIGSEGV);
+    CHECK_INT(back.status, END_CRASH_STATUS);
+    CHECK_INT(back.signal, END_CRASH);
     CHECK_INT(back.ready, 1);
     CHECK_INT(back.clean, 0);
     CHECK_STR(back.error, "two lines");
     CHECK_STR(back.start, "?loadgame=10");
     char line[256];
     dxl_lastrun_describe(&back, line, sizeof line);
-    CHECK_STR(line, "killed by SIGSEGV");
+    CHECK_STR(line, "killed by " END_CRASH_NAME);
     scratch_remove(dir);
     CHECK_INT(dxl_lastrun_load(&back, dir), -1);
     CHECK_INT(back.known, 0);
@@ -40,11 +39,11 @@ static void test_describe(void) {
     dxl_lastrun z = { .known = 1, .status = 0, .ready = 0 };
     dxl_lastrun_describe(&z, line, sizeof line);
     CHECK_STR(line, "exit 0 before its first map was in: no game found, or none started");
-    dxl_lastrun k = { .known = 1, .status = 128 + SIGKILL, .signal = SIGKILL, .ready = 0 };
+    dxl_lastrun k = { .known = 1, .status = END_KILL_STATUS, .signal = END_KILL, .ready = 0 };
     dxl_lastrun_describe(&k, line, sizeof line);
-    CHECK_STR(line, "killed by SIGKILL, before its first map was in");
-    char buf[32];
-    CHECK_STR(dxl_end_name(64, buf, sizeof buf), "signal 64");
+    CHECK_STR(line, "killed by " END_KILL_NAME ", before its first map was in");
+    char buf[64];
+    CHECK_STR(dxl_end_name(END_UNNAMED, buf, sizeof buf), END_UNNAMED_NAME);
 }
 
 /* The log's last lines, and the engine's error line, the last of them. */

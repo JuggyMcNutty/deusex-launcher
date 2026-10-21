@@ -1,7 +1,6 @@
 #include "test.h"
+#include "ends.h"
 #include "core/advice.h"
-
-#include <signal.h>
 
 static dxl_lastrun run(int status, int sig, int ready, const char *error) {
     dxl_lastrun l;
@@ -27,7 +26,7 @@ static void test_known(void) {
 }
 
 static void test_ends(void) {
-    dxl_lastrun l = run(139, SIGSEGV, 1, "");
+    dxl_lastrun l = run(END_CRASH_STATUS, END_CRASH, 1, "");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
     l = run(0, 0, 0, "");   /* no game found */
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
@@ -45,7 +44,7 @@ static void test_ends(void) {
     snprintf(l.start, sizeof l.start, "?loadgame=10");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
     /* A crash, no game, or no error line: not the save's. */
-    l = run(139, SIGSEGV, 0, "");
+    l = run(END_CRASH_STATUS, END_CRASH, 0, "");
     snprintf(l.start, sizeof l.start, "?loadgame=10");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
     l = run(0, 0, 0, "");
