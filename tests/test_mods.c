@@ -4,6 +4,10 @@
 #include "core/mods.h"
 #include "core/paths.h"
 #include "core/profile.h"
+#include "platform/os.h"
+#include "platform/fs.h"
+
+#include <unistd.h>
 
 /* A made-up install with made-up mods: GameMod in the game's folder, its
  * ini as such a mod's names it, relative to the game's System; in the
@@ -81,7 +85,7 @@ static void make_all(void) {
                   "Paths=..\\System\\*.u\r\n");
     scratch_write(root, "elsewhere/Target-1.0/Save/Save0003/SaveInfo.dxs", "linked's");
     char *target = at("elsewhere/Target-1.0"), *link = at("home/data/dxlauncher/mods/Linked");
-    if (symlink(target, link) != 0) fprintf(stderr, "  could not link %s\n", link);
+    if (dxl_fs_link_dir(target, link) != 0) fprintf(stderr, "  could not link %s\n", link);
     free(target);
     free(link);
     /* RootSave: its SavePath its own folder. */
@@ -322,7 +326,7 @@ static void test_paths(void) {
 
 static void test_import(void) {
     char *home = at("home");
-    setenv("DXL_HOME", home, 1);
+    dxl_env_set("DXL_HOME", home);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -415,7 +419,7 @@ static void test_import(void) {
     dxl_profile_free(&p);
     free(d);
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
     free(home);
 }
 

@@ -1,5 +1,6 @@
 #include "test.h"
 #include "core/renderers.h"
+#include "platform/os.h"
 
 #include <unistd.h>
 
@@ -28,7 +29,7 @@ static const char *device_ini =
 
 static dxl_renderer_list load(const char *text) {
     char path[256];
-    snprintf(path, sizeof path, "/tmp/dxl-renderers-%d.ini", (int)getpid());
+    snprintf(path, sizeof path, "%s/dxl-renderers-%ld.ini", dxl_test_tmp(), dxl_os_pid());
     FILE *f = fopen(path, "wb");
     fputs(text, f);
     fclose(f);

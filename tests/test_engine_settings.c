@@ -1,6 +1,8 @@
 #include "test.h"
 #include "core/engine_settings.h"
 #include "core/json.h"
+#include "platform/os.h"
+#include "platform/fs.h"
 
 #include <math.h>
 #include <sys/stat.h>
@@ -9,8 +11,8 @@
 static char dir[512];
 
 static void setup(const char *tag) {
-    snprintf(dir, sizeof dir, "/tmp/dxl-es-%s-%d", tag, (int)getpid());
-    mkdir(dir, 0755);
+    snprintf(dir, sizeof dir, "%s/dxl-es-%s-%ld", dxl_test_tmp(), tag, dxl_os_pid());
+    dxl_fs_mkdir(dir);
 }
 
 static char *in_dir(const char *leaf) {

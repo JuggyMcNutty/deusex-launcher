@@ -3,6 +3,8 @@
 #include "core/finder.h"
 #include "core/paths.h"
 
+#include <unistd.h>
+
 /* An install's files under base/rel: a DeusEx.exe the engine does not know,
  * which the finder lists all the same. */
 static void install_at(const char *base, const char *rel) {

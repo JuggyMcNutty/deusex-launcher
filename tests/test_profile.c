@@ -3,6 +3,8 @@
 #include "core/ini.h"
 #include "core/paths.h"
 #include "core/profile.h"
+#include "platform/os.h"
+#include "platform/fs.h"
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -70,7 +72,7 @@ static char *listing(const char *dir) {
 }
 
 static void test_paths(void) {
-    setenv("DXL_HOME", "/tmp/dxl-home", 1);
+    dxl_env_set("DXL_HOME", "/tmp/dxl-home");
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -90,13 +92,13 @@ static void test_paths(void) {
     CHECK_INT(dxl_profile_open(&p, &x, "", NULL), -1);
     CHECK_INT(dxl_profile_open(&p, &x, "a b", NULL), -1);
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
 }
 
 static void test_import(void) {
     char *game = make_install();
     char *home = dxl_xstrdup(scratch_dir("profile-home"));
-    setenv("DXL_HOME", home, 1);
+    dxl_env_set("DXL_HOME", home);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -200,7 +202,7 @@ static void test_import(void) {
     dxl_profile_free(&p);
     free(system_dir);
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
     scratch_remove(home);
     scratch_remove(game);
     free(home);
@@ -225,7 +227,7 @@ static int no_link(const char *target, const char *link) {
 static void test_no_links(void) {
     char *game = make_install();
     char *home = dxl_xstrdup(scratch_dir("profile-nolinks"));
-    setenv("DXL_HOME", home, 1);
+    dxl_env_set("DXL_HOME", home);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -239,8 +241,7 @@ static void test_no_links(void) {
     dxl_import r;
     dxl_err e;
     CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, &e), 0);
-    struct stat st;
-    CHECK(lstat(engine_shots, &st) == 0 && S_ISDIR(st.st_mode));
+    CHECK(!dxl_fs_is_link(engine_shots) && dxl_path_is_dir(engine_shots));
     CHECK_STR(p.shots_dir, engine_shots);
     CHECK_INT(dxl_path_exists(data_shots), 0);
     CHECK_INT(scratch_exists(engine_shots, "Shot0003.bmp"), 1);
@@ -254,10 +255,10 @@ static void test_no_links(void) {
     CHECK_INT(dxl_profile_make_dirs(&p, &e), -1);
     CHECK(strstr(dxl_err_msg(&e), "cannot link") != NULL);
     dxl_profile_free(&p);
-    dxl_profile_link = symlink;
+    dxl_profile_link = dxl_fs_link_dir;
 
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
     free(engine_shots);
     free(data_shots);
     free(system_dir);
@@ -274,7 +275,7 @@ static void test_import_from_defaults(void) {
     scratch_write(game, "System/DeusEx.ini", "[Engine.Engine]\r\nGameRenderDevice=D3DDrv.D3DRenderDevice\r\n");
     scratch_write(game, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
     char *home = dxl_xstrdup(scratch_dir("profile-stub-home"));
-    setenv("DXL_HOME", home, 1);
+    dxl_env_set("DXL_HOME", home);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -298,7 +299,7 @@ static void test_import_from_defaults(void) {
     dxl_profile_free(&p);
     free(system_dir);
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
     scratch_remove(home);
     scratch_remove(game);
     free(home);
@@ -311,7 +312,7 @@ static void test_import_from_defaults(void) {
 static void test_profiles(void) {
     char *game = make_install();
     char *home = dxl_xstrdup(scratch_dir("profiles-home"));
-    setenv("DXL_HOME", home, 1);
+    dxl_env_set("DXL_HOME", home);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     char id[DXL_PROFILE_ID_MAX + 1];
@@ -373,7 +374,7 @@ static void test_profiles(void) {
     dxl_profile_free(&b);
     free(system_dir);
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
     set_writable(game, 1);
     scratch_remove(home);
     scratch_remove(game);
