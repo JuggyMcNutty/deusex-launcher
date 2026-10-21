@@ -202,8 +202,7 @@ void dxl_page_mods(dxl_shell *s, dxl_rect r) {
     } else if (b_make && sel >= 0) {
         start_mod(s, &s->mods.items[sel]);
     } else if (b_browse) {
-        const char *home = dxl_fs_home();
-        dxl_browser_open(s, sel >= 0 ? s->mods.items[sel].dir : home ? home : "/", DXL_BROWSE_MOD);
+        dxl_browser_open(s, sel >= 0 ? s->mods.items[sel].dir : dxl_fs_home(), DXL_BROWSE_MOD);
     } else if (b_back || ui->in.back) {
         dxl_shell_go(s, DXL_PAGE_PROFILES);
     }
