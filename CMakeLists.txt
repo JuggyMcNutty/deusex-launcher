@@ -89,6 +89,7 @@ add_library(dxl_core STATIC
     src/core/gamespy.c
     src/core/servers.c
     src/core/finder.c
+    src/core/finder_places.c
     src/core/settings.c
     src/core/settings_table.c
     src/core/advice.c
