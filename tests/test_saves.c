@@ -7,6 +7,7 @@
 #include "core/saves.h"
 #include "core/shotlist.h"
 #include "upkg_writer.h"
+#include "platform/fs.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -61,7 +62,7 @@ static void test_list(void) {
     free(was);
     free(lower);
     char *empty = scratch_path(dir, "Save0007");
-    mkdir(empty, 0755);
+    dxl_fs_mkdir(empty);
     free(empty);
 
     dxl_saves s;
@@ -157,8 +158,7 @@ static void test_text(void) {
 
 static void stamp(const char *dir, const char *rel, long when) {
     char *path = scratch_path(dir, rel);
-    struct timeval tv[2] = { { when, 0 }, { when, 0 } };
-    utimes(path, tv);
+    dxl_fs_set_mtime(path, when);
     free(path);
 }
 
@@ -172,7 +172,7 @@ static void test_shots(void) {
     scratch_write(dir, ".hidden.png", "hidden");
     scratch_write(dir, "empty.bmp", "");
     char *sub = scratch_path(dir, "folder.bmp");
-    mkdir(sub, 0755);
+    dxl_fs_mkdir(sub);
     free(sub);
     stamp(dir, "Shot0001.bmp", 1000);
     stamp(dir, "Shot0002.bmp", 3000);

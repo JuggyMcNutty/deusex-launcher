@@ -3,6 +3,8 @@
 #ifndef DXL_TEST_H
 #define DXL_TEST_H
 
+#include "platform/fs.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -48,6 +50,13 @@ extern const char *dxl_test_current;
                         } \
                         printf("ok\n"); \
                         return 0; }
+
+/* The system's folder for temporary files, where the tests make theirs. */
+static inline const char *dxl_test_tmp(void) {
+    static char *tmp;
+    if (!tmp) tmp = dxl_fs_temp_dir();
+    return tmp;
+}
 
 /* Absolute path to tests/fixtures, passed in by CMake. */
 #ifndef DXL_FIXTURES

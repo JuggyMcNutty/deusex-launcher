@@ -4,9 +4,13 @@
 #include "app/session.h"
 #include "core/engine_args.h"
 #include "platform/process.h"
+#include "platform/os.h"
+#include "platform/fs.h"
 
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* The stub engine (tests/stub_engine.c), built beside the tests. */
 #ifndef DXL_STUB_ENGINE
@@ -65,7 +69,7 @@ static void test_words_kept(void) {
 static void test_env(void) {
     char *dir = dxl_xstrdup(scratch_dir("process-env"));
     char *log = scratch_path(dir, "run.log");
-    setenv("DXL_TEST_GONE", "present", 1);
+    dxl_env_set("DXL_TEST_GONE", "present");
     char *gone[] = { "DXL_STUB=env", "DXL_STUB_ENV=DXL_TEST_GONE", "DXL_TEST_GONE", NULL };
     char *argv[] = { DXL_STUB_ENGINE, NULL };
     dxl_game g;
@@ -83,7 +87,7 @@ static void test_env(void) {
     /* This process's own are as they were. */
     CHECK_STR(getenv("DXL_TEST_GONE"), "present");
     CHECK(getenv("DXL_TEST_SET") == NULL);
-    unsetenv("DXL_TEST_GONE");
+    dxl_env_set("DXL_TEST_GONE", NULL);
     free(log);
     scratch_remove(dir);
     free(dir);
@@ -161,22 +165,22 @@ static void test_capture(void) {
     CHECK_INT(dxl_engine_version_parse(out, &v), 0);
     CHECK_INT(dxl_engine_has(&v, "userdir"), 1);
 
-    setenv("DXL_STUB", "stubborn", 1);
+    dxl_env_set("DXL_STUB", "stubborn");
     char *hang[] = { DXL_STUB_ENGINE, NULL };
     dxl_err e;
     CHECK_INT(dxl_run_capture(hang, 300, out, sizeof out, NULL, 0, &status, &e), DXL_RUN_TIMED_OUT);
     CHECK_INT(status, 128 + SIGKILL);
-    unsetenv("DXL_STUB");
+    dxl_env_set("DXL_STUB", NULL);
 
     /* Its errors, when asked for: a loader's that stopped it, which did
      * not run. */
     char errs[512];
-    setenv("DXL_STUB_VERSION_ERR", "stub: version `GLIBC_2.99' not found", 1);
+    dxl_env_set("DXL_STUB_VERSION_ERR", "stub: version `GLIBC_2.99' not found");
     CHECK_INT(dxl_run_capture(version, 3000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
     CHECK_INT(status, 127);
     CHECK_STR(out, "");
     CHECK(strstr(errs, "GLIBC_2.99") != NULL);
-    unsetenv("DXL_STUB_VERSION_ERR");
+    dxl_env_set("DXL_STUB_VERSION_ERR", NULL);
 
     char *none[] = { "/nonexistent/engine", "--version", NULL };
     CHECK_INT(dxl_run_capture(none, 1000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
@@ -233,20 +237,20 @@ static void test_engine_check(void) {
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), 0);
     CHECK(strstr(v.version, "stub000") != NULL);
 
-    setenv("DXL_STUB_VERSION_ERR", "x: /lib64/libm.so.6: version `GLIBC_2.99' not found (required by x)", 1);
+    dxl_env_set("DXL_STUB_VERSION_ERR", "x: /lib64/libm.so.6: version `GLIBC_2.99' not found (required by x)");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK(strncmp(brief, "needs glibc 2.99, this system has ", 34) == 0);
     CHECK(strstr(why, "built on a newer system") != NULL);
-    setenv("DXL_STUB_VERSION_ERR",
-           "x: error while loading shared libraries: libSDL2-2.0.so.0: cannot open shared object file: No such file", 1);
+    dxl_env_set("DXL_STUB_VERSION_ERR",
+           "x: error while loading shared libraries: libSDL2-2.0.so.0: cannot open shared object file: No such file");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK_STR(brief, "needs libSDL2-2.0.so.0");
-    unsetenv("DXL_STUB_VERSION_ERR");
+    dxl_env_set("DXL_STUB_VERSION_ERR", NULL);
 
-    setenv("DXL_STUB_FEATURES", "other", 1);
+    dxl_env_set("DXL_STUB_FEATURES", "other");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK(strstr(brief, "without --userdir") != NULL);
-    unsetenv("DXL_STUB_FEATURES");
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
 
     /* In a folder: DXEngine is found; a folder with only an old name has no
      * engine. */
@@ -273,8 +277,8 @@ static void test_engine_check(void) {
  * DXL_ENGINE's over both. */
 static void test_engine_chosen(void) {
     const char *home = scratch_dir("engine-home");
-    setenv("DXL_HOME", home, 1);
-    unsetenv("DXL_ENGINE");
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", NULL);
     dxl_session s;
     dxl_err e;
     CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
@@ -292,19 +296,17 @@ static void test_engine_chosen(void) {
     dxl_session_set_engine(&s, "/x/DXEngine");
     dxl_session_save(&s, &e);
     dxl_session_close(&s);
-    setenv("DXL_ENGINE", "/y/DXEngine", 1);
+    dxl_env_set("DXL_ENGINE", "/y/DXEngine");
     CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
     CHECK_STR(s.engine, "/y/DXEngine");
     CHECK_INT(s.engine_by_env, 1);
     dxl_session_set_engine(&s, NULL);
     CHECK_STR(s.engine, "/y/DXEngine");
     dxl_session_close(&s);
-    unsetenv("DXL_ENGINE");
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
     free(own);
-    char cmd[300];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s'", home);
-    CHECK_INT(system(cmd), 0);
+    CHECK_INT(dxl_fs_remove_tree(home), 0);
 }
 
 TEST_MAIN_BEGIN

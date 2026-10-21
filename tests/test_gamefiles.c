@@ -11,6 +11,7 @@
 #include "core/saves.h"
 #include "core/theme_colors.h"
 #include "core/upkg_assets.h"
+#include "platform/os.h"
 
 #include <dirent.h>
 #include <signal.h>
@@ -109,7 +110,7 @@ static void test_install(void) {
 
 /* What a first run would make of the install, nothing written. */
 static void test_import_plan(void) {
-    setenv("DXL_HOME", "/nonexistent/dxl-home", 1);
+    dxl_env_set("DXL_HOME", "/nonexistent/dxl-home");
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -121,7 +122,7 @@ static void test_import_plan(void) {
     CHECK_INT(dxl_path_exists("/nonexistent/dxl-home"), 0);
     dxl_profile_free(&p);
     dxl_xdg_free(&x);
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_HOME", NULL);
 }
 
 /* Every file under the game's folder changed since mark: none may be. The
@@ -162,12 +163,12 @@ static void test_headless_run(void) {
     char *mark = scratch_path(home, "mark");
     scratch_write(home, "mark", "");
     sleep(1);   /* the mark older than anything the run could write */
-    setenv("DXL_HOME", home, 1);
-    setenv("DXL_ENGINE", DXL_STUB_ENGINE, 1);
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
     char *root = dxl_path_dirname(DXL_GAMEFILES);
 
-    setenv("DXL_STUB", "ready", 1);
-    setenv("DXL_STUB_MS", "200", 1);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
     CHECK_INT(run_launcher(root, NULL), 0);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
@@ -183,21 +184,21 @@ static void test_headless_run(void) {
     char *log = dxl_path_join(p.logs_dir, DXL_LASTRUN_LOG);
     CHECK_INT(dxl_path_exists(log), 1);
 
-    setenv("DXL_STUB", "crash", 1);
+    dxl_env_set("DXL_STUB", "crash");
     CHECK_INT(run_launcher(root, NULL), 128 + SIGSEGV);
     CHECK_INT(dxl_path_exists(sentinel), 1);
     dxl_lastrun_load(&last, p.state_dir);
     CHECK_INT(last.signal, SIGSEGV);
 
-    setenv("DXL_STUB", "ready", 1);
+    dxl_env_set("DXL_STUB", "ready");
     CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_SCREEN);
     CHECK_INT(dxl_path_exists(sentinel), 1);
 
     /* An engine without the userdir feature is refused. */
     unlink(sentinel);
-    setenv("DXL_STUB_FEATURES", "loadgame-url", 1);
+    dxl_env_set("DXL_STUB_FEATURES", "loadgame-url");
     CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_NOGAME);
-    unsetenv("DXL_STUB_FEATURES");
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
 
     CHECK_INT(changed_since(mark), 0);
 
@@ -206,10 +207,10 @@ static void test_headless_run(void) {
     dxl_profile_free(&p);
     dxl_xdg_free(&x);
     free(root);
-    unsetenv("DXL_STUB");
-    unsetenv("DXL_STUB_MS");
-    unsetenv("DXL_ENGINE");
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
     free(mark);
     scratch_remove(home);
     free(home);
@@ -232,10 +233,10 @@ static int home_then_quit(void *ctx, dxl_run *r, dxl_view which) {
 static void test_back_home(void) {
     char *home = dxl_xstrdup(scratch_dir("gamefiles-back"));
     char *count = scratch_path(home, "runs");
-    setenv("DXL_HOME", home, 1);
-    setenv("DXL_ENGINE", DXL_STUB_ENGINE, 1);
-    setenv("DXL_STUB", "ready", 1);
-    setenv("DXL_STUB_MS", "200", 1);
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
     char *root = dxl_path_dirname(DXL_GAMEFILES);
     CHECK_INT(run_launcher(root, NULL), 0);
     dxl_xdg x;
@@ -249,8 +250,8 @@ static void test_back_home(void) {
         dxl_ini_free(li);
     }
 
-    setenv("DXL_STUB", "rewrite", 1);
-    setenv("DXL_STUB_COUNT", count, 1);
+    dxl_env_set("DXL_STUB", "rewrite");
+    dxl_env_set("DXL_STUB_COUNT", count);
     dxl_run_ui ui = { .view = home_then_quit };
     char *argv[] = { "deusex-launcher", NULL };
     static volatile int stop;
@@ -263,23 +264,23 @@ static void test_back_home(void) {
     CHECK_STR(runs, "x");
     free(runs);
 
-    setenv("DXL_NO_HOME", "1", 1);
+    dxl_env_set("DXL_NO_HOME", "1");
     views = 0;
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
     CHECK_INT(views, 0);
     runs = slurp(count, &len);
     CHECK_STR(runs, "xx");
     free(runs);
-    unsetenv("DXL_NO_HOME");
+    dxl_env_set("DXL_NO_HOME", NULL);
 
     dxl_xdg_free(&x);
     free(launcher_ini);
     free(root);
-    unsetenv("DXL_STUB_COUNT");
-    unsetenv("DXL_STUB");
-    unsetenv("DXL_STUB_MS");
-    unsetenv("DXL_ENGINE");
-    unsetenv("DXL_HOME");
+    dxl_env_set("DXL_STUB_COUNT", NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
     free(count);
     scratch_remove(home);
     free(home);

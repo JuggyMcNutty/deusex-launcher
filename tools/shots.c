@@ -22,6 +22,8 @@
 #include "core/log.h"
 #include "core/paths.h"
 #include "core/settings.h"
+#include "platform/fs.h"
+#include "platform/os.h"
 #include "screens/shell.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
@@ -32,9 +34,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <unistd.h>
 
 #ifndef DXL_SHOTS_FONTS
 #define DXL_SHOTS_FONTS "data/fonts"
@@ -239,15 +238,13 @@ static void make_shots(const char *dir) {
         snprintf(leaf, sizeof leaf, "Shot%04d.bmp", i + 1);
         char *path = dxl_path_join(dir, leaf);
         SDL_SaveBMP(pic, path);
-        struct timeval tv[2] = { { 1792186000 + 60 * i, 0 }, { 1792186000 + 60 * i, 0 } };
-        utimes(path, tv);
+        dxl_fs_set_mtime(path, 1792186000L + 60 * i);
         free(path);
         SDL_DestroySurface(pic);
     }
     char *bad = dxl_path_join(dir, "Shot0008.bmp");
     write_file(bad, "not a picture");
-    struct timeval tv[2] = { { 1792185000, 0 }, { 1792185000, 0 } };
-    utimes(bad, tv);
+    dxl_fs_set_mtime(bad, 1792185000L);
     free(bad);
 }
 
@@ -467,7 +464,7 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         /* GMDXv10's profile. */
         dxl_profile p;
         dxl_err e;
-        char *dir = dxl_path_join(r->session.install.root, "GMDXv10"), *real = realpath(dir, NULL);
+        char *dir = dxl_path_join(r->session.install.root, "GMDXv10"), *real = dxl_fs_real(dir);
         if (dxl_profile_open(&p, &r->session.xdg, "gmdxv10", &e) == 0) {
             dxl_profile_make_dirs(&p, &e);
             dxl_profile_set(&p, "Name", "GMDX v10");
@@ -512,9 +509,8 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
     }
     case SCENE_HOME_NEW:
     case SCENE_SAVES_NONE: {
-        char cmd[1200];
-        snprintf(cmd, sizeof cmd, "rm -rf '%s'/*", r->session.profile.save_dir);
-        if (system(cmd) != 0) fprintf(stderr, "dxl-shots: could not empty the saves\n");
+        if (dxl_fs_remove_tree(r->session.profile.save_dir) != 0 || dxl_path_mkdirs(r->session.profile.save_dir) != 0)
+            fprintf(stderr, "dxl-shots: could not empty the saves\n");
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         if (sc == SCENE_SAVES_NONE) dxl_shell_go(s, DXL_PAGE_SAVES);
         break;
@@ -695,10 +691,13 @@ static void tear_down(dxl_run *r) {
     /* The next scene's profile from nothing. */
     char *cfg = at_home(".config"), *data = at_home(".local/share/dxlauncher"), *state = at_home(".local/state");
     char *mods = at_home("GOG Games/Deus Ex GOTY");
-    char cmd[2600];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s' '%s' '%s' '%s'/GMDXv10 '%s'/TNM", cfg, data, state, mods, mods);
+    char *gmdx = dxl_path_join(mods, "GMDXv10"), *tnm = dxl_path_join(mods, "TNM");
+    const char *gone[] = { cfg, data, state, gmdx, tnm };
+    for (size_t i = 0; i < sizeof gone / sizeof *gone; i++)
+        if (dxl_fs_remove_tree(gone[i]) != 0) fprintf(stderr, "dxl-shots: could not clear the profile\n");
+    free(gmdx);
+    free(tnm);
     free(mods);
-    if (system(cmd) != 0) fprintf(stderr, "dxl-shots: could not clear the profile\n");
     free(cfg);
     free(data);
     free(state);
@@ -925,17 +924,19 @@ int main(int argc, char **argv) {
         fprintf(stderr, "dxl-shots: cannot make %s\n", out_dir);
         return 1;
     }
-    const char *tmp = getenv("TMPDIR");
-    snprintf(home, sizeof home, "%s/dxl-shots-XXXXXX", tmp && *tmp ? tmp : "/tmp");
-    if (!mkdtemp(home)) {
-        perror("dxl-shots: mkdtemp");
+    char *tmp = dxl_fs_temp_dir();
+    snprintf(home, sizeof home, "%s/dxl-shots-%ld", tmp, dxl_os_pid());
+    free(tmp);
+    dxl_fs_remove_tree(home);
+    if (dxl_fs_mkdir(home) != 0) {
+        fprintf(stderr, "dxl-shots: cannot make %s\n", home);
         return 1;
     }
-    setenv("HOME", home, 1);
-    setenv("TZ", "UTC", 1);
+    dxl_env_set("HOME", home);
+    dxl_env_set("TZ", "UTC");
     static const char *unset[] = { "DXL_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME",
                                    "DXL_ENGINE" };
-    for (size_t i = 0; i < sizeof unset / sizeof *unset; i++) unsetenv(unset[i]);
+    for (size_t i = 0; i < sizeof unset / sizeof *unset; i++) dxl_env_set(unset[i], NULL);
     dxl_log_set_echo(0);
     dxl_log_set_to_file(0);
     make_home();
@@ -965,8 +966,6 @@ int main(int argc, char **argv) {
     }
     TTF_Quit();
     SDL_Quit();
-    char cmd[700];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s'", home);
-    if (system(cmd) != 0) fprintf(stderr, "dxl-shots: could not remove %s\n", home);
+    if (dxl_fs_remove_tree(home) != 0) fprintf(stderr, "dxl-shots: could not remove %s\n", home);
     return failures ? 1 : 0;
 }

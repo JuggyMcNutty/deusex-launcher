@@ -3,6 +3,7 @@
 #include "app/play.h"
 #include "app/run.h"
 #include "platform/instance.h"
+#include "platform/os.h"
 
 #include <signal.h>
 #include <time.h>
@@ -145,7 +146,7 @@ static void forward_on_ready(void *ctx) {
 }
 
 static void test_forwarded(void) {
-    snprintf(forward_id, sizeof forward_id, "dxl-test-play-%d", (int)getpid());
+    snprintf(forward_id, sizeof forward_id, "dxl-test-play-%ld", dxl_os_pid());
     dxl_instance *inst = dxl_instance_acquire(forward_id);
     CHECK(inst != NULL);
     CHECK_INT(dxl_instance_forward(forward_id, "too-early", 1000, NULL), 0);

@@ -2,6 +2,8 @@
 #include "core/config.h"
 #include "core/ini.h"
 #include "scratch.h"
+#include "platform/os.h"
+#include "platform/fs.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -10,8 +12,8 @@
  * write to it. Returns the directory; caller removes it. */
 static char *scratch_install(const char *tag) {
     static char dir[512];
-    snprintf(dir, sizeof dir, "/tmp/dxl-test-%s-%d", tag, (int)getpid());
-    mkdir(dir, 0755);
+    snprintf(dir, sizeof dir, "%s/dxl-test-%s-%ld", dxl_test_tmp(), tag, dxl_os_pid());
+    dxl_fs_mkdir(dir);
 
     char *src = fixture("DeusEx.ini");
     size_t len = 0;
@@ -113,8 +115,8 @@ static void test_untouched_config_is_byte_identical_after_save(void) {
 /* A fresh install with no ini must still be usable: the wizard writes one. */
 static void test_missing_ini_is_not_fatal(void) {
     char dir[512];
-    snprintf(dir, sizeof dir, "/tmp/dxl-test-noini-%d", (int)getpid());
-    mkdir(dir, 0755);
+    snprintf(dir, sizeof dir, "%s/dxl-test-noini-%ld", dxl_test_tmp(), dxl_os_pid());
+    dxl_fs_mkdir(dir);
 
     dxl_config *c = dxl_config_open(dir, "DeusEx");
     CHECK(c != NULL);
@@ -147,8 +149,8 @@ static void copy_fixture(const char *dir, const char *fixture_name, const char *
 
 static char *empty_dir(const char *tag) {
     static char dir[512];
-    snprintf(dir, sizeof dir, "/tmp/dxl-test-%s-%d", tag, (int)getpid());
-    mkdir(dir, 0755);
+    snprintf(dir, sizeof dir, "%s/dxl-test-%s-%ld", dxl_test_tmp(), tag, dxl_os_pid());
+    dxl_fs_mkdir(dir);
     return dir;
 }
 
