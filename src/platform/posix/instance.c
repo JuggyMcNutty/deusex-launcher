@@ -1,5 +1,12 @@
+/* The single instance on POSIX (platform/instance.h). The lock is flock on
+ * a pidfile in $XDG_RUNTIME_DIR (else /tmp), held on the descriptor, not the
+ * name: the file stays after the process, holding the last pid, and a stale
+ * one never reads as live -- nothing is written to the install. The channel
+ * is a Linux abstract unix socket, which leaves nothing behind.
+ */
 #define _GNU_SOURCE
-#include "core/instance.h"
+#include "platform/instance.h"
+#include "platform/posix/internal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -90,6 +97,8 @@ dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
 dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
 
 int dxl_instance_fd(const dxl_instance *inst) { return inst ? inst->sock_fd : -1; }
+
+int dxl_instance_listens(const dxl_instance *inst) { return dxl_instance_fd(inst) >= 0; }
 
 void dxl_instance_release(dxl_instance *inst) {
     if (!inst) return;

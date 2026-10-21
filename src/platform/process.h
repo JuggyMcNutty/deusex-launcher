@@ -16,6 +16,7 @@
 #define DXL_PROCESS_H
 
 #include "core/common.h"
+#include "platform/instance.h"
 
 #include <sys/types.h>
 
@@ -41,11 +42,12 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
 
 /* What dxl_game_wait saw. */
 #define DXL_GAME_LINE  1   /* a line from the engine, in line */
-#define DXL_GAME_EXTRA 2   /* extra_fd is readable */
+#define DXL_GAME_EXTRA 2   /* a second start's line waits on the instance's channel */
 #define DXL_GAME_ENDED 4   /* the game ended: g->status */
 
-/* Waits up to ms for any of them; 0 when nothing happened. */
-int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char *line, size_t size);
+/* Waits up to ms for any of them (inst NULL: no second start's); 0 when
+ * nothing happened. */
+int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t size);
 
 /* A line to the engine; nothing when it has no line. */
 void dxl_game_send(dxl_game *g, const char *line);

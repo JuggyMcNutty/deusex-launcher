@@ -10,13 +10,10 @@
  *      (section 2) -- so a second launch opens a URL in the running game
  *      instead of starting a second copy.
  *
- * Both survive here; only the transport changes. The lock is flock on a
- * pidfile in $XDG_RUNTIME_DIR (else /tmp), held on the descriptor, not the
- * name: the file stays after the process, holding the last pid, and a stale
- * one never reads as live -- nothing is written to the install. The channel
- * is a Linux abstract unix socket, which leaves nothing behind.
- *
- * The protocol is unchanged: one message, the command line.
+ * Both survive here; only the transport changes, the platform's
+ * (platform/posix/instance.c: a lock on a pidfile, a unix socket). The
+ * protocol is unchanged: one message, the command line. A wait for one is
+ * platform/wait.h's.
  */
 #ifndef DXL_INSTANCE_H
 #define DXL_INSTANCE_H
@@ -50,8 +47,8 @@ int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
 /* Non-blocking. Returns 1 and NUL-terminates buf when a handoff arrived. */
 int dxl_instance_poll(dxl_instance *inst, char *buf, size_t size);
 
-/* The channel's descriptor, for a caller that waits on it with poll(); -1
- * when the instance has none. */
-int dxl_instance_fd(const dxl_instance *inst);
+/* Whether a second start can hand it a command line: an instance with a
+ * channel, not the lock alone. */
+int dxl_instance_listens(const dxl_instance *inst);
 
 #endif

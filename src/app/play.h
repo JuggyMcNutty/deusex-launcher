@@ -18,7 +18,7 @@
 #define DXL_PLAY_H
 
 #include "core/common.h"
-#include "core/instance.h"
+#include "platform/instance.h"
 
 typedef struct {
     char *const  *argv;      /* the engine's words (core/engine_args.h) */
