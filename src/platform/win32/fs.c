@@ -79,6 +79,13 @@ char *dxl_fs_stored(const char *dir, const char *leaf) {
     return cur;
 }
 
+char *dxl_fs_path(const char *outside) {
+    char *p = dxl_xstrdup(outside ? outside : "");
+    for (char *s = p; *s; s++)
+        if (*s == '\\') *s = '/';
+    return p;
+}
+
 char *dxl_fs_self(void) {
     wchar_t buf[32768];
     DWORD n = GetModuleFileNameW(NULL, buf, sizeof buf / sizeof *buf);
