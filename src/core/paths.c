@@ -70,15 +70,14 @@ long dxl_path_size(const char *p) {
 char *dxl_path_resolve_ci(const char *dir, const char *leaf) {
     if (!dir || !leaf) return NULL;
 
-    char *exact = dxl_path_join(dir, leaf);
-    if (dxl_path_exists(exact)) return exact;
+    char *exact = dxl_fs_stored(dir, leaf);
+    if (exact) return exact;
 
     /* The leaf may itself contain separators ("System/DeusEx.u"); resolve one
      * component at a time so each gets the same treatment. */
     char *rest = dxl_xstrdup(leaf);
     dxl_path_normalize(rest);
     if (strchr(rest, '/')) {
-        free(exact);
         char *cur = dxl_xstrdup(dir);
         char *save = NULL;
         for (char *tok = strtok_r(rest, "/", &save); tok;
@@ -94,7 +93,7 @@ char *dxl_path_resolve_ci(const char *dir, const char *leaf) {
     free(rest);
 
     DIR *d = opendir(dir);
-    if (!d) { free(exact); return NULL; }
+    if (!d) return NULL;
     struct dirent *e;
     char *found = NULL;
     while ((e = readdir(d)) != NULL) {
@@ -104,7 +103,6 @@ char *dxl_path_resolve_ci(const char *dir, const char *leaf) {
         }
     }
     closedir(d);
-    free(exact);
     return found;
 }
 

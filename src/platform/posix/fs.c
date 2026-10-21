@@ -24,6 +24,14 @@ const char *dxl_fs_home(void) {
     return pw && pw->pw_dir && pw->pw_dir[0] == '/' ? pw->pw_dir : NULL;
 }
 
+char *dxl_fs_stored(const char *dir, const char *leaf) {
+    char *p = dxl_path_join(dir, leaf);
+    struct stat st;
+    if (stat(p, &st) == 0) return p;
+    free(p);
+    return NULL;
+}
+
 char *dxl_fs_self(void) {
     char buf[PATH_MAX];
     ssize_t n = readlink("/proc/self/exe", buf, sizeof buf - 1);
