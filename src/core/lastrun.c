@@ -126,7 +126,7 @@ char *dxl_lastrun_tail(const char *log_path, int max_lines) {
 }
 
 void dxl_lastrun_describe(const dxl_lastrun *r, char *out, size_t size) {
-    char sig[32];
+    char sig[64];
     if (r->signal)
         snprintf(out, size, "killed by %s%s", dxl_end_name(r->signal, sig, sizeof sig),
                  r->ready ? "" : ", before its first map was in");
