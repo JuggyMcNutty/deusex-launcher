@@ -57,7 +57,8 @@ endif()
 # line, the last run. docs/LAUNCHER.md. With it, the platform's calls it
 # makes where POSIX and Windows differ: the file system (platform/fs.h),
 # where an app keeps its own files (platform/folders.h), the single
-# instance (platform/instance.h), and waits on it (platform/wait.h).
+# instance (platform/instance.h), waits on it (platform/wait.h), and
+# processes (platform/os.h).
 # ---------------------------------------------------------------------------
 add_library(dxl_core STATIC
     src/core/common.c
@@ -104,14 +105,17 @@ add_library(dxl_core STATIC
     src/platform/posix/folders.c
     src/platform/posix/instance.c
     src/platform/posix/wait.c
+    src/platform/posix/os.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
 
-# What is the platform's: the processes the launcher starts, the game among
+# What is the platform's: what ends a start from outside
+# (platform/startup.h), the processes the launcher starts, the game among
 # them (platform/process.h), the crash-isolated GPU probe, the app menu's
-# entry, and the desktop's trash.
+# entry, the desktop's trash, and the network.
 add_library(dxl_platform STATIC
+    src/platform/posix/startup.c
     src/platform/posix/process.c
     src/platform/posix/gpu_probe.c
     src/platform/posix/desktop.c

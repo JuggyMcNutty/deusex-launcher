@@ -1,6 +1,7 @@
 #include "test.h"
 #include "scratch.h"
 #include "core/lastrun.h"
+#include "platform/os.h"
 
 #include <signal.h>
 
@@ -43,7 +44,7 @@ static void test_describe(void) {
     dxl_lastrun_describe(&k, line, sizeof line);
     CHECK_STR(line, "killed by SIGKILL, before its first map was in");
     char buf[32];
-    CHECK_STR(dxl_signal_name(64, buf, sizeof buf), "signal 64");
+    CHECK_STR(dxl_end_name(64, buf, sizeof buf), "signal 64");
 }
 
 /* The log's last lines, and the engine's error line, the last of them. */

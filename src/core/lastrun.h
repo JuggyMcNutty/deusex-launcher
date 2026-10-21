@@ -23,7 +23,7 @@ typedef struct {
     int  known;        /* a record was there */
     long ended;        /* seconds since the epoch */
     int  status;       /* the exit code, or 128 + the signal */
-    int  signal;       /* 0 when it exited */
+    int  signal;       /* what ended it, 0 when it exited (platform/os.h, dxl_end_name) */
     int  ready;        /* the engine said its first map was in */
     int  clean;        /* exit 0 with ready seen */
     char error[512];   /* the engine's "DXEngine error: ..." line, or "" */
@@ -43,9 +43,6 @@ int   dxl_lastrun_error_line(const char *log_path, char *out, size_t size);
 /* The last lines of a log, at most max_lines; caller frees. NULL when
  * there is none. */
 char *dxl_lastrun_tail(const char *log_path, int max_lines);
-
-/* "SIGSEGV" for 11, ... ; "signal <n>" for one without a name here. */
-const char *dxl_signal_name(int sig, char *buf, size_t size);
 
 /* One line saying how a run ended: "exit 0", "exit 1: <the error>",
  * "killed by SIGSEGV". */

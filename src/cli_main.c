@@ -21,8 +21,8 @@
 #include "core/finder.h"
 #include "core/servers.h"
 #include "platform/gpu_probe.h"
+#include "platform/startup.h"
 
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,11 +32,6 @@
 #endif
 
 static volatile int stop;
-
-static void on_signal(int sig) {
-    (void)sig;
-    stop = 1;
-}
 
 static void usage(FILE *f) {
     fprintf(f,
@@ -243,12 +238,6 @@ int main(int argc, char **argv) {
         usage(stderr);
         return DXL_RUN_EXIT_USAGE;
     }
-    struct sigaction sa;
-    memset(&sa, 0, sizeof sa);
-    sa.sa_handler = on_signal;   /* no SA_RESTART: the wait ends at once */
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGHUP, &sa, NULL);
-    signal(SIGPIPE, SIG_IGN);
+    dxl_startup(&stop, NULL);
     return dxl_run_main(argc, argv, NULL, &stop);
 }
