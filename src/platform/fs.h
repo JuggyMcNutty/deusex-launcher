@@ -28,6 +28,11 @@ int    dxl_fs_is_absolute(const char *path);
 /* The user's home folder, or NULL when there is none. */
 const char *dxl_fs_home(void);
 
+/* dir/leaf by the name the file system stores: leaf as it is where names
+ * keep their case, the stored one where they take any (Windows'); NULL when
+ * nothing is there by that name. Caller frees. */
+char *dxl_fs_stored(const char *dir, const char *leaf);
+
 /* The running program's file. Caller frees; NULL if undeterminable. */
 char *dxl_fs_self(void);
 
