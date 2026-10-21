@@ -2,8 +2,8 @@
 #include "core/install.h"
 #include "core/paths.h"
 #include "core/sha1.h"
+#include "platform/fs.h"
 
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +22,7 @@ static void add_missing(dxl_install *in, const char *what) {
 
 int dxl_install_check(const char *root, dxl_install *out) {
     memset(out, 0, sizeof *out);
-    char *abs = realpath(root, NULL);
+    char *abs = dxl_fs_real(root);
     out->root = abs ? abs : dxl_xstrdup(root);
 
     char *sys = dxl_path_resolve_ci(out->root, "System");

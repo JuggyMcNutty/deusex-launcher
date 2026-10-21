@@ -1,13 +1,12 @@
 #define _GNU_SOURCE
 #include "core/mods.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 
 #include <dirent.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 /* The name's extension is ext ("u", "ini"), in any case. */
 static int has_ext(const char *name, const char *ext) {
@@ -75,7 +74,7 @@ static int stem_is(const char *ini, size_t stem, const char *name) {
 /* The mod's settings, and its controls beside them. */
 static void own_inis(dxl_mod *m) {
     char **names = names_in(m->system_dir);
-    char *real = realpath(m->dir, NULL);
+    char *real = dxl_fs_real(m->dir);
     const char *target = real ? dxl_path_basename(real) : NULL;
     const char *best = NULL;
     /* 4 named after the mod's folder (its link's name or its own), 3 with
@@ -119,18 +118,23 @@ static void own_inis(dxl_mod *m) {
 }
 
 /* dir made absolute, by the text: the working folder before a relative
- * one, "." and ".." taken out, no '/' at its end; a link in it kept, the
- * name the player gave the mod. Caller frees. */
+ * one, "." and ".." taken out, no '/' at its end but the root's; a link in
+ * it kept, the name the player gave the mod. Caller frees. */
 static char *absolute(const char *dir) {
-    char cwd[PATH_MAX];
-    char *joined = dir[0] == '/' ? dxl_xstrdup(dir) : dxl_path_join(getcwd(cwd, sizeof cwd) ? cwd : "/", dir);
+    char *cwd = dxl_fs_is_absolute(dir) ? NULL : dxl_fs_cwd();
+    char *joined = cwd ? dxl_path_join(cwd, dir) : dxl_xstrdup(dir);
+    free(cwd);
+    /* The root as it is ("/", "C:/"), the names after it one by one. */
+    size_t root = dxl_fs_root_len(joined);
+    if (root && joined[root - 1] == '/') root--;
     char *out = dxl_xmalloc(strlen(joined) + 2);
-    size_t len = 0;
-    out[0] = '\0';
-    for (char *save = NULL, *part = strtok_r(joined, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+    memcpy(out, joined, root);
+    out[root] = '\0';
+    size_t len = root;
+    for (char *save = NULL, *part = strtok_r(joined + root, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
         if (!strcmp(part, ".")) continue;
         if (!strcmp(part, "..")) {
-            char *up = strrchr(out, '/');
+            char *up = strrchr(out + root, '/');
             if (up) *up = '\0';
             len = strlen(out);
             continue;
@@ -139,7 +143,7 @@ static char *absolute(const char *dir) {
         strcpy(out + len, part);
         len += strlen(part);
     }
-    if (!len) strcpy(out, "/");
+    if (len == root) strcpy(out + root, "/");
     free(joined);
     return out;
 }
@@ -246,7 +250,8 @@ void dxl_mod_list_free(dxl_mod_list *l) {
  * each name the one there of it, whatever its case, else as it is; "." and
  * ".." taken out. An absolute rel is itself. Caller frees. */
 static char *resolve(const char *base, const char *rel) {
-    char *cur = dxl_xstrdup(rel[0] == '/' ? "/" : base);
+    char *cur = dxl_fs_is_absolute(rel) ? dxl_xstrndup(rel, dxl_fs_root_len(rel)) : dxl_xstrdup(base);
+    rel += dxl_fs_root_len(rel);
     char *copy = dxl_xstrdup(rel);
     for (char *save = NULL, *part = strtok_r(copy, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
         if (!strcmp(part, ".")) continue;
@@ -291,7 +296,7 @@ char *dxl_mod_folder(const char *value, const char *game_system_dir, const dxl_m
     /* The mod's folder by the name it was found by, a link's kept: its own
      * folder's names under it. */
     char *folder = resolve(game_system_dir, v);
-    char *real = realpath(folder, NULL), *mine = realpath(m->dir, NULL);
+    char *real = dxl_fs_real(folder), *mine = dxl_fs_real(m->dir);
     char *found = NULL;
     if (real && mine && inside(real, mine)) {
         const char *under = real + strlen(mine);

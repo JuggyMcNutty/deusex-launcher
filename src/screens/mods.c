@@ -12,6 +12,7 @@
 #include "screens/shell.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 #include "ui/controls.h"
 #include "ui/draw.h"
 #include "ui/text.h"
@@ -209,7 +210,7 @@ void dxl_page_mods(dxl_shell *s, dxl_rect r) {
     } else if (b_make && sel >= 0) {
         start_mod(s, &s->mods.items[sel]);
     } else if (b_browse) {
-        const char *home = getenv("HOME");
+        const char *home = dxl_fs_home();
         dxl_browser_open(s, sel >= 0 ? s->mods.items[sel].dir : home ? home : "/", DXL_BROWSE_MOD);
     } else if (b_dialog) {
         dxl_shell_pick_folder(s, DXL_BROWSE_MOD);

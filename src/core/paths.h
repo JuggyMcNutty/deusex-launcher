@@ -56,10 +56,9 @@ int  dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *e
  * there. */
 long dxl_path_mtime(const char *p);
 
-/* Replaces path with data whole or not at all: written to a temporary file
- * beside it (mkstemp), synced, given the old file's mode (0644 for a new
- * one), renamed over it, and the folder synced. A crash or a power cut
- * leaves the old file or the new one, never half of either. */
+/* Replaces path with data whole or not at all (platform/fs.h,
+ * dxl_fs_write_atomic): a crash or a power cut leaves the old file or the
+ * new one, never half of either. */
 int  dxl_path_write_atomic(const char *path, const void *data, size_t len, dxl_err *err);
 
 /* Full path of the running executable, for the safe-mode re-exec

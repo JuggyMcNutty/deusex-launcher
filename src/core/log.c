@@ -1,4 +1,5 @@
 #include "core/log.h"
+#include "platform/fs.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -12,14 +13,14 @@ static int   log_to_file = 1;
 
 void dxl_log_set_to_file(int on) { log_to_file = on; }
 
-/* "e": not inherited by a program the launcher starts. */
-static void open_mode(const char *path, const char *mode) {
+/* Never inherited by a program the launcher starts. */
+static void open_log(const char *path) {
     if (log_file) { fclose(log_file); log_file = NULL; }
     if (!log_to_file || !path) return;
-    log_file = fopen(path, mode);
+    log_file = dxl_fs_open_log(path);
 }
 
-void dxl_log_open(const char *path) { open_mode(path, "abe"); }
+void dxl_log_open(const char *path) { open_log(path); }
 /* Emptied first, then written in append mode like the other: whatever a
  * child adds to the same file meanwhile is not written over. */
 void dxl_log_open_new(const char *path) {
@@ -27,7 +28,7 @@ void dxl_log_open_new(const char *path) {
         FILE *f = fopen(path, "wb");
         if (f) fclose(f);
     }
-    open_mode(path, "abe");
+    open_log(path);
 }
 
 void dxl_log_close(void) {
