@@ -28,7 +28,7 @@ static int wait_end(dxl_game *g, int ms, char *said, size_t size) {
     if (size) said[0] = '\0';
     for (int waited = 0; waited < ms; waited += 20) {
         char line[1024];
-        int ev = dxl_game_wait(g, -1, 20, line, sizeof line);
+        int ev = dxl_game_wait(g, NULL, 20, line, sizeof line);
         if (ev & DXL_GAME_LINE) append(said, size, line);
         if (ev & DXL_GAME_ENDED) return 1;
     }
@@ -98,7 +98,7 @@ static void test_line(void) {
     char line[256];
     int hello = 0, ready = 0;
     for (int i = 0; i < 250 && !ready; i++) {
-        if (dxl_game_wait(&g, -1, 20, line, sizeof line) & DXL_GAME_LINE) {
+        if (dxl_game_wait(&g, NULL, 20, line, sizeof line) & DXL_GAME_LINE) {
             if (strcmp(line, "hello") == 0) hello = 1;
             if (strcmp(line, "ready") == 0) ready = 1;
         }

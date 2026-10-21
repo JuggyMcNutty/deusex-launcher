@@ -1,7 +1,7 @@
 /* One start of the launcher, from its command line to the game's end:
  *
  *   1. A second start hands its command line to the launcher that runs
- *      (core/instance.h) and ends -- unless the line holds one of the
+ *      (platform/instance.h) and ends -- unless the line holds one of the
  *      original's four bypass words (Server, NewWindow, changevideo,
  *      TestRenDev).
  *   2. The folders, launcher.ini, the active profile (app/session.h). No
@@ -34,7 +34,7 @@
 #include "app/session.h"
 #include "core/config.h"
 #include "core/engine_args.h"
-#include "core/instance.h"
+#include "platform/instance.h"
 #include "core/lastrun.h"
 #include "core/policy.h"
 #include "core/renderers.h"

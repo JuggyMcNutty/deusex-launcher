@@ -64,8 +64,7 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
     int since_term = 0;
     for (;;) {
         char line[1024];
-        int ev = dxl_game_wait(&g, dxl_instance_fd(req->instance), out->stopped ? STOPPING_MS : WAKE_MS,
-                               line, sizeof line);
+        int ev = dxl_game_wait(&g, req->instance, out->stopped ? STOPPING_MS : WAKE_MS, line, sizeof line);
         if (ev & DXL_GAME_LINE) {
             if (strcmp(line, "hello") == 0) {
                 out->hello = 1;

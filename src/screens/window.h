@@ -5,8 +5,8 @@
  * renderer and SDL's gamepads given up, so the game has the pads to itself;
  * the next screen opens it again. While it is up it costs nothing idle: it
  * waits on its events, drawing only while something moves, VSync-paced. A
- * second start's command line (core/instance.h) and a signal wake it, by a
- * thread that waits on both.
+ * second start's command line (platform/instance.h) and a signal wake it,
+ * by a thread that waits on both (platform/wait.h).
  */
 #ifndef DXL_WINDOW_H
 #define DXL_WINDOW_H

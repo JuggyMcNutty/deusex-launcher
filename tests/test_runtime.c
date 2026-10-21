@@ -1,6 +1,6 @@
 #include "test.h"
 #include "core/sentinel.h"
-#include "core/instance.h"
+#include "platform/instance.h"
 #include "core/paths.h"
 
 #include <sys/stat.h>
@@ -147,13 +147,13 @@ static void test_handoff_delivers_the_command_line(void) {
 static void test_lock_without_channel(void) {
     dxl_instance *server = dxl_instance_acquire_lock(g_root);
     CHECK(server != NULL);
-    CHECK_INT(dxl_instance_fd(server), -1);
+    CHECK_INT(dxl_instance_listens(server), 0);
     CHECK_INT(dxl_instance_other_running(g_root), 1);
     dxl_err e;
     CHECK(dxl_instance_forward(g_root, "map", 1000, &e) != 0);
     dxl_instance_release(server);
     dxl_instance *client = dxl_instance_acquire(g_root);
-    CHECK(dxl_instance_fd(client) >= 0);
+    CHECK(dxl_instance_listens(client));
     dxl_instance_release(client);
 }
 
