@@ -92,7 +92,7 @@ static void listed(void *ctx, const char *address, int port) { listed_as(ctx, ad
 
 /* The local network asked, as DeusExLocalLink asks it: REPORTQUERY to each
  * of the ten beacon ports at its broadcast addresses, or at DXL_LAN's. */
-static void lan_ask(int fd, const dxl_browse_lan *lan, const atomic_int *stop) {
+static void lan_ask(dxl_socket fd, const dxl_browse_lan *lan, const atomic_int *stop) {
     char to[16][64];
     int n = 0;
     if (lan->to[0]) {
@@ -120,7 +120,7 @@ static int beacon_answer(const dxl_browse_lan *lan, const char *text) {
  * asked again, its answer begun again, as the game asks till final comes.
  * With lan, what the beacons answer till lan_until at least: each server
  * one names asked too. */
-static void ask_all(asking *q, int fd, const dxl_browse_lan *lan, long lan_until, const atomic_int *stop) {
+static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long lan_until, const atomic_int *stop) {
     long t = now_ms();
     for (int i = 0; i < q->count; i++) {
         dxl_udp_send(fd, q->a[i].address, q->a[i].port, STATUS, 8);
@@ -204,8 +204,8 @@ static int master_list(const char *master, asking *q, const atomic_int *stop, dx
     }
     char address[64];
     if (dxl_net_resolve(host, address, sizeof address, RESOLVE_MS, stop, err) != 0) return -1;
-    int fd = dxl_tcp_connect(address, port, CONNECT_MS, err);
-    if (fd < 0) return -1;
+    dxl_socket fd = dxl_tcp_connect(address, port, CONNECT_MS, err);
+    if (fd == DXL_SOCKET_NONE) return -1;
 
     char *text = dxl_xmalloc(LIST_MAX + 1);
     text[0] = '\0';
@@ -277,10 +277,10 @@ int dxl_browse(const char *master, const char *const *also, const dxl_browse_lan
     /* The beacons first, their answers waiting on the socket while the
      * master is asked. */
     dxl_err e;
-    int fd = dxl_udp_open(&e);
+    dxl_socket fd = dxl_udp_open(&e);
     if (lan && lan->none) lan = NULL;
     long lan_until = 0;
-    if (fd >= 0 && lan) {
+    if (fd != DXL_SOCKET_NONE && lan) {
         lan_ask(fd, lan, stop);
         lan_until = now_ms() + LAN_MS;
     }
@@ -295,8 +295,8 @@ int dxl_browse(const char *master, const char *const *also, const dxl_browse_lan
             listed(&q, at, port);
     }
     int rc = master && *master ? master_list(master, &q, stop, err) : 0;
-    if (fd >= 0 && (q.count || lan)) ask_all(&q, fd, lan, lan_until, stop);
-    if (fd >= 0) dxl_net_close(fd);
+    if (fd != DXL_SOCKET_NONE && (q.count || lan)) ask_all(&q, fd, lan, lan_until, stop);
+    if (fd != DXL_SOCKET_NONE) dxl_net_close(fd);
     finish(&q);
     return rc;
 }
