@@ -23,9 +23,9 @@ tailoring, each a commit of its own on top of linux-aarch64's
 an SDL3 video driver for the device's framebuffer and EGL, the spruceOS
 app, the CPU modes, the big screen alone, no desktop, deleting for good, a
 pad without stick clicks, spruceOS's Ports folder, the device's data.
-Cross-built it makes `deusex-launcher` and `dxl-cli`; its host build,
-`ports/linux-x86_64/port.cmake` and its preset, makes them and `dxl-shots`
-for the PC and runs the tests. Nothing merges into it, `main` included: a
+Cross-built it makes `deusex-launcher`, `dxl-cli` and `dxl-shots`; its host
+build, `ports/linux-x86_64/port.cmake` and its preset, makes them for the PC
+and runs the tests. Nothing merges into it, `main` included: a
 change from linux-aarch64 comes over by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 The tabbed launcher is tag `trimui-smartpro-tabbed`.

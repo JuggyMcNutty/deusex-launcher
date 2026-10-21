@@ -288,7 +288,8 @@ network's, as the game's Join LAN screen adds it (the client's LAN speed),
 and `?password=` after that when it asks for one; the launcher's log and
 the last run keep where it went, not the password.
 
-A `deusex://host:port` link on the command line opens Multiplayer asking whether to join its server; with `--play`, with no
+A `deusex://host:port` link on the command line opens Multiplayer asking
+whether to join its server; with `--play`, with no
 window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
 is half done there -- a dialog, the game's folder or a profile being
@@ -467,8 +468,8 @@ multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
 a first run's engine defaults among them. Its
 Renderer offers the engine's renderers that run here, Vulkan and OpenGL
-ES 3.2 (`data/renderers.ini`), the Smart Pro's two, which `dxl-cli --probe --ini`
-finds in a child process as the page needs them.
+ES 3.2 (`data/renderers.ini`), the Smart Pro's two, which
+`dxl-cli --probe --ini` finds in a child process as the page needs them.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -622,8 +623,9 @@ SIGTERM at its next frame, so only a stuck one is killed.
 **The game hook**: `port-hooks.sh` beside the launcher, the Smart Pro's,
 run with `/bin/sh` around each game (`src/app/gamehook.c`):
 `before <CPU mode>` once the window is gone, `after` once the game has
-ended, however it ended. Each runs at most 10 s, its output in the run's `last-run.log`
-and a line in `launcher.log`; one missing, failing or late never stops
+ended, however it ended. Each runs at most 10 s, its output in the run's
+`last-run.log` and a line in `launcher.log`; one missing, failing or late
+never stops
 the game. The Smart Pro's sets the CPU mode with spruceOS's own helpers
 and puts back the state from before, kept in `/tmp/dxlauncher-cpu`,
 written only where there is none: a launcher killed mid-game leaves the
@@ -721,10 +723,10 @@ page and dialog, each settings page too, from states it makes up in a
 scratch home, at the Smart Pro's 1280x720 on the big screen, with the
 keyboard, the mouse and four virtual pads, and fails on
 any diagnostic of the kit's: a label cut short, focusables on one another
-or off the window (`test_ui_shots_1280x720big`); with `--out=<dir>` it writes them as
-PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
-window a script of keys, text, controls found by their labels, virtual
-controllers, page checks and shots, through its own event queue
+or off the window (`test_ui_shots_1280x720big`); with `--out=<dir>` it writes
+them as PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>`
+gives the window a script of keys, text, controls found by their labels,
+virtual controllers, page checks and shots, through its own event queue
 (`src/screens/uiscript.h`): a first
 run from a fresh home to the game and its clean end, a crash into Recovery,
 and a second start handed over are run that way. `test_ui_scripts` runs
