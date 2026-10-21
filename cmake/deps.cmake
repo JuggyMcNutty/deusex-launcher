@@ -144,4 +144,11 @@ target_include_directories(dxl_sdl INTERFACE "${dxl_prefix}/include")
 target_compile_definitions(dxl_sdl INTERFACE DXL_XMP_LITE LIBXMP_STATIC)
 target_link_libraries(dxl_sdl INTERFACE
     "${dxl_prefix}/lib/libSDL3_ttf.a" "${dxl_prefix}/lib/libfreetype.a" "${dxl_prefix}/lib/libSDL3.a"
-    "${dxl_prefix}/lib/libxmp-lite.a" m ${CMAKE_DL_LIBS} pthread rt)
+    "${dxl_prefix}/lib/libxmp-lite.a")
+if(WIN32)
+    # What a static SDL3 links on Windows (its CMakeLists.txt's).
+    target_link_libraries(dxl_sdl INTERFACE kernel32 user32 gdi32 winmm imm32 ole32 oleaut32 version uuid
+        advapi32 setupapi shell32)
+else()
+    target_link_libraries(dxl_sdl INTERFACE m ${CMAKE_DL_LIBS} pthread rt)
+endif()

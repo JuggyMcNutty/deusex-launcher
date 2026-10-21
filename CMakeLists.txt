@@ -26,6 +26,10 @@ set(DXL_PORT_LINK_OPTIONS "")   # extra link options for the programs
 set(DXL_PORT_DEPS_DEFAULT "auto")   # where SDL3, SDL3_ttf and libxmp come from: auto, system, vendored
 set(DXL_PORT_DEPS_ENV "")       # VAR=value words for the vendored libraries' configure steps
 set(DXL_PORT_DEPS_C_FLAGS "")   # and their C flags
+set(DXL_PORT_WINDOWS_MIN "")    # e.g. 10.0.18362: Windows' version the programs need, and its DLLs alone
+set(DXL_PORT_LAUNCHER_SOURCES "")   # the programs' own further sources: Windows' resources
+set(DXL_PORT_CLI_SOURCES "")
+set(DXL_PORT_TEST_SOURCES "")
 include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
 set(DXL_PORT_DEPS "${DXL_PORT_DEPS_DEFAULT}" CACHE STRING
     "Where SDL3, SDL3_ttf and libxmp come from: auto, system or vendored (cmake/deps.cmake)")
@@ -36,8 +40,25 @@ function(dxl_check_abi target)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND "${DXL_ROOT}/scripts/check-abi.sh" --max "${DXL_PORT_GLIBC_MAX}" "$<TARGET_FILE:${target}>"
             COMMENT "checking glibc ABI of ${target} against ${DXL_PORT_GLIBC_MAX}")
+    elseif(DXL_PORT_WINDOWS_MIN)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${DXL_ROOT}/scripts/check-abi.sh" --windows "${DXL_PORT_WINDOWS_MIN}" "$<TARGET_FILE:${target}>"
+            COMMENT "checking ${target}'s DLLs and Windows version against ${DXL_PORT_WINDOWS_MIN}")
     endif()
 endfunction()
+
+# The platform's code: POSIX's, or on Windows win32's, with the UCRT's
+# localtime_r (mingw-w64's, for POSIX's thread-safe calls) and the resource
+# compiler for the programs' manifest and version.
+if(WIN32)
+    set(DXL_OS win32)
+    set(DXL_PLACES src/core/finder_places_win32.c)
+    add_compile_definitions(_POSIX_THREAD_SAFE_FUNCTIONS=200112L)
+    enable_language(RC)
+else()
+    set(DXL_OS posix)
+    set(DXL_PLACES src/core/finder_places.c)
+endif()
 
 # The launcher's version, for --version: the branch's commit at configure
 # time (run cmake again after a commit to refresh it).
@@ -89,7 +110,7 @@ add_library(dxl_core STATIC
     src/core/gamespy.c
     src/core/servers.c
     src/core/finder.c
-    src/core/finder_places.c
+    ${DXL_PLACES}
     src/core/settings.c
     src/core/settings_table.c
     src/core/advice.c
@@ -102,26 +123,30 @@ add_library(dxl_core STATIC
     src/core/theme_colors.c
     src/core/saves.c
     src/core/shotlist.c
-    src/platform/posix/fs.c
-    src/platform/posix/folders.c
-    src/platform/posix/instance.c
-    src/platform/posix/wait.c
-    src/platform/posix/os.c
+    src/platform/${DXL_OS}/fs.c
+    src/platform/${DXL_OS}/folders.c
+    src/platform/${DXL_OS}/instance.c
+    src/platform/${DXL_OS}/wait.c
+    src/platform/${DXL_OS}/os.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
+if(WIN32)
+    # Known Folders, links and the registry; the shell's paths.
+    target_link_libraries(dxl_core PUBLIC shell32 ole32 uuid advapi32 shlwapi)
+endif()
 
 # What is the platform's: what ends a start from outside
 # (platform/startup.h), the processes the launcher starts, the game among
 # them (platform/process.h), the crash-isolated GPU probe, the app menu's
 # entry, the desktop's trash, and the network.
 add_library(dxl_platform STATIC
-    src/platform/posix/startup.c
-    src/platform/posix/process.c
-    src/platform/posix/gpu_probe.c
-    src/platform/posix/desktop.c
-    src/platform/posix/trash.c
-    src/platform/posix/net.c
+    src/platform/${DXL_OS}/startup.c
+    src/platform/${DXL_OS}/process.c
+    src/platform/${DXL_OS}/gpu_probe.c
+    src/platform/${DXL_OS}/desktop.c
+    src/platform/${DXL_OS}/trash.c
+    src/platform/${DXL_OS}/net.c
 )
 # The GPU probe dlopens the Vulkan loader and EGL rather than linking them;
 # their headers come from the sysroot on a cross build, else the host's.
@@ -130,6 +155,11 @@ if(DXL_PORT_INCLUDE_DIRS)
 endif()
 find_package(Threads REQUIRED)
 target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS} Threads::Threads)
+if(WIN32)
+    # Winsock and the adapters' addresses; the GPU probe's GL and DXGI; the
+    # shell's links and windows.
+    target_link_libraries(dxl_platform PUBLIC ws2_32 iphlpapi opengl32 dxgi user32 gdi32)
+endif()
 
 # One start of the launcher and the game it plays (src/app/run.h), shared
 # by both programs.
@@ -187,9 +217,12 @@ target_link_libraries(dxl_screens PUBLIC dxl_ui dxl_app)
 
 # deusex-launcher, the launcher; dxl-cli, the same with no window, for
 # scripts and for looking.
-add_executable(deusex-launcher src/main.c)
+add_executable(deusex-launcher src/main.c ${DXL_PORT_LAUNCHER_SOURCES})
 target_link_libraries(deusex-launcher PRIVATE dxl_screens)
-add_executable(dxl-cli src/cli_main.c)
+# Windows' GUI program: no console of its own (platform/win32/startup.c
+# attaches to its parent's for --help and --version).
+set_target_properties(deusex-launcher PROPERTIES WIN32_EXECUTABLE TRUE)
+add_executable(dxl-cli src/cli_main.c ${DXL_PORT_CLI_SOURCES})
 target_link_libraries(dxl-cli PRIVATE dxl_app)
 foreach(program deusex-launcher dxl-cli)
     target_compile_definitions(${program} PRIVATE DXL_VERSION="${DXL_VERSION}")
@@ -211,15 +244,18 @@ target_include_directories(dxl-shots PRIVATE tests)
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
 # programs, data/ and the notices of what is in them.
 install(TARGETS deusex-launcher dxl-cli RUNTIME DESTINATION .)
-install(FILES data/renderers.ini data/engine-settings.json.default
-              data/io.github.juggymcnutty.DXLauncher.desktop.in DESTINATION data)
+install(FILES data/renderers.ini data/engine-settings.json.default DESTINATION data)
+if(NOT WIN32)
+    install(FILES data/io.github.juggymcnutty.DXLauncher.desktop.in DESTINATION data)
+endif()
 install(DIRECTORY data/fonts DESTINATION data)
 install(FILES THIRD-PARTY.md DESTINATION .)
 
 # ---------------------------------------------------------------------------
-# tests -- native builds only; none needs a display.
+# tests -- native builds, and a cross build with an emulator to run them
+# (Windows', under Wine); none needs a display.
 # ---------------------------------------------------------------------------
-if(NOT CMAKE_CROSSCOMPILING)
+if(NOT CMAKE_CROSSCOMPILING OR CMAKE_CROSSCOMPILING_EMULATOR)
     enable_testing()
     add_subdirectory(tests)
 endif()

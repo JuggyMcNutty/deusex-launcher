@@ -1,0 +1,5 @@
+// The tests' resources: the programs' manifest (app.manifest), for the
+// UTF-8 code page their paths need.
+#include <winuser.h>
+
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"

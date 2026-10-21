@@ -15,12 +15,18 @@
     {
       "name": "linux-x86_64",
       "inherits": "port",
-      "displayName": "Linux x86_64 (glibc 2.28, by the SDK of the port's toolchain file; deusex-launcher, dxl-cli and the tests)",
-      "toolchainFile": "${sourceDir}/ports/linux-x86_64/toolchain.cmake"
+      "displayName": "Linux x86_64 (native: the host build, deusex-launcher, dxl-cli, dxl-shots and the tests)"
+    },
+    {
+      "name": "windows-x86_64",
+      "inherits": "port",
+      "displayName": "Windows x86_64 (cross, by llvm-mingw: deusex-launcher.exe, dxl-cli.exe and the tests, run under Wine)",
+      "toolchainFile": "${sourceDir}/ports/windows-x86_64/toolchain.cmake"
     }
   ],
   "buildPresets": [
-    { "name": "linux-x86_64",    "configurePreset": "linux-x86_64" }
+    { "name": "linux-x86_64",    "configurePreset": "linux-x86_64" },
+    { "name": "windows-x86_64",  "configurePreset": "windows-x86_64" }
   ],
   "testPresets": [
     {
@@ -28,6 +34,12 @@
       "configurePreset": "linux-x86_64",
       "output": { "outputOnFailure": true },
       "execution": { "jobs": 8 }
+    },
+    {
+      "name": "windows-x86_64",
+      "configurePreset": "windows-x86_64",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
     }
   ]
 }

@@ -1,10 +1,13 @@
-# Host-only. Nothing here needs a display but test_ui_scripts, which runs
-# on the desktop's and is skipped without one: the UI's other tests draw
-# with SDL's software renderer on a surface.
+# The host's, and Windows' under Wine but for POSIX's own (below). Nothing
+# here needs a display but test_ui_scripts, which runs on the desktop's and
+# is skipped without one: the UI's other tests draw with SDL's software
+# renderer on a surface.
 set(DXL_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 
+# On Windows, each test with the programs' manifest: the UTF-8 code page
+# their paths need (ports/windows-x86_64/win32/test.rc).
 function(dxl_test name)
-    add_executable(${name} ${name}.c)
+    add_executable(${name} ${name}.c ${DXL_PORT_TEST_SOURCES})
     target_link_libraries(${name} PRIVATE dxl_core)
     target_include_directories(${name} PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_definitions(${name} PRIVATE DXL_FIXTURES="${DXL_FIXTURES}")
@@ -22,7 +25,6 @@ dxl_test(test_json)
 dxl_test(test_engine_settings)
 dxl_test(test_renderers)
 dxl_test(test_bindings)
-dxl_test(test_xdg)
 dxl_test(test_gamedb)
 dxl_test(test_install)
 dxl_test(test_profile)
@@ -32,7 +34,6 @@ dxl_test(test_vdf)
 dxl_test(test_bigscreen)
 dxl_test(test_gamespy)
 dxl_test(test_servers)
-dxl_test(test_finder)
 dxl_test(test_mods)
 dxl_test(test_advice)
 dxl_test(test_keys)
@@ -44,14 +45,7 @@ dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
 
-dxl_test(test_desktop)
-target_link_libraries(test_desktop PRIVATE dxl_platform)
-dxl_test(test_trash)
-target_link_libraries(test_trash PRIVATE dxl_platform)
-# The server browser against a master and servers of its own on 127.0.0.1.
 find_package(Threads REQUIRED)
-dxl_test(test_browser)
-target_link_libraries(test_browser PRIVATE dxl_app Threads::Threads)
 
 # The UI kit: focus and navigation, text, input from the keyboard, the
 # mouse and virtual pads.
@@ -74,6 +68,23 @@ foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600- 1920x10
     string(REPLACE "-" "" name "${size}")
     add_test(NAME test_ui_shots_${name} COMMAND dxl-shots --only=${size})
 endforeach()
+
+# POSIX's own, not Windows': the XDG folders, the finder's Linux places,
+# the desktop entry and the trash as freedesktop.org has them, the server
+# browser's master and servers of its own on 127.0.0.1, the processes the
+# launcher starts and the game's run with a stand-in for the engine, the
+# real game files' checks and the UI's scripts, all on POSIX's calls.
+if(WIN32)
+    return()
+endif()
+dxl_test(test_xdg)
+dxl_test(test_finder)
+dxl_test(test_desktop)
+target_link_libraries(test_desktop PRIVATE dxl_platform)
+dxl_test(test_trash)
+target_link_libraries(test_trash PRIVATE dxl_platform)
+dxl_test(test_browser)
+target_link_libraries(test_browser PRIVATE dxl_app Threads::Threads)
 
 # The processes the launcher starts and the game's run, with a stand-in for
 # the engine (stub_engine.c) in its place.
