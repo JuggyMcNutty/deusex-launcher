@@ -217,27 +217,9 @@ int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
     char *dirs[4];
     dxl_profile_folders(&p, dirs);
     dxl_profile_free(&p);
-    int rc = 0, gone = 0;
-    char names[4][512];
-    /* All of them, or none: each checked before any goes, and those gone
-     * put back when a later one cannot go. */
-    for (int i = 0; i < 4 && rc == 0; i++)
-        if (dxl_path_exists(dirs[i]) && !dxl_trash_can(dirs[i], s->xdg.data_home)) {
-            dxl_err_set(err, "%s is not on the trash's filesystem: nothing was deleted", dirs[i]);
-            rc = -1;
-        }
-    for (; gone < 4 && rc == 0; gone++) {
-        names[gone][0] = '\0';
-        if (dxl_path_exists(dirs[gone]))
-            rc = dxl_trash(dirs[gone], s->xdg.data_home, names[gone], sizeof names[gone], err);
-    }
-    if (rc != 0) {
-        for (int i = gone - 2; i >= 0; i--)
-            if (names[i][0] && dxl_trash_undo(s->xdg.data_home, names[i], dirs[i], NULL) != 0)
-                dxl_log("warning: %s stays in the trash as %s", dirs[i], names[i]);
-    } else {
-        dxl_log("profile %s: to the trash", id);
-    }
+    /* All of them, or none. */
+    int rc = dxl_trash_all(dirs, 4, s->xdg.data_home, err);
+    if (rc == 0) dxl_log("profile %s: to the trash", id);
     for (int i = 0; i < 4; i++) free(dirs[i]);
     return rc;
 }

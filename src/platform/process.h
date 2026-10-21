@@ -69,6 +69,8 @@ void dxl_game_close(dxl_game *g);
 /* Opens a URL with the desktop's handler, not waiting for it -- the
  * original's ShellExecute of a web page. */
 int  dxl_open_url(const char *url);
+/* Opens a file or a folder so, a folder in the file manager. */
+int  dxl_open_path(const char *path);
 
 /* Runs argv to its end, at most timeout_ms (then it is killed), its output
  * into out and its errors into errs (NULL: nowhere), each cut at its size

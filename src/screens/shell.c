@@ -644,18 +644,7 @@ void dxl_shell_begin_defaults(dxl_shell *s) {
 
 void dxl_shell_open(dxl_shell *s, const char *path) {
     if (!s->window || !path) return;
-    /* A file URL, its bytes outside the unreserved ones escaped. */
-    char url[4096];
-    size_t n = snprintf(url, sizeof url, "file://");
-    for (const unsigned char *p = (const unsigned char *)path; *p && n + 4 < sizeof url; p++) {
-        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') ||
-            strchr("/-._~", *p))
-            url[n++] = (char)*p;
-        else
-            n += snprintf(url + n, sizeof url - n, "%%%02X", *p);
-    }
-    url[n] = '\0';
-    if (dxl_open_url(url) != 0) dxl_shell_toast(s, "Nothing opened %s", path);
+    if (dxl_open_path(path) != 0) dxl_shell_toast(s, "Nothing opened %s", path);
 }
 
 void dxl_shell_probe(dxl_shell *s) {

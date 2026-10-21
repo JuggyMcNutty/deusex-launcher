@@ -24,4 +24,9 @@ int dxl_trash(const char *path, const char *data_home, char *name, size_t name_s
 /* What went to the trash under name back at path, its .trashinfo gone. */
 int dxl_trash_undo(const char *data_home, const char *name, const char *path, dxl_err *err);
 
+/* The n paths there into data_home's trash, all of them or none: each
+ * checked before any goes, and those gone put back when a later one
+ * cannot go. 0, or -1 and why. */
+int dxl_trash_all(char *const paths[], int n, const char *data_home, dxl_err *err);
+
 #endif
