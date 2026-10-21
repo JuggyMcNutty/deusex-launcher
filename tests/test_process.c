@@ -271,6 +271,7 @@ static void test_engine_check(void) {
     CHECK(found && strcmp(found, p) == 0);
     free(found);
     free(p);
+    scratch_remove(dir);
 }
 
 /* The engine chosen is launcher.ini's, the launcher's own its absence;
