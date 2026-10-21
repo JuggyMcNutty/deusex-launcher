@@ -140,21 +140,21 @@ static int wait_for(int fd, short what, int timeout_ms) {
     }
 }
 
-int dxl_tcp_connect(const char *address, int port, int timeout_ms, dxl_err *err) {
+dxl_socket dxl_tcp_connect(const char *address, int port, int timeout_ms, dxl_err *err) {
     struct sockaddr_in sa;
     if (to_sockaddr(address, port, &sa) != 0) {
         dxl_err_set(err, "%s is no IPv4 address", address);
-        return -1;
+        return DXL_SOCKET_NONE;
     }
     int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd < 0) {
         dxl_err_set(err, "no socket: %s", strerror(errno));
-        return -1;
+        return DXL_SOCKET_NONE;
     }
     if (connect(fd, (struct sockaddr *)&sa, sizeof sa) != 0 && errno != EINPROGRESS) {
         dxl_err_set(err, "%s:%d: %s", address, port, strerror(errno));
         close(fd);
-        return -1;
+        return DXL_SOCKET_NONE;
     }
     int ready = wait_for(fd, POLLOUT, timeout_ms);
     int so = 0;
@@ -162,12 +162,13 @@ int dxl_tcp_connect(const char *address, int port, int timeout_ms, dxl_err *err)
     if (ready <= 0 || getsockopt(fd, SOL_SOCKET, SO_ERROR, &so, &len) != 0 || so != 0) {
         dxl_err_set(err, "%s:%d: %s", address, port, ready == 0 ? "no answer" : strerror(so ? so : errno));
         close(fd);
-        return -1;
+        return DXL_SOCKET_NONE;
     }
     return fd;
 }
 
-int dxl_tcp_send(int fd, const char *data, size_t len, int timeout_ms) {
+int dxl_tcp_send(dxl_socket s, const char *data, size_t len, int timeout_ms) {
+    int fd = (int)s;
     while (len) {
         if (wait_for(fd, POLLOUT, timeout_ms) <= 0) return -1;
         ssize_t n = send(fd, data, len, MSG_NOSIGNAL);
@@ -181,7 +182,8 @@ int dxl_tcp_send(int fd, const char *data, size_t len, int timeout_ms) {
     return 0;
 }
 
-long dxl_tcp_recv(int fd, char *buf, size_t size, int timeout_ms) {
+long dxl_tcp_recv(dxl_socket s, char *buf, size_t size, int timeout_ms) {
+    int fd = (int)s;
     int ready = wait_for(fd, POLLIN, timeout_ms);
     if (ready < 0) return -1;
     if (ready == 0) return -2;
@@ -193,13 +195,17 @@ long dxl_tcp_recv(int fd, char *buf, size_t size, int timeout_ms) {
     }
 }
 
-int dxl_udp_open(dxl_err *err) {
+dxl_socket dxl_udp_open(dxl_err *err) {
     int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-    if (fd < 0) dxl_err_set(err, "no socket: %s", strerror(errno));
+    if (fd < 0) {
+        dxl_err_set(err, "no socket: %s", strerror(errno));
+        return DXL_SOCKET_NONE;
+    }
     return fd;
 }
 
-int dxl_udp_broadcast(int fd) {
+int dxl_udp_broadcast(dxl_socket s) {
+    int fd = (int)s;
     int on = 1;
     return setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &on, sizeof on) == 0 ? 0 : -1;
 }
@@ -223,7 +229,8 @@ int dxl_net_broadcasts(char (*out)[64], int max) {
     return n;
 }
 
-int dxl_udp_send(int fd, const char *address, int port, const char *data, size_t len) {
+int dxl_udp_send(dxl_socket s, const char *address, int port, const char *data, size_t len) {
+    int fd = (int)s;
     struct sockaddr_in sa;
     if (to_sockaddr(address, port, &sa) != 0) return -1;
     for (;;) {
@@ -233,7 +240,9 @@ int dxl_udp_send(int fd, const char *address, int port, const char *data, size_t
     }
 }
 
-long dxl_udp_recv(int fd, char *buf, size_t size, int timeout_ms, char *from, size_t from_size, int *from_port) {
+long dxl_udp_recv(dxl_socket s, char *buf, size_t size, int timeout_ms, char *from, size_t from_size,
+                  int *from_port) {
+    int fd = (int)s;
     int ready = wait_for(fd, POLLIN, timeout_ms);
     if (ready < 0) return -1;
     if (ready == 0) return -2;
@@ -249,6 +258,6 @@ long dxl_udp_recv(int fd, char *buf, size_t size, int timeout_ms, char *from, si
     }
 }
 
-void dxl_net_close(int fd) {
-    if (fd >= 0) close(fd);
+void dxl_net_close(dxl_socket s) {
+    if (s != DXL_SOCKET_NONE) close((int)s);
 }
