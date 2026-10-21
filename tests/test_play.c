@@ -2,7 +2,7 @@
 #include "scratch.h"
 #include "app/play.h"
 #include "app/run.h"
-#include "core/instance.h"
+#include "platform/instance.h"
 
 #include <signal.h>
 #include <time.h>

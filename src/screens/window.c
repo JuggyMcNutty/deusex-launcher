@@ -8,18 +8,15 @@
 #include "core/paths.h"
 #include "platform/fs.h"
 #include "platform/process.h"
+#include "platform/wait.h"
 #include "ui/icon.h"
 #include "ui/text.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 /* The window at first, and at its smallest, in dp. */
 #define FIRST_W    1280
@@ -94,7 +91,7 @@ struct dxl_window {
 
     /* The thread that waits on a second start's line and on signals. */
     SDL_Thread    *listener;
-    int            quit_pipe[2];
+    dxl_wake      *quit;
     SDL_Semaphore *drained;
 
     /* The GPU probe, dxl-cli --probe --ini in a worker. */
@@ -113,15 +110,10 @@ struct dxl_window {
 /* The launcher's id, its window's to SDL. */
 #define DXL_APP_ID "io.github.juggymcnutty.DXLauncher"
 
-static int signal_pipe[2] = { -1, -1 };
+/* A signal's: set by its handler. */
+static dxl_wake *signal_wake;
 
-void dxl_window_wake(void) {
-    if (signal_pipe[1] >= 0) {
-        char c = 's';
-        ssize_t n = write(signal_pipe[1], &c, 1);
-        (void)n;
-    }
-}
+void dxl_window_wake(void) { dxl_wake_set(signal_wake); }
 
 static double now_s(void) { return (double)SDL_GetTicksNS() / 1e9; }
 
@@ -129,25 +121,19 @@ static double now_s(void) { return (double)SDL_GetTicksNS() / 1e9; }
 
 static int SDLCALL listen_main(void *p) {
     dxl_window *w = p;
-    int fd = w->run ? dxl_instance_fd(w->run->instance) : -1;
+    dxl_instance *inst = w->run ? w->run->instance : NULL;
+    dxl_wake *wakes[2] = { w->quit, signal_wake };
     for (;;) {
-        struct pollfd fds[3] = {
-            { w->quit_pipe[0], POLLIN, 0 }, { signal_pipe[0], POLLIN, 0 }, { fd, POLLIN, 0 },
-        };
-        if (poll(fds, fd >= 0 ? 3 : 2, -1) < 0) {
-            if (errno == EINTR) continue;
-            break;
-        }
-        if (fds[0].revents) break;
-        if (fds[1].revents & POLLIN) {
-            char buf[16];
-            while (read(signal_pipe[0], buf, sizeof buf) > 0) {}
+        int got = dxl_wait(wakes, 2, inst, -1);
+        if (got < 0 || (got & 1)) break;
+        if (got & 2) {
+            dxl_wake_clear(signal_wake);
             SDL_Event e;
             SDL_zero(e);
             e.type = SDL_EVENT_QUIT;
             SDL_PushEvent(&e);
         }
-        if (fd >= 0 && (fds[2].revents & POLLIN)) {
+        if (got & DXL_WAIT_LINE) {
             SDL_Event e;
             SDL_zero(e);
             e.type = w->wake_event;
@@ -160,24 +146,26 @@ static int SDLCALL listen_main(void *p) {
 }
 
 static void listen_start(dxl_window *w) {
-    if (w->listener || pipe2(w->quit_pipe, O_CLOEXEC) != 0) return;
+    if (w->listener || !(w->quit = dxl_wake_new())) return;
     w->drained = SDL_CreateSemaphore(0);
     w->listener = SDL_CreateThread(listen_main, "dxl-listen", w);
-    if (!w->listener) dxl_log("no listener thread: %s", SDL_GetError());
+    if (!w->listener) {
+        dxl_log("no listener thread: %s", SDL_GetError());
+        dxl_wake_free(w->quit);
+        w->quit = NULL;
+    }
 }
 
 static void listen_stop(dxl_window *w) {
     if (!w->listener) return;
-    char c = 'q';
-    ssize_t n = write(w->quit_pipe[1], &c, 1);
-    (void)n;
+    dxl_wake_set(w->quit);
     SDL_SignalSemaphore(w->drained);
     SDL_WaitThread(w->listener, NULL);
     w->listener = NULL;
     SDL_DestroySemaphore(w->drained);
     w->drained = NULL;
-    close(w->quit_pipe[0]);
-    close(w->quit_pipe[1]);
+    dxl_wake_free(w->quit);
+    w->quit = NULL;
 }
 
 /* Whether word is one of the line's. */
@@ -841,10 +829,9 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
     memset(w, 0, sizeof *w);
     w->version = version;
     w->stop = stop;
-    w->quit_pipe[0] = w->quit_pipe[1] = -1;
     dxl_shell_init(&w->shell, version);
     w->script = dxl_uiscript_open();
-    if (signal_pipe[0] < 0 && pipe2(signal_pipe, O_CLOEXEC | O_NONBLOCK) != 0) signal_pipe[0] = signal_pipe[1] = -1;
+    if (!signal_wake) signal_wake = dxl_wake_new();
     return w;
 }
 

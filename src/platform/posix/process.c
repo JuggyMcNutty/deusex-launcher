@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "platform/process.h"
+#include "platform/posix/internal.h"
 
 
 #include <errno.h>
@@ -158,8 +159,9 @@ static int take_line(dxl_game *g, char *line, size_t size) {
     return 1;
 }
 
-int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char *line, size_t size) {
+int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t size) {
     if (take_line(g, line, size)) return DXL_GAME_LINE;
+    int extra_fd = dxl_instance_fd(inst);
     struct pollfd p[2];
     int n = 0, chan = -1, extra = -1;
     if (g->channel >= 0) { p[n].fd = g->channel; p[n].events = POLLIN; chan = n++; }
