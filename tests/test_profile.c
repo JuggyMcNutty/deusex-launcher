@@ -45,30 +45,9 @@ static char *make_install(void) {
     scratch_write(g, "Maps/DX.dx", "map");
     /* User.ini older than DXE-User.ini, as the engine's own runs leave them. */
     char *user = scratch_path(g, "System/User.ini");
-    struct utimbuf old = { .actime = time(NULL) - 3600, .modtime = time(NULL) - 3600 };
-    utime(user, &old);
+    dxl_fs_set_mtime(user, (long)time(NULL) - 3600);
     free(user);
     return g;
-}
-
-static void set_writable(const char *dir, int on) {
-    char cmd[600];
-    snprintf(cmd, sizeof cmd, "chmod -R %s '%s'", on ? "u+w" : "a-w", dir);
-    CHECK_INT(system(cmd), 0);
-}
-
-/* Every file of the install, its size and time: to compare after. */
-static char *listing(const char *dir) {
-    char cmd[600];
-    snprintf(cmd, sizeof cmd, "cd '%s' && find . -printf '%%p %%s %%T@\\n' | sort", dir);
-    FILE *f = popen(cmd, "r");
-    dxl_buf b;
-    dxl_buf_init(&b);
-    char line[1024];
-    while (f && fgets(line, sizeof line, f)) dxl_buf_puts(&b, line);
-    if (f) pclose(f);
-    if (!b.data) dxl_buf_add(&b, "", 0);
-    return b.data;
 }
 
 static void test_paths(void) {
@@ -105,8 +84,8 @@ static void test_import(void) {
     dxl_profile_open(&p, &x, "default", NULL);
     char *system_dir = scratch_path(game, "System");
 
-    set_writable(game, 0);
-    char *before = listing(game);
+    CHECK_INT(scratch_writable(game, 0), 0);
+    char *before = scratch_listing(game);
 
     /* What it would do, first: nothing written anywhere. */
     dxl_import r;
@@ -125,11 +104,11 @@ static void test_import(void) {
     if (dxl_err_msg(&e)[0] && !dxl_path_exists(p.system_ini)) fprintf(stderr, "  %s\n", dxl_err_msg(&e));
 
     /* The install is as it was. */
-    char *after = listing(game);
+    char *after = scratch_listing(game);
     CHECK_STR(after, before);
     free(after);
     free(before);
-    set_writable(game, 1);
+    CHECK_INT(scratch_writable(game, 1), 0);
 
     /* DeusEx.ini: the game's, LF, the save and cache paths the profile's,
      * the Paths as they were, the master 333networks', and the engine's
@@ -375,7 +354,7 @@ static void test_profiles(void) {
     free(system_dir);
     dxl_xdg_free(&x);
     dxl_env_set("DXL_HOME", NULL);
-    set_writable(game, 1);
+    CHECK_INT(scratch_writable(game, 1), 0);
     scratch_remove(home);
     scratch_remove(game);
     free(home);
