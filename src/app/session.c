@@ -32,7 +32,7 @@ int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
     /* DXL_ENGINE's, launcher.ini's, or the launcher's own. */
     const char *engine = getenv("DXL_ENGINE"), *chosen = dxl_ini_get(s->ini, LAUNCHER, "Engine");
     s->engine_by_env = engine && *engine;
-    if (s->engine_by_env) s->engine = dxl_xstrdup(engine);
+    if (s->engine_by_env) s->engine = dxl_fs_path(engine);
     else if (chosen && *chosen) s->engine = dxl_xstrdup(chosen);
     else s->engine = dxl_session_own_engine(s);
 
