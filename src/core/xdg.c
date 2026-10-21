@@ -1,24 +1,16 @@
 #define _GNU_SOURCE
 #include "core/xdg.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 
-#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-static const char *home_dir(void) {
-    const char *h = getenv("HOME");
-    if (h && h[0] == '/') return h;
-    struct passwd *pw = getpwuid(getuid());
-    return pw && pw->pw_dir && pw->pw_dir[0] == '/' ? pw->pw_dir : NULL;
-}
 
 /* $var if it is an absolute path, else <home>/<fallback>. */
 static char *base_dir(const char *var, const char *home, const char *fallback) {
     const char *v = getenv(var);
-    if (v && v[0] == '/') return dxl_xstrdup(v);
+    if (v && dxl_fs_is_absolute(v)) return dxl_xstrdup(v);
     return dxl_path_join(home, fallback);
 }
 
@@ -26,13 +18,13 @@ int dxl_xdg_open(dxl_xdg *x, dxl_err *err) {
     memset(x, 0, sizeof *x);
     const char *scratch = getenv("DXL_HOME");
     char *config, *data, *state, *cache;
-    if (scratch && scratch[0] == '/') {
+    if (scratch && dxl_fs_is_absolute(scratch)) {
         config = dxl_path_join(scratch, "config");
         data = dxl_path_join(scratch, "data");
         state = dxl_path_join(scratch, "state");
         cache = dxl_path_join(scratch, "cache");
     } else {
-        const char *home = home_dir();
+        const char *home = dxl_fs_home();
         if (!home) {
             dxl_err_set(err, "no home folder: HOME is not set and the user has none");
             return -1;

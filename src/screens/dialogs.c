@@ -3,16 +3,15 @@
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 #include "ui/osk.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
 
 #include <dirent.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 /* ---- the folder browser ---------------------------------------------- */
 
@@ -35,8 +34,8 @@ static void list(dxl_browser *b, const char *dir) {
     char *keep = dxl_xstrdup(dir);
     dxl_browser_free(b);
     b->hidden = hidden;
-    char real[PATH_MAX];
-    b->dir = dxl_xstrdup(realpath(keep, real) ? real : keep);
+    char *real = dxl_fs_real(keep);
+    b->dir = real ? real : dxl_xstrdup(keep);
     free(keep);
     DIR *d = opendir(b->dir);
     if (!d) return;
@@ -45,13 +44,11 @@ static void list(dxl_browser *b, const char *dir) {
     while ((e = readdir(d))) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
         if (e->d_name[0] == '.' && !b->hidden) continue;
-        if (e->d_type != DT_DIR) {
-            if (e->d_type != DT_LNK && e->d_type != DT_UNKNOWN) continue;
-            char *p = dxl_path_join(b->dir, e->d_name);
-            int dir_too = dxl_path_is_dir(p);
-            free(p);
-            if (!dir_too) continue;
-        }
+        /* A folder, or a link to one. */
+        char *p = dxl_path_join(b->dir, e->d_name);
+        int folder = dxl_path_is_dir(p);
+        free(p);
+        if (!folder) continue;
         if (b->count == cap) {
             cap = cap ? cap * 2 : 32;
             b->names = dxl_xrealloc(b->names, sizeof *b->names * cap);
@@ -181,7 +178,7 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     } else if (ok) {
         use(s);
     } else if (home) {
-        const char *h = getenv("HOME");
+        const char *h = dxl_fs_home();
         go_to(s, &l, h && *h ? h : "/");
     } else if (dots) {
         b->hidden = !b->hidden;

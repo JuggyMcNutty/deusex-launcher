@@ -50,11 +50,12 @@ if(NOT DXL_VERSION)
 endif()
 
 # ---------------------------------------------------------------------------
-# core -- no SDL, no platform: the original's command-line rules, inis,
-# decision, crash sentinel and single instance, kept from main's launcher;
-# Settings.json, the pad's bindings and the renderer list, the Smart Pro's;
-# and DXLauncher's own: its folders, profiles, the game's builds and
-# installs, the engine's command line, the last run. docs/LAUNCHER.md.
+# core -- no SDL: the original's command-line rules, inis, decision and
+# crash sentinel, kept from main's launcher; Settings.json, the pad's
+# bindings and the renderer list, the Smart Pro's; and DXLauncher's own: its
+# folders, profiles, the game's builds and installs, the engine's command
+# line, the last run. docs/LAUNCHER.md. With it, the platform's calls it
+# makes where POSIX and Windows differ: the file system (platform/fs.h).
 # ---------------------------------------------------------------------------
 add_library(dxl_core STATIC
     src/core/common.c
@@ -98,6 +99,7 @@ add_library(dxl_core STATIC
     src/core/theme_colors.c
     src/core/saves.c
     src/core/shotlist.c
+    src/platform/posix/fs.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)

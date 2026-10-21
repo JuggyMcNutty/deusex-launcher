@@ -2,6 +2,7 @@
 #include "core/profile.h"
 #include "core/engine_sections.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -9,7 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 /* The engine's own sections of the system ini, which it reads once they are
@@ -69,8 +69,7 @@ int dxl_profile_open(dxl_profile *p, const dxl_xdg *x, const char *id, dxl_err *
     /* The engine's own Screenshots, where it is a folder, not a link: a
      * profile made on a filesystem without links (dxl_profile_make_dirs). */
     char *own = dxl_path_join(p->engine_dir, "Screenshots");
-    struct stat st;
-    if (lstat(own, &st) == 0 && S_ISDIR(st.st_mode)) {
+    if (!dxl_fs_is_link(own) && dxl_path_is_dir(own)) {
         p->shots_dir = own;
     } else {
         free(own);
@@ -98,7 +97,7 @@ int dxl_profile_exists(const dxl_profile *p) {
     return dxl_path_exists(p->ini_path) && dxl_path_exists(p->system_ini);
 }
 
-int (*dxl_profile_link)(const char *target, const char *link) = symlink;
+int (*dxl_profile_link)(const char *target, const char *link) = dxl_fs_link_dir;
 
 int dxl_profile_make_dirs(dxl_profile *p, dxl_err *err) {
     const char *dirs[] = { p->dir, p->engine_dir, p->save_dir, p->shots_dir, p->state_dir,
@@ -293,11 +292,11 @@ static char *game_save_dir(const char *system_dir, const dxl_ini *sys_ini) {
     const char *v = dxl_ini_get(sys_ini, "Core.System", "SavePath");
     char *rel = dxl_path_from_ini(v && *v ? v : "../Save");
     char *dir;
-    if (rel[0] == '/') {
+    if (dxl_fs_is_absolute(rel)) {
         dir = dxl_xstrdup(rel);
     } else {
         char *joined = dxl_path_join(system_dir, rel);
-        dir = realpath(joined, NULL);
+        dir = dxl_fs_real(joined);
         if (!dir) dir = joined;
         else free(joined);
     }

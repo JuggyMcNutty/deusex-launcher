@@ -1,5 +1,6 @@
 #include "core/config.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +54,7 @@ static void seed(ini_file *f, const char *system_dir, const char *default_name) 
  * its name found in any case. */
 static char *given_path(const char *system_dir, const char *given) {
     char *p = dxl_path_from_ini(given);
-    if (p[0] == '/') return p;
+    if (dxl_fs_is_absolute(p)) return p;
     char *joined = dxl_path_join(system_dir, p);
     free(p);
     char *dir = dxl_path_dirname(joined);

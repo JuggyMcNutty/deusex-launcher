@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "app/session.h"
+#include "platform/fs.h"
 #include "core/config.h"
 #include "core/engine_settings.h"
 #include "core/log.h"
@@ -11,7 +12,7 @@
 #include <string.h>
 
 #define LAUNCHER "Launcher"
-#define ENGINE_NAME "DXEngine"
+#define ENGINE_NAME "DXEngine" DXL_EXE_SUFFIX
 
 int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
     memset(s, 0, sizeof *s);
