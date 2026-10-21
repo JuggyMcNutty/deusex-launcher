@@ -53,6 +53,32 @@ const char *dxl_fs_home(void) {
     return home;
 }
 
+/* Each of leaf's names by the one the folder stores. */
+char *dxl_fs_stored(const char *dir, const char *leaf) {
+    char *cur = dxl_xstrdup(dir);
+    char *rest = dxl_xstrdup(leaf), *save = NULL;
+    dxl_path_normalize(rest);
+    for (char *name = strtok_r(rest, "/", &save); name && cur; name = strtok_r(NULL, "/", &save)) {
+        char *p = dxl_path_join(cur, name);
+        wchar_t *w = dxl_w(p, 1);
+        WIN32_FIND_DATAW fd;
+        HANDLE f = wcspbrk(w, L"*?") ? INVALID_HANDLE_VALUE : FindFirstFileW(w, &fd);
+        free(w);
+        free(p);
+        char *next = NULL;
+        if (f != INVALID_HANDLE_VALUE) {
+            char *stored = dxl_u8(fd.cFileName, 0);
+            next = !strcmp(name, ".") || !strcmp(name, "..") ? dxl_path_join(cur, name) : dxl_path_join(cur, stored);
+            free(stored);
+            FindClose(f);
+        }
+        free(cur);
+        cur = next;
+    }
+    free(rest);
+    return cur;
+}
+
 char *dxl_fs_self(void) {
     wchar_t buf[32768];
     DWORD n = GetModuleFileNameW(NULL, buf, sizeof buf / sizeof *buf);
