@@ -24,10 +24,15 @@ static void test_not_an_install(void) {
     CHECK_INT(in.found, 0);
     CHECK(strstr(in.problem, "no System/DeusEx.exe") != NULL);
     dxl_install_free(&in);
-    /* deusex.exe in the wrong case is not the engine's file either. */
+    /* deusex.exe in the wrong case is not the engine's file either -- but on
+     * Windows, whose names take any case, the engine opens it as its own. */
     scratch_write(g, "System/deusex.exe", "x");
     CHECK_INT(dxl_install_check(g, &in), -1);
+#ifdef _WIN32
+    CHECK_INT(in.found, 1);
+#else
     CHECK_INT(in.found, 0);
+#endif
     dxl_install_free(&in);
     scratch_remove(g);
     free(g);

@@ -55,12 +55,18 @@ static void test_list(void) {
     write_info(dir, "Save010", 10, newest, "Not one", "Nowhere", 1);
     write_info(dir, "Current", -2, newest, "Not one", "Nowhere", 1);
     scratch_write(dir, "Save0004", "a file");
-    /* An info by another case of its name: not one the engine opens. */
+    /* An info by another case of its name: not one the engine opens, where
+     * names keep their case (on Windows, whose names take any, it opens it). */
+#ifdef _WIN32
+    const int listed = 4;
+#else
+    const int listed = 5;
     write_info(dir, "Save0011", 11, newest, "Lower case", "Nowhere", 1);
     char *was = scratch_path(dir, "Save0011/SaveInfo.dxs"), *lower = scratch_path(dir, "Save0011/saveinfo.dxs");
     rename(was, lower);
     free(was);
     free(lower);
+#endif
     char *empty = scratch_path(dir, "Save0007");
     dxl_fs_mkdir(empty);
     free(empty);
@@ -68,8 +74,8 @@ static void test_list(void) {
     dxl_saves s;
     dxl_err e;
     CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
-    CHECK_INT(s.count, 5);
-    if (s.count == 5) {
+    CHECK_INT(s.count, listed);
+    if (s.count == listed) {
         CHECK_STR(s.items[0].folder, "QuickSave");
         CHECK_INT(s.items[0].slot, DXL_SAVE_QUICK);
         CHECK_STR(s.items[1].folder, "Save0010");
@@ -78,8 +84,10 @@ static void test_list(void) {
         CHECK_STR(s.items[2].info.location, "NYC - Liberty Island");
         CHECK_STR(s.items[3].folder, "Save0007");
         CHECK_INT(s.items[3].readable, 0);
-        CHECK_STR(s.items[4].folder, "Save0011");
-        CHECK_INT(s.items[4].readable, 0);
+        if (listed == 5) {
+            CHECK_STR(s.items[4].folder, "Save0011");
+            CHECK_INT(s.items[4].readable, 0);
+        }
         CHECK(s.items[0].info.snapshot.rgba == NULL);
         /* Its snapshot, read when asked for: the writer's picture in it. */
         dxl_saveinfo full;
