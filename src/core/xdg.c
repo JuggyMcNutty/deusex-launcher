@@ -1,47 +1,37 @@
 #define _GNU_SOURCE
 #include "core/xdg.h"
 #include "core/paths.h"
+#include "platform/folders.h"
 #include "platform/fs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* $var if it is an absolute path, else <home>/<fallback>. */
-static char *base_dir(const char *var, const char *home, const char *fallback) {
-    const char *v = getenv(var);
-    if (v && dxl_fs_is_absolute(v)) return dxl_xstrdup(v);
-    return dxl_path_join(home, fallback);
-}
-
 int dxl_xdg_open(dxl_xdg *x, dxl_err *err) {
     memset(x, 0, sizeof *x);
     const char *scratch = getenv("DXL_HOME");
-    char *config, *data, *state, *cache;
     if (scratch && dxl_fs_is_absolute(scratch)) {
-        config = dxl_path_join(scratch, "config");
-        data = dxl_path_join(scratch, "data");
-        state = dxl_path_join(scratch, "state");
-        cache = dxl_path_join(scratch, "cache");
-    } else {
-        const char *home = dxl_fs_home();
-        if (!home) {
-            dxl_err_set(err, "no home folder: HOME is not set and the user has none");
-            return -1;
-        }
-        config = base_dir("XDG_CONFIG_HOME", home, ".config");
-        data = base_dir("XDG_DATA_HOME", home, ".local/share");
-        state = base_dir("XDG_STATE_HOME", home, ".local/state");
-        cache = base_dir("XDG_CACHE_HOME", home, ".cache");
+        char *config = dxl_path_join(scratch, "config");
+        char *state = dxl_path_join(scratch, "state");
+        char *cache = dxl_path_join(scratch, "cache");
+        x->data_home = dxl_path_join(scratch, "data");
+        x->config = dxl_path_join(config, DXL_APP_DIR);
+        x->data = dxl_path_join(x->data_home, DXL_APP_DIR);
+        x->state = dxl_path_join(state, DXL_APP_DIR);
+        x->cache = dxl_path_join(cache, DXL_APP_DIR);
+        free(config);
+        free(state);
+        free(cache);
+        return 0;
     }
-    x->config = dxl_path_join(config, DXL_APP_DIR);
-    x->data = dxl_path_join(data, DXL_APP_DIR);
-    x->state = dxl_path_join(state, DXL_APP_DIR);
-    x->cache = dxl_path_join(cache, DXL_APP_DIR);
-    x->data_home = data;
-    free(config);
-    free(state);
-    free(cache);
+    dxl_app_folders f;
+    if (dxl_app_folders_get(DXL_APP_DIR, &f, err) != 0) return -1;
+    x->config = f.config;
+    x->data = f.data;
+    x->state = f.state;
+    x->cache = f.cache;
+    x->data_home = f.data_home;
     return 0;
 }
 
