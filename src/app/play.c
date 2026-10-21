@@ -5,15 +5,14 @@
 #include "platform/process.h"
 
 #include <ctype.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-/* The wait wakes on the line, on the instance's socket, and on a signal (a
- * stop), which ends poll() at once; besides, once a second, in case the
+/* The wait wakes on the line, on the instance's channel, and on a signal (a
+ * stop), which ends it at once; besides, once a second, in case the
  * engine's end of the line outlives it in a child of its own, and four
- * times a second to count down to SIGKILL once the game is stopped. */
+ * times a second to count down to the kill once the game is stopped. */
 #define WAKE_MS      1000
 #define STOPPING_MS  250
 
@@ -59,7 +58,7 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
         return;
     }
     out->started = 1;
-    dxl_log("the game started: pid %ld", (long)g.pid);
+    dxl_log("the game started: pid %ld", g.pid);
 
     int since_term = 0;
     for (;;) {
@@ -85,12 +84,12 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
         if (ev & DXL_GAME_ENDED) break;
         if (req->stop && *req->stop && !out->stopped) {
             dxl_log("stopping the game");
-            dxl_game_signal(&g, SIGTERM);
+            dxl_game_stop(&g);
             out->stopped = 1;
         } else if (out->stopped && !out->killed && !(ev & DXL_GAME_LINE)) {
             if ((since_term += STOPPING_MS) >= DXL_PLAY_KILL_AFTER_MS) {
                 dxl_log("the game did not stop: killing it");
-                dxl_game_signal(&g, SIGKILL);
+                dxl_game_kill(&g);
                 out->killed = 1;
             }
         }
@@ -98,6 +97,7 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
     out->status = g.status;
     out->signal = g.signal;
     out->clean = dxl_game_clean(&g) && out->ready;
+    dxl_game_close(&g);
     dxl_log("the game ended: %d%s", g.status, out->clean ? ", cleanly" : "");
     if (!out->clean) {
         free(out->relaunch);

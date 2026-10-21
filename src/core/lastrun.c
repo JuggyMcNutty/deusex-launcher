@@ -2,8 +2,8 @@
 #include "core/ini.h"
 #include "core/paths.h"
 #include "platform/fs.h"
+#include "platform/os.h"
 
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -125,23 +125,10 @@ char *dxl_lastrun_tail(const char *log_path, int max_lines) {
     return tail;
 }
 
-const char *dxl_signal_name(int sig, char *buf, size_t size) {
-    static const struct { int sig; const char *name; } names[] = {
-        { SIGHUP, "SIGHUP" }, { SIGINT, "SIGINT" }, { SIGQUIT, "SIGQUIT" }, { SIGILL, "SIGILL" },
-        { SIGTRAP, "SIGTRAP" }, { SIGABRT, "SIGABRT" }, { SIGBUS, "SIGBUS" }, { SIGFPE, "SIGFPE" },
-        { SIGKILL, "SIGKILL" }, { SIGSEGV, "SIGSEGV" }, { SIGPIPE, "SIGPIPE" }, { SIGALRM, "SIGALRM" },
-        { SIGTERM, "SIGTERM" },
-    };
-    for (size_t i = 0; i < sizeof names / sizeof *names; i++)
-        if (names[i].sig == sig) return names[i].name;
-    snprintf(buf, size, "signal %d", sig);
-    return buf;
-}
-
 void dxl_lastrun_describe(const dxl_lastrun *r, char *out, size_t size) {
     char sig[32];
     if (r->signal)
-        snprintf(out, size, "killed by %s%s", dxl_signal_name(r->signal, sig, sizeof sig),
+        snprintf(out, size, "killed by %s%s", dxl_end_name(r->signal, sig, sizeof sig),
                  r->ready ? "" : ", before its first map was in");
     else if (r->error[0])
         snprintf(out, size, "exit %d: %s", r->status, r->error);

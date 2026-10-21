@@ -143,8 +143,8 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
     char out[1024], errs[1024];
     int status = 0;
     dxl_err e;
-    int ran = dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, errs, sizeof errs, &status, &e) == 0;
-    if (!ran && status == 128 + SIGKILL && !errs[0]) {
+    int rc = dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, errs, sizeof errs, &status, &e);
+    if (rc == DXL_RUN_TIMED_OUT && !errs[0]) {
         snprintf(brief, brief_size, "gives no answer");
         snprintf(why, size, "%s gave no answer to --version in %d seconds: refusing it.", engine,
                  VERSION_TIMEOUT_MS / 1000);

@@ -5,9 +5,9 @@
  */
 #define _GNU_SOURCE
 #include "app/run.h"
+#include "platform/startup.h"
 #include "screens/window.h"
 
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -16,12 +16,6 @@
 #endif
 
 static volatile int stop;
-
-static void on_signal(int sig) {
-    (void)sig;
-    stop = 1;
-    dxl_window_wake();
-}
 
 int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
@@ -39,13 +33,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--install-desktop") == 0) return dxl_window_desktop_entry(1);
         if (strcmp(argv[i], "--remove-desktop") == 0) return dxl_window_desktop_entry(0);
     }
-    struct sigaction sa;
-    memset(&sa, 0, sizeof sa);
-    sa.sa_handler = on_signal;   /* no SA_RESTART: the wait ends at once */
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGHUP, &sa, NULL);
-    signal(SIGPIPE, SIG_IGN);
+    dxl_startup(&stop, dxl_window_wake);
 
     dxl_window *w = dxl_window_new(DXL_VERSION, &stop);
     dxl_run_ui ui;

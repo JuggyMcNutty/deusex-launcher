@@ -16,6 +16,11 @@
 #include <time.h>
 #include <unistd.h>
 
+struct dxl_game_os {
+    pid_t pid;
+    int   channel;       /* the launcher's end of the line, or -1 */
+};
+
 /* In a child, after fork: every descriptor from 3 up closes as it execs,
  * but keep. Not all the launcher's are marked so -- the window's fonts,
  * which SDL_ttf opens without it -- and the game or a helper is given none
@@ -111,28 +116,38 @@ static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *
 int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
                         const char *log_path, dxl_err *err) {
     memset(g, 0, sizeof *g);
-    g->channel = -1;
     int sv[2];
     if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) != 0) {
         dxl_err_set(err, "socketpair: %s", strerror(errno));
         return -1;
     }
-    if (spawn(&g->pid, argv, env, workdir, sv[1], log_path, err) != 0) {
+    pid_t pid;
+    if (spawn(&pid, argv, env, workdir, sv[1], log_path, err) != 0) {
         close(sv[0]); close(sv[1]);
         return -1;
     }
     close(sv[1]);
     fcntl(sv[0], F_SETFL, fcntl(sv[0], F_GETFL) | O_NONBLOCK);
-    g->channel = sv[0];
+    g->os = dxl_xmalloc(sizeof *g->os);
+    g->os->pid = pid;
+    g->os->channel = sv[0];
+    g->pid = (long)pid;
     return 0;
+}
+
+void dxl_game_close(dxl_game *g) {
+    if (!g->os) return;
+    if (g->os->channel >= 0) close(g->os->channel);
+    free(g->os);
+    g->os = NULL;
 }
 
 
 static int reap(dxl_game *g) {
     if (g->ended) return 1;
     int st;
-    pid_t r = waitpid(g->pid, &st, WNOHANG);
-    if (r != g->pid) return 0;
+    pid_t r = waitpid(g->os->pid, &st, WNOHANG);
+    if (r != g->os->pid) return 0;
     g->ended = 1;
     g->status = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);
     g->signal = WIFSIGNALED(st) ? WTERMSIG(st) : 0;
@@ -164,17 +179,17 @@ int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t si
     int extra_fd = dxl_instance_fd(inst);
     struct pollfd p[2];
     int n = 0, chan = -1, extra = -1;
-    if (g->channel >= 0) { p[n].fd = g->channel; p[n].events = POLLIN; chan = n++; }
-    if (extra_fd >= 0)   { p[n].fd = extra_fd;   p[n].events = POLLIN; extra = n++; }
+    if (g->os->channel >= 0) { p[n].fd = g->os->channel; p[n].events = POLLIN; chan = n++; }
+    if (extra_fd >= 0)       { p[n].fd = extra_fd;       p[n].events = POLLIN; extra = n++; }
     int r = poll(p, (nfds_t)n, ms);
     int seen = 0;
     if (r > 0 && chan >= 0 && (p[chan].revents & (POLLIN | POLLHUP | POLLERR))) {
-        ssize_t got = read(g->channel, g->pending + g->pending_len,
+        ssize_t got = read(g->os->channel, g->pending + g->pending_len,
                            sizeof g->pending - g->pending_len);
         if (got > 0) g->pending_len += (size_t)got;
         else if (got == 0 || (errno != EAGAIN && errno != EINTR)) {
-            close(g->channel);          /* the engine's end is gone: it ended, or dropped it */
-            g->channel = -1;
+            close(g->os->channel);      /* the engine's end is gone: it ended, or dropped it */
+            g->os->channel = -1;
         }
         if (take_line(g, line, size)) seen |= DXL_GAME_LINE;
     }
@@ -185,18 +200,22 @@ int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t si
 }
 
 void dxl_game_send(dxl_game *g, const char *line) {
-    if (g->channel < 0 || !line) return;
+    if (!g->os || g->os->channel < 0 || !line) return;
     size_t n = strlen(line);
     char *buf = dxl_xmalloc(n + 2);
     memcpy(buf, line, n);
     buf[n] = '\n';
-    ssize_t w = send(g->channel, buf, n + 1, MSG_NOSIGNAL | MSG_DONTWAIT);
+    ssize_t w = send(g->os->channel, buf, n + 1, MSG_NOSIGNAL | MSG_DONTWAIT);
     (void)w;
     free(buf);
 }
 
-void dxl_game_signal(dxl_game *g, int sig) {
-    if (!g->ended && g->pid > 0) kill(g->pid, sig);
+void dxl_game_stop(dxl_game *g) {
+    if (!g->ended && g->os) kill(g->os->pid, SIGTERM);
+}
+
+void dxl_game_kill(dxl_game *g) {
+    if (!g->ended && g->os) kill(g->os->pid, SIGKILL);
 }
 
 int dxl_game_clean(const dxl_game *g) { return g->ended && g->status == 0; }
@@ -316,7 +335,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     if (status) *status = code;
     if (timed_out) {
         dxl_err_set(err, "%s gave no answer in %d ms", argv[0], timeout_ms);
-        return -1;
+        return DXL_RUN_TIMED_OUT;
     }
     if (code == 127 && got == 0) {
         dxl_err_set(err, "cannot run %s", argv[0]);
