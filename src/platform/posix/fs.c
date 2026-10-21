@@ -24,6 +24,8 @@ const char *dxl_fs_home(void) {
     return pw && pw->pw_dir && pw->pw_dir[0] == '/' ? pw->pw_dir : NULL;
 }
 
+char *dxl_fs_path(const char *outside) { return dxl_xstrdup(outside ? outside : ""); }
+
 char *dxl_fs_stored(const char *dir, const char *leaf) {
     char *p = dxl_path_join(dir, leaf);
     struct stat st;

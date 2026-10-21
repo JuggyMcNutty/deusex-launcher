@@ -10,8 +10,9 @@
 
 int dxl_xdg_open(dxl_xdg *x, dxl_err *err) {
     memset(x, 0, sizeof *x);
-    const char *scratch = getenv("DXL_HOME");
-    if (scratch && dxl_fs_is_absolute(scratch)) {
+    const char *home = getenv("DXL_HOME");
+    if (home && dxl_fs_is_absolute(home)) {
+        char *scratch = dxl_fs_path(home);
         char *config = dxl_path_join(scratch, "config");
         char *state = dxl_path_join(scratch, "state");
         char *cache = dxl_path_join(scratch, "cache");
@@ -23,6 +24,7 @@ int dxl_xdg_open(dxl_xdg *x, dxl_err *err) {
         free(config);
         free(state);
         free(cache);
+        free(scratch);
         return 0;
     }
     dxl_app_folders f;
