@@ -55,7 +55,8 @@ endif()
 # bindings and the renderer list, the Smart Pro's; and DXLauncher's own: its
 # folders, profiles, the game's builds and installs, the engine's command
 # line, the last run. docs/LAUNCHER.md. With it, the platform's calls it
-# makes where POSIX and Windows differ: the file system (platform/fs.h).
+# makes where POSIX and Windows differ: the file system (platform/fs.h), and
+# where an app keeps its own files (platform/folders.h).
 # ---------------------------------------------------------------------------
 add_library(dxl_core STATIC
     src/core/common.c
@@ -100,6 +101,7 @@ add_library(dxl_core STATIC
     src/core/saves.c
     src/core/shotlist.c
     src/platform/posix/fs.c
+    src/platform/posix/folders.c
 )
 target_include_directories(dxl_core PUBLIC src)
 target_link_libraries(dxl_core PUBLIC m)
