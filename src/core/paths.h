@@ -36,8 +36,9 @@ int  dxl_path_is_dir(const char *p);
 long dxl_path_size(const char *p);
 
 /* Resolves <dir>/<leaf> case-insensitively: returns the real path if an entry
- * matching leaf (ignoring case) exists, else NULL. An exact hit skips the
- * directory scan. Caller frees. */
+ * matching leaf (ignoring case) exists, else NULL. A hit by the name the
+ * file system stores (platform/fs.h, dxl_fs_stored) skips the directory
+ * scan. Caller frees. */
 char *dxl_path_resolve_ci(const char *dir, const char *leaf);
 
 /* mkdir -p. Returns 0 if the directory exists afterwards. */
