@@ -334,9 +334,7 @@ static void test_import(void) {
     dxl_mod m;
     char *d = at("game/GameMod");
     dxl_mod_check(d, &m, NULL);
-    char cmd[700];
-    snprintf(cmd, sizeof cmd, "chmod -R a-w '%s'", game);
-    CHECK_INT(system(cmd), 0);
+    CHECK_INT(scratch_writable(game, 0), 0);
 
     dxl_import r;
     dxl_err e;
@@ -350,8 +348,7 @@ static void test_import(void) {
     CHECK_INT(dxl_path_exists(p.dir), 0);
 
     CHECK_INT(dxl_profile_import_mod(&p, system_dir, &m, 0, &r, &e), 0);
-    snprintf(cmd, sizeof cmd, "chmod -R u+w '%s'", game);
-    CHECK_INT(system(cmd), 0);
+    CHECK_INT(scratch_writable(game, 1), 0);
 
     dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
     CHECK(sys != NULL);
