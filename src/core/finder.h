@@ -26,6 +26,8 @@
  * Each folder there is checked (core/install.h) and listed once, however
  * many ways lead to it; one that is not there is not listed, though the
  * folder given always is, with what is wrong with it. Nothing is written.
+ * The places are core/finder_places.c's, desktop Linux's; the looking is
+ * core/finder.c's.
  */
 #ifndef DXL_FINDER_H
 #define DXL_FINDER_H
