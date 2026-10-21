@@ -56,6 +56,7 @@ static void test_words_kept(void) {
     CHECK(text && strstr(text, "[--cmdline=INI=\"My Mod.ini\" -nosound]\n") != NULL);
     free(text);
     free(log);
+    dxl_game_close(&g);
     scratch_remove(dir);
     free(dir);
 }
@@ -71,9 +72,11 @@ static void test_env(void) {
     CHECK_INT(dxl_game_start_argv(&g, argv, gone, NULL, log, NULL), 0);
     char said[64];
     wait_end(&g, 5000, said, sizeof said);
+    dxl_game_close(&g);
     char *set[] = { "DXL_STUB=env", "DXL_STUB_ENV=DXL_TEST_SET", "DXL_TEST_SET=yes it is", NULL };
     CHECK_INT(dxl_game_start_argv(&g, argv, set, NULL, log, NULL), 0);
     wait_end(&g, 5000, said, sizeof said);
+    dxl_game_close(&g);
     char *text = slurp(log, NULL);
     CHECK_STR(text, "(unset)\nyes it is\n");
     free(text);
@@ -115,6 +118,7 @@ static void test_line(void) {
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 01_NYC_UNATCOIsland\nline: quit\n") != NULL);
     free(text);
     free(log);
+    dxl_game_close(&g);
     scratch_remove(dir);
     free(dir);
 }
@@ -132,6 +136,7 @@ static void test_crash(void) {
     CHECK_INT(dxl_game_clean(&g), 0);
     CHECK_STR(said, "hello ready");
     free(log);
+    dxl_game_close(&g);
     scratch_remove(dir);
     free(dir);
 }
@@ -159,7 +164,7 @@ static void test_capture(void) {
     setenv("DXL_STUB", "stubborn", 1);
     char *hang[] = { DXL_STUB_ENGINE, NULL };
     dxl_err e;
-    CHECK_INT(dxl_run_capture(hang, 300, out, sizeof out, NULL, 0, &status, &e), -1);
+    CHECK_INT(dxl_run_capture(hang, 300, out, sizeof out, NULL, 0, &status, &e), DXL_RUN_TIMED_OUT);
     CHECK_INT(status, 128 + SIGKILL);
     unsetenv("DXL_STUB");
 
@@ -212,6 +217,7 @@ static void test_descriptors_kept(void) {
     CHECK(!lists_fd(out, held));
     close(held);
     free(log);
+    dxl_game_close(&g);
     scratch_remove(dir);
     free(dir);
 }

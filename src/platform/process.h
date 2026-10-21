@@ -10,7 +10,8 @@
  * direction runs between the two -- the engine says when it is up, and the
  * launcher hands it what a second launch forwarded (app/play.h). The engine
  * finds its end of that line through DXL_LAUNCHER_FD in its environment; an
- * engine that never answers on it just runs.
+ * engine that never answers on it just runs. platform/posix/process.c is
+ * POSIX's: a socket pair, the engine's end a descriptor.
  */
 #ifndef DXL_PROCESS_H
 #define DXL_PROCESS_H
@@ -18,17 +19,19 @@
 #include "core/common.h"
 #include "platform/instance.h"
 
-#include <sys/types.h>
-
 #define DXL_LAUNCHER_FD_ENV "DXL_LAUNCHER_FD"
 
+/* The platform's: the process, the launcher's end of the line. */
+typedef struct dxl_game_os dxl_game_os;
+
 typedef struct {
-    pid_t  pid;
-    int    channel;       /* the launcher's end of the line, or -1 */
+    dxl_game_os *os;
+    long   pid;           /* its process id */
     char   pending[1024]; /* a line the engine has not finished */
     size_t pending_len;
     int    status;        /* once ended: the exit code, or 128 + the signal */
-    int    signal;        /* once ended: the signal that ended it, or 0 */
+    int    signal;        /* once ended: what ended it, not its own exit (platform/os.h,
+                           * dxl_end_name), or 0 */
     int    ended;
 } dxl_game;
 
@@ -52,17 +55,23 @@ int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t si
 /* A line to the engine; nothing when it has no line. */
 void dxl_game_send(dxl_game *g, const char *line);
 
-/* Passes a signal on to the game. */
-void dxl_game_signal(dxl_game *g, int sig);
+/* Asks the game to end, as closing it does: SIGTERM here. */
+void dxl_game_stop(dxl_game *g);
+/* Ends it at once: SIGKILL here. */
+void dxl_game_kill(dxl_game *g);
 
 /* A clean end: the game exited with 0. */
 int dxl_game_clean(const dxl_game *g);
 
+/* Lets go of what the platform holds for the game, once it has ended. */
+void dxl_game_close(dxl_game *g);
 
 /* Runs argv to its end, at most timeout_ms (then it is killed), its output
  * into out and its errors into errs (NULL: nowhere), each cut at its size
  * and NUL-terminated: the engine's --version. *status is its exit code, or
- * 128 + the signal. -1 when it could not be run or ran out of time. */
+ * 128 + the signal. -1 when it could not be run, DXL_RUN_TIMED_OUT when it
+ * ran out of time. */
+#define DXL_RUN_TIMED_OUT (-2)
 int  dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
                      int *status, dxl_err *err);
 
