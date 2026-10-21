@@ -9,6 +9,7 @@
 #include "ui/widgets.h"
 
 #include <dirent.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,12 +29,50 @@ static int by_name(const void *a, const void *b) {
     return dxl_stricmp(*(char *const *)a, *(char *const *)b);
 }
 
-/* The folders in dir, sorted. */
+/* The tops of the file system (platform/fs.h): "/" alone here, a drive's
+ * each on Windows. Over more than one, a root has the list of them above
+ * it, a folder of its own by the name "". */
+static char *first_root(void) {
+    char **roots = dxl_fs_roots();
+    char *first = dxl_xstrdup(roots && roots[0] ? roots[0] : "/");
+    dxl_fs_roots_free(roots);
+    return first;
+}
+
+static int is_root(const char *dir) {
+    size_t n = dxl_fs_root_len(dir);
+    return n && !dir[n];
+}
+
+/* Whether dir has a folder above it: not the roots' list, nor the one root. */
+static int has_up(const char *dir) {
+    if (!dir[0]) return 0;
+    if (!is_root(dir)) return 1;
+    char **roots = dxl_fs_roots();
+    int many = roots && roots[0] && roots[1];
+    dxl_fs_roots_free(roots);
+    return many;
+}
+
+/* The folder above dir: its own, or above a root, the roots' list. */
+static char *above(const char *dir) { return is_root(dir) ? dxl_xstrdup("") : dxl_path_dirname(dir); }
+
+/* The folders in dir, sorted; the roots for "". */
 static void list(dxl_browser *b, const char *dir) {
     int hidden = b->hidden;
     char *keep = dxl_xstrdup(dir);
     dxl_browser_free(b);
     b->hidden = hidden;
+    if (!keep[0]) {
+        b->dir = keep;
+        char **roots = dxl_fs_roots();
+        for (int i = 0; roots && roots[i]; i++) {
+            b->names = dxl_xrealloc(b->names, sizeof *b->names * (size_t)(b->count + 1));
+            b->names[b->count++] = dxl_xstrdup(roots[i]);
+        }
+        dxl_fs_roots_free(roots);
+        return;
+    }
     char *real = dxl_fs_real(keep);
     b->dir = real ? real : dxl_xstrdup(keep);
     free(keep);
@@ -62,7 +101,9 @@ static void list(dxl_browser *b, const char *dir) {
 void dxl_browser_open(dxl_shell *s, const char *dir, int mode) {
     s->browser.note[0] = '\0';
     s->browser.mode = mode;
-    list(&s->browser, dir && *dir ? dir : "/");
+    char *top = dir && *dir ? NULL : first_root();
+    list(&s->browser, top ? top : dir);
+    free(top);
     if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
     s->dialog = DXL_DIALOG_BROWSER;
 }
@@ -72,7 +113,7 @@ static void go_to(dxl_shell *s, dxl_list *l, const char *dir) {
     s->browser.note[0] = '\0';
     list(&s->browser, dir);
     *dxl_ui_value(&s->ui, l->id, 0) = 0;
-    l->count = s->browser.count + (strcmp(s->browser.dir, "/") != 0);
+    l->count = s->browser.count + has_up(s->browser.dir);
     dxl_list_focus(&s->ui, l, 0);
     dxl_ui_forget(&s->ui);
 }
@@ -132,7 +173,8 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     dxl_rect in = dxl_dialog_begin(ui, over, 840, 600, b->mode == DXL_BROWSE_ENGINE ? "The engine's folder"
                                                        : b->mode == DXL_BROWSE_MOD  ? "The mod's folder"
                                                                                     : "The game's folder");
-    dxl_label(ui, dxl_cut_top(&in, 28), DXL_FONT_BODY, dxl_shell_tilde(b->dir, shown, sizeof shown), t->text_focus,
+    dxl_label(ui, dxl_cut_top(&in, 28), DXL_FONT_BODY,
+              b->dir[0] ? dxl_shell_tilde(b->dir, shown, sizeof shown) : "The drives", t->text_focus,
               DXL_W_LEFT | DXL_W_TAIL | DXL_W_MAY_CUT);
     dxl_cut_top(&in, 8);
     dxl_rect buttons = dxl_cut_bottom(&in, 46);
@@ -143,7 +185,7 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     }
 
     dxl_well(ui, in);
-    int up = strcmp(b->dir, "/") != 0;
+    int up = has_up(b->dir);
     int rows = b->count + up;
     dxl_list l;
     dxl_list_begin(ui, &l, "browser", dxl_inset(in, 4), rows, 36, 0);
@@ -172,14 +214,18 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     dxl_dialog_end(ui);
 
     if (open >= 0) {
-        char *to = up && open == 0 ? dxl_path_dirname(b->dir) : dxl_path_join(b->dir, b->names[open - up]);
+        char *to = up && open == 0 ? above(b->dir)
+                 : b->dir[0]         ? dxl_path_join(b->dir, b->names[open - up])
+                                     : dxl_xstrdup(b->names[open - up]);
         go_to(s, &l, to);
         free(to);
     } else if (ok) {
         use(s);
     } else if (home) {
         const char *h = dxl_fs_home();
-        go_to(s, &l, h && *h ? h : "/");
+        char *top = h && *h ? NULL : first_root();
+        go_to(s, &l, top ? top : h);
+        free(top);
     } else if (dots) {
         b->hidden = !b->hidden;
         char *keep = dxl_xstrdup(b->dir);

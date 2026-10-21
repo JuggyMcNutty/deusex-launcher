@@ -183,7 +183,7 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
         else dxl_shell_message(s, "Not one to play", "%s: %s.", dxl_shell_tilde(g->root, shown, sizeof shown), g->problem);
     } else if (browse) {
         const char *start = s->has_chosen ? s->chosen.root : dxl_fs_home();
-        dxl_browser_open(s, start ? start : "/", DXL_BROWSE_GAME);
+        dxl_browser_open(s, start, DXL_BROWSE_GAME);
     } else if (dialog) {
         dxl_shell_pick_folder(s, DXL_BROWSE_GAME);
     } else if (quits) {
