@@ -1,13 +1,14 @@
 #include "test.h"
 #include "core/bigscreen.h"
+#include "platform/os.h"
 
 #include <stdlib.h>
 
 static void clear_env(void) {
-    unsetenv("SteamTenfoot");
-    unsetenv("SteamGamepadUI");
-    unsetenv("SteamDeck");
-    unsetenv("GAMESCOPE_WAYLAND_DISPLAY");
+    dxl_env_set("SteamTenfoot", NULL);
+    dxl_env_set("SteamGamepadUI", NULL);
+    dxl_env_set("SteamDeck", NULL);
+    dxl_env_set("GAMESCOPE_WAYLAND_DISPLAY", NULL);
 }
 
 static void test_setting(void) {
@@ -24,19 +25,19 @@ static void test_setting(void) {
 static void test_environment(void) {
     clear_env();
     CHECK(dxl_big_screen_env() == NULL);
-    setenv("SteamDeck", "0", 1);
+    dxl_env_set("SteamDeck", "0");
     CHECK(dxl_big_screen_env() == NULL);
-    setenv("SteamDeck", "1", 1);
+    dxl_env_set("SteamDeck", "1");
     CHECK_STR(dxl_big_screen_env(), "a Steam Deck");
-    setenv("SteamGamepadUI", "1", 1);
+    dxl_env_set("SteamGamepadUI", "1");
     CHECK_STR(dxl_big_screen_env(), "Steam's Big Picture");
     clear_env();
-    setenv("SteamTenfoot", "1", 1);
+    dxl_env_set("SteamTenfoot", "1");
     CHECK_STR(dxl_big_screen_env(), "Steam's Big Picture");
     clear_env();
-    setenv("GAMESCOPE_WAYLAND_DISPLAY", "gamescope-0", 1);
+    dxl_env_set("GAMESCOPE_WAYLAND_DISPLAY", "gamescope-0");
     CHECK_STR(dxl_big_screen_env(), "gamescope");
-    setenv("GAMESCOPE_WAYLAND_DISPLAY", "", 1);
+    dxl_env_set("GAMESCOPE_WAYLAND_DISPLAY", "");
     CHECK(dxl_big_screen_env() == NULL);
     clear_env();
 }
@@ -52,7 +53,7 @@ static void test_wanted(void) {
     CHECK_INT(dxl_big_screen_wanted(DXL_BIG_OFF, 1, &why), 1);
     CHECK_INT(dxl_big_screen_wanted(DXL_BIG_ON, 0, &why), 1);
     CHECK_STR(why, "launcher.ini's BigScreen");
-    setenv("SteamDeck", "1", 1);
+    dxl_env_set("SteamDeck", "1");
     CHECK_INT(dxl_big_screen_wanted(DXL_BIG_AUTO, 0, &why), 1);
     CHECK_STR(why, "a Steam Deck");
     CHECK_INT(dxl_big_screen_wanted(DXL_BIG_OFF, 0, &why), 0);

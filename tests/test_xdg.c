@@ -1,20 +1,21 @@
 #include "test.h"
 #include "core/xdg.h"
+#include "platform/os.h"
 
 #include <stdlib.h>
 
 static void clear_env(void) {
-    unsetenv("DXL_HOME");
-    unsetenv("XDG_CONFIG_HOME");
-    unsetenv("XDG_DATA_HOME");
-    unsetenv("XDG_STATE_HOME");
-    unsetenv("XDG_CACHE_HOME");
+    dxl_env_set("DXL_HOME", NULL);
+    dxl_env_set("XDG_CONFIG_HOME", NULL);
+    dxl_env_set("XDG_DATA_HOME", NULL);
+    dxl_env_set("XDG_STATE_HOME", NULL);
+    dxl_env_set("XDG_CACHE_HOME", NULL);
 }
 
 /* Nothing set: the spec's defaults under HOME. */
 static void test_defaults(void) {
     clear_env();
-    setenv("HOME", "/home/jc", 1);
+    dxl_env_set("HOME", "/home/jc");
     dxl_xdg x;
     CHECK_INT(dxl_xdg_open(&x, NULL), 0);
     CHECK_STR(x.config, "/home/jc/.config/dxlauncher");
@@ -29,11 +30,11 @@ static void test_defaults(void) {
  * one counts as unset, as the spec has it. */
 static void test_variables(void) {
     clear_env();
-    setenv("HOME", "/home/jc", 1);
-    setenv("XDG_CONFIG_HOME", "/cfg", 1);
-    setenv("XDG_DATA_HOME", "relative/data", 1);
-    setenv("XDG_STATE_HOME", "", 1);
-    setenv("XDG_CACHE_HOME", "/var/cache/jc", 1);
+    dxl_env_set("HOME", "/home/jc");
+    dxl_env_set("XDG_CONFIG_HOME", "/cfg");
+    dxl_env_set("XDG_DATA_HOME", "relative/data");
+    dxl_env_set("XDG_STATE_HOME", "");
+    dxl_env_set("XDG_CACHE_HOME", "/var/cache/jc");
     dxl_xdg x;
     CHECK_INT(dxl_xdg_open(&x, NULL), 0);
     CHECK_STR(x.config, "/cfg/dxlauncher");
@@ -46,9 +47,9 @@ static void test_variables(void) {
 /* DXL_HOME puts all four under it, whatever else is set. */
 static void test_scratch_home(void) {
     clear_env();
-    setenv("HOME", "/home/jc", 1);
-    setenv("XDG_CONFIG_HOME", "/cfg", 1);
-    setenv("DXL_HOME", "/tmp/fresh", 1);
+    dxl_env_set("HOME", "/home/jc");
+    dxl_env_set("XDG_CONFIG_HOME", "/cfg");
+    dxl_env_set("DXL_HOME", "/tmp/fresh");
     dxl_xdg x;
     CHECK_INT(dxl_xdg_open(&x, NULL), 0);
     CHECK_STR(x.config, "/tmp/fresh/config/dxlauncher");

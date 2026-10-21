@@ -8,6 +8,8 @@
 #include "platform/process.h"
 
 #include <ctype.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef DXL_PORT_HOOKS
 #define DXL_PORT_HOOKS "port-hooks.sh"

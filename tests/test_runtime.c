@@ -2,6 +2,8 @@
 #include "core/sentinel.h"
 #include "platform/instance.h"
 #include "core/paths.h"
+#include "platform/os.h"
+#include "platform/fs.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,7 +13,7 @@ static char g_root[512];
 static void mkdirs(const char *rel) {
     char p[768];
     snprintf(p, sizeof p, "%s/%s", g_root, rel);
-    mkdir(p, 0755);
+    dxl_fs_mkdir(p);
 }
 
 static void touch(const char *rel, const char *content) {
@@ -29,8 +31,8 @@ static void unlink_rel(const char *rel) {
 
 /* A minimal but complete-looking install, as a user would have copied it. */
 static void build_install(void) {
-    snprintf(g_root, sizeof g_root, "/tmp/dxl-rt-%d", (int)getpid());
-    mkdir(g_root, 0755);
+    snprintf(g_root, sizeof g_root, "%s/dxl-rt-%ld", dxl_test_tmp(), dxl_os_pid());
+    dxl_fs_mkdir(g_root);
     mkdirs("System");
     mkdirs("Textures");
     mkdirs("Maps");

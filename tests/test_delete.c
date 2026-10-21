@@ -2,6 +2,9 @@
 #include "scratch.h"
 #include "platform/delete.h"
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 /* A folder with everything in it gone, a link in it removed and not
  * followed; a file; one not there said so. */
 static void test_delete(void) {

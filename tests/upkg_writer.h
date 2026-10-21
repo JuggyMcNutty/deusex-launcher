@@ -5,6 +5,7 @@
 #define DXL_TEST_UPKG_WRITER_H
 
 #include "core/upkg.h"
+#include "platform/fs.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -171,7 +172,7 @@ static inline buf dxl_test_saveinfo(const dxl_test_save *sv) {
 static inline int dxl_test_write_save(const char *save_dir, const char *folder, const dxl_test_save *sv) {
     char path[2048];
     snprintf(path, sizeof path, "%s/%s", save_dir, folder);
-    mkdir(path, 0755);
+    dxl_fs_mkdir(path);
     snprintf(path, sizeof path, "%s/%s/SaveInfo.dxs", save_dir, folder);
     buf b = dxl_test_saveinfo(sv);
     FILE *f = fopen(path, "wb");
