@@ -1,5 +1,6 @@
 #include "test.h"
 #include "scratch.h"
+#include "ends.h"
 #include "app/play.h"
 #include "app/run.h"
 #include "platform/instance.h"
@@ -85,8 +86,8 @@ static void test_crash(void) {
     dxl_play_result r;
     play_stub(&s, "play-crash", env, NULL, NULL, &r);
     CHECK_INT(r.ready, 1);
-    CHECK_INT(r.signal, SIGSEGV);
-    CHECK_INT(r.status, 128 + SIGSEGV);
+    CHECK_INT(r.signal, END_CRASH);
+    CHECK_INT(r.status, END_CRASH_STATUS);
     CHECK_INT(r.clean, 0);
     done(&s, &r);
 }
@@ -115,7 +116,8 @@ static void test_quotes_kept(void) {
     done(&s, &r);
 }
 
-/* A game that takes no notice of SIGTERM is killed when its time is up. */
+/* A game that takes no notice of the stop (SIGTERM; Windows' Quit and
+ * WM_CLOSE) is killed when its time is up. */
 static volatile int stop_now;
 static void test_stop_then_kill(void) {
     char *env[] = { "DXL_STUB=stubborn", NULL };
@@ -127,7 +129,7 @@ static void test_stop_then_kill(void) {
     time_t t1 = time(NULL);
     CHECK_INT(r.stopped, 1);
     CHECK_INT(r.killed, 1);
-    CHECK_INT(r.signal, SIGKILL);
+    CHECK_INT(r.signal, END_KILL);
     CHECK_INT(r.clean, 0);
     CHECK((t1 - t0) >= DXL_PLAY_KILL_AFTER_MS / 1000 - 1 && (t1 - t0) <= DXL_PLAY_KILL_AFTER_MS / 1000 + 3);
     stop_now = 0;
@@ -198,7 +200,9 @@ static void test_cannot_start(void) {
 }
 
 TEST_MAIN_BEGIN
+#ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
+#endif
     RUN(test_parse_link);
     RUN(test_clean);
     RUN(test_no_game);
