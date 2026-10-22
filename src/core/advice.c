@@ -12,9 +12,9 @@ static const struct {
       { "The Vulkan renderer did not start here. The OpenGL one may: choose it here or on Graphics.",
         DXL_FIX_RENDERER } },
     { "Failed to initialize OpenAL",
-      { "The engine found no sound device it could open: OpenAL Soft reaches the desktop's sound through "
-        "PulseAudio or PipeWire, and without either it tries ALSA, which a sound server holds. Play once "
-        "without sound, or start one of them.",
+      { "The engine found no sound device it could open: OpenAL Soft reaches Windows' sound through WASAPI, "
+        "then DirectSound and WinMM, and none had an output to open. Play once without sound, or turn one on "
+        "in Windows' sound settings.",
         DXL_FIX_NOSOUND } },
     { "Could not find package",
       { "A package the game needs is not in its folder: the install is incomplete. Check it, or show the "

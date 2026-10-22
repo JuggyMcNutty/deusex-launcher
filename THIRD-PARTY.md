@@ -17,10 +17,9 @@ has them, in its `ofl` folder:
 The window is drawn with [SDL3](https://libsdl.org) and
 [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf), both under the zlib licence, and its title
 music played with [libxmp-lite](https://github.com/libxmp/libxmp), under the MIT licence below.
-Where the system has them they are its own; where it has not they are built into the programs
-from the sources `cmake/deps.lock` pins, and with them [FreeType](https://freetype.org), under
-the FreeType License: portions of this software are copyright © 2026 The FreeType Project
-(www.freetype.org). All rights reserved.
+Windows has none of them: they are built into the programs from the sources `cmake/deps.lock`
+pins, and with them [FreeType](https://freetype.org), under the FreeType License: portions of
+this software are copyright © 2026 The FreeType Project (www.freetype.org). All rights reserved.
 
 libxmp-lite's notice:
 
@@ -44,6 +43,24 @@ libxmp-lite's notice:
 > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 > THE SOFTWARE.
+
+## The programs' runtimes
+
+The programs are built by [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) and carry its
+runtimes: the LLVM Project's C++ runtime (libc++, libc++abi, libunwind) and compiler-rt, under
+the Apache License 2.0 with LLVM Exceptions, which asks nothing of the programs built with them;
+and the MinGW-w64 runtime and its threads library, winpthreads, whose notices are in
+`licenses/MinGW-w64-runtime.txt` and `licenses/winpthreads.txt`.
+
+## The engine
+
+`DXEngine.exe` and `DXEngine.pk3` are [DXEngine](https://github.com/JuggyMcNutty/DXEngine)'s,
+under the zlib licence, with the third-party code it carries: the notices of each are in
+`DXEngine-LICENSE.md` beside them. `OpenAL32.dll` is [OpenAL Soft](https://openal-soft.org)
+1.23.1, built unchanged from the copy DXEngine carries (its `Thirdparty/openal-soft`, at the
+commit the engine was built from), under the GNU Library General Public License, version 2 or
+later, `licenses/OpenAL-Soft-COPYING.txt`: a library of its own, which another build of it may
+replace.
 
 ## The game
 
