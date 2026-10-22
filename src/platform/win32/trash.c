@@ -4,8 +4,9 @@
  * with no Recycle Bin of its own -- a network share, some removable ones --
  * takes nothing. The Recycle Bin says nothing back about where it put a
  * thing, so the launcher cannot take one back itself: all of several, or
- * none, is each first renamed beside itself, which can be undone, then
- * all of them recycled together.
+ * none, is each first moved aside and back, which fails for one in use
+ * with nothing gone, then all of them recycled together, each by its own
+ * name, which the Recycle Bin restores it to.
  */
 #include "platform/trash.h"
 #include "platform/win32/internal.h"
@@ -87,8 +88,8 @@ int dxl_trash_all(char *const paths[], int n, const char *data_home, dxl_err *er
             dxl_err_set(err, "%s cannot go to the Recycle Bin: nothing was deleted", paths[i]);
             return -1;
         }
-    /* Each renamed beside itself first: in use, it cannot be, and nothing
-     * has gone. */
+    /* Each moved aside first: in use, it cannot be, and nothing has gone;
+     * then each back by its name. */
     size_t m = (size_t)(n > 0 ? n : 1);
     char **staged = dxl_xmalloc(m * sizeof *staged);
     wchar_t **wide = dxl_xmalloc(m * sizeof *wide);
@@ -106,13 +107,15 @@ int dxl_trash_all(char *const paths[], int n, const char *data_home, dxl_err *er
             rc = -1;
             break;
         }
-        wide[count++] = dxl_w(staged[i], 1);
+        wide[count++] = dxl_w(paths[i], 1);
     }
+    for (int i = 0; i < n; i++)
+        if (staged[i] && dxl_fs_replace(staged[i], paths[i]) != 0) {
+            dxl_log("warning: %s stays as %s", paths[i], staged[i]);
+            if (rc == 0) dxl_err_set(err, "%s could not be put back: nothing was deleted", paths[i]);
+            rc = -1;
+        }
     if (rc == 0 && count) rc = recycle(wide, count, err);
-    if (rc != 0)
-        for (int i = 0; i < n; i++)
-            if (staged[i] && dxl_path_exists(staged[i]) && dxl_fs_replace(staged[i], paths[i]) != 0)
-                dxl_log("warning: %s stays as %s", paths[i], staged[i]);
     for (int i = 0; i < count; i++) free(wide[i]);
     for (int i = 0; i < n; i++) free(staged[i]);
     free(wide);
