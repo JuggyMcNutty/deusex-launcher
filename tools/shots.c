@@ -13,7 +13,8 @@
  * With --out it writes PNGs for review: every page at 1280x720 with the
  * keyboard, Home at each size and with each device; --all writes them all.
  * The states are made up, in memory and in a scratch home it makes under
- * $TMPDIR and removes after (its HOME, so the paths shown read ~/...):
+ * $TMPDIR and removes after (its HOME, so the paths shown read ~/...; on
+ * Windows, whose folders are no HOME's, its USERPROFILE and DXL_HOME too):
  * nothing of the game's is read, and nothing is written anywhere else.
  */
 #define _GNU_SOURCE
@@ -937,6 +938,10 @@ int main(int argc, char **argv) {
     static const char *unset[] = { "DXL_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME",
                                    "DXL_ENGINE" };
     for (size_t i = 0; i < sizeof unset / sizeof *unset; i++) dxl_env_set(unset[i], NULL);
+#ifdef _WIN32
+    dxl_env_set("USERPROFILE", home);
+    dxl_env_set("DXL_HOME", home);
+#endif
     dxl_log_set_echo(0);
     dxl_log_set_to_file(0);
     make_home();
