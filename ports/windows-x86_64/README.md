@@ -10,8 +10,7 @@ The launcher is DXLauncher, linux-x86_64's on Windows' own calls
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)), the engine DXEngine's
 Windows build beside it. Both build warning-free, import nothing but
 Windows 10's own DLLs, the UCRT's and the engine's `OpenAL32.dll`, and play
-the game under Wine ([verified](#verified)). Untried on Windows itself
-([below](#untried-on-windows-itself)).
+the game under Wine; untried on Windows itself ([verified](#verified)).
 
 ## Build and run
 
@@ -34,7 +33,9 @@ folder, `DXLauncher`, goes wherever the user may write: nothing is
 installed, and About's button puts it in the Start menu
 ([the app menu](../../docs/LAUNCHER.md#the-app-menu)).
 
-## What it is made of
+## What differs from linux-x86_64
+
+The port's files, each Windows':
 
 | File | What it is |
 |---|---|
@@ -73,14 +74,13 @@ on Wayland), AMD Radeon 780M under Mesa's RADV and radeonsi:
   started again by the engine itself.
 - `dxl-cli --probe`: Vulkan (RADV) and OpenGL found.
 
-## Untried on Windows itself
-
-What Wine cannot show, there being no Windows machine in the loop:
-Windows' own Vulkan and OpenGL drivers, D3D11 on a real `d3dcompiler_47`,
-the timer's resolution the engine asks for (`timeBeginPeriod`), sharing
-violations on a rename, SmartScreen and Defender on unsigned programs, a
-restore from the Recycle Bin, DPI scaling, paths past `MAX_PATH`, and a
-real Steam's, GOG's or installer's registry keys.
+Untried on Windows itself, what Wine cannot show, there being no Windows
+machine in the loop: Windows' own Vulkan and OpenGL drivers, D3D11 on a
+real `d3dcompiler_47`, the timer's resolution the engine asks for
+(`timeBeginPeriod`), sharing violations on a rename, SmartScreen and
+Defender on unsigned programs, a restore from the Recycle Bin, DPI scaling,
+paths past `MAX_PATH`, and a real Steam's, GOG's or installer's registry
+keys.
 
 ## Gotchas
 

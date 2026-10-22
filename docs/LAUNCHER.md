@@ -815,4 +815,4 @@ it whatever the install. Changed:
 
 None known. What is untried on Windows itself, there being no Windows
 machine in the loop, is the port's
-([its risks](../ports/windows-x86_64/README.md#untried-on-windows-itself)).
+([verified](../ports/windows-x86_64/README.md#verified)).
