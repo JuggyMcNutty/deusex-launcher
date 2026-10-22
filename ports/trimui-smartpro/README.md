@@ -108,6 +108,15 @@ EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's two EGL extension
 Vulkan is not linked: DXGPU loads the loader through volk, and the launcher's GPU probe
 `dlopen`s it and EGL.
 
+Where the device cannot be reached -- GitHub's CI
+([CI](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#ci)) --
+`DX_SMARTPRO_SYSROOT=sdk` makes the sysroot from TrimUI's own SDK for the device instead, its
+release `20231018`, pinned: its SDL2, EGL, GLESv2, ALSA and zlib under the device's names and
+sonames, every symbol the programs link among them (SDL2's at its 2.26.1, where the device has
+2.30.8; the headers are 2.30.8's either way), and OpenAL Soft, which the SDK lacks, Debian
+buster's. Linked by soname, the programs take the device's own at run time. The libstdc++ and
+Vulkan loader only the probes link are left out.
+
 ### The video driver
 
 The device has no DRM, X11 or Wayland: its display is `/dev/fb0` and the PowerVR stack's EGL,

@@ -4,7 +4,12 @@
 #   ports/trimui-smartpro/fetch-sysroot.sh [--force] [dest]
 #
 # Libraries come off the device itself, so what we link against is exactly
-# what will be there at run time. The engine links the DEVICE's own SDL2
+# what will be there at run time. Where the device cannot be reached --
+# GitHub's CI -- DX_SMARTPRO_SYSROOT=sdk takes them from TrimUI's own SDK for
+# it instead: the same sonames, and every symbol the programs link, SDL2 at
+# its 2.26.1 where the device has 2.30.8; and OpenAL Soft, which the SDK
+# lacks, from Debian buster. Linked by soname, the programs take the
+# device's own at run time either way. The engine links the DEVICE's own SDL2
 # (/usr/trimui/lib), not a self-built one: that vendor build carries a custom
 # "mali" EGL video driver that upstream SDL2 does not have, and the PowerVR
 # stack ships only libpvrNULL_WSEGL.so -- so an upstream KMSDRM build has
@@ -25,8 +30,19 @@ set -euo pipefail
 . "$DX_WORKSPACE/scripts/lib/common.sh"
 . "$(dirname "${BASH_SOURCE[0]}")/port.sh"     # the device's address and login
 
+# TrimUI's SDK for the Smart Pro (TG5040), pinned by our own SHA256.
+SDK_TAG=20231018
+SDK_FILE=SDK_usr_tg5040_a133p.tgz
+SDK_URL="https://github.com/trimui/toolchain_sdk_smartpro/releases/download/$SDK_TAG/$SDK_FILE"
+SDK_SHA256=b6b615d03204e9d9bb1a91c31de0c3402434f6b8fc780743fa88a5f1da6f3c79
+
 # Bump when anything below changes, so an existing sysroot is rebuilt.
-RECIPE="trimui-smartpro sysroot 4"
+SOURCE="${DX_SMARTPRO_SYSROOT:-device}"
+case "$SOURCE" in
+    device) RECIPE="trimui-smartpro sysroot 4" ;;
+    sdk)    RECIPE="trimui-smartpro sysroot 4 (TrimUI's SDK $SDK_TAG, buster's OpenAL Soft)" ;;
+    *)      die "DX_SMARTPRO_SYSROOT is device or sdk, not $SOURCE" ;;
+esac
 
 force=0
 [ "${1:-}" = "--force" ] && { force=1; shift; }
@@ -44,17 +60,36 @@ tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 rm -rf "$SYS"; mkdir -p "$SYS/lib/pkgconfig" "$SYS/include"
 
 # ---- device libraries ------------------------------------------------------
-# tar -h follows the device's symlinks, so each name arrives as a real file;
-# the development symlinks the linker wants are made locally below.
-say "pulling libraries from $DEVICE_USER@$DEVICE ..."
-dx_ssh 'tar -C / -chf - \
-    usr/trimui/lib/libSDL2-2.0.so.0 usr/lib/libEGL.so usr/lib/libGLESv2.so \
-    usr/lib/libopenal.so usr/lib/libasound.so.2 usr/lib/libz.so \
-    usr/lib/libstdc++.so.6 usr/lib/libvulkan.so.1' > "$tmp/dev.tar" \
-    || die "could not reach the device (asleep? it drops off the network when it sleeps)"
-mkdir "$tmp/dev"
-tar -C "$tmp/dev" -xf "$tmp/dev.tar"
-cp "$tmp"/dev/usr/trimui/lib/* "$tmp"/dev/usr/lib/* "$SYS/lib/"
+if [ "$SOURCE" = device ]; then
+    # tar -h follows the device's symlinks, so each name arrives as a real
+    # file; the development symlinks the linker wants are made locally below.
+    say "pulling libraries from $DEVICE_USER@$DEVICE ..."
+    dx_ssh 'tar -C / -chf - \
+        usr/trimui/lib/libSDL2-2.0.so.0 usr/lib/libEGL.so usr/lib/libGLESv2.so \
+        usr/lib/libopenal.so usr/lib/libasound.so.2 usr/lib/libz.so \
+        usr/lib/libstdc++.so.6 usr/lib/libvulkan.so.1' > "$tmp/dev.tar" \
+        || die "could not reach the device (asleep? it drops off the network when it sleeps)"
+    mkdir "$tmp/dev"
+    tar -C "$tmp/dev" -xf "$tmp/dev.tar"
+    cp "$tmp"/dev/usr/trimui/lib/* "$tmp"/dev/usr/lib/* "$SYS/lib/"
+else
+    # Under the device's names. buster's OpenAL Soft needs sndio, and sndio
+    # libbsd, for the link to find; the device's libstdc++ and Vulkan loader,
+    # which only the probes link, are left out.
+    say "libraries from TrimUI's SDK $SDK_TAG ..."
+    sdk="$(dx_fetch_cached "$SDK_FILE" "$SDK_URL" "$SDK_SHA256")"
+    tar -C "$tmp" -xzf "$sdk" usr/lib/libSDL2-2.0.so.0.2600.1 usr/lib/libEGL.so usr/lib/libGLESv2.so \
+        usr/lib/libasound.so.2.0.0 usr/lib/libz.so.1.2.8
+    cp "$tmp/usr/lib/libSDL2-2.0.so.0.2600.1" "$SYS/lib/libSDL2-2.0.so.0"
+    cp "$tmp/usr/lib/libEGL.so" "$tmp/usr/lib/libGLESv2.so" "$SYS/lib/"
+    cp "$tmp/usr/lib/libasound.so.2.0.0" "$SYS/lib/libasound.so.2"
+    cp "$tmp/usr/lib/libz.so.1.2.8" "$SYS/lib/libz.so"
+    say "OpenAL Soft from Debian buster arm64 ..."
+    dx_fetch_debs "$tmp/buster" buster arm64 libopenal1 libsndio7.0 libbsd0
+    cp "$(readlink -f "$tmp/buster/usr/lib/aarch64-linux-gnu/libopenal.so.1")" "$SYS/lib/libopenal.so"
+    cp "$(readlink -f "$tmp/buster/usr/lib/aarch64-linux-gnu/libsndio.so.7.0")" "$SYS/lib/libsndio.so.7.0"
+    cp "$(readlink -f "$tmp/buster/usr/lib/aarch64-linux-gnu/libbsd.so.0")" "$SYS/lib/libbsd.so.0"
+fi
 
 ln -s libSDL2-2.0.so.0       "$SYS/lib/libSDL2.so"
 ln -s libasound.so.2         "$SYS/lib/libasound.so"
@@ -62,7 +97,7 @@ ln -s libEGL.so              "$SYS/lib/libEGL.so.1"
 ln -s libGLESv2.so           "$SYS/lib/libGLESv2.so.2"
 ln -s libopenal.so           "$SYS/lib/libopenal.so.1"
 ln -s libz.so                "$SYS/lib/libz.so.1"
-ln -s libvulkan.so.1         "$SYS/lib/libvulkan.so"
+[ ! -e "$SYS/lib/libvulkan.so.1" ] || ln -s libvulkan.so.1 "$SYS/lib/libvulkan.so"
 
 # The engine finds SDL2 through pkg-config (toolchain-cxx.cmake points it here).
 cat > "$SYS/lib/pkgconfig/sdl2.pc" <<PC
