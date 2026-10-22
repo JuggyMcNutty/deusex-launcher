@@ -70,6 +70,7 @@ cherry-pick from linux-aarch64 may meet them:
 | A pad without stick clicks | | `src/core/bindings.{c,h}` (Modern and its swap leave `Joy9`/`Joy10` unbound; fourteen rows), `src/screens/controller.c`; `tests/test_bindings.c` |
 | spruceOS's Ports folder in the finder | | `src/core/finder.c` (`Roms/PORTS` among a drive's folders); `tests/test_finder.c` |
 | `dxl-shots` at 1280x720 on the big screen | | `tools/shots.c`, `tests/CMakeLists.txt` |
+| Full screen's size as imported: linux-aarch64's, the desktop's (`FullscreenViewportX` and `Y` 0), not taken, as the engine draws borderless over the whole 720p framebuffer whatever size the ini names, there being no desktop mode to switch from | | `src/core/profile.c`, `tests/test_profile.c` |
 | The device's data | | `data/renderers.ini` (Vulkan, OpenGL ES), `data/engine-settings.json.default` (Off, VSync off, RenderScale 0.6666667); `tests/test_settings.c`, the `settings_roundtrip` UI script |
 | Deploy and profile | `port.sh`, `tools/profile-map.sh` | |
 
