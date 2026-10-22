@@ -98,8 +98,15 @@ port_test() {
     # tests start several at a time: started by them at once, they race,
     # and a test can wait for ever. A server already running (exit 2) is
     # up as it is.
-    env WINEPREFIX="$(dx_wine_prefix)" "$(dirname "$(dx_wine)")/wineserver" -p 60 || [ $? = 2 ]
+    local server rc=0
+    server="$(dirname "$(dx_wine)")/wineserver"
+    env WINEPREFIX="$(dx_wine_prefix)" "$server" -p 60 || [ $? = 2 ]
     dx_wine_run cmd /c exit
     mkdir -p "$BUILD/wine-xdg"
-    (cd "$SRC" && XDG_DATA_HOME="$BUILD/wine-xdg" ctest --preset windows-x86_64)
+    (cd "$SRC" && XDG_DATA_HOME="$BUILD/wine-xdg" ctest --preset windows-x86_64) || rc=$?
+    # Then taken down: the server and its services hold the output they
+    # were started with, and a pipe from the tests (CI's log) would wait for
+    # them for ever.
+    env WINEPREFIX="$(dx_wine_prefix)" "$server" -k || true
+    return "$rc"
 }
