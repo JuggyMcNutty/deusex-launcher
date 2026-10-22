@@ -36,4 +36,12 @@ int  dxl_desktop_install(const char *data_home, const char *template_path, const
 int  dxl_desktop_remove(const char *data_home, dxl_err *err);
 int  dxl_desktop_installed(const char *data_home);
 
+/* The menu the entry goes in, as the window names it: "the app menu" here,
+ * "the Start menu" on Windows. */
+#ifdef _WIN32
+#define DXL_DESKTOP_MENU "the Start menu"
+#else
+#define DXL_DESKTOP_MENU "the app menu"
+#endif
+
 #endif

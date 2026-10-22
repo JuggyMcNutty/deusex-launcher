@@ -1,6 +1,7 @@
 /* About: the launcher, the engine it starts, where it keeps everything,
  * the fonts and libraries it is made with; the app menu's entry. */
 #define _GNU_SOURCE
+#include "platform/desktop.h"
 #include "screens/shell.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
@@ -48,7 +49,7 @@ void dxl_page_about(dxl_shell *s, dxl_rect r) {
     dxl_paragraph(ui, in, DXL_FONT_SMALL, credits, t->help);
 
     int entry = dxl_button(ui, "about entry", dxl_cut_left(&buttons, 250),
-                           s->desktop_entry ? "Take it off the app menu" : "Add it to the app menu", 0);
+                           s->desktop_entry ? "Take it off " DXL_DESKTOP_MENU : "Add it to " DXL_DESKTOP_MENU, 0);
     dxl_cut_left(&buttons, 12);
     int open = dxl_button(ui, "about open", dxl_cut_left(&buttons, 230), "Open the settings folder", 0);
     int back = dxl_button(ui, "about back", dxl_cut_right(&buttons, 150), "Back", 0);
