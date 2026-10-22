@@ -1,5 +1,5 @@
 /* The desktop's trash, as freedesktop.org's Trash spec has it: what the
- * launcher deletes of the player's -- a profile's folders, later a save --
+ * launcher deletes of the player's -- a profile's folders, a save, a shot --
  * goes there, to be put back from the file manager, never removed outright.
  *
  * The home trash is <data home>/Trash: files/<name>, the thing itself, and
