@@ -533,10 +533,10 @@ static void desktop(dxl_shell *s, int install) {
     const dxl_session *ss = &s->run->session;
     dxl_err e;
     if (write_entry(ss->xdg.data_home, ss->data_dir, install, &e) == 0) {
-        dxl_log("app menu entry %s", install ? "added" : "removed");
-        dxl_shell_toast(s, install ? "DXLauncher is on the app menu." : "DXLauncher is off the app menu.");
+        dxl_log("the entry %s %s", install ? "added to" : "taken off", DXL_DESKTOP_MENU);
+        dxl_shell_toast(s, install ? "DXLauncher is on " DXL_DESKTOP_MENU "." : "DXLauncher is off " DXL_DESKTOP_MENU ".");
     } else {
-        dxl_shell_message(s, install ? "Not on the app menu" : "Still on the app menu", "%s", dxl_err_msg(&e));
+        dxl_shell_message(s, install ? "Not on " DXL_DESKTOP_MENU : "Still on " DXL_DESKTOP_MENU, "%s", dxl_err_msg(&e));
     }
     s->desktop_entry = dxl_desktop_installed(ss->xdg.data_home);
 }
