@@ -1,0 +1,31 @@
+name: build
+
+# DXLauncher's CI (Port Ex Machina's docs/DEVELOPMENT.md#ci): a pull request
+# into a branch, or a run by hand on it, builds that branch's port -- on
+# main, the recreation -- with the engine at the commit Port Ex Machina pins.
+# The same file on every branch. A push builds when Port Ex Machina's pins
+# take it, which also publishes the release; the jobs are Port Ex Machina's
+# .github/workflows/ports.yml.
+
+on:
+  pull_request:
+    # Not the docs, which no build reads; THIRD-PARTY.md ships in the app.
+    paths:
+      - '**'
+      - '!**.md'
+      - '!docs/**'
+      - 'THIRD-PARTY.md'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ports:
+    uses: JuggyMcNutty/port-ex-machina/.github/workflows/ports.yml@main
+    with:
+      ports: ${{ github.base_ref || github.ref_name }}
