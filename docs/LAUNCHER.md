@@ -50,8 +50,9 @@ one had, set only where the new one's differs; a filesystem with no
 permissions to keep (exFAT, FAT) refusing that is no failure.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
-it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
-window's type (`data/fonts`), the app menu's entry
+it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md` with the notices it names
+(`DXEngine-LICENSE.md`), and `data/`: the window's type (`data/fonts`),
+the app menu's entry
 ([the app menu](#the-app-menu)), the engine's renderers and what each needs
 of the machine (`renderers.ini`), and `Settings.json`'s defaults
 (`engine-settings.json.default`). That engine is the one played with
@@ -79,9 +80,10 @@ engine's defaults or one of [Graphics'](#settings) presets, and with a
 controller connected its [layout](#the-controller), Modern over the game's
 own three buttons or none, else the controls as imported, a layout of the
 player's (`src/app/session.c`). The game lists what the finder finds
-(`src/core/finder.c`), in a worker of the window's, each folder once and
-checked, as it is found: the folder `--game=<dir>` names, the installs
-`launcher.ini` lists; the libraries Steam's `libraryfolders.vdf` lists,
+(`src/core/finder.c`, its places in `src/core/finder_places.c`), in a
+worker of the window's, each folder once and checked, as it is found: the
+folder `--game=<dir>` names, the installs `launcher.ini` lists; the
+libraries Steam's `libraryfolders.vdf` lists,
 the game where its `appmanifest_6910.acf` puts it, as Steam's distro
 package, its Flatpak and its Snap keep them; Heroic's GOG games, the
 `installed.json` of its `gog_store`, and each folder in `~/Games/Heroic`;
@@ -615,7 +617,7 @@ in the game's `System` folder, its output into the profile's
 window the port's engine is built with, the one with the pad, unless the
 environment names a backend,
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
-([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the launcher's
+([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the engine's
 end of a socket pair. Of the launcher's descriptors the engine is given
 that one alone: the rest, the window's fonts among them, close as it
 starts, as for every program the launcher runs. On that line the
