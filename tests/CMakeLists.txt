@@ -69,26 +69,16 @@ foreach(size 1280x720- 1280x800- 1920x1080- 2560x1440 3840x2160 960x600- 1920x10
     add_test(NAME test_ui_shots_${name} COMMAND dxl-shots --only=${size})
 endforeach()
 
-# POSIX's own, not Windows': the XDG folders, the finder's Linux places,
-# the desktop entry and the trash as freedesktop.org has them, the server
-# browser's master and servers of its own on 127.0.0.1, the processes the
-# launcher starts and the game's run with a stand-in for the engine, the
-# real game files' checks and the UI's scripts, all on POSIX's calls.
-if(WIN32)
-    return()
-endif()
-dxl_test(test_xdg)
-dxl_test(test_finder)
-dxl_test(test_desktop)
-target_link_libraries(test_desktop PRIVATE dxl_platform)
-dxl_test(test_trash)
-target_link_libraries(test_trash PRIVATE dxl_platform)
+# The server browser against a master and servers of its own on 127.0.0.1.
 dxl_test(test_browser)
 target_link_libraries(test_browser PRIVATE dxl_app Threads::Threads)
 
 # The processes the launcher starts and the game's run, with a stand-in for
 # the engine (stub_engine.c) in its place.
-add_executable(stub_engine stub_engine.c)
+add_executable(stub_engine stub_engine.c ${DXL_PORT_TEST_SOURCES})
+if(WIN32)
+    target_link_libraries(stub_engine PRIVATE shell32)
+endif()
 foreach(name test_process test_play)
     dxl_test(${name})
     target_link_libraries(${name} PRIVATE dxl_app)
@@ -104,6 +94,19 @@ target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gam
                            DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
 add_dependencies(test_gamefiles stub_engine)
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
+
+# POSIX's own, not Windows': the XDG folders, the finder's Linux places,
+# the desktop entry and the trash as freedesktop.org has them, and the UI's
+# scripts on the desktop's display.
+if(WIN32)
+    return()
+endif()
+dxl_test(test_xdg)
+dxl_test(test_finder)
+dxl_test(test_desktop)
+target_link_libraries(test_desktop PRIVATE dxl_platform)
+dxl_test(test_trash)
+target_link_libraries(test_trash PRIVATE dxl_platform)
 
 # The window through its own loop, scripts of input (tests/ui/) driving it,
 # the stub engine in the engine's place: on the desktop's display, skipped

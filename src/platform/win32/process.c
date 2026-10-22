@@ -425,7 +425,8 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     wchar_t *block = environment(NULL, fd_name, NULL);
     free(fd_name);
     PROCESS_INFORMATION pi;
-    int rc = start(argv, block, NULL, nul, out_w, err_w ? err_w : nul, list, n, &pi, err);
+    dxl_err why;
+    int rc = start(argv, block, NULL, nul, out_w, err_w ? err_w : nul, list, n, &pi, &why);
     free(block);
     CloseHandle(out_w);
     if (err_w) CloseHandle(err_w);
@@ -434,6 +435,9 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         CloseHandle(out_r);
         if (err_r) CloseHandle(err_r);
         if (status) *status = 127;
+        /* Why, on the errors' line too, as POSIX's child says it there. */
+        if (errs && errs_size) snprintf(errs, errs_size, "%s\n", dxl_err_msg(&why));
+        if (err) *err = why;
         return -1;
     }
     CloseHandle(pi.hThread);
