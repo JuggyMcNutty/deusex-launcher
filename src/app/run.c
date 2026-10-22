@@ -10,6 +10,7 @@
 #include "core/servers.h"
 #include "core/paths.h"
 #include "platform/fs.h"
+#include "platform/os.h"
 #include "platform/process.h"
 
 #include <signal.h>
@@ -172,8 +173,17 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
             snprintf(why, size, "%s does not start here: it needs %s, which this system lacks.", engine, need);
         } else if (status != 0 || line[0]) {
             snprintf(brief, brief_size, "does not start");
-            snprintf(why, size, "%s does not start here (its exit %d)%s%s", engine, status, line[0] ? ": " : ".",
-                     line);
+            if (status < 0 || status > 255) {
+                /* No exit's code: what ended it, by the platform's name for
+                 * it -- Windows' loader so ends a program it cannot start,
+                 * saying nothing. */
+                char end[96];
+                snprintf(why, size, "%s does not start here: %s%s%s", engine, dxl_end_name(status, end, sizeof end),
+                         line[0] ? ": " : ".", line);
+            } else {
+                snprintf(why, size, "%s does not start here (its exit %d)%s%s", engine, status, line[0] ? ": " : ".",
+                         line);
+            }
         } else {
             snprintf(brief, brief_size, "not DXEngine");
             snprintf(why, size, "%s does not answer --version as DXEngine does: refusing it.", engine);
