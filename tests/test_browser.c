@@ -1,32 +1,73 @@
 #include "test.h"
 #include "app/browser.h"
+#include "platform/os.h"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 #include <pthread.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <time.h>
-#include <unistd.h>
 
-/* A socket on 127.0.0.1, any port: its fd, the port in *port. */
-static int local_socket(int type, int *port) {
-    int fd = socket(AF_INET, type, 0);
+#ifdef _WIN32
+typedef SOCKET sock;
+#define NO_SOCK INVALID_SOCKET
+#else
+typedef int sock;
+#define NO_SOCK (-1)
+#endif
+
+/* A socket on 127.0.0.1, any port: the socket, the port in *port. */
+static sock local_socket(int type, int *port) {
+    sock fd = socket(AF_INET, type, 0);
     struct sockaddr_in sa;
     memset(&sa, 0, sizeof sa);
     sa.sin_family = AF_INET;
     sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     socklen_t len = sizeof sa;
-    if (fd < 0 || bind(fd, (struct sockaddr *)&sa, sizeof sa) != 0 || getsockname(fd, (struct sockaddr *)&sa, &len) != 0)
-        return -1;
+    if (fd == NO_SOCK || bind(fd, (struct sockaddr *)&sa, sizeof sa) != 0 ||
+        getsockname(fd, (struct sockaddr *)&sa, &len) != 0)
+        return NO_SOCK;
     *port = ntohs(sa.sin_port);
     return fd;
+}
+
+/* The threads waiting on a socket woken, their waits failed: by its
+ * shutdown here, then its close once they are joined; Windows wakes them
+ * only by its close. */
+static void wake_waits(sock fd) {
+#ifdef _WIN32
+    closesocket(fd);
+#else
+    shutdown(fd, SHUT_RDWR);
+#endif
+}
+static void close_woken(sock fd) {
+#ifdef _WIN32
+    (void)fd;
+#else
+    close(fd);
+#endif
+}
+static void close_sock(sock fd) {
+#ifdef _WIN32
+    closesocket(fd);
+#else
+    close(fd);
+#endif
 }
 
 /* A master as 333networks is one: the challenge, the answer checked against
  * the original's for it, the list of the two servers. */
 typedef struct {
-    int  fd;
+    sock fd;
     int  server_port[3];
     char asked[512];     /* what the browser sent */
     int  wrong;          /* send an error, not the list */
@@ -34,13 +75,13 @@ typedef struct {
 
 static void *master_main(void *p) {
     master *m = p;
-    int c = accept(m->fd, NULL, NULL);
-    if (c < 0) return NULL;
+    sock c = accept(m->fd, NULL, NULL);
+    if (c == NO_SOCK) return NULL;
     const char *hello = "\\basic\\\\secure\\abcdef";
-    send(c, hello, strlen(hello), 0);
+    send(c, hello, (int)strlen(hello), 0);
     size_t len = 0;
     while (len < sizeof m->asked - 1 && !strstr(m->asked, "\\list\\")) {
-        ssize_t n = recv(c, m->asked + len, sizeof m->asked - 1 - len, 0);
+        ssize_t n = recv(c, m->asked + len, (int)(sizeof m->asked - 1 - len), 0);
         if (n <= 0) break;
         len += (size_t)n;
         m->asked[len] = '\0';
@@ -53,11 +94,11 @@ static void *master_main(void *p) {
                  m->server_port[0], m->server_port[1], m->server_port[2]);
     /* In two parts: the browser reads on to \final\. */
     size_t half = strlen(reply) / 2;
-    send(c, reply, half, 0);
-    usleep(50000);
-    send(c, reply + half, strlen(reply) - half, 0);
-    usleep(100000);
-    close(c);
+    send(c, reply, (int)half, 0);
+    dxl_os_sleep_ms(50);
+    send(c, reply + half, (int)(strlen(reply) - half), 0);
+    dxl_os_sleep_ms(100);
+    close_sock(c);
     return NULL;
 }
 
@@ -67,7 +108,7 @@ static void *master_main(void *p) {
  * asking, till its socket is shut. */
 enum { ANSWERS, SILENT, LOSES_ONE };
 typedef struct {
-    int fd;
+    sock fd;
     int mode;
     int asked;
 } server;
@@ -78,7 +119,7 @@ static void *server_main(void *p) {
     for (;;) {
         struct sockaddr_in from;
         socklen_t len = sizeof from;
-        ssize_t n = recvfrom(s->fd, buf, sizeof buf - 1, 0, (struct sockaddr *)&from, &len);
+        ssize_t n = recvfrom(s->fd, buf, (int)(sizeof buf - 1), 0, (struct sockaddr *)&from, &len);
         if (n <= 0) break;
         buf[n] = '\0';
         if (strcmp(buf, "\\status\\") != 0) continue;
@@ -93,7 +134,7 @@ static void *server_main(void *p) {
                                       "\\queryid\\%d.2", s->mode == LOSES_ONE ? "Two" : "One", id);
             else if (k == 3) snprintf(pkt, sizeof pkt, "\\TimeToWin\\15\\queryid\\%d.3", id);
             else snprintf(pkt, sizeof pkt, "\\player_0\\Cozmo\\frags_0\\15\\ping_0\\ 40\\final\\\\queryid\\%d.4", id);
-            sendto(s->fd, pkt, strlen(pkt), 0, (struct sockaddr *)&from, len);
+            sendto(s->fd, pkt, (int)strlen(pkt), 0, (struct sockaddr *)&from, len);
         }
     }
     return NULL;
@@ -132,9 +173,9 @@ static void run(int wrong, seen *w, int *rc, dxl_err *e) {
     memset(&m, 0, sizeof m);
     m.wrong = wrong;
     int master_port = 0;
-    s[0] = (server){ -1, ANSWERS, 0 };
-    s[1] = (server){ -1, SILENT, 0 };
-    s[2] = (server){ -1, LOSES_ONE, 0 };
+    s[0] = (server){ NO_SOCK, ANSWERS, 0 };
+    s[1] = (server){ NO_SOCK, SILENT, 0 };
+    s[2] = (server){ NO_SOCK, LOSES_ONE, 0 };
     m.fd = local_socket(SOCK_STREAM, &master_port);
     listen(m.fd, 1);
     for (int i = 0; i < 3; i++) s[i].fd = local_socket(SOCK_DGRAM, &m.server_port[i]);
@@ -148,12 +189,12 @@ static void run(int wrong, seen *w, int *rc, dxl_err *e) {
     *rc = dxl_browse(at, NULL, NULL, &fns, w, NULL, e);
     pthread_join(mt, NULL);
     /* The servers wait on: their sockets shut, they end. */
-    for (int i = 0; i < 3; i++) shutdown(s[i].fd, SHUT_RDWR);
+    for (int i = 0; i < 3; i++) wake_waits(s[i].fd);
     for (int i = 0; i < 3; i++) {
         pthread_join(st[i], NULL);
-        close(s[i].fd);
+        close_woken(s[i].fd);
     }
-    close(m.fd);
+    close_sock(m.fd);
     if (!wrong) {
         CHECK(strstr(m.asked, "\\gamename\\deusex\\location\\0\\validate\\pMqFmqAG\\final\\") != NULL);
         CHECK(strstr(m.asked, "\\list\\\\gamename\\deusex\\final\\") != NULL);
@@ -192,8 +233,9 @@ static void test_master_errors(void) {
     CHECK_INT(rc, -1);
     CHECK(strstr(e.msg, "Validation failed") != NULL);
     CHECK_INT(w.listed, 0);
-    int port = 0, fd = local_socket(SOCK_STREAM, &port);
-    close(fd);   /* nothing listens there now */
+    int port = 0;
+    sock fd = local_socket(SOCK_STREAM, &port);
+    close_sock(fd);   /* nothing listens there now */
     char at[64];
     snprintf(at, sizeof at, "127.0.0.1:%d", port);
     dxl_browse_fns fns = { on_listed, on_answered };
@@ -205,7 +247,8 @@ static void test_master_errors(void) {
 /* A beacon as a server's UdpBeacon is one: REPORTQUERY answered with the
  * product and its query port; anything else, nothing. */
 typedef struct {
-    int fd, asked;
+    sock fd;
+    int asked;
     char answer[64];
 } beacon;
 
@@ -215,20 +258,24 @@ static void *beacon_main(void *p) {
     for (;;) {
         struct sockaddr_in from;
         socklen_t len = sizeof from;
-        ssize_t n = recvfrom(b->fd, buf, sizeof buf - 1, 0, (struct sockaddr *)&from, &len);
+        ssize_t n = recvfrom(b->fd, buf, (int)(sizeof buf - 1), 0, (struct sockaddr *)&from, &len);
         if (n <= 0) break;
         buf[n] = '\0';
         if (strcmp(buf, "REPORTQUERY") != 0) continue;
         b->asked++;
-        sendto(b->fd, b->answer, strlen(b->answer), 0, (struct sockaddr *)&from, len);
+        sendto(b->fd, b->answer, (int)strlen(b->answer), 0, (struct sockaddr *)&from, len);
     }
     return NULL;
 }
 
 static long ms_now(void) {
+#ifdef _WIN32
+    return (long)GetTickCount64();
+#else
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return t.tv_sec * 1000L + t.tv_nsec / 1000000L;
+#endif
 }
 
 /* The local network as the game's Join LAN screen asks it, at DXL_LAN's
@@ -254,7 +301,7 @@ static void test_lan(void) {
     /* The first beacon on the third of the ten ports asked. */
     char env[64];
     snprintf(env, sizeof env, "127.0.0.1:%d", beacon_port[0] - 2);
-    setenv("DXL_LAN", env, 1);
+    dxl_env_set("DXL_LAN", env);
     dxl_browse_lan lan;
     dxl_browse_lan_init(&lan, 0, NULL);
     CHECK_INT(lan.beacon_port, beacon_port[0] - 2);
@@ -276,14 +323,14 @@ static void test_lan(void) {
 
     /* The other game's beacon, at its own place: its server never asked. */
     snprintf(env, sizeof env, "127.0.0.1:%d", beacon_port[1]);
-    setenv("DXL_LAN", env, 1);
+    dxl_env_set("DXL_LAN", env);
     dxl_browse_lan_init(&lan, 0, NULL);
     memset(&w, 0, sizeof w);
     CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
     CHECK_INT(b[1].asked, 1);
     CHECK_INT(w.listed, 0);
 
-    setenv("DXL_LAN", "none", 1);
+    dxl_env_set("DXL_LAN", "none");
     dxl_browse_lan_init(&lan, 0, NULL);
     CHECK_INT(lan.none, 1);
     memset(&w, 0, sizeof w);
@@ -291,19 +338,23 @@ static void test_lan(void) {
     CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
     CHECK(ms_now() - t0 < 1000);
     CHECK_INT(b[0].asked, 1);
-    unsetenv("DXL_LAN");
+    dxl_env_set("DXL_LAN", NULL);
 
-    for (int i = 0; i < 2; i++) shutdown(b[i].fd, SHUT_RDWR);
-    shutdown(s[0].fd, SHUT_RDWR);
+    for (int i = 0; i < 2; i++) wake_waits(b[i].fd);
+    wake_waits(s[0].fd);
     for (int i = 0; i < 2; i++) {
         pthread_join(bt[i], NULL);
-        close(b[i].fd);
+        close_woken(b[i].fd);
     }
     pthread_join(st, NULL);
-    close(s[0].fd);
+    close_woken(s[0].fd);
 }
 
 TEST_MAIN_BEGIN
+#ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
     RUN(test_browse);
     RUN(test_master_errors);
     RUN(test_lan);

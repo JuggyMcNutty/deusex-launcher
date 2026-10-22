@@ -1,5 +1,6 @@
 #include "test.h"
 #include "scratch.h"
+#include "ends.h"
 #include "app/run.h"
 #include "app/session.h"
 #include "core/engine_args.h"
@@ -7,10 +8,14 @@
 #include "platform/os.h"
 #include "platform/fs.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
 
 /* The stub engine (tests/stub_engine.c), built beside the tests. */
 #ifndef DXL_STUB_ENGINE
@@ -136,7 +141,7 @@ static void test_crash(void) {
     CHECK_INT(dxl_game_start_argv(&g, argv, env, NULL, log, NULL), 0);
     char said[64];
     CHECK_INT(wait_end(&g, 5000, said, sizeof said), 1);
-    CHECK_INT(g.status, 128 + SIGSEGV);
+    CHECK_INT(g.status, END_CRASH_STATUS);
     CHECK_INT(dxl_game_clean(&g), 0);
     CHECK_STR(said, "hello ready");
     free(log);
@@ -169,24 +174,80 @@ static void test_capture(void) {
     char *hang[] = { DXL_STUB_ENGINE, NULL };
     dxl_err e;
     CHECK_INT(dxl_run_capture(hang, 300, out, sizeof out, NULL, 0, &status, &e), DXL_RUN_TIMED_OUT);
-    CHECK_INT(status, 128 + SIGKILL);
+    CHECK_INT(status, END_KILL_STATUS);
     dxl_env_set("DXL_STUB", NULL);
 
+    char errs[512];
+#ifdef _WIN32
+    /* A program Windows' loader stopped: its end, no output. */
+    dxl_env_set("DXL_STUB_VERSION_EXIT", "0xC0000135");
+    CHECK_INT(dxl_run_capture(version, 3000, out, sizeof out, errs, sizeof errs, &status, &e), 0);
+    CHECK_INT(status, (int)0xC0000135u);
+    CHECK_STR(out, "");
+    dxl_env_set("DXL_STUB_VERSION_EXIT", NULL);
+#else
     /* Its errors, when asked for: a loader's that stopped it, which did
      * not run. */
-    char errs[512];
     dxl_env_set("DXL_STUB_VERSION_ERR", "stub: version `GLIBC_2.99' not found");
     CHECK_INT(dxl_run_capture(version, 3000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
     CHECK_INT(status, 127);
     CHECK_STR(out, "");
     CHECK(strstr(errs, "GLIBC_2.99") != NULL);
     dxl_env_set("DXL_STUB_VERSION_ERR", NULL);
+#endif
 
     char *none[] = { "/nonexistent/engine", "--version", NULL };
     CHECK_INT(dxl_run_capture(none, 1000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
     CHECK(strstr(errs, "/nonexistent/engine") != NULL);
 }
 
+#ifdef _WIN32
+/* A handle the launcher holds inheritable -- a library's file, as one may
+ * open it -- reaches neither the game nor a helper; the game's own line
+ * does: the stub finds the file by the handle's value only if it was
+ * handed on. */
+static void test_handles_kept(void) {
+    char *dir = dxl_xstrdup(scratch_dir("process-handles"));
+    scratch_write(dir, "held.txt", "held");
+    char *path = scratch_path(dir, "held.txt");
+    wchar_t w[1024];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, w, 1024);
+    SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
+    HANDLE held = CreateFileW(w, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &sa,
+                              OPEN_EXISTING, 0, NULL);
+    CHECK(held != INVALID_HANDLE_VALUE);
+    char value[32];
+    snprintf(value, sizeof value, "%llu", (unsigned long long)(uintptr_t)held);
+    dxl_env_set("DXL_STUB", "handles");
+    dxl_env_set("DXL_STUB_HANDLE", value);
+    dxl_env_set("DXL_STUB_FILE", "held.txt");
+    char *log = scratch_path(dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    dxl_game g;
+    dxl_err e;
+    CHECK_INT(dxl_game_start_argv(&g, argv, NULL, dir, log, &e), 0);
+    char said[64];
+    CHECK_INT(wait_end(&g, 5000, said, sizeof said), 1);
+    char *text = slurp(log, NULL);
+    CHECK(text && strstr(text, "handle not kept\n") != NULL);
+    CHECK(text && strstr(text, "line kept\n") != NULL);
+    free(text);
+    dxl_game_close(&g);
+    char out[256];
+    int status = -1;
+    CHECK_INT(dxl_run_capture(argv, 3000, out, sizeof out, NULL, 0, &status, &e), 0);
+    CHECK(strstr(out, "handle not kept\n") != NULL);
+    CHECK(strstr(out, "line kept") == NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_HANDLE", NULL);
+    dxl_env_set("DXL_STUB_FILE", NULL);
+    CloseHandle(held);
+    free(log);
+    free(path);
+    scratch_remove(dir);
+    free(dir);
+}
+#else
 /* Whether a listing of /proc/<pid>/fd, one a line, has fd. */
 static int lists_fd(const char *text, int fd) {
     char want[32];
@@ -225,6 +286,16 @@ static void test_descriptors_kept(void) {
     scratch_remove(dir);
     free(dir);
 }
+#endif
+
+/* A file a test makes a program to run: its mode, where files have modes. */
+static void make_program(const char *path) {
+#ifdef _WIN32
+    (void)path;
+#else
+    chmod(path, 0755);
+#endif
+}
 
 /* The engine asked as the launcher asks it, and why it is refused said:
  * not there, one the loader cannot start (a glibc newer than this one's, a
@@ -237,6 +308,14 @@ static void test_engine_check(void) {
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), 0);
     CHECK(strstr(v.version, "stub000") != NULL);
 
+#ifdef _WIN32
+    /* Windows' loader says nothing: the end it gave the program, named. */
+    dxl_env_set("DXL_STUB_VERSION_EXIT", "0xC0000135");
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK_STR(brief, "does not start");
+    CHECK(strstr(why, "a DLL it needs not found (0xC0000135)") != NULL);
+    dxl_env_set("DXL_STUB_VERSION_EXIT", NULL);
+#else
     dxl_env_set("DXL_STUB_VERSION_ERR", "x: /lib64/libm.so.6: version `GLIBC_2.99' not found (required by x)");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK(strncmp(brief, "needs glibc 2.99, this system has ", 34) == 0);
@@ -246,6 +325,7 @@ static void test_engine_check(void) {
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK_STR(brief, "needs libSDL2-2.0.so.0");
     dxl_env_set("DXL_STUB_VERSION_ERR", NULL);
+#endif
 
     dxl_env_set("DXL_STUB_FEATURES", "other");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
@@ -256,17 +336,17 @@ static void test_engine_check(void) {
      * engine. */
     const char *dir = scratch_dir("engine-in");
     CHECK(dxl_engine_in(dir) == NULL);
-    const char *old[] = { "SurrealEngine", "VibeEngine" };
+    const char *old[] = { "SurrealEngine" DXL_EXE_SUFFIX, "VibeEngine" DXL_EXE_SUFFIX };
     for (size_t i = 0; i < sizeof old / sizeof *old; i++) {
         scratch_write(dir, old[i], "#!/bin/sh\n");
         char *o = scratch_path(dir, old[i]);
-        chmod(o, 0755);
+        make_program(o);
         free(o);
     }
     CHECK(dxl_engine_in(dir) == NULL);
-    scratch_write(dir, "DXEngine", "#!/bin/sh\n");
-    char *p = scratch_path(dir, "DXEngine");
-    chmod(p, 0755);
+    scratch_write(dir, "DXEngine" DXL_EXE_SUFFIX, "#!/bin/sh\n");
+    char *p = scratch_path(dir, "DXEngine" DXL_EXE_SUFFIX);
+    make_program(p);
     char *found = dxl_engine_in(dir);
     CHECK(found && strcmp(found, p) == 0);
     free(found);
@@ -311,14 +391,20 @@ static void test_engine_chosen(void) {
 }
 
 TEST_MAIN_BEGIN
+#ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
+#endif
     RUN(test_words_kept);
     RUN(test_env);
     RUN(test_line);
     RUN(test_crash);
     RUN(test_cannot_run);
     RUN(test_capture);
+#ifdef _WIN32
+    RUN(test_handles_kept);
+#else
     RUN(test_descriptors_kept);
+#endif
     RUN(test_engine_check);
     RUN(test_engine_chosen);
 TEST_MAIN_END
