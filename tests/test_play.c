@@ -6,6 +6,7 @@
 #include "platform/instance.h"
 #include "platform/os.h"
 
+#include <pthread.h>
 #include <signal.h>
 #include <time.h>
 
@@ -138,13 +139,22 @@ static void test_stop_then_kill(void) {
 
 /* A line a second launch forwards: TakeFocus and Open for its URL once the
  * engine is up; one sent before then is dropped, as the original's log
- * window takes one only once it has the engine. */
+ * window takes one only once it has the engine. The second launches are a
+ * thread's, as another process's would be, the launcher's loop free to read
+ * each: on Windows a sender waits for the one before it to be read. */
 static char forward_id[64];
+static int forward_rc[2];
+static pthread_t forwarder;
+static void *forward_main(void *p) {
+    (void)p;
+    forward_rc[0] = dxl_instance_forward(forward_id, "127.0.0.1:7790 -log", 1000, NULL);
+    /* A link's server, as a second start hands it on: the game's own way. */
+    forward_rc[1] = dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/ --big-screen", 1000, NULL);
+    return NULL;
+}
 static void forward_on_ready(void *ctx) {
     (void)ctx;
-    CHECK_INT(dxl_instance_forward(forward_id, "127.0.0.1:7790 -log", 1000, NULL), 0);
-    /* A link's server, as a second start hands it on: the game's own way. */
-    CHECK_INT(dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/ --big-screen", 1000, NULL), 0);
+    pthread_create(&forwarder, NULL, forward_main, NULL);
 }
 
 static void test_forwarded(void) {
@@ -155,13 +165,17 @@ static void test_forwarded(void) {
     char *dir = dxl_xstrdup(scratch_dir("play-forward"));
     char *log = scratch_path(dir, "run.log");
     char *argv[] = { DXL_STUB_ENGINE, NULL };
-    char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=800", NULL };
+    char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=1500", NULL };
     dxl_play_request req = {
         .argv = argv, .env = env, .workdir = dir, .log_path = log, .instance = inst,
         .on_ready = forward_on_ready,
     };
     dxl_play_result r;
+    forward_rc[0] = forward_rc[1] = -1;
     dxl_play(&req, &r);
+    pthread_join(forwarder, NULL);
+    CHECK_INT(forward_rc[0], 0);
+    CHECK_INT(forward_rc[1], 0);
     CHECK_INT(r.clean, 1);
     char *text = slurp(log, NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 127.0.0.1:7790\n") != NULL);
