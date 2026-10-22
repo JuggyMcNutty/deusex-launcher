@@ -37,7 +37,7 @@ cherry-pick
 
 ## License
 
-[zlib](LICENSE); what the app carries of others', its fonts and libraries,
-under their own terms ([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex
+[zlib](LICENSE); what the app carries of others', its fonts, libraries and
+engine, under their own terms ([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex
 belongs to its owners; this project is not affiliated with or endorsed by
 them.
