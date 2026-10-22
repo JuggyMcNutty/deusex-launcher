@@ -24,6 +24,22 @@
 #define FOUND_SETUP    "where its installer put it"
 #define FOUND_DRIVE    "on a drive"
 
+/* Where a key of HKCU's or HKLM's software is read, into where: its own
+ * place, or under the one key of HKCU's a test gives for both
+ * (DXL_FINDER_KEYS), so that no real Steam's or installer's keys are
+ * touched. sub begins "Software\\". */
+static HKEY place(HKEY root, const wchar_t *sub, wchar_t *where, size_t size) {
+    const char *t = getenv("DXL_FINDER_KEYS");
+    if (!t || !*t) {
+        swprintf(where, size, L"%ls", sub);
+        return root;
+    }
+    wchar_t *w = dxl_w(t, 0);
+    swprintf(where, size, L"%ls\\%ls", w, sub + 9);
+    free(w);
+    return HKEY_CURRENT_USER;
+}
+
 /* A string value of the registry's, as a path; NULL when there is none.
  * Caller frees. */
 static char *reg_path(HKEY root, const wchar_t *sub, const wchar_t *name) {
@@ -68,7 +84,9 @@ static void steams(finder *f) {
         { HKEY_LOCAL_MACHINE, L"SOFTWARE\\Valve\\Steam", L"InstallPath" },
     };
     for (size_t i = 0; i < sizeof keys / sizeof *keys && !dxl_finder_stopped(f); i++) {
-        char *root = reg_path(keys[i].root, keys[i].sub, keys[i].name);
+        wchar_t sub[512];
+        HKEY at = place(keys[i].root, keys[i].sub, sub, 512);
+        char *root = reg_path(at, sub, keys[i].name);
         if (root) dxl_finder_steam(f, FOUND_STEAM, root, NULL);
         free(root);
     }
@@ -78,8 +96,9 @@ static void steams(finder *f) {
 static void gog(finder *f) {
     static const wchar_t *const subs[] = { L"SOFTWARE\\WOW6432Node\\GOG.com\\Games", L"SOFTWARE\\GOG.com\\Games" };
     for (size_t i = 0; i < sizeof subs / sizeof *subs && !dxl_finder_stopped(f); i++) {
-        HKEY k;
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subs[i], 0, KEY_READ, &k) != ERROR_SUCCESS) continue;
+        wchar_t sub[512];
+        HKEY at = place(HKEY_LOCAL_MACHINE, subs[i], sub, 512), k;
+        if (RegOpenKeyExW(at, sub, 0, KEY_READ, &k) != ERROR_SUCCESS) continue;
         wchar_t name[256];
         for (DWORD j = 0; !dxl_finder_stopped(f); j++) {
             DWORD len = sizeof name / sizeof *name;
@@ -103,7 +122,9 @@ static void installed(finder *f) {
         { HKEY_LOCAL_MACHINE, L"SOFTWARE\\Unreal Technology\\Installed Apps\\Deus Ex" },
     };
     for (size_t i = 0; i < sizeof keys / sizeof *keys && !dxl_finder_stopped(f); i++) {
-        char *folder = reg_path(keys[i].root, keys[i].sub, L"Folder");
+        wchar_t sub[512];
+        HKEY at = place(keys[i].root, keys[i].sub, sub, 512);
+        char *folder = reg_path(at, sub, L"Folder");
         if (folder) dxl_finder_add(f, FOUND_SETUP, folder, 0);
         free(folder);
     }

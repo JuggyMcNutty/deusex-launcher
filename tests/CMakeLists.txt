@@ -95,12 +95,21 @@ target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gam
 add_dependencies(test_gamefiles stub_engine)
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
 
-# POSIX's own, not Windows': the XDG folders, the finder's Linux places,
-# the desktop entry and the trash as freedesktop.org has them, and the UI's
-# scripts on the desktop's display.
+# Windows' own: the Known Folders, the finder's Windows places, the Start
+# menu's entry and deusex://, the Recycle Bin.
 if(WIN32)
+    dxl_test(test_folders_win32)
+    dxl_test(test_finder_win32)
+    dxl_test(test_desktop_win32)
+    target_link_libraries(test_desktop_win32 PRIVATE dxl_platform)
+    dxl_test(test_trash_win32)
+    target_link_libraries(test_trash_win32 PRIVATE dxl_platform)
     return()
 endif()
+
+# POSIX's own: the XDG folders, the finder's Linux places, the desktop entry
+# and the trash as freedesktop.org has them, and the UI's scripts on the
+# desktop's display.
 dxl_test(test_xdg)
 dxl_test(test_finder)
 dxl_test(test_desktop)
