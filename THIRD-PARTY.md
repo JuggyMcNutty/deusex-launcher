@@ -20,7 +20,9 @@ music played with [libxmp-lite](https://github.com/libxmp/libxmp), under the MIT
 Where the system has them they are its own; where it has not they are built into the programs
 from the sources `cmake/deps.lock` pins, and with them [FreeType](https://freetype.org), under
 the FreeType License: portions of this software are copyright © 2026 The FreeType Project
-(www.freetype.org). All rights reserved.
+(www.freetype.org). All rights reserved. The engine's window is drawn with
+[SDL2](https://libsdl.org), under the zlib licence: built on the device, the system's;
+cross-built, built into it from the source `cmake/deps.lock` pins.
 
 libxmp-lite's notice:
 

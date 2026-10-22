@@ -7,9 +7,11 @@ userland, Mesa and a desktop.
 ## Status
 
 The launcher is DXLauncher, linux-x86_64's
-([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)). It cross-builds
-warning-free under GCC 13.2, needing glibc 2.27 at most and no library but
-the C library's. Untried on an aarch64 device.
+([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)). It and the engine
+cross-build warning-free under GCC 13.2, needing glibc 2.27 at most: the
+launcher no library but the C library's, the engine the device's X11,
+OpenAL, EGL and GL, D-Bus, GLib, fontconfig and FreeType. Untried on an
+aarch64 device.
 
 ## Build and run
 
@@ -20,12 +22,13 @@ Two ways:
   own libraries: the launcher's SDL3 and SDL3_ttf 3.2 and libxmp 4.4 or
   newer, the distro's, else built from `cmake/deps.lock`'s sources, and the
   engine's SDL2, the distro's; untried on a device.
-- **Cross, from a PC** -- the launcher only.
+- **Cross, from a PC**, as GitHub's CI builds it: the launcher and the
+  engine, the engine's SDL2 built in and its own Wayland window left out.
 
 ```sh
 # cross, from a PC
-scripts/dx.sh deps  linux-aarch64       # the toolchain, the window's sources, the sysroot
-scripts/dx.sh build linux-aarch64       # the launcher
+scripts/dx.sh deps  linux-aarch64       # the toolchain, the sources, the sysroot, the engine's SDL2
+scripts/dx.sh build linux-aarch64       # launcher and engine
 scripts/dx.sh stage linux-aarch64       # build/linux-aarch64/app: copy it to the device
 
 # natively, on the device
@@ -37,10 +40,7 @@ scripts/dx.sh stage linux-aarch64 && scripts/dx.sh run linux-aarch64 [--fresh]
 
 Natively, `run` starts the staged `deusex-launcher` where it is staged, on
 the `gamefiles/` beside the repositories, as linux-x86_64's does; `--fresh`
-gives it a scratch home, `build/linux-aarch64/fresh-home`. A cross-built
-app has no engine: one built on the device goes beside the launcher, or
-`DXL_ENGINE=<path>` names it
-([where everything lives](../../docs/LAUNCHER.md#where-everything-lives)).
+gives it a scratch home, `build/linux-aarch64/fresh-home`.
 
 ## What differs from linux-x86_64
 
@@ -48,16 +48,17 @@ app has no engine: one built on the device goes beside the launcher, or
 |---|---|
 | `port.cmake` | a cross build has SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends built against `deps/sysroots/linux-aarch64`'s headers and opened at run time, and a 2.28 ceiling, which `CMakeLists.txt` checks the programs against after each build (`scripts/check-abi.sh`); a native build none of it, the device's own libraries or their sources, with no ceiling |
 | `toolchain-c.cmake` | Godot's Buildroot SDK, GCC 13.2 / glibc 2.28, as linux-x86_64's, finding the sysroot's libraries in their multiarch folders; does nothing on an aarch64 host |
-| `engine.cmake` | the engine, native builds only: SDL2's, X11's and Wayland's windows, SDL2's the one the launcher asks for at run time |
-| `port.sh` | `deps` fetches the toolchain and the window's sources, and makes the sysroot from Debian bookworm's arm64 packages: the headers and libraries of X11, Wayland, libdecor, ALSA, PulseAudio, PipeWire, udev, D-Bus, libusb, EGL, GL, GLES, DRM and GBM, and Vulkan's headers; `run` works natively |
+| `toolchain-cxx.cmake` | the engine's: the same SDK, linking the SDK's own X11, Xi, D-Bus, GLib, fontconfig and FreeType, and the sysroot's EGL, GL and OpenAL Soft, buster's, at glibc 2.28; libstdc++ and libgcc static; does nothing on an aarch64 host |
+| `engine.cmake` | the engine: SDL2's and X11's windows, SDL2's the one the launcher asks for at run time; cross-built with `toolchain-cxx.cmake` and without the engine's own Wayland window, which needs waylandpp, as linux-x86_64's; natively with it |
+| `port.sh` | `deps` fetches the toolchain and the sources, makes the sysroot from Debian bookworm's arm64 packages -- the headers and libraries of X11, Wayland, libdecor, ALSA, PulseAudio, PipeWire, udev, D-Bus, libusb, EGL, GL, GLES, DRM and GBM, and Vulkan's headers -- with buster's glvnd, EGL, GL and OpenAL Soft over them and the SDK's pkg-config files in `deps/sysroots/linux-aarch64/sdk-pkgconfig`, and builds the engine's SDL2 into `deps/prefix/linux-aarch64`, static, its backends opened at run time; `run` works natively |
 
 The glibc 2.28 ceiling keeps the cross-built programs off newer glibc
 symbols, so they load on a distro with glibc 2.28 or later, RHEL 8's, the
 oldest of the actively maintained mainline distributions; the window opens
 the device's own X11 or Wayland, and its ALSA, PulseAudio or PipeWire, at
-run time. Cross-building the engine needs a sysroot with the engine's
-libraries (SDL2, OpenAL, zlib, ...); the SDK's GCC 13.2 already builds its
-C++20.
+run time. The engine, cross-built, holds to the same ceiling: what it links
+is the SDK's own or buster's, whose glibc is 2.28, and at run time the
+device's.
 
 A GPU without descriptor indexing or some texture formats takes the Vulkan
 device's other paths
