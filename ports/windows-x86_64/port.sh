@@ -96,8 +96,9 @@ port_test() {
     dx_wine_ready
     # Wine's server and the prefix's services up, and kept up, before the
     # tests start several at a time: started by them at once, they race,
-    # and a test can wait for ever.
-    env WINEPREFIX="$(dx_wine_prefix)" "$(dirname "$(dx_wine)")/wineserver" -p 60
+    # and a test can wait for ever. A server already running (exit 2) is
+    # up as it is.
+    env WINEPREFIX="$(dx_wine_prefix)" "$(dirname "$(dx_wine)")/wineserver" -p 60 || [ $? = 2 ]
     dx_wine_run cmd /c exit
     mkdir -p "$BUILD/wine-xdg"
     (cd "$SRC" && XDG_DATA_HOME="$BUILD/wine-xdg" ctest --preset windows-x86_64)
