@@ -241,6 +241,8 @@ static void test_no_links(void) {
     free(engine_shots);
     free(data_shots);
     free(system_dir);
+    scratch_remove(home);
+    scratch_remove(game);
     free(home);
     free(game);
 }

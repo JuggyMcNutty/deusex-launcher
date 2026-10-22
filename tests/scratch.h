@@ -107,9 +107,16 @@ static inline char *scratch_listing(const char *dir) {
     return text;
 }
 
-/* rm -r, for a folder the test made. */
+/* rm -r, for a folder the test made: tried again for a second, as Windows
+ * holds a folder a program worked in a moment after it has ended. */
 static inline void scratch_remove(const char *dir) {
-    if (dxl_fs_remove_tree(dir) != 0) fprintf(stderr, "could not remove %s\n", dir);
+    for (int tries = 0; dxl_fs_remove_tree(dir) != 0; tries++) {
+        if (tries == 20) {
+            fprintf(stderr, "could not remove %s\n", dir);
+            return;
+        }
+        dxl_os_sleep_ms(50);
+    }
 }
 
 #endif
