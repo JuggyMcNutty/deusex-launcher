@@ -1,6 +1,7 @@
 /* Where the platform keeps an app's own files, for the launcher's folders
  * (core/xdg.h): POSIX's are freedesktop.org's base directories, in
- * platform/posix/folders.c.
+ * platform/posix/folders.c; Windows' its Known Folders, in
+ * platform/win32/folders.c.
  */
 #ifndef DXL_FOLDERS_H
 #define DXL_FOLDERS_H

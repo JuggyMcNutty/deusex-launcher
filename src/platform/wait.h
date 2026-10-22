@@ -1,6 +1,8 @@
 /* Waiting where POSIX and Windows differ: on wakes -- set by another
- * thread, or by a signal's handler -- and on a second start's line to the
- * single instance (platform/instance.h). platform/posix/wait.c is POSIX's.
+ * thread, or by a signal's handler (Windows: the console's) -- and on a
+ * second start's line to the single instance (platform/instance.h).
+ * platform/posix/wait.c is POSIX's: pipes and poll; platform/win32/wait.c
+ * Windows': events.
  */
 #ifndef DXL_WAIT_H
 #define DXL_WAIT_H

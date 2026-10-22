@@ -1,3 +1,9 @@
+/* Processes on Windows (platform/os.h), and what the other win32 files
+ * share (platform/win32/internal.h): UTF-8 and UTF-16, Windows' errors as
+ * errno's and as text, a word quoted as CommandLineToArgvW splits a line,
+ * and the names of the codes a program ends with when it does not exit by
+ * itself.
+ */
 #include "platform/os.h"
 #include "platform/win32/internal.h"
 #include "core/common.h"

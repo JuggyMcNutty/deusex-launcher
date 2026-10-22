@@ -1,8 +1,12 @@
-/* The desktop's trash, as freedesktop.org's Trash spec has it: what the
- * launcher deletes of the player's -- a profile's folders, later a save --
- * goes there, to be put back from the file manager, never removed outright.
+/* The desktop's trash: what the launcher deletes of the player's -- a
+ * profile's folders, later a save -- goes there, to be put back from it,
+ * never removed outright. Windows' is its Recycle Bin
+ * (platform/win32/trash.c), which says nothing back of where it put a
+ * thing: the launcher puts nothing back there, data_home is unused and a
+ * name comes back empty.
  *
- * The home trash is <data home>/Trash: files/<name>, the thing itself, and
+ * POSIX's (platform/posix/trash.c) is freedesktop.org's Trash spec's. The
+ * home trash is <data home>/Trash: files/<name>, the thing itself, and
  * info/<name>.trashinfo, where it was ([Trash Info] Path, its URL-escaped
  * absolute path, and DeletionDate). A name taken already there gets ".2",
  * ".3"...: the .trashinfo is made first, by that name alone (O_EXCL), so two

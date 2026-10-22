@@ -1,7 +1,9 @@
 /* GPU detection, isolated from the launcher process.
  *
- * Loads the Vulkan loader and EGL with dlopen, in a forked child, and reports
- * what they offer. A driver that crashes or hangs during initialisation takes
+ * On POSIX (platform/posix/gpu_probe.c), loads the Vulkan loader and EGL with
+ * dlopen, in a forked child, and reports what they offer; on Windows
+ * (platform/win32/gpu_probe.c), vulkan-1.dll and WGL, in dxl-cli on a thread
+ * of its own, there being no fork. A driver that crashes or hangs during initialisation takes
  * the child down, not the launcher -- the same reason the original ran
  * -testrendev in a child process (dx-reverse-info/wizard.md, Renderer page).
  *

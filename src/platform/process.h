@@ -11,7 +11,9 @@
  * launcher hands it what a second launch forwarded (app/play.h). The engine
  * finds its end of that line through DXL_LAUNCHER_FD in its environment; an
  * engine that never answers on it just runs. platform/posix/process.c is
- * POSIX's: a socket pair, the engine's end a descriptor.
+ * POSIX's: a socket pair, the engine's end a descriptor;
+ * platform/win32/process.c Windows': a named pipe, the engine's end an
+ * inherited handle.
  */
 #ifndef DXL_PROCESS_H
 #define DXL_PROCESS_H

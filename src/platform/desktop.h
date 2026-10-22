@@ -1,9 +1,12 @@
-/* The launcher's entry in the desktop's app menu: a freedesktop.org desktop
+/* The launcher's entry in the desktop's app menu, the deusex:// links'
+ * handler. On POSIX (platform/posix/desktop.c) a freedesktop.org desktop
  * entry, <data home>/applications/<DXL_APP_ID>.desktop, made from the
  * app's data/<DXL_APP_ID>.desktop.in with the launcher's own path in Exec;
  * and its icon, <data home>/icons/hicolor/<n>x<n>/apps/<DXL_APP_ID>.png
  * (drawn by ui/icon.h). The launcher's window has the same id, so the
- * desktop puts the two together.
+ * desktop puts the two together. On Windows (platform/win32/desktop.c) two
+ * Start menu shortcuts, their icon made of the same PNGs, and the handler
+ * in the user's registry: no template.
  */
 #ifndef DXL_DESKTOP_H
 #define DXL_DESKTOP_H

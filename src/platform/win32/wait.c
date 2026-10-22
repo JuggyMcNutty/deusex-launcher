@@ -1,3 +1,6 @@
+/* Waiting on Windows (platform/wait.h): a wake is an event, and the single
+ * instance's line one more, WaitForMultipleObjects on them all.
+ */
 #include "platform/wait.h"
 #include "platform/win32/internal.h"
 

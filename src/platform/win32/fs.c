@@ -1,3 +1,9 @@
+/* The file system on Windows (platform/fs.h): its wide calls, each path
+ * UTF-16 with '\' on the way in and UTF-8 with '/' on the way back. A file
+ * replaced whole by a new one written beside it, flushed and moved over it
+ * (MoveFileExW); a link to a folder a symbolic one, which Windows lets a
+ * user make only in its developer mode.
+ */
 #include "platform/fs.h"
 #include "platform/win32/internal.h"
 #include "core/paths.h"

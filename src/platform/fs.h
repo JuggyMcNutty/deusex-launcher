@@ -1,7 +1,7 @@
 /* The file system where POSIX and Windows differ: the rest of the launcher
  * calls what both C libraries do alike -- stdio, stat, opendir and readdir,
  * remove, rmdir -- itself, and these for the rest. platform/posix/fs.c is
- * POSIX's.
+ * POSIX's, platform/win32/fs.c Windows'.
  *
  * Paths are UTF-8, with '/' between names, as everything above the
  * platform keeps them: a root is "/", and on Windows "C:/" or

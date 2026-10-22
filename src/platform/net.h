@@ -3,8 +3,9 @@
  * alone: the game's master servers and servers are.
  *
  * Every call takes milliseconds to wait at most; none waits longer, so a
- * worker asked to stop stops within one. A socket is the platform's, an fd
- * here (platform/posix/net.c), DXL_SOCKET_NONE for none.
+ * worker asked to stop stops within one. A socket is the platform's -- an
+ * fd on POSIX (platform/posix/net.c), Winsock's SOCKET on Windows
+ * (platform/win32/net.c) -- DXL_SOCKET_NONE for none.
  */
 #ifndef DXL_NET_H
 #define DXL_NET_H
