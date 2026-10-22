@@ -1,5 +1,6 @@
 /* The launcher's own folders, where the platform keeps an app's
- * (platform/folders.h): here the XDG base directories, each with a
+ * (platform/folders.h): Windows' Known Folders (platform/win32/folders.c,
+ * docs/LAUNCHER.md), and on POSIX the XDG base directories, each with a
  * dxlauncher folder in it (freedesktop.org's Base Directory spec).
  *
  *   config  $XDG_CONFIG_HOME, else ~/.config       launcher.ini; each profile's

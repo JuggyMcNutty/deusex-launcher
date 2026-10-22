@@ -6,10 +6,9 @@ and saves in a profile, and starts
 [DXEngine](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md)
 and stays with it. Two programs: `deusex-launcher.exe`, the launcher, and
 `dxl-cli.exe`, the same with no window, for scripts and for looking. C11,
-its core with no SDL. This is windows-x86_64's: Windows 10 (1903) or newer
-on x86_64, linux-x86_64's launcher on Windows' own calls
-(`src/platform/win32/`), its commits coming over from there by a
-cherry-pick, cross-built by llvm-mingw and tested under Wine
+its core with no SDL. This is windows-x86_64's: linux-x86_64's launcher on
+Windows' own calls (`src/platform/win32/`), its commits coming over from
+there by a cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
@@ -57,15 +56,15 @@ The launcher's own folder is where `deusex-launcher.exe` is: the engine
 beside it (`DXEngine.exe`, its `.pk3`, OpenAL Soft's `OpenAL32.dll`),
 `THIRD-PARTY.md` with the notices it names (`DXEngine-LICENSE.md`,
 `licenses/`), and `data/`: the window's type (`data/fonts`), the engine's
-renderers and what each needs of the machine (`renderers.ini`: Vulkan and
-OpenGL), and `Settings.json`'s defaults (`engine-settings.json.default`).
+renderers and what each needs of the machine (`renderers.ini`), and
+`Settings.json`'s defaults (`engine-settings.json.default`).
 That engine is the one played with unless another is chosen, on Settings'
 Launcher page or Home's The engine..., `launcher.ini`'s `[Launcher]
 Engine`; `DXL_ENGINE=<path>` names one over both.
 
 ## An install
 
-A folder is an install when `System/DeusEx.exe` is there by that name, and
+A folder is an install when `System/DeusEx.exe` is there, in any case, and
 the engine plays it only when that file's SHA1 is one it knows
 (`src/core/gamedb.c`, the engine's own list, which Port Ex Machina's
 `scripts/dx.sh check` holds them to): 1112fm, GOG's and Steam's; 1002f, the
@@ -284,7 +283,7 @@ network's, as the game's Join LAN screen adds it (the client's LAN speed),
 and `?password=` after that when it asks for one; the launcher's log and
 the last run keep where it went, not the password.
 
-A `deusex://host:port` link, of which the app menu's entry is the handler,
+A `deusex://host:port` link, of which the launcher is the handler,
 opens Multiplayer asking whether to join its server; with `--play`, with no
 window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
@@ -378,10 +377,10 @@ and the hints a pad's when one is there as it opens. Settings' Launcher
 page has it Always, Never, or Automatic, the default: the big screen under
 Steam's Big Picture (`SteamTenfoot` or `SteamGamepadUI` set to 1), on a
 Steam Deck (`SteamDeck=1`) or in gamescope (`GAMESCOPE_WAYLAND_DISPLAY`).
-`--big-screen`, as the app menu's Big screen, asks for it whatever the
+`--big-screen`, as the big screen's shortcut, asks for it whatever the
 setting.
 F11 switches it while the window is up, and a second start's
-`--big-screen` -- the app menu's Big screen with the launcher up -- puts
+`--big-screen` -- the big screen's shortcut with the launcher up -- puts
 it on; the desktop taking the window out of full screen ends it. In a
 window, Home and Welcome offer it once, as a pad is first pressed there,
 the press the question's; switched to, it is Always. Its size is the
@@ -439,7 +438,7 @@ a note in its corner.
 Settings' tabs are its pages: Display, Graphics, Audio, Keyboard & mouse,
 Controller ([the controller](#the-controller)), Gameplay & HUD,
 Multiplayer, Launcher; a page's advanced rows come after its others. Each
-row is the registry's (`src/core/settings_table.c`): what
+row is the settings table's (`src/core/settings_table.c`): what
 it is, its help, and the places it is kept, each with the codec its reader
 takes (`src/core/settings.c`):
 
@@ -476,9 +475,9 @@ drew it: detail textures, and no multisampling or bloom), Enhanced (4x
 multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
 a first run's engine defaults among them. Its
-Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2
-and OpenGL ES 3.2 (`data/renderers.ini`), which `dxl-cli --probe --ini`
-finds in a child process as the page needs them.
+Renderer offers the engine's renderers that run here, Vulkan and OpenGL
+4.2 (`data/renderers.ini`), which `dxl-cli --probe --ini` finds in a child
+process as the page needs them.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -688,9 +687,9 @@ besides: `test_folders_win32` the Known Folders and `DXL_HOME`'s;
 registry's, read from a key of the test's own in theirs
 (`DXL_FINDER_KEYS`); `test_desktop_win32` the Start menu's shortcuts and
 their icon in a folder of its own (`DXL_START_MENU`) and `deusex://`, each
-gone again; `test_trash_win32` the Recycle Bin, Wine's being the desktop's
-trash, a scratch one there, several at once all or none.
-`test_settings` takes the registry's rows through each codec, both
+gone again; `test_trash_win32` the Recycle Bin, several at once all or
+none.
+`test_settings` takes the settings table's rows through each codec, both
 generations of the system ini, the sizes, the next run's words,
 `Settings.json`, the presets and a new profile's defaults; `test_keys` the
 key names, bindings and their reset; `test_bindings` the controller's
@@ -701,7 +700,7 @@ and what the engine is given; `test_engine_sections` the keys written;
 writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
-`test_finder` each of the finder's places, in homes it makes up;
+`test_finder` the host's places, desktop Linux's, in homes it makes up;
 `test_bigscreen` when the big screen is wanted, by the setting, the
 environment and `--big-screen`;
 `test_mods` which folders are mods, their settings and where they are
@@ -719,7 +718,7 @@ that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`). `test_profile` imports from a fake
-install made read-only, which it leaves as it was, and makes, lists and
+install, read-only on POSIX, which it leaves as it was, and makes, lists and
 copies profiles; `test_trash` puts folders in a scratch trash;
 `test_gamefiles`, on a
 real install in `gamefiles/`, reads every asset the window takes from it --
@@ -813,6 +812,5 @@ it whatever the install. Changed:
 
 ## Known defects
 
-None known. What is untried on Windows itself, there being no Windows
-machine in the loop, is the port's
+None known; what is untried on Windows itself is the port's
 ([verified](../ports/windows-x86_64/README.md#verified)).

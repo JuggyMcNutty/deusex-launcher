@@ -23,14 +23,16 @@ extern const int dxl_desktop_icon_count;
 char *dxl_desktop_entry_path(const char *data_home);
 char *dxl_desktop_icon_path(const char *data_home, int px);
 
-/* Exec's value for program: quoted and escaped as the spec's Exec key and
- * string type have it. Caller frees. */
+/* Exec's value for program: on POSIX quoted and escaped as the spec's Exec
+ * key and string type have it; on Windows quoted where it needs. Caller
+ * frees. */
 char *dxl_desktop_exec(const char *program);
 
-/* The entry from the template file, @EXEC@ the program's Exec; then, and
- * as it goes, the applications folder's MimeType cache made again where
- * the desktop has update-desktop-database, for the deusex:// links the
- * entry handles. */
+/* The entry: on POSIX from the template file, @EXEC@ the program's Exec,
+ * then the applications folder's MimeType cache made again where the
+ * desktop has update-desktop-database, for the deusex:// links the entry
+ * handles; on Windows the shortcuts, their icon and the links' handler, no
+ * template. */
 int  dxl_desktop_install(const char *data_home, const char *template_path, const char *program, dxl_err *err);
 /* The entry and the icons, gone. */
 int  dxl_desktop_remove(const char *data_home, dxl_err *err);

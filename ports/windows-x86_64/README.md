@@ -8,9 +8,8 @@ there under Proton's wine: no Windows machine is in the loop.
 
 The launcher is DXLauncher, linux-x86_64's on Windows' own calls
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)), the engine DXEngine's
-Windows build beside it. Both build warning-free, import nothing but
-Windows 10's own DLLs, the UCRT's and the engine's `OpenAL32.dll`, and play
-the game under Wine; untried on Windows itself ([verified](#verified)).
+Windows build beside it. Both build warning-free and play the game under
+Wine; untried on Windows itself ([verified](#verified)).
 
 ## Build and run
 
@@ -48,8 +47,7 @@ The port's files, each Windows':
 The UTF-8 code page lets the C library's narrow calls take UTF-8, as every
 path above the platform is kept: it is what needs 1903. The engine's
 D3D11 device is built but not offered
-([the renderers](../../docs/LAUNCHER.md#where-everything-lives)): Windows
-plays on Vulkan or OpenGL, as Linux does.
+([the renderers](../../docs/LAUNCHER.md#settings)).
 
 ## Verified
 
@@ -74,13 +72,13 @@ on Wayland), AMD Radeon 780M under Mesa's RADV and radeonsi:
   started again by the engine itself.
 - `dxl-cli --probe`: Vulkan (RADV) and OpenGL found.
 
-Untried on Windows itself, what Wine cannot show, there being no Windows
-machine in the loop: Windows' own Vulkan and OpenGL drivers, D3D11 on a
-real `d3dcompiler_47`, the timer's resolution the engine asks for
-(`timeBeginPeriod`), sharing violations on a rename, SmartScreen and
-Defender on unsigned programs, a restore from the Recycle Bin, DPI scaling,
-paths past `MAX_PATH`, and a real Steam's, GOG's or installer's registry
-keys.
+Untried on Windows itself, what Wine cannot show: Windows' own Vulkan and
+OpenGL drivers, D3D11 on a real `d3dcompiler_47`, the timer's resolution
+the engine asks for (`timeBeginPeriod`), sharing violations on a rename,
+SmartScreen and Defender on unsigned programs, a restore from the Recycle
+Bin, DPI scaling, paths past `MAX_PATH`, a second start bringing the window
+or the game to the front past Windows' foreground lock, and a real Steam's,
+GOG's or installer's registry keys.
 
 ## Gotchas
 
@@ -93,9 +91,8 @@ keys.
 - **Several Wine programs started at once** can race to start Wine's server
   and the prefix's services, and a test then waits for ever: `port_test`
   starts them first, and keeps the server up.
-- **`wine` starts a program through `start.exe`**, which passes on its exit
-  code but, killed, leaves the program running: kill the program itself.
+- **`wine` leaves a program it started running when killed**
+  ([`start.exe`](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/DEVELOPMENT.md#a-windows-build)):
+  kill the program itself.
 - **Proton-CachyOS Latest moves** when Proton updates; `DX_PROTON` names
   another build.
-- **The engine's crash reporter is MSVC's alone**: a crash under MinGW's
-  build leaves its exception's code, which Recovery names, and the log.

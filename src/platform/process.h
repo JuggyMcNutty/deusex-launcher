@@ -31,7 +31,7 @@ typedef struct {
     long   pid;           /* its process id */
     char   pending[1024]; /* a line the engine has not finished */
     size_t pending_len;
-    int    status;        /* once ended: the exit code, or 128 + the signal */
+    int    status;        /* once ended: the exit code, or on POSIX 128 + the signal */
     int    signal;        /* once ended: what ended it, not its own exit (platform/os.h,
                            * dxl_end_name), or 0 */
     int    ended;
@@ -57,9 +57,10 @@ int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t si
 /* A line to the engine; nothing when it has no line. */
 void dxl_game_send(dxl_game *g, const char *line);
 
-/* Asks the game to end, as closing it does: SIGTERM here. */
+/* Asks the game to end, as closing it does: SIGTERM on POSIX; on Windows
+ * "Quit" on the line and WM_CLOSE to its windows. */
 void dxl_game_stop(dxl_game *g);
-/* Ends it at once: SIGKILL here. */
+/* Ends it at once: SIGKILL on POSIX, TerminateProcess on Windows. */
 void dxl_game_kill(dxl_game *g);
 
 /* A clean end: the game exited with 0. */

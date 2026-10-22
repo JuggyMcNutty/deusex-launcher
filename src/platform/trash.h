@@ -1,5 +1,5 @@
 /* The desktop's trash: what the launcher deletes of the player's -- a
- * profile's folders, later a save -- goes there, to be put back from it,
+ * profile's folders, a save, a shot -- goes there, to be put back from it,
  * never removed outright. Windows' is its Recycle Bin
  * (platform/win32/trash.c), which says nothing back of where it put a
  * thing: the launcher puts nothing back there, data_home is unused and a

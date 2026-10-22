@@ -13,7 +13,8 @@ typedef struct {
     char *data;        /* what the player makes: saves, shots */
     char *state;       /* what its runs leave: logs, the last run */
     char *cache;       /* what can be made again */
-    char *data_home;   /* where the desktop's entry for it and its icons go */
+    char *data_home;   /* where the desktop's entry for it and its icons go
+                          (Windows: the icon) */
 } dxl_app_folders;
 
 /* app's folders, each named after it where the platform's are shared;

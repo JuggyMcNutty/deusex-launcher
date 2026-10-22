@@ -38,7 +38,8 @@ dxl_socket dxl_udp_open(dxl_err *err);
 /* It may send to a broadcast address too (SO_BROADCAST); -1 when not. */
 int  dxl_udp_broadcast(dxl_socket s);
 /* The local network's broadcast addresses, a.b.c.d each into out, at most
- * max: 255.255.255.255, then each interface's that is up (getifaddrs),
+ * max: 255.255.255.255, then each interface's that is up (getifaddrs;
+ * Windows: GetAdaptersAddresses),
  * each once. How many. */
 int  dxl_net_broadcasts(char (*out)[64], int max);
 /* A datagram to address:port; -1 when it did not go. */

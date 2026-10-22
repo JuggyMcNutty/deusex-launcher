@@ -12,7 +12,8 @@
  *
  * Both survive here; only the transport changes, the platform's
  * (platform/posix/instance.c: a lock on a pidfile, a unix socket;
- * platform/win32/instance.c: the original's named mutex, a named pipe). The
+ * platform/win32/instance.c: a named mutex, the original's way, and a named
+ * pipe). The
  * protocol is unchanged: one message, the command line. A wait for one is
  * platform/wait.h's.
  */

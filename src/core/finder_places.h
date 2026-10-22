@@ -1,7 +1,8 @@
 /* The finder's places apart from its looking (core/finder.h): where a
  * platform's stores and drives put the game are finder_places.c's, desktop
- * Linux's, made of what core/finder.c's looking offers below; one finder's
- * state, shared by the two.
+ * Linux's, or finder_places_win32.c's, Windows', made of what
+ * core/finder.c's looking offers below; one finder's state, shared by the
+ * two.
  */
 #ifndef DXL_FINDER_PLACES_H
 #define DXL_FINDER_PLACES_H
@@ -43,7 +44,7 @@ void  dxl_finder_steam(finder *f, const char *source, const char *root, const ch
 /* Heroic's GOG games, from its config folder. */
 void  dxl_finder_heroic(finder *f, const char *config);
 
-/* ---- the platform's places (core/finder_places.c) ------------------------ */
+/* ---- the platform's places (core/finder_places.c, _win32.c) ------------- */
 
 /* Where from: w's, else this machine's own. */
 void dxl_finder_setup(finder *f, const dxl_finder_where *w);

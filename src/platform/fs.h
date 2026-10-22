@@ -70,8 +70,9 @@ FILE *dxl_fs_open_log(const char *path);
 
 /* Replaces path with data whole or not at all: written to a temporary file
  * beside it, synced, given the old file's mode where files have modes (0644
- * for a new one), put in its place, and the folder synced. A crash or a
- * power cut leaves the old file or the new one, never half of either. */
+ * for a new one), and put in its place, the folder synced on POSIX and the
+ * move written through on Windows. A crash or a power cut leaves the old
+ * file or the new one, never half of either. */
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err);
 
 /* The tops of the file system, NULL-terminated: "/" alone here, each
