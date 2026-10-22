@@ -118,15 +118,27 @@ static void test_quotes_kept(void) {
 }
 
 /* A game that takes no notice of the stop (SIGTERM; Windows' Quit and
- * WM_CLOSE) is killed when its time is up. */
+ * WM_CLOSE) is killed when its time is up. Stopped once it is ready, deaf
+ * by then: a stop sent while it still starts would end it before it could
+ * take no notice. */
 static volatile int stop_now;
+static void stop_on_ready(void *ctx) {
+    (void)ctx;
+    stop_now = 1;
+}
 static void test_stop_then_kill(void) {
     char *env[] = { "DXL_STUB=stubborn", NULL };
-    stop_now = 1;   /* stopped as soon as it runs */
-    scratch_run s;
+    stop_now = 0;
+    scratch_run s = { dxl_xstrdup(scratch_dir("play-stubborn")), NULL };
+    s.log = scratch_path(s.dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    dxl_play_request req = {
+        .argv = argv, .env = env, .workdir = s.dir, .log_path = s.log,
+        .stop = &stop_now, .on_ready = stop_on_ready,
+    };
     dxl_play_result r;
     time_t t0 = time(NULL);
-    play_stub(&s, "play-stubborn", env, NULL, &stop_now, &r);
+    dxl_play(&req, &r);
     time_t t1 = time(NULL);
     CHECK_INT(r.stopped, 1);
     CHECK_INT(r.killed, 1);
