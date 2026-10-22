@@ -207,6 +207,11 @@ int main(int argc, char **argv) {
         printf("DXEngine error: %s\n", env_or("DXL_STUB_LINE", "Could not open the map"));
         return 1;
     }
+#ifndef _WIN32
+    /* Deaf before it says so: a stop that comes after the ready finds it
+     * deaf, never still starting. */
+    if (strcmp(mode, "stubborn") == 0) signal(SIGTERM, SIG_IGN);
+#endif
     say("ready");
     if (strcmp(mode, "crash") == 0) {
         printf("stub: crashing\n");
@@ -228,7 +233,6 @@ int main(int argc, char **argv) {
         /* Nothing read from the line, no window to close. */
         for (;;) Sleep(1000);
 #else
-        signal(SIGTERM, SIG_IGN);
         for (;;) pause();
 #endif
     }
