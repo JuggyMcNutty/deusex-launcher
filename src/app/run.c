@@ -26,6 +26,12 @@
 
 #define HANDOFF_TIMEOUT_MS 30000   /* the original's SendMessageTimeout */
 #define VERSION_TIMEOUT_MS 5000
+/* The engine's own folder, which a run of it without --userdir writes. */
+#ifdef _WIN32
+#define ENGINE_OWN_DIR "%LOCALAPPDATA%\\DXEngine"
+#else
+#define ENGINE_OWN_DIR "~/.config/DXEngine"
+#endif
 #define PACKAGE DXL_GAME_PACKAGE
 
 /* ---- the command line --------------------------------------------- */
@@ -193,8 +199,8 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
     }
     if (!dxl_engine_has(v, DXL_ENGINE_NEEDS)) {
         snprintf(brief, brief_size, "%s, without --%s", v->version, DXL_ENGINE_NEEDS);
-        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes ~/.config/DXEngine.",
-                 engine, v->version, DXL_ENGINE_NEEDS);
+        snprintf(why, size, "%s (%s) lacks --%s: refusing it, so that nothing writes %s.", engine, v->version,
+                 DXL_ENGINE_NEEDS, ENGINE_OWN_DIR);
         return -1;
     }
     return 0;
