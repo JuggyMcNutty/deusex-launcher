@@ -1,5 +1,6 @@
 #include "test.h"
 #include "scratch.h"
+#include "ends.h"
 #include "app/run.h"
 #include "core/config.h"
 #include "core/ini.h"
@@ -125,25 +126,58 @@ static void test_import_plan(void) {
     dxl_env_set("DXL_HOME", NULL);
 }
 
-/* Every file under the game's folder changed since mark: none may be. The
- * IDA databases beside the game's binaries are not the game's, and an IDA
- * session may write them at any time. */
-static int changed_since(const char *mark) {
-    char *root = dxl_path_dirname(DXL_GAMEFILES);
-    char cmd[1200];
-    snprintf(cmd, sizeof cmd,
-             "find '%s' -newer '%s' ! -name '*.i64' ! -name '*.id[0-2]' ! -name '*.nam' ! -name '*.til'"
-             " -print | head -5", root, mark);
-    FILE *f = popen(cmd, "r");
-    int n = 0;
-    char line[600];
-    while (f && fgets(line, sizeof line, f)) {
-        fprintf(stderr, "  changed: %s", line);
-        n++;
+/* What under dir changed after when, a file or a folder, each said; at
+ * most five. The IDA databases beside the game's binaries are not the
+ * game's, and an IDA session may write them at any time. */
+static int changed_under(const char *dir, time_t when, int n) {
+    static const char *const ida[] = { ".i64", ".id0", ".id1", ".id2", ".nam", ".til" };
+    DIR *d = opendir(dir);
+    struct dirent *e;
+    while (d && n < 5 && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        const char *ext = strrchr(e->d_name, '.');
+        int skip = 0;
+        for (size_t i = 0; ext && i < sizeof ida / sizeof *ida; i++) skip |= !strcmp(ext, ida[i]);
+        if (skip) continue;
+        char *p = dxl_path_join(dir, e->d_name);
+        struct stat st;
+        if (stat(p, &st) == 0) {
+            if (st.st_mtime > when) {
+                fprintf(stderr, "  changed: %s\n", p);
+                n++;
+            }
+            if (S_ISDIR(st.st_mode)) n = changed_under(p, when, n);
+        }
+        free(p);
     }
-    if (f) pclose(f);
+    if (d) closedir(d);
+    return n;
+}
+
+/* Every file under the game's folder changed since mark: none may be. */
+static int changed_since(const char *mark) {
+    struct stat st;
+    if (stat(mark, &st) != 0) return 1;
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    int n = changed_under(root, st.st_mtime, 0);
     free(root);
     return n;
+}
+
+/* The walk sees what changed: a file written in a new folder after the
+ * mark, and the folder. */
+static void test_changed_seen(void) {
+    char *dir = dxl_xstrdup(scratch_dir("gamefiles-changed"));
+    scratch_write(dir, "mark", "");
+    char *mark = scratch_path(dir, "mark");
+    struct stat st;
+    CHECK_INT(stat(mark, &st), 0);
+    dxl_os_sleep_ms(1000);
+    scratch_write(dir, "new/file", "");
+    CHECK_INT(changed_under(dir, st.st_mtime, 0), 2);
+    free(mark);
+    scratch_remove(dir);
+    free(dir);
 }
 
 static int run_launcher(const char *game, const char *word) {
@@ -162,7 +196,7 @@ static void test_headless_run(void) {
     char *home = dxl_xstrdup(scratch_dir("gamefiles-run"));
     char *mark = scratch_path(home, "mark");
     scratch_write(home, "mark", "");
-    sleep(1);   /* the mark older than anything the run could write */
+    dxl_os_sleep_ms(1000);   /* the mark older than anything the run could write */
     dxl_env_set("DXL_HOME", home);
     dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
     char *root = dxl_path_dirname(DXL_GAMEFILES);
@@ -185,17 +219,17 @@ static void test_headless_run(void) {
     CHECK_INT(dxl_path_exists(log), 1);
 
     dxl_env_set("DXL_STUB", "crash");
-    CHECK_INT(run_launcher(root, NULL), 128 + SIGSEGV);
+    CHECK_INT(run_launcher(root, NULL), END_CRASH_STATUS);
     CHECK_INT(dxl_path_exists(sentinel), 1);
     dxl_lastrun_load(&last, p.state_dir);
-    CHECK_INT(last.signal, SIGSEGV);
+    CHECK_INT(last.signal, END_CRASH);
 
     dxl_env_set("DXL_STUB", "ready");
     CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_SCREEN);
     CHECK_INT(dxl_path_exists(sentinel), 1);
 
     /* An engine without the userdir feature is refused. */
-    unlink(sentinel);
+    remove(sentinel);
     dxl_env_set("DXL_STUB_FEATURES", "loadgame-url");
     CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_NOGAME);
     dxl_env_set("DXL_STUB_FEATURES", NULL);
@@ -426,6 +460,7 @@ TEST_MAIN_BEGIN
     RUN(test_assets);
     RUN(test_install);
     RUN(test_import_plan);
+    RUN(test_changed_seen);
     RUN(test_headless_run);
     RUN(test_back_home);
 TEST_MAIN_END
