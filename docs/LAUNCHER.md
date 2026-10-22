@@ -4,11 +4,12 @@ DXLauncher is the desktop's launcher for Deus Ex: an app of its own,
 outside the game's folder, that finds the game, keeps the player's settings
 and saves in a profile, and starts
 [DXEngine](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md)
-and stays with it. Two programs: `deusex-launcher`, the launcher, and
-`dxl-cli`, the same with no window, for scripts and for looking. C11, its
-core with no SDL; the desktop Linux branches', linux-x86_64's and
-linux-aarch64's, whose launcher commits each come over to the other by a
-cherry-pick, so this file is the same on both
+and stays with it. Two programs: `deusex-launcher.exe`, the launcher, and
+`dxl-cli.exe`, the same with no window, for scripts and for looking. C11,
+its core with no SDL. This is windows-x86_64's: Windows 10 (1903) or newer
+on x86_64, linux-x86_64's launcher on Windows' own calls
+(`src/platform/win32/`), its commits coming over from there by a
+cherry-pick, cross-built by llvm-mingw and tested under Wine
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
 It keeps part of the original, which `main` recreates
 ([what it changes](#what-it-changes-from-the-original)).
@@ -21,43 +22,46 @@ Screenshots, Multiplayer, Recovery, the log, About
 ## Where everything lives
 
 Nothing is written to the game's folder. The launcher's files are in the
-home's XDG folders, each with a `dxlauncher` folder in it
-(`src/core/xdg.h`); `DXL_HOME=<dir>` puts all four under one folder, a
-scratch home:
+user's own folders, Windows' Known Folders
+(`src/platform/win32/folders.c`): `%LOCALAPPDATA%\DXLauncher`, not the
+roaming folder, as its inis name this machine's paths, and the player's
+own in `Saved Games\DXLauncher`. `DXL_HOME=<dir>` puts all four under one
+folder, a scratch home, each with a `dxlauncher` folder in it, as on every
+platform (`src/core/xdg.h`):
 
 | Folder | What is in it |
 |---|---|
-| `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
-| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
-| `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
-| `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
-| `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
-| `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
-| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
+| `%LOCALAPPDATA%\DXLauncher\config\` | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
+| `%LOCALAPPDATA%\DXLauncher\config\profiles\<id>\` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
+| `Saved Games\DXLauncher\` | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
+| `Saved Games\DXLauncher\profiles\<id>\` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it where Windows lets the user make one, in its developer mode; else that folder is the shots folder itself) |
+| `%LOCALAPPDATA%\DXLauncher\state\` | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
+| `%LOCALAPPDATA%\DXLauncher\cache\profiles\<id>\Cache\` | the inis' `CachePath`: a net game's downloads |
+| `%LOCALAPPDATA%\DXLauncher\` | the Start menu's icon, `DXLauncher.ico`, and the pictures it is made of ([the app menu](#the-app-menu)) |
+| the Recycle Bin | a deleted profile's four folders, a save, a screenshot, each by its own name, to be restored from it ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. A mod's profile
 names the mod's folders before them, by their absolute paths
 ([Mods](#mods)). `SavePath` and
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
-writes them back. The engine never touches `~/.config/DXEngine`,
-which the harness's runs read: an engine whose `--version` lacks
-`userdir` is refused.
+writes them back. The engine never touches its own folder,
+`%LOCALAPPDATA%\DXEngine`: an engine whose `--version` lacks `userdir` is
+refused.
 
-A file is written whole or not at all: to a new file beside it, synced,
-then renamed over it (`dxl_path_write_atomic`). It keeps the mode the old
-one had, set only where the new one's differs; a filesystem with no
-permissions to keep (exFAT, FAT) refusing that is no failure.
+A file is written whole or not at all: to a new file beside it, flushed,
+then moved over it (`dxl_path_write_atomic`, `MoveFileExW`). Windows' files
+have no mode to keep.
 
-The launcher's own folder is where `deusex-launcher` is: the engine beside
-it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md`, and `data/`: the
-window's type (`data/fonts`), the app menu's entry
-([the app menu](#the-app-menu)), the engine's renderers and what each needs
-of the machine (`renderers.ini`), and `Settings.json`'s defaults
-(`engine-settings.json.default`). That engine is the one played with
-unless another is chosen, on Settings' Launcher page or Home's The
-engine..., `launcher.ini`'s `[Launcher] Engine`; `DXL_ENGINE=<path>` names
-one over both.
+The launcher's own folder is where `deusex-launcher.exe` is: the engine
+beside it (`DXEngine.exe`, its `.pk3`, OpenAL Soft's `OpenAL32.dll`),
+`THIRD-PARTY.md` with the notices it names (`DXEngine-LICENSE.md`,
+`licenses/`), and `data/`: the window's type (`data/fonts`), the engine's
+renderers and what each needs of the machine (`renderers.ini`: Vulkan and
+OpenGL), and `Settings.json`'s defaults (`engine-settings.json.default`).
+That engine is the one played with unless another is chosen, on Settings'
+Launcher page or Home's The engine..., `launcher.ini`'s `[Launcher]
+Engine`; `DXL_ENGINE=<path>` names one over both.
 
 ## An install
 
@@ -79,23 +83,19 @@ engine's defaults or one of [Graphics'](#settings) presets, and with a
 controller connected its [layout](#the-controller), Modern over the game's
 own three buttons or none, else the controls as imported, a layout of the
 player's (`src/app/session.c`). The game lists what the finder finds
-(`src/core/finder.c`), in a worker of the window's, each folder once and
-checked, as it is found: the folder `--game=<dir>` names, the installs
-`launcher.ini` lists; the libraries Steam's `libraryfolders.vdf` lists,
-the game where its `appmanifest_6910.acf` puts it, as Steam's distro
-package, its Flatpak and its Snap keep them; Heroic's GOG games, the
-`installed.json` of its `gog_store`, and each folder in `~/Games/Heroic`;
-each folder in `~/GOG Games` and `~/Games`; what each of Lutris' games runs,
-and its Wine prefix; Bottles' bottles and the other Wine prefixes,
-`$WINEPREFIX`, `~/.wine`, winetricks', those in `~/Games` and Heroic's;
-the drives `/proc/self/mountinfo` has mounted in `/run/media`, `/media`
-and `/mnt`, however deep, each once, at its top and two folders down. In
-a prefix's `drive_c`, and on a drive, it looks where
-Windows' installers put the game: `DeusEx`, the CD's folder; each folder
-in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library. A
-Windows Steam in a prefix gives its libraries too, its list's Windows
-paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
-any letter case; a network path (`\\server\share`) is passed over.
+(`src/core/finder.c`, Windows' places in `src/core/finder_places_win32.c`),
+in a worker of the window's, each folder once and checked, as it is found:
+the folder `--game=<dir>` names, the installs `launcher.ini` lists; the
+libraries of the Steam the registry names, as its `libraryfolders.vdf`
+lists them, the game where its `appmanifest_6910.acf` puts it; GOG's games,
+by their keys, GOG Galaxy's and its installers'; where the original
+installer put the game, its key under `Unreal Technology\Installed Apps`,
+the CD's and the Steam and GOG releases'; Heroic's GOG games, the
+`installed.json` of its `gog_store` in `%APPDATA%\heroic`, and each folder
+in `%USERPROFILE%\Games\Heroic`; and on each fixed or removable drive,
+where Windows' installers put the game: `DeusEx`, the CD's folder; each
+folder in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library.
+No folder is walked down blindly: a drive's is too deep to.
 Another is shown by the launcher's folder browser, which a pad works, or
 by the system's folder dialog. `dxl-cli` makes the profile from
 `--game=<dir>`'s install. Either way the profile is made from the
@@ -152,8 +152,9 @@ marked; its buttons act on the one chosen, the row last focused:
   `CachePath`, the engine folder's `Settings.json` and a class's config
   files -- and none of its saves, shots or logs (`dxl_profile_copy`).
 - **Name**, under the list: the chosen one's, edited in place.
-- **Delete...**: the chosen one's four folders to the desktop's trash, all
-  or none (`src/platform/posix/trash.c`); never the one in use.
+- **Delete...**: the chosen one's four folders to the Recycle Bin, all or
+  none, each by its own name (`src/platform/win32/trash.c`); never the one
+  in use.
 
 ## Mods
 
@@ -170,7 +171,7 @@ the original reads them from `System` alone, where a mod's had to be put.
 
 Mods, from Profiles (`src/screens/mods.c`), lists those it finds: each
 folder of the game's folder that is one, each of the launcher's mods
-folder, `$XDG_DATA_HOME/dxlauncher/mods`, and the profiles' mods; each with
+folder, `Saved Games\DXLauncher\mods`, and the profiles' mods; each with
 where it is, whose settings it starts from and the profiles that play it.
 A folder with no `System` of its own, or no packages in it, is no mod, nor
 is a copy of the game (its `System/DeusEx.exe`).
@@ -183,7 +184,7 @@ is a copy of the game (its `System/DeusEx.exe`).
   in use.
 - **Browse...** and **The system's dialog...**: a mod's folder anywhere
   else, listed while the launcher runs, and by its profile from then on.
-- **The mods folder**: the launcher's, in the desktop's file manager.
+- **The mods folder**: the launcher's, in Explorer.
 
 A mod's profile is made as the first run makes one
 (`dxl_profile_import_mod`, `src/core/profile.c`), but:
@@ -223,15 +224,15 @@ played, its snapshot; the newest first, one whose info does not read last.
 - **Saves**, from Home: each save, the one chosen beside the list with its
   snapshot (the game's 160 x 120 of its picture), when it was made, how long
   it had been played, its map and folder. Load, or Enter or a click on its
-  row, starts the game on it; Delete... puts its folder in the desktop's
-  trash.
+  row, starts the game on it; Delete... puts its folder in the Recycle
+  Bin.
 - **Screenshots**, from Home: the profile's `Screenshots` folder's pictures,
   the engine's `ShotNNNN.bmp` and those the import copied, BMPs and PNGs,
   newest first (`src/core/shotlist.c`), as a gallery of thumbnails read off
   the window's thread (`src/ui/thumbs.c`), the one chosen beside it with
   when it was taken and its size. Show, or Enter or a click on one, shows
   it whole, Previous and Next stepping through them; Open the folder opens
-  it in the file manager; Delete... puts it in the trash.
+  it in Explorer; Delete... puts it in the Recycle Bin.
 
 The game starts on a save by the engine's start URL, `?loadgame=N` in
 `--url`, which only an engine whose `--version` names `loadgame-url` takes
@@ -297,7 +298,9 @@ chosen -- or the game, while it plays, opens the server.
 1. **A second start** hands its command line to the launcher that runs and
    ends, unless the line holds one of the original's four bypass words
    (`Server`, `NewWindow`, `changevideo`, `TestRenDev`). One launcher for a
-   home: the lock is its config folder's.
+   home: the lock is a mutex named after its config folder, as the
+   original's `DeusExIsRunning`, and the line a named pipe
+   (`src/platform/win32/instance.c`).
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -309,9 +312,9 @@ chosen -- or the game, while it plays, opens the server.
    inis saved, `FirstRun` raised to 1100, `Running.ini` made; and any key
    of the engine's sections they lack written.
 5. **The engine** asked what it can do (`--version`), and started: or
-   refused, saying why -- not there, one this system cannot start (a glibc
-   newer than its own, a library it lacks: the loader's words, which the
-   launcher keeps), no DXEngine, or one without `userdir`.
+   refused, saying why -- not there, one this system cannot start (a DLL it
+   needs not found, one built for another machine: the end Windows' loader
+   gave it, by its name), no DXEngine, or one without `userdir`.
 6. **The end**: the inis read again, as the engine left them. A clean end
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
    runs a `RELAUNCH` the engine passed on, decided again in this process:
@@ -586,25 +589,23 @@ the copy maps the pad of that name alone.
 
 ## The app menu
 
-`deusex-launcher --install-desktop`, or About's button, puts the launcher on
-the desktop's app menu:
-`$XDG_DATA_HOME/applications/io.github.juggymcnutty.DXLauncher.desktop`,
-from `data/`'s template with the launcher's own path, and its icon, our own
-drawing, at 32 to 256 px under `$XDG_DATA_HOME/icons/hicolor`
-(`src/platform/posix/desktop.c`, `src/ui/icon.c`). The window has the same
-id, so the desktop puts the two together; its Big screen action starts it
-with `--big-screen`, and its MimeType makes it the handler of `deusex://`
-links, `update-desktop-database` (where the desktop has it) putting it in
-the applications folder's cache. `--remove-desktop`, or the button again,
-takes them away; nothing else writes them.
+`deusex-launcher --install-desktop`, or About's button, puts the launcher
+in Windows' Start menu (`src/platform/win32/desktop.c`): `DXLauncher.lnk`
+and `DXLauncher (big screen).lnk`, the second starting it with
+`--big-screen`, in the user's Programs folder; their icon,
+`DXLauncher.ico` in `%LOCALAPPDATA%\DXLauncher`, our own drawing at 16 to
+256 px (`src/ui/icon.c`); and the launcher as the handler of `deusex://`
+links, under `HKEY_CURRENT_USER\Software\Classes\deusex`.
+`--remove-desktop`, or the button again, takes them away; nothing else
+writes them.
 
 ## The game and the launcher
 
 The engine is the launcher's child, started by its words, with no shell
-between them (`src/core/engine_args.c`, `src/platform/posix/process.c`):
+between them (`src/core/engine_args.c`, `src/platform/win32/process.c`):
 
 ```
-<app>/DXEngine --no-launcher <game> --ini=<profile>/DeusEx.ini
+<app>/DXEngine.exe --no-launcher <game> --ini=<profile>/DeusEx.ini
     --userini=<profile>/User.ini --userdir=<profile>/engine
     [--url=<url>] [profile.ini's EngineArgs] [DXL_ENGINE_ARGS's words]
     --cmdline=<the original's command line>
@@ -615,10 +616,12 @@ in the game's `System` folder, its output into the profile's
 window the port's engine is built with, the one with the pad, unless the
 environment names a backend,
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
-([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the launcher's
-end of a socket pair. Of the launcher's descriptors the engine is given
-that one alone: the rest, the window's fonts among them, close as it
-starts, as for every program the launcher runs. On that line the
+([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the value of
+the handle of its end of a named pipe, `\\.\pipe\dxl-line-<pid>-<n>`,
+whose other end the launcher keeps. Of the launcher's handles the engine
+is given that one and its output's alone, by the list `CreateProcessW` is
+given, as every program the launcher runs is; its words are quoted as
+`CommandLineToArgvW`, the engine's, splits them. On that line the
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the
@@ -627,17 +630,21 @@ engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
 `--cmdline` the engine takes one only with `-hax0r` or `-server`.
 `dxl-cli --print-command` shows the command for a profile.
 
-The launcher waits on the line and its own socket, waking once a second
-besides. Stopped (SIGINT, SIGTERM, SIGHUP), it passes SIGTERM on, and
-SIGKILL 5 s later to an engine still running: DXEngine quits on
-SIGTERM at its next frame, so only a stuck one is killed.
+The launcher waits on the line, a second start's pipe and the engine's
+process, waking once a second besides. Stopped (the console's Ctrl+C,
+Ctrl+Break or its closing), it asks the engine to quit -- `Quit` on the
+line, and `WM_CLOSE` to its windows -- and ends one still running 5 s later
+(`TerminateProcess`, its code 0x40010004, which Recovery calls the
+launcher's): DXEngine quits at its next frame, so only a stuck one is
+ended.
 
 ## Recovery
 
 `Running.ini`, the original's crash sentinel, in the profile's state
 folder: made before the game, taken away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
-code or signal, the engine's error line (`DXEngine error: ...`),
+code, or what ended it, an exception's code by its name (0xC0000005, an
+access violation), the engine's error line (`DXEngine error: ...`),
 whether it was ever ready, and the save it started on. The window opens on
 Recovery after a run that was not clean, and at the next start that finds
 `Running.ini`; with no window (`dxl-cli`), that start says so with the end
@@ -662,7 +669,7 @@ the run as it was: its Play plays, as Recovery's does.
 | `--print-command` | the engine's command line for the profile; nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
-| `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
+| `--probe` | the Vulkan and OpenGL this machine offers, Windows having no OpenGL ES (`src/platform/win32/gpu_probe.c`: `vulkan-1.dll`, and WGL on a hidden window, on a thread a driver that hangs is left behind on); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |
@@ -670,8 +677,19 @@ the run as it was: its Play plays, as Recovery's does.
 
 ## How it is tested
 
-`scripts/dx.sh test` runs the host tests side by side, all but
-`test_ui_scripts` with no display.
+`scripts/dx.sh test windows-x86_64` runs the host build's tests, as
+linux-x86_64 has them, then the same cross-built for Windows, under
+Proton's wine (Port Ex Machina's `scripts/wine.sh`, CMake's emulator), each
+side by side, all but the host's `test_ui_scripts` with no display. Under
+Wine run all of them but the POSIX ones, `test_xdg`, `test_finder`,
+`test_desktop`, `test_trash` and `test_ui_scripts`, and Windows' own
+besides: `test_folders_win32` the Known Folders and `DXL_HOME`'s;
+`test_finder_win32` the finder's Windows places, with a home given and the
+registry's, read from a key of the test's own in theirs
+(`DXL_FINDER_KEYS`); `test_desktop_win32` the Start menu's shortcuts and
+their icon in a folder of its own (`DXL_START_MENU`) and `deusex://`, each
+gone again; `test_trash_win32` the Recycle Bin, Wine's being the desktop's
+trash, a scratch one there, several at once all or none.
 `test_settings` takes the registry's rows through each codec, both
 generations of the system ini, the sizes, the next run's words,
 `Settings.json`, the presets and a new profile's defaults; `test_keys` the
@@ -783,7 +801,7 @@ it whatever the install. Changed:
 
 | Original | DXLauncher | Why |
 |---|---|---|
-| `System/DeusEx.exe`, in the game's folder, its settings in the game's `DeusEx.ini` and `User.ini` | An app of its own; the settings, saves and shots in a profile under the home's XDG folders | Nothing written to the game's folder; more than one way to play one install |
+| `System/DeusEx.exe`, in the game's folder, its settings in the game's `DeusEx.ini` and `User.ini` | An app of its own; the settings, saves and shots in a profile in the user's own folders | Nothing written to the game's folder; more than one way to play one install |
 | The launcher and the engine one process, which stays for the game's run | The engine a child, started by its words, which the launcher waits on, holding its lock to the end | The engine is a program of its own; started by its words, a quoted word in the command line arrives whole |
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The desktop's screens, from a laptop's to a television's, and pads |
@@ -795,6 +813,6 @@ it whatever the install. Changed:
 
 ## Known defects
 
-- **The finder reads no database**: a Lutris game whose program is named
-  from its folder, which only Lutris' `pga.db` holds, is found by the
-  folder browser, the system's dialog or `--game=<dir>`.
+None known. What is untried on Windows itself, there being no Windows
+machine in the loop, is the port's
+([its risks](../ports/windows-x86_64/README.md#untried-on-windows-itself)).
