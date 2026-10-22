@@ -129,6 +129,11 @@ int dxl_instance_other_running(const char *id) {
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dxl_err *err) {
     wchar_t mname[64], pname[64];
     names(id, mname, pname, 64);
+    /* This start is the one in the foreground: the launcher it hands over
+     * to may bring its window, or the game's, to the front, which Windows
+     * lets a program in the background do only when the foreground one
+     * allows it. */
+    AllowSetForegroundWindow(ASFW_ANY);
     ULONGLONG deadline = GetTickCount64() + (ULONGLONG)(timeout_ms > 0 ? timeout_ms : 0);
     HANDLE h;
     char why[256];

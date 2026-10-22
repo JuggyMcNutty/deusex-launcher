@@ -156,9 +156,9 @@ endif()
 find_package(Threads REQUIRED)
 target_link_libraries(dxl_platform PUBLIC dxl_core ${CMAKE_DL_LIBS} Threads::Threads)
 if(WIN32)
-    # Winsock and the adapters' addresses; the GPU probe's GL and DXGI; the
-    # shell's links and windows.
-    target_link_libraries(dxl_platform PUBLIC ws2_32 iphlpapi opengl32 dxgi user32 gdi32)
+    # Winsock and the adapters' addresses; the GPU probe's GL; the shell's
+    # links and windows.
+    target_link_libraries(dxl_platform PUBLIC ws2_32 iphlpapi opengl32 user32 gdi32)
 endif()
 
 # One start of the launcher and the game it plays (src/app/run.h), shared
