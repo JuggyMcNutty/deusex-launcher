@@ -47,6 +47,12 @@ libxmp-lite's notice:
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 > THE SOFTWARE.
 
+## The engine
+
+`DXEngine` and `DXEngine.pk3` are [DXEngine](https://github.com/JuggyMcNutty/DXEngine)'s, under
+the zlib licence, with the third-party code it carries: the notices of each are in
+`DXEngine-LICENSE.md` beside them.
+
 ## The game
 
 Deus Ex is its makers'. DXLauncher carries none of it: it plays the copy the player has.
