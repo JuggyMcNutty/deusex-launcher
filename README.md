@@ -1,18 +1,18 @@
 # deusex-launcher
 
-Deus Ex's original launcher, `System/DeusEx.exe`, recreated almost 1:1 for
-desktop Linux from the reverse-engineering record in
-[dx-reverse-info](https://github.com/JuggyMcNutty/dx-reverse-info): its launch
-sequence, its first-run wizard and safe mode, its command line, its crash
-detection and its single-instance handoff. It is part of
-[Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina), which runs
-it with [DXEngine](https://github.com/JuggyMcNutty/DXEngine) in the game's
-`System` folder; the ports of the game are this repository's other branches.
-Made with AI assistance. The recreation is whole: the
-core (`src/core/`), the launch sequence (`src/launch/`) down every road it
-can end by, the wizard's six pages, the splash and the two message boxes,
-with unit tests for each and a live check of every road a player can take
-([checking it live](#checking-it-live)).
+Deus Ex's launchers, part of
+[Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina), which
+brings the game to modern platforms on
+[DXEngine](https://github.com/JuggyMcNutty/DXEngine). Each platform has a
+branch of its own with DXLauncher, a launcher of our own for it; this
+branch, `main`, is the original launcher, `System/DeusEx.exe`, recreated
+almost 1:1 for desktop Linux. Made with AI assistance.
+
+<p align="center">
+  <img src="docs/screenshots/dxlauncher.png" width="100%"
+       alt="DXLauncher's Home: the game's logo and buttons, the profile">
+  <br><sub>DXLauncher, on the linux-x86_64 branch</sub>
+</p>
 
 You need your own copy of Deus Ex (version 1112fm); none of the game's files
 are included.
@@ -28,9 +28,42 @@ are included.
 | `trimui-smartpro` | the TrimUI Smart Pro (spruceOS): DXLauncher, linux-aarch64's, tailored to the handheld ([its `LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/trimui-smartpro/docs/LAUNCHER.md)), with the device's port around it |
 
 Each port branch's launcher is DXLauncher, the Smart Pro's tailored to the
-device. Nothing merges between the branches, `main` included: a change
-crosses only by a deliberate cherry-pick
+device, released for its platform with the engine in
+[Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases).
+Nothing merges between the branches, `main` included: a change crosses only
+by a deliberate cherry-pick
 ([the branches](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/PORTING.md#the-branches)).
+
+## The original, recreated
+
+`main` recreates `DeusEx.exe` from the reverse-engineering record in
+[dx-reverse-info](https://github.com/JuggyMcNutty/dx-reverse-info): its
+launch sequence, its first-run wizard and safe mode, its command line, its
+crash detection and its single-instance handoff. Port Ex Machina runs it
+with DXEngine in the game's `System` folder. The recreation is whole: the
+core (`src/core/`), the launch sequence (`src/launch/`) down every road it
+can end by, the wizard's six pages, the splash and the two message boxes,
+with unit tests for each and a live check of every road a player can take
+([checking it live](#checking-it-live)).
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/renderer.png" width="100%"
+        alt="The first-time wizard's page of 3D devices"></td>
+    <td width="33%"><img src="docs/screenshots/safe-mode.png" width="100%"
+        alt="Safe mode's options for diagnosing problems"></td>
+    <td width="33%"><img src="docs/screenshots/recovery.png" width="100%"
+        alt="Recovery: the last run did not shut down properly"></td>
+  </tr>
+  <tr>
+    <td align="center">The wizard's renderer page</td>
+    <td align="center">Safe mode's options</td>
+    <td align="center">Recovery, after a crash</td>
+  </tr>
+</table>
+
+Each is the recreation's own drawing, the same to the pixel as the
+original's under Wine ([the look](#the-look)).
 
 ## Installing
 
