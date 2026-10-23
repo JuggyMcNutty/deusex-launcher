@@ -49,12 +49,12 @@ port_deps() {
 }
 
 # The staged app, as it ships: a folder, and the same as a zip beside it,
-# build/windows-x86_64/DXLauncher-windows-x86_64.zip, its one top folder
-# DXLauncher. In its licenses/, the notices of what THIRD-PARTY.md says the
-# programs carry: the MinGW-w64 runtime's and winpthreads', and OpenAL
-# Soft's licence beside its library.
+# build/windows-x86_64/DX-windows-x86_64.zip (as Port Ex Machina's releases
+# name it), its one top folder DXLauncher. In its licenses/, the notices of
+# what THIRD-PARTY.md says the programs carry: the MinGW-w64 runtime's and
+# winpthreads', and OpenAL Soft's licence beside its library.
 port_stage() {
-    local zip="$BUILD/DXLauncher-windows-x86_64.zip" tmp
+    local zip="$BUILD/DX-windows-x86_64.zip" tmp
     local runtime="$DX_DEPS/toolchains/llvm-mingw-$WIN64_LLVM_MINGW-ucrt-ubuntu-22.04-x86_64/x86_64-w64-mingw32/share/mingw32"
     mkdir -p "$APP/licenses"
     cp "$runtime/COPYING.MinGW-w64-runtime.txt" "$APP/licenses/MinGW-w64-runtime.txt"
