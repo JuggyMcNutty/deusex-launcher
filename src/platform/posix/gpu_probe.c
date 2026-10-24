@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -62,21 +63,23 @@ static void probe_vulkan(dxl_gpu_probe *out) {
         uint32_t n = 8;
         VkResult rc = enumerate(inst, &n, devs);
         if ((rc == VK_SUCCESS || rc == VK_INCOMPLETE) && n > 0) {
-            /* Prefer a real GPU over a CPU implementation (lavapipe on a
-             * desktop), but report the CPU one if that is all there is. */
-            uint32_t pick = 0;
+            /* A GPU's device and a CPU implementation's (lavapipe) apart:
+             * the first of each. */
             for (uint32_t i = 0; i < n; i++) {
                 VkPhysicalDeviceProperties p;
                 props(devs[i], &p);
-                if (p.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) { pick = i; break; }
+                if (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) {
+                    if (out->vulkan_cpu) continue;
+                    out->vulkan_cpu = 1;
+                    snprintf(out->vulkan_cpu_device, sizeof out->vulkan_cpu_device, "%.127s", p.deviceName);
+                } else if (!out->vulkan) {
+                    out->vulkan = 1;
+                    snprintf(out->vulkan_device, sizeof out->vulkan_device, "%.127s", p.deviceName);
+                    snprintf(out->vulkan_version, sizeof out->vulkan_version, "%u.%u.%u",
+                             VK_VERSION_MAJOR(p.apiVersion), VK_VERSION_MINOR(p.apiVersion),
+                             VK_VERSION_PATCH(p.apiVersion));
+                }
             }
-            VkPhysicalDeviceProperties p;
-            props(devs[pick], &p);
-            out->vulkan = 1;
-            snprintf(out->vulkan_device, sizeof out->vulkan_device, "%.127s", p.deviceName);
-            snprintf(out->vulkan_version, sizeof out->vulkan_version, "%u.%u.%u",
-                     VK_VERSION_MAJOR(p.apiVersion), VK_VERSION_MINOR(p.apiVersion),
-                     VK_VERSION_PATCH(p.apiVersion));
         }
     }
     if (destroy) destroy(inst, NULL);
@@ -99,6 +102,11 @@ static int has_api_word(const char *apis, const char *word) {
 #define DXL_GL_RENDERER 0x1F01
 #define DXL_GL_VERSION  0x1F02
 typedef const unsigned char *(*get_string_fn)(unsigned int);
+
+/* Mesa's CPU renderers, as GL_RENDERER names them */
+static int cpu_renderer(const char *renderer) {
+    return renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe"));
+}
 
 static void probe_egl(dxl_gpu_probe *out) {
     static const char *const names[] = { "libEGL.so.1", "libEGL.so", NULL };
@@ -179,6 +187,63 @@ static void probe_egl(dxl_gpu_probe *out) {
     }
     if (p_eglTerminate) p_eglTerminate(dpy);
     dlclose(lib);
+
+    /* EGL's driver Mesa's CPU one, as where a GPU has no driver: no GPU's
+     * GL, llvmpipe's. */
+    if (cpu_renderer(out->gles_renderer)) {
+        out->gl_cpu = 1;
+        snprintf(out->gl_cpu_renderer, sizeof out->gl_cpu_renderer, "%s", out->gles_renderer);
+        out->gles = out->gl = 0;
+        out->gles_version[0] = out->gles_renderer[0] = '\0';
+    }
+}
+
+/* Mesa's llvmpipe asked for (LIBGL_ALWAYS_SOFTWARE), where EGL's own driver
+ * is a GPU's: in a child of its own, as the variable is read when the
+ * driver loads. */
+static void probe_egl_cpu(dxl_gpu_probe *out) {
+    int fds[2];
+    if (pipe(fds) != 0) return;
+    pid_t pid = fork();
+    if (pid < 0) { close(fds[0]); close(fds[1]); return; }
+    if (pid == 0) {
+        close(fds[0]);
+        setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+        dxl_gpu_probe r;
+        memset(&r, 0, sizeof r);
+        probe_egl(&r);
+        ssize_t w = write(fds[1], r.gl_cpu_renderer, sizeof r.gl_cpu_renderer);
+        (void)w;
+        _exit(0);
+    }
+    close(fds[1]);
+    char renderer[sizeof out->gl_cpu_renderer];
+    size_t have = 0;
+    struct timespec t0;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    for (;;) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long left = 3000 - ((now.tv_sec - t0.tv_sec) * 1000L + (now.tv_nsec - t0.tv_nsec) / 1000000L);
+        if (left <= 0) break;
+        struct pollfd pfd = { fds[0], POLLIN, 0 };
+        int pr = poll(&pfd, 1, (int)left);
+        if (pr < 0 && errno == EINTR) continue;
+        if (pr <= 0) break;
+        ssize_t n = read(fds[0], renderer + have, sizeof renderer - have);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) break;
+        have += (size_t)n;
+        if (have == sizeof renderer) break;
+    }
+    close(fds[0]);
+    if (have < sizeof renderer) kill(pid, SIGKILL);
+    waitpid(pid, NULL, 0);
+    renderer[sizeof renderer - 1] = '\0';
+    if (have == sizeof renderer && renderer[0]) {
+        out->gl_cpu = 1;
+        snprintf(out->gl_cpu_renderer, sizeof out->gl_cpu_renderer, "%s", renderer);
+    }
 }
 
 /* ---- the child/parent split ------------------------------------------ */
@@ -211,6 +276,9 @@ int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
         freopen("/dev/null", "w", stderr);
         dxl_gpu_probe r;
         memset(&r, 0, sizeof r);
+        /* llvmpipe's first, its child forked before any driver is loaded
+         * here: a driver's threads do not survive a fork */
+        probe_egl_cpu(&r);
         probe_vulkan(&r);
         probe_egl(&r);
         r.probed = 1;

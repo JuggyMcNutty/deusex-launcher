@@ -28,20 +28,28 @@ typedef enum {
     DXL_API_NONE,      /* needs nothing from the system (a CPU renderer) */
     DXL_API_VULKAN,
     DXL_API_GLES,
-    DXL_API_GL         /* desktop OpenGL */
+    DXL_API_GL,        /* desktop OpenGL */
+    DXL_API_VULKAN_CPU,/* Mesa's lavapipe */
+    DXL_API_GL_CPU     /* Mesa's llvmpipe */
 } dxl_gfx_api;
 
 /* What the GPU probe found. Filled by the platform layer; plain data so the
- * resolution logic below stays testable without a GPU. */
+ * resolution logic below stays testable without a GPU. A GPU's drivers and
+ * Mesa's CPU drivers apart: lavapipe is no Vulkan GPU, llvmpipe as EGL's
+ * driver no GL one. */
 typedef struct {
     int  probed;              /* 0: no probe ran, so nothing is known */
-    int  vulkan;
+    int  vulkan;              /* a GPU's Vulkan device */
     char vulkan_device[128];  /* "PowerVR Rogue GE8300" */
     char vulkan_version[32];  /* "1.3.225" */
-    int  gles;
+    int  gles;                /* a GPU's OpenGL ES */
     char gles_version[128];   /* GL_VERSION when a context could be made, else EGL's */
     char gles_renderer[128];
-    int  gl;                  /* desktop GL through EGL */
+    int  gl;                  /* a GPU's desktop GL through EGL */
+    int  vulkan_cpu;          /* Mesa's lavapipe */
+    char vulkan_cpu_device[128];
+    int  gl_cpu;              /* Mesa's llvmpipe (or softpipe), through EGL */
+    char gl_cpu_renderer[128];
     char note[192];           /* why a probe failed or timed out */
 } dxl_gpu_probe;
 
@@ -64,6 +72,7 @@ typedef struct {
     char *engine_type;    /* Settings.json RenderDevice.Type; "" if unsupported */
     char *description;    /* one or two sentences for the help pane */
     dxl_gfx_api requires;
+    int  cpu_driver;      /* Settings.json RenderDevice.CPUDriver: Mesa's CPU driver asked for */
 
     /* Filled by dxl_renderers_resolve. */
     int  selectable;
@@ -89,6 +98,14 @@ void dxl_renderers_resolve(dxl_renderer_list *l, const dxl_gpu_probe *probe);
 /* Index of the entry whose EngineType is engine_type (case-insensitive), or
  * -1. */
 int dxl_renderers_find(const dxl_renderer_list *l, const char *engine_type);
+
+/* A renderer as a choice's value, its Type and whether it asks for Mesa's
+ * CPU driver: "Vulkan", "Vulkan+CPU". The Graphics page's renderer row
+ * keeps it in Settings.json as Type and CPUDriver. */
+#define DXL_RENDERER_CPU_SUFFIX "+CPU"
+void dxl_renderer_value(const dxl_renderer *r, char *out, size_t size);
+/* Index of the entry of that value, or -1. */
+int  dxl_renderers_find_value(const dxl_renderer_list *l, const char *value);
 
 /* First selectable entry, or -1. What a launch falls back to when the
  * configured renderer cannot run here. */

@@ -10,6 +10,8 @@ static dxl_gfx_api parse_api(const char *s) {
     if (!dxl_stricmp(s, "vulkan")) return DXL_API_VULKAN;
     if (!dxl_stricmp(s, "gles"))   return DXL_API_GLES;
     if (!dxl_stricmp(s, "gl"))     return DXL_API_GL;
+    if (!dxl_stricmp(s, "vulkan-cpu")) return DXL_API_VULKAN_CPU;
+    if (!dxl_stricmp(s, "gl-cpu"))     return DXL_API_GL_CPU;
     return DXL_API_NONE;
 }
 
@@ -19,6 +21,8 @@ const char *dxl_gfx_api_name(dxl_gfx_api a) {
     case DXL_API_VULKAN: return "Vulkan";
     case DXL_API_GLES:   return "OpenGL ES";
     case DXL_API_GL:     return "OpenGL";
+    case DXL_API_VULKAN_CPU: return "lavapipe";
+    case DXL_API_GL_CPU:     return "llvmpipe";
     }
     return "?";
 }
@@ -51,6 +55,7 @@ void dxl_renderers_load(dxl_renderer_list *out, const char *path) {
         v = dxl_ini_get(ini, id, "Description");
         r->description = dxl_xstrdup(v ? v : "");
         r->requires = parse_api(dxl_ini_get(ini, id, "Requires"));
+        r->cpu_driver = dxl_ini_get_bool(ini, id, "CPUDriver", 0);
     }
 
     free(ids);
@@ -90,6 +95,12 @@ static void found_line(char *out, size_t n, dxl_gfx_api api, const dxl_gpu_probe
     case DXL_API_NONE:
         snprintf(out, n, "runs on the CPU");
         break;
+    case DXL_API_VULKAN_CPU:
+        snprintf(out, n, "%s, on the CPU", p->vulkan_cpu_device[0] ? p->vulkan_cpu_device : "lavapipe");
+        break;
+    case DXL_API_GL_CPU:
+        snprintf(out, n, "%s, on the CPU", p->gl_cpu_renderer[0] ? p->gl_cpu_renderer : "llvmpipe");
+        break;
     }
 }
 
@@ -99,6 +110,8 @@ static int device_has(dxl_gfx_api api, const dxl_gpu_probe *p) {
     case DXL_API_VULKAN: return p->vulkan;
     case DXL_API_GLES:   return p->gles;
     case DXL_API_GL:     return p->gl;
+    case DXL_API_VULKAN_CPU: return p->vulkan_cpu;
+    case DXL_API_GL_CPU:     return p->gl_cpu;
     }
     return 0;
 }
@@ -135,8 +148,15 @@ void dxl_renderers_resolve(dxl_renderer_list *l, const dxl_gpu_probe *probe) {
         }
         if (!device_has(r->requires, p)) {
             r->selectable = 0;
-            snprintf(r->status, sizeof r->status, "Not available: no %s driver on this device",
-                     dxl_gfx_api_name(r->requires));
+            /* A GPU's driver missing where Mesa's CPU one is there: the
+             * engine would take it for no GPU, as this row's sibling says. */
+            if (r->requires == DXL_API_VULKAN && p->vulkan_cpu)
+                snprintf(r->status, sizeof r->status, "Not available: Vulkan here is only Mesa's lavapipe, on the CPU");
+            else if ((r->requires == DXL_API_GL || r->requires == DXL_API_GLES) && p->gl_cpu)
+                snprintf(r->status, sizeof r->status, "Not available: OpenGL here is only Mesa's llvmpipe, on the CPU");
+            else
+                snprintf(r->status, sizeof r->status, "Not available: no %s driver on this device",
+                         dxl_gfx_api_name(r->requires));
             continue;
         }
         r->selectable = 1;
@@ -148,6 +168,21 @@ int dxl_renderers_find(const dxl_renderer_list *l, const char *engine_type) {
     if (!engine_type || !*engine_type) return -1;
     for (size_t i = 0; i < l->count; i++)
         if (dxl_stricmp(l->items[i].engine_type, engine_type) == 0) return (int)i;
+    return -1;
+}
+
+void dxl_renderer_value(const dxl_renderer *r, char *out, size_t size) {
+    snprintf(out, size, "%s%s", r->engine_type, r->cpu_driver ? DXL_RENDERER_CPU_SUFFIX : "");
+}
+
+int dxl_renderers_find_value(const dxl_renderer_list *l, const char *value) {
+    if (!value || !*value) return -1;
+    char v[128];
+    for (size_t i = 0; i < l->count; i++) {
+        if (!l->items[i].engine_type[0]) continue;
+        dxl_renderer_value(&l->items[i], v, sizeof v);
+        if (dxl_stricmp(v, value) == 0) return (int)i;
+    }
     return -1;
 }
 
@@ -174,6 +209,10 @@ char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p) {
     dxl_ini_set(ini, PROBE, "GLESVersion", p->gles_version);
     dxl_ini_set(ini, PROBE, "GLESRenderer", p->gles_renderer);
     dxl_ini_set_bool(ini, PROBE, "GL", p->gl);
+    dxl_ini_set_bool(ini, PROBE, "VulkanCPU", p->vulkan_cpu);
+    dxl_ini_set(ini, PROBE, "VulkanCPUDevice", p->vulkan_cpu_device);
+    dxl_ini_set_bool(ini, PROBE, "GLCPU", p->gl_cpu);
+    dxl_ini_set(ini, PROBE, "GLCPURenderer", p->gl_cpu_renderer);
     dxl_ini_set(ini, PROBE, "Note", p->note);
     size_t len = 0;
     char *text = dxl_ini_render(ini, &len);
@@ -202,6 +241,10 @@ int dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out) {
     copy_key(ini, "GLESVersion", out->gles_version, sizeof out->gles_version);
     copy_key(ini, "GLESRenderer", out->gles_renderer, sizeof out->gles_renderer);
     out->gl = dxl_ini_get_bool(ini, PROBE, "GL", 0);
+    out->vulkan_cpu = dxl_ini_get_bool(ini, PROBE, "VulkanCPU", 0);
+    copy_key(ini, "VulkanCPUDevice", out->vulkan_cpu_device, sizeof out->vulkan_cpu_device);
+    out->gl_cpu = dxl_ini_get_bool(ini, PROBE, "GLCPU", 0);
+    copy_key(ini, "GLCPURenderer", out->gl_cpu_renderer, sizeof out->gl_cpu_renderer);
     copy_key(ini, "Note", out->note, sizeof out->note);
     dxl_ini_free(ini);
     return 0;

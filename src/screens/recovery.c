@@ -74,13 +74,16 @@ static int renderer_choices(dxl_shell *s, const char **labels, int max, int *cur
     char *path = dxl_path_join(s->run->session.profile.engine_dir, "Settings.json");
     char *def = dxl_path_join(s->run->session.data_dir, "engine-settings.json.default");
     dxl_engine_settings *es = dxl_es_open(path, def);
-    const char *now = dxl_es_choice(es, DXL_ES_RENDER_TYPE);
+    char now[80], value[80];
+    snprintf(now, sizeof now, "%s%s", dxl_es_choice(es, DXL_ES_RENDER_TYPE),
+             dxl_es_bool(es, DXL_ES_CPU_DRIVER) ? DXL_RENDERER_CPU_SUFFIX : "");
     int n = 0;
     *current = -1;
     for (size_t i = 0; i < s->renderers.count && n < max; i++) {
         const dxl_renderer *rd = &s->renderers.items[i];
         if (!rd->selectable) continue;
-        if (!dxl_stricmp(rd->engine_type, now)) *current = n;
+        dxl_renderer_value(rd, value, sizeof value);
+        if (!dxl_stricmp(value, now)) *current = n;
         labels[n++] = rd->label;
     }
     dxl_es_free(es);
@@ -98,8 +101,9 @@ static void choose_renderer(dxl_shell *s, const char *label) {
         char *def = dxl_path_join(s->run->session.data_dir, "engine-settings.json.default");
         dxl_engine_settings *es = dxl_es_open(path, def);
         dxl_err e;
+        dxl_es_set_bool(es, DXL_ES_CPU_DRIVER, rd->cpu_driver);
         if (dxl_es_set_choice(es, DXL_ES_RENDER_TYPE, rd->engine_type) == 0 && dxl_es_save(es, &e) == 0) {
-            dxl_log("renderer: %s from the next run", rd->engine_type);
+            dxl_log("renderer: %s%s from the next run", rd->engine_type, rd->cpu_driver ? " on Mesa's CPU driver" : "");
             dxl_shell_toast(s, "The game's renderer is %s from its next run.", rd->label);
         } else {
             dxl_shell_toast(s, "The renderer was not changed.");

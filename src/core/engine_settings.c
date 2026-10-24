@@ -37,6 +37,7 @@ static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_HDR_SCALE]         = { RD, "HdrScale",                DXL_ES_NUMBER, NULL, NULL, 128, 16, 255, 16 },
     [DXL_ES_GAMMA_SCREENSHOTS] = { RD, "GammaCorrectScreenshots", DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
     [DXL_ES_DEBUG_LAYER]       = { RD, "UseDebugLayer",           DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
+    [DXL_ES_CPU_DRIVER]        = { RD, "CPUDriver",               DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
 
     [DXL_ES_PAD_ENABLED]       = { GP, "Enabled",           DXL_ES_BOOL,   NULL, NULL, 1,    0, 1, 1 },
     [DXL_ES_PAD_DEADZONE]      = { GP, "DeadZone",          DXL_ES_NUMBER, NULL, NULL, 0.20, 0.05, 0.50, 0.05 },
