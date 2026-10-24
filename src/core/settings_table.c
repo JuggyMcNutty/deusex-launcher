@@ -384,7 +384,8 @@ const dxl_setting dxl_settings_table[] = {
       .help = "The next run alone with no sound device (-nosound); the sound settings stay as they are.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { NEXT("-nosound") }, .flags = DXL_SET_ADVANCED },
     { .id = "next.windowed", .page = "Launcher", .label = "Next run: in a window",
-      .help = "The next run alone in a window, not full screen (-nohard -noddraw).", .kind = DXL_SET_BOOL,
+      .help = "The next run alone on the software renderer, in a window (-nohard -noddraw), as the "
+              "original's safe mode runs it.", .kind = DXL_SET_BOOL,
       .def = "0", .at = { NEXT("-nohard -noddraw") }, .flags = DXL_SET_ADVANCED },
     { .id = "next.defaultres", .page = "Launcher", .label = "Next run: at 640 x 480",
       .help = "The next run alone at the game's first size (-defaultres).", .kind = DXL_SET_BOOL, .def = "0",

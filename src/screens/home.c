@@ -32,6 +32,10 @@ static dxl_rgba last_run(const dxl_shell *s, char *out, size_t size) {
     }
     char date[64], how[600];
     when(l->ended, date, sizeof date);
+    if (l->clean && l->fallback[0]) {
+        snprintf(out, size, "ended cleanly, drawn by the software renderer, %s", date);
+        return t->warn;
+    }
     if (l->clean) {
         snprintf(out, size, "ended cleanly, %s", date);
         return t->text;

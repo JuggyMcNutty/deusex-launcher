@@ -15,9 +15,7 @@ static dxl_lastrun run(int status, int sig, int ready, const char *error) {
 }
 
 static void test_known(void) {
-    dxl_lastrun l = run(1, 0, 0, "Could not create vulkan renderer: vkCreateInstance failed");
-    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
-    l = run(1, 0, 0, "Failed to initialize OpenAL device");
+    dxl_lastrun l = run(1, 0, 0, "Failed to initialize OpenAL device");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
     l = run(1, 0, 0, "Could not find package DeusExText");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
@@ -40,9 +38,9 @@ static void test_ends(void) {
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_SAVES);
     l.ready = 1;
     CHECK(strstr(dxl_advice_for(&l)->advice, "The save it started on") == NULL);
-    l = run(1, 0, 0, "Could not create vulkan renderer");
+    l = run(1, 0, 0, "Failed to initialize OpenAL device");
     snprintf(l.start, sizeof l.start, "?loadgame=10");
-    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
     /* A crash, no game, or no error line: not the save's. */
     l = run(END_CRASH_STATUS, END_CRASH, 0, "");
     snprintf(l.start, sizeof l.start, "?loadgame=10");
@@ -59,7 +57,24 @@ static void test_ends(void) {
     CHECK(dxl_advice_for(&l) == NULL);
 }
 
+/* The engine drew with its software renderer, the one chosen not having
+ * started: a clean run, advised all the same; a run that went wrong after
+ * it, by what went wrong. */
+static void test_fallback(void) {
+    dxl_lastrun l = run(0, 0, 1, "");
+    snprintf(l.fallback, sizeof l.fallback,
+             "The Vulkan device did not start (No Vulkan devices found): the software device draws in its place");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "software renderer") != NULL);
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
+    l.fallback[0] = '\0';
+    CHECK(dxl_advice_for(&l) == NULL);
+    l = run(1, 0, 1, "Failed to initialize OpenAL device");
+    snprintf(l.fallback, sizeof l.fallback, "The GL device did not start (x): the software device draws in its place");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_known);
     RUN(test_ends);
+    RUN(test_fallback);
 TEST_MAIN_END

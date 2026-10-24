@@ -113,6 +113,9 @@ static void test_setters_validate(void) {
     CHECK_INT(dxl_es_set_choice(s, DXL_ES_LIGHT, "Dazzling"), -1);
     CHECK_STR(dxl_es_choice(s, DXL_ES_LIGHT), "OneX");
     CHECK_INT(dxl_es_set_choice(s, DXL_ES_RENDER_TYPE, "OpenGLDrv.OpenGLRenderDevice"), -1);
+    /* The software renderer, the engine's on every platform. */
+    CHECK_INT(dxl_es_set_choice(s, DXL_ES_RENDER_TYPE, "Software"), 0);
+    CHECK_STR(dxl_es_choice(s, DXL_ES_RENDER_TYPE), "Software");
 
     dxl_es_set_number(s, DXL_ES_PAD_DEADZONE, 9.0);
     CHECK(dxl_es_number(s, DXL_ES_PAD_DEADZONE) <= 0.5);

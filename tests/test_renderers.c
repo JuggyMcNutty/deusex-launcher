@@ -4,8 +4,8 @@
 
 #include <unistd.h>
 
-/* The handheld's list: Vulkan works, the engine has no GLES backend yet, and
- * no software renderer at all. */
+/* A list where Vulkan works and the engine build lacks the rest: no GLES
+ * backend, no software renderer. */
 static const char *device_ini =
     "[Renderers]\n"
     "Renderer=Vulkan\n"
@@ -143,6 +143,26 @@ static void test_missing_file_is_empty(void) {
     dxl_renderers_free(&l);
 }
 
+/* The shipped list on a machine whose GPU has no driver: the software
+ * renderer alone, which needs nothing of it, offered first. */
+static void test_software_where_no_gpu(void) {
+    dxl_renderer_list l;
+    dxl_renderers_load(&l, DXL_RENDERERS);
+    int soft = dxl_renderers_find(&l, "Software");
+    CHECK(soft >= 0);
+    CHECK_INT(l.items[soft].requires, DXL_API_NONE);
+    dxl_gpu_probe p;
+    memset(&p, 0, sizeof p);
+    p.probed = 1;
+    dxl_renderers_resolve(&l, &p);
+    CHECK_INT(l.items[soft].selectable, 1);
+    CHECK_STR(l.items[soft].status, "runs on the CPU");
+    CHECK_INT(dxl_renderers_first_selectable(&l), soft);
+    for (size_t i = 0; i < l.count; i++)
+        if ((int)i != soft) CHECK_INT(l.items[i].selectable, 0);
+    dxl_renderers_free(&l);
+}
+
 /* The MSAA lock follows the GPU, not the device, and needs evidence. */
 static void test_msaa_broken_on_powervr_only(void) {
     dxl_gpu_probe p = smart_pro();
@@ -185,5 +205,6 @@ TEST_MAIN_BEGIN
     RUN(test_gles_selectable_once_engine_has_it);
     RUN(test_find_is_case_insensitive_and_skips_empty);
     RUN(test_missing_file_is_empty);
+    RUN(test_software_where_no_gpu);
     RUN(test_msaa_broken_on_powervr_only);
 TEST_MAIN_END
