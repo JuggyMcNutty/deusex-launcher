@@ -5,7 +5,7 @@
 # The launcher's SDK (toolchain-c.cmake), Godot's Buildroot SDK
 # godot-2023.08.x-4: GCC 13.2 on glibc 2.28, the floor the engine needs as
 # the launcher does. What the engine links, none of it above glibc 2.28: the
-# SDK's own X11, Xi, D-Bus, GLib, fontconfig and FreeType, found first;
+# SDK's own X11, Xi, Xext, D-Bus, GLib, fontconfig and FreeType, found first;
 # buster's glvnd, EGL, GL and OpenAL Soft, which port.sh lays over Debian's
 # packages in deps/sysroots/linux-aarch64 (bookworm's would need a newer
 # glibc than the SDK's, which GNU ld rejects); and SDL2, port.sh's, built in
