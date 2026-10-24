@@ -190,6 +190,7 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
         if (localtime_r(&tt, &tm) && strftime(v, sizeof v, "%e %B %Y, %H:%M:%S", &tm))
             dxl_field(ui, &in, lh, nw, "When", v[0] == ' ' ? v + 1 : v, t->text, 0);
         if (l->error[0]) dxl_field(ui, &in, lh, nw, "Its error", l->error, t->bad, DXL_W_MAY_CUT);
+        if (l->fallback[0]) dxl_field(ui, &in, lh, nw, "Its renderer", l->fallback, t->warn, DXL_W_MAY_CUT);
     } else if (!safe) {
         dxl_field(ui, &in, lh, nw, "How it ended", "not known: the run left no record", t->warn, DXL_W_MAY_CUT);
     }

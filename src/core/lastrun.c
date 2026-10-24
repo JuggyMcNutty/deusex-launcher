@@ -10,6 +10,7 @@
 
 #define SECTION "LastRun"
 #define ERROR_PREFIX "DXEngine error: "
+#define FALLBACK_MARK "the software device draws in its place"
 
 int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     memset(r, 0, sizeof *r);
@@ -26,6 +27,8 @@ int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     r->clean = dxl_ini_get_bool(ini, SECTION, "Clean", 0);
     const char *e = dxl_ini_get(ini, SECTION, "Error");
     snprintf(r->error, sizeof r->error, "%s", e ? e : "");
+    const char *fallback = dxl_ini_get(ini, SECTION, "Fallback");
+    snprintf(r->fallback, sizeof r->fallback, "%s", fallback ? fallback : "");
     const char *start = dxl_ini_get(ini, SECTION, "Start");
     snprintf(r->start, sizeof r->start, "%s", start ? start : "");
     dxl_ini_free(ini);
@@ -51,6 +54,12 @@ int dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err) 
     snprintf(error, sizeof error, "%s", r->error);
     for (char *c = error; *c; c++) if (*c == '\r' || *c == '\n') *c = ' ';
     dxl_ini_set(ini, SECTION, "Error", error);
+    if (r->fallback[0]) {
+        char fallback[sizeof r->fallback];
+        snprintf(fallback, sizeof fallback, "%s", r->fallback);
+        for (char *c = fallback; *c; c++) if (*c == '\r' || *c == '\n') *c = ' ';
+        dxl_ini_set(ini, SECTION, "Fallback", fallback);
+    }
     if (r->start[0]) dxl_ini_set(ini, SECTION, "Start", r->start);
     char *path = dxl_path_join(state_dir, "LastRun.ini");
     int rc = dxl_ini_save(ini, path, err);
@@ -77,6 +86,24 @@ int dxl_lastrun_error_line(const char *log_path, char *out, size_t size) {
     while (fgets(line, sizeof line, f)) {
         if (strncmp(line, ERROR_PREFIX, strlen(ERROR_PREFIX)) != 0) continue;
         char *msg = line + strlen(ERROR_PREFIX);
+        msg[strcspn(msg, "\r\n")] = '\0';
+        snprintf(out, size, "%s", msg);
+        found = 1;
+    }
+    fclose(f);
+    return found;
+}
+
+int dxl_lastrun_fallback_line(const char *log_path, char *out, size_t size) {
+    FILE *f = log_path ? fopen(log_path, "rb") : NULL;
+    if (!f) return 0;
+    char line[2048];
+    int found = 0;
+    while (fgets(line, sizeof line, f)) {
+        if (!strstr(line, FALLBACK_MARK)) continue;
+        /* From "The ...", the engine's log prefix ("[] ") left out. */
+        char *msg = strstr(line, "The ");
+        if (!msg) continue;
         msg[strcspn(msg, "\r\n")] = '\0';
         snprintf(out, size, "%s", msg);
         found = 1;
