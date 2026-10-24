@@ -186,6 +186,7 @@ and `dxl-cli --probe` reproduce it.
 | Pad controls | A B X Y, L1 R1, SELECT START MENU (MENU is spruceOS's), d-pad (a hat), two sticks. **L2/R2 are digital**, though mapped to axes `a2`/`a5`. **No L3/R3**: the sticks do not click, though the device reports `BTN_THUMBL` and the mapping lists `leftstick:b9`/`rightstick:b10` |
 | Storage | SD is **exFAT**: case-insensitive, no links, no meaningful permission bits |
 | Profiling | no `perf` (`CONFIG_PERF_EVENTS` off); CPU-time timers fire only on the scheduler tick, every 4 ms |
+| Pipelines | the engine's 37 Vulkan scene pipelines (`6a9ee5a` on) built in ~2.8 s, at start and on each change of resolution or anti-aliasing, where a desktop's Radeon builds them in under 2 ms (a timer around their creation, removed) |
 
 ### What is not available
 
