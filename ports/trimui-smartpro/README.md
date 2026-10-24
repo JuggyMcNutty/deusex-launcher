@@ -73,6 +73,7 @@ cherry-pick from linux-aarch64 may meet them:
 | `dxl-shots` at 1280x720 on the big screen | | `tools/shots.c`, `tests/CMakeLists.txt` |
 | Full screen's size as imported: linux-aarch64's, the desktop's (`FullscreenViewportX` and `Y` 0), not taken, as the engine draws borderless over the whole 720p framebuffer whatever size the ini names, there being no desktop mode to switch from | | `src/core/profile.c`, `tests/test_profile.c` |
 | The device's data | | `data/renderers.ini` (Vulkan, OpenGL ES, Software), `data/engine-settings.json.default` (Off, VSync off, RenderScale 0.6666667); `tests/test_settings.c`, the `settings_roundtrip` UI script |
+| Mesa's CPU drivers left out, there being no Mesa here: linux-aarch64's Vulkan (lavapipe) and OpenGL (llvmpipe) renderers, the probe's CPU drivers and `CPUDriver` not taken | | `data/renderers.ini`, `data/engine-settings.json.default`, `src/core/{renderers,engine_settings}.{c,h}`, `src/core/{settings,settings_table}.c`, `src/platform/posix/gpu_probe.c`, `src/screens/{settings,recovery,firstrun,shell}.c`, `src/cli_main.c`, `docs/LAUNCHER.md`; `tests/test_{renderers,engine_settings,settings}.c` |
 | Deploy and profile | `port.sh`, `tools/profile-map.sh` | |
 
 Each commit's own paragraphs of [`docs/LAUNCHER.md`](../../docs/LAUNCHER.md) come with it.
