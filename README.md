@@ -18,8 +18,8 @@ files are included. DXLauncher is part of
 AI assistance.
 
 **Status**: the launcher and the engine run on the device, and the game
-plays on Vulkan or OpenGL ES, at 853 × 480 by default
-([performance](ports/trimui-smartpro/README.md#performance)).
+plays on Vulkan or OpenGL ES, or on the CPU with Software, at 853 × 480 by
+default ([performance](ports/trimui-smartpro/README.md#performance)).
 
 ## Features
 

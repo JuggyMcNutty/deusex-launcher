@@ -7,8 +7,9 @@ linux-aarch64's, tailored to the handheld: the app the spruceOS menu starts.
 ## Status
 
 The launcher and the engine run on the device, and the game plays on Vulkan or OpenGL ES (the
-Graphics page's choice), at 853x480 by default: [Performance](#performance) has the numbers,
-and [where a frame goes](#where-a-frame-goes) the work left.
+Graphics page's choice; Software draws it on the CPU, at under half their frame rate), at
+853x480 by default: [Performance](#performance) has the numbers, and
+[where a frame goes](#where-a-frame-goes) the work left.
 
 ## Build and run
 
@@ -71,7 +72,7 @@ cherry-pick from linux-aarch64 may meet them:
 | spruceOS's Ports folder in the finder | | `src/core/finder.{c,h}` (`Roms/PORTS` among a drive's folders), `src/screens/firstrun.c` (the first run's words name it); `tests/test_finder.c` |
 | `dxl-shots` at 1280x720 on the big screen | | `tools/shots.c`, `tests/CMakeLists.txt` |
 | Full screen's size as imported: linux-aarch64's, the desktop's (`FullscreenViewportX` and `Y` 0), not taken, as the engine draws borderless over the whole 720p framebuffer whatever size the ini names, there being no desktop mode to switch from | | `src/core/profile.c`, `tests/test_profile.c` |
-| The device's data | | `data/renderers.ini` (Vulkan, OpenGL ES), `data/engine-settings.json.default` (Off, VSync off, RenderScale 0.6666667); `tests/test_settings.c`, the `settings_roundtrip` UI script |
+| The device's data | | `data/renderers.ini` (Vulkan, OpenGL ES, Software), `data/engine-settings.json.default` (Off, VSync off, RenderScale 0.6666667); `tests/test_settings.c`, the `settings_roundtrip` UI script |
 | Deploy and profile | `port.sh`, `tools/profile-map.sh` | |
 
 Each commit's own paragraphs of [`docs/LAUNCHER.md`](../../docs/LAUNCHER.md) come with it.
@@ -131,7 +132,7 @@ library, with no patch to SDL's sources.
 - OpenGL ES through SDL's EGL code on the default display with a **NULL native window**, the
   only one the PowerVR EGL takes; its swaps flip fb0 between its first two pages at 60 Hz, at
   any swap interval. The launcher draws with SDL's `opengles2` renderer, VSync on.
-- A framebuffer path for the software renderer, copied into the page fb0 shows.
+- A framebuffer path for SDL's software renderer, copied into the page fb0 shows.
 - No ShowWindow: SDL then gives the window the keyboard focus, without which it drops the pads'
   events. The pads are SDL's own joystick driver's, found by an inotify scan; the driver reads
   no input.
@@ -232,7 +233,7 @@ On the device, with the launcher started through `launch.sh` on a fresh `DXL_HOM
 | The launcher while a game runs | 17 MB resident, no CPU; up in ~1 s |
 | `dxl-cli --probe` | the GPU [as measured](#the-device-as-measured), in 0.5 s |
 | `scripts/dx.sh deploy` | sends only the changed files, keeps the previous copies; every file's checksum matches |
-| [A profile](#measuring) | the engine as the launcher starts it, on Vulkan and OpenGL ES ([performance](#performance)) |
+| [A profile](#measuring) | the engine as the launcher starts it, on Vulkan, OpenGL ES and Software ([performance](#performance)) |
 
 ## Performance
 
@@ -242,10 +243,10 @@ the engine each row names: `503e90d`, `590635b`, `a8c47c3` and `cfb396b` with ev
 thinking, `15392c0` with Distant AI on, an option of that engine's: far pawns skipping their
 thinking. `cfb396b` is measured with both toolchains, the same engine and launcher: Bootlin's
 GCC 10.3 (glibc 2.33) and the SDK's GCC 13.2 (2.28), [the toolchain](#the-toolchains).
-`b26be5f`, `aea5d4c` and `4de67a5` with every pawn thinking and the SDK's GCC; the last two
-differ only in the light map pages' borders, which Battery Park's thin maps under its fire feel.
-`590635b`'s second row has Surreal Engine's one pass of detail texture in place of `D3DDrv`'s
-three bands, which sample it only nearer than 380 units.
+`b26be5f`, `aea5d4c`, `4de67a5` and `c7ac0a3` with every pawn thinking and the SDK's GCC;
+`aea5d4c` and `4de67a5` differ only in the light map pages' borders, which Battery Park's thin
+maps under its fire feel. `590635b`'s second row has Surreal Engine's one pass of detail texture
+in place of `D3DDrv`'s three bands, which sample it only nearer than 380 units.
 
 | Engine | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 |---|---|---|---|---|---|---|
@@ -273,11 +274,20 @@ three bands, which sample it only nearer than 380 units.
 | `aea5d4c` | OpenGL ES, 853x480 | 19.8 | ~50.5 | ~11.3 | ~37.5 | |
 | `aea5d4c` | OpenGL ES, 1280x720 | 18.1 | ~55.4 | ~9.8 | ~42.8 | |
 | `4de67a5` | Battery Park (outdoors), Vulkan, 853x480 | 31-33 | ~30.5-32 | ~9.7 | ~18-21 | ~2-5 |
+| `c7ac0a3` | Software, 853x480 | 10.0 | ~99.6 | ~9.6 | ~87.5 | |
+| `c7ac0a3` | Software, 1280x720 (native) | 6.1 | ~163.8 | ~10.3 | ~151.2 | |
 
 The render CPU includes the GPU wait, the lightmaps and the texture uploads. The hooks measure
 only the Vulkan device's GPU wait; in GL the driver's time lands inside the render CPU. The
 hooks' own timers take ~3.5 of the render CPU (`steady_clock::now`: each box and surface test
 is timed).
+
+On Software the render CPU is the drawing too, on the four cores with NEON: at 853x480, of its
+~87.5, ~31 are the tiles drawn at the frame's end, ~13 the wait there for those the three other
+cores drew while the frame was recorded, ~7 the frame scaled up to the screen and ~11 the
+window's present (SDL's texture, through the GPU); at native, of ~151.2, ~71, ~38, none (each
+tile maps itself) and ~12
+([the software device](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)).
 
 ### Where a frame goes
 
