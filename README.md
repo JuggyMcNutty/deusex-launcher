@@ -109,7 +109,11 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 - **Detection finds no 3D device**: no Windows driver starts here, so the
   Renderer page leaves every device incompatible and picks the software
   renderer, unless the configuration says otherwise
-  ([`renderdev.h`](src/core/renderdev.h)).
+  ([`renderdev.h`](src/core/renderdev.h)): DXEngine then draws on the CPU,
+  as the original's software renderer does, and for any other device chosen
+  with its Vulkan device, on the CPU again where that does not start, unless
+  its own `Settings.json` names a device
+  ([which device draws](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)).
 - **Safe mode's eight boxes are all wired**; in the original three do nothing
   and one does four boxes' work
   ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead)).
