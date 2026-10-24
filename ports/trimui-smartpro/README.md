@@ -68,7 +68,7 @@ cherry-pick from linux-aarch64 may meet them:
 | No desktop: no app menu, `xdg-open` or folder dialog | | `src/platform/desktop.h`, `src/platform/posix/desktop.c`, `test_desktop` and the `.desktop.in` gone; `src/main.c`, `src/screens/{window,about,log,shots,mods,firstrun,shell}.c`, `shell.h`, `window.h`, `src/platform/process.h`, `src/platform/posix/process.c`, `CMakeLists.txt` |
 | Deleting for good, after the page's confirm: no trash to put back from | `src/platform/delete.h`, `src/platform/posix/delete.c`, `tests/test_delete.c` | `src/platform/trash.h`, `src/platform/posix/trash.c` and `test_trash` gone; `src/app/session.{c,h}`, `src/screens/{shots,saves,profiles}.c`, `shell.h`; the `profiles`, `saves_delete` and `shots` UI scripts and their checks in `tests/test_ui_scripts.c` |
 | A pad without stick clicks | | `src/core/bindings.{c,h}` (Modern and its swap leave `Joy9`/`Joy10` unbound; fourteen rows), `src/screens/controller.c`; `tests/test_bindings.c` |
-| spruceOS's Ports folder in the finder | | `src/core/finder.c` (`Roms/PORTS` among a drive's folders); `tests/test_finder.c` |
+| spruceOS's Ports folder in the finder | | `src/core/finder.{c,h}` (`Roms/PORTS` among a drive's folders), `src/screens/firstrun.c` (the first run's words name it); `tests/test_finder.c` |
 | `dxl-shots` at 1280x720 on the big screen | | `tools/shots.c`, `tests/CMakeLists.txt` |
 | Full screen's size as imported: linux-aarch64's, the desktop's (`FullscreenViewportX` and `Y` 0), not taken, as the engine draws borderless over the whole 720p framebuffer whatever size the ini names, there being no desktop mode to switch from | | `src/core/profile.c`, `tests/test_profile.c` |
 | The device's data | | `data/renderers.ini` (Vulkan, OpenGL ES), `data/engine-settings.json.default` (Off, VSync off, RenderScale 0.6666667); `tests/test_settings.c`, the `settings_roundtrip` UI script |
@@ -186,7 +186,7 @@ and `dxl-cli --probe` reproduce it.
 | Pad controls | A B X Y, L1 R1, SELECT START MENU (MENU is spruceOS's), d-pad (a hat), two sticks. **L2/R2 are digital**, though mapped to axes `a2`/`a5`. **No L3/R3**: the sticks do not click, though the device reports `BTN_THUMBL` and the mapping lists `leftstick:b9`/`rightstick:b10` |
 | Storage | SD is **exFAT**: case-insensitive, no links, no meaningful permission bits |
 | Profiling | no `perf` (`CONFIG_PERF_EVENTS` off); CPU-time timers fire only on the scheduler tick, every 4 ms |
-| Pipelines | the engine's 37 Vulkan scene pipelines (`6a9ee5a` on) built in ~2.8 s, at start and on each change of resolution or anti-aliasing, where a desktop's Radeon builds them in under 2 ms (a timer around their creation, removed) |
+| Pipelines | the engine's 37 Vulkan scene pipelines, at `b26be5f`: ~2.8 s to build, at start and on each change of resolution or anti-aliasing (a desktop's Radeon: under 2 ms) |
 
 ### What is not available
 
@@ -232,7 +232,7 @@ On the device, with the launcher started through `launch.sh` on a fresh `DXL_HOM
 | The launcher while a game runs | 17 MB resident, no CPU; up in ~1 s |
 | `dxl-cli --probe` | the GPU [as measured](#the-device-as-measured), in 0.5 s |
 | `scripts/dx.sh deploy` | sends only the changed files, keeps the previous copies; every file's checksum matches |
-| [A profile](#measuring) | the engine as the launcher starts it: 20.7 FPS on Vulkan, 18.1 on OpenGL ES ([performance](#performance)) |
+| [A profile](#measuring) | the engine as the launcher starts it, on Vulkan and OpenGL ES ([performance](#performance)) |
 
 ## Performance
 
@@ -242,12 +242,10 @@ the engine each row names: `503e90d`, `590635b`, `a8c47c3` and `cfb396b` with ev
 thinking, `15392c0` with Distant AI on, an option of that engine's: far pawns skipping their
 thinking. `cfb396b` is measured with both toolchains, the same engine and launcher: Bootlin's
 GCC 10.3 (glibc 2.33) and the SDK's GCC 13.2 (2.28), [the toolchain](#the-toolchains).
-`b26be5f`, `aea5d4c` and `4de67a5` with every pawn thinking and the SDK's GCC: the first before
-the frame-time work of [where a frame goes](#where-a-frame-goes), the last two after it, told
-apart only by the light map pages' borders, which Battery Park's thin maps under its fire feel.
+`b26be5f`, `aea5d4c` and `4de67a5` with every pawn thinking and the SDK's GCC; the last two
+differ only in the light map pages' borders, which Battery Park's thin maps under its fire feel.
 `590635b`'s second row has Surreal Engine's one pass of detail texture in place of `D3DDrv`'s
-three bands, which sample it only nearer than 380 units: the bands take the GPU wait from ~9.5
-to ~2.2.
+three bands, which sample it only nearer than 380 units.
 
 | Engine | Renderer, resolution | FPS | Frame | Tick | Render CPU | GPU wait |
 |---|---|---|---|---|---|---|
@@ -283,9 +281,10 @@ is timed).
 
 ### Where a frame goes
 
-Vulkan at native 1280x720 at the level start, from `4de67a5`'s runs, in ms, by the frame-time
-hooks and the device's CPU samples (42.3 ms of the main thread's CPU a frame), with what is left
-in each area. The GPU draws the previous frame while the input, tick and view run
+Vulkan at native 1280x720 at the level start, from a sampled run of `4de67a5` (its frame as long
+as in `aea5d4c`'s row), in ms, by the frame-time hooks and the device's CPU samples (42.3 ms of
+the main thread's CPU a frame), with what is left in each area. The GPU draws the previous
+frame while the input, tick and view run
 ([the Vulkan device](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)),
 and at native it is the longer: the render waits ~21 on it, at 853x480 ~4. So **at native a
 frame is about the render CPU plus the GPU's time**, and at 853x480 the CPU's work is the frame:
@@ -300,7 +299,7 @@ render-CPU savings count in full there, and the tick's too.
     it:
     [the script interpreter](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#the-script-interpreter).
   - physics ~1.0 (`TickPhysics`), the walking, swimming and flying pawns and anything falling
-    taking the tick at once, as the original's, without `TryStepToGround` (5.4 at `15392c0`);
+    taking the tick at once, as the original's, without `TryStepToGround`;
   - collision traces ~0.6 (`TraceTester::Trace`), the player's ladder probe and floor and wall
     materials ~0.2;
   - per-actor work around the scripts ~2.4: `ULevel::TickDeusEx` ~1.2 and `TickActorDeusEx`
@@ -311,27 +310,26 @@ render-CPU savings count in full there, and the tick's too.
   - visibility: ~3,200 box tests (~2.6) and ~1,860 surface tests (~2.7) a frame against
     `BspClipper`'s occlusion grid, portals ~0.9, actor set-up ~0.9. By function: the BSP walk
     (`ProcessNodeSurface` ~2.2, `ProcessNode` ~1.7, cache misses), `DrawPolygon` ~1.7,
-    `DrawSpan` ~1.2, `IsAABBVisible` ~0.8. The grid's rows a cache line each took ~0.5 off at
-    853x480; the movers' mirrors, looked for among the movers with one where every actor was
-    cast to a mover each frame, ~2.0 (portals 2.8 to 1.7). Left: the walk's memory;
+    `DrawSpan` ~1.2, `IsAABBVisible` ~0.8; the grid's rows a cache line each, the movers'
+    mirrors looked for among the movers with one. Left: the walk's memory;
   - actor meshes ~3.9 for ~44 in view: `DrawLodMeshFaceDX` ~1.9 and the vertex lighting
     `GetVertexLight` ~0.5 of own time;
-  - the Vulkan driver (`libVK_IMG`, `libsrv_um`) ~3.3 to ~5.6, per draw call and submit. Without
-    descriptor indexing a batch breaks at each texture: the light maps in shared pages, each
-    with a border repeating its edges, and the opaque surfaces drawn by zone, texture and light
-    map, so that a run of one texture and one page is one batch, took 470 batches a frame's BSP
-    surfaces from ~2.6 to ~1.6 at 853x480;
+  - the Vulkan driver (`libVK_IMG` ~3.3, `libsrv_um` ~2.3, each with what it calls), per draw
+    call and submit. Without descriptor indexing a batch breaks at each texture: the light maps
+    share pages, each with a border repeating its edges, and the opaque surfaces go by zone,
+    texture and light map, so that a run of one texture and one page is one batch;
   - `UActor::UpdateBspInfo` ~1.0, the dynamic actors' BSP set-up each frame: the 1,831 static
     actors of Liberty Island's 2,604, which do not move, are filed when the level sorts its
-    actors and then a sixteenth a frame (`bsp-info` 3.0 to 1.2);
+    actors and then a sixteenth a frame;
   - `LightSystem::BeginFrame` ~1.0, every actor looked at for a light each frame (a script can
     change a static light); the fractal textures ~1.8 (`StepWater`, the wet textures).
 - **Lightmaps ~0.4, texture uploads ~0.3.** The `BarrelFire`, a dynamic light with the fire
   waver effect, rebuilds its 6 lightmaps every frame, built, converted and sent only where its
   light reaches
   ([lighting](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#lighting)).
-  In Battery Park the fog maps take only the fog lights a line of sight to them crosses: its
-  one volumetric light's ~63 uploads a frame came to ~3, its start from 24-26 FPS to 31-33.
+  In Battery Park a fog map takes only the fog lights a line of sight to it crosses, and one
+  they leave clear is sent once: its one volumetric light's maps cost nothing a frame at the
+  level start.
 - **GPU**, the time above: the render's wait plus the input, tick and view it overlaps. CPU and
   GPU compete for the SoC's shared memory.
 - **`view+audio` ~2** is mostly `UDXEngineAudioDevice::StartAmbience` reading every actor's
@@ -339,9 +337,9 @@ render-CPU savings count in full there, and the tick's too.
   ([each frame](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/galaxy-dll.md#each-frame)):
   nothing to port.
 
-**OpenGL ES** leads Vulkan at native, where Vulkan waits on the GPU, 18.1 FPS to 16.4, and
-trails it at 853x480, 19.8 to 22.5 (the table above): the GL driver's time lands in its render
-CPU and is not overlapped by the tick. The GL device's workarounds for this driver: ENGINE.md's
+**OpenGL ES** leads Vulkan at native, where Vulkan waits on the GPU, and trails it at 853x480
+([the table](#performance)): the GL driver's time lands in its render CPU and is not overlapped
+by the tick. The GL device's workarounds for this driver: ENGINE.md's
 [rendering](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)
 and, for fullscreen,
 [running on our devices](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices).

@@ -672,8 +672,8 @@ the run as it was: its Play plays, as Recovery's does.
 
 ## How it is tested
 
-`scripts/dx.sh test` runs the host tests side by side, all but
-`test_ui_scripts` with no display.
+`scripts/dx.sh test trimui-smartpro` runs the host tests side by side, all
+but `test_ui_scripts` with no display.
 `test_settings` takes the registry's rows through each codec, both
 generations of the system ini, the sizes, the next run's words,
 `Settings.json`, the presets and a new profile's defaults; `test_keys` the
@@ -784,7 +784,7 @@ it whatever the install. Changed:
 | `System/DeusEx.exe`, in the game's folder, its settings in the game's `DeusEx.ini` and `User.ini` | An app of its own; the settings, saves and shots in a profile under the home's XDG folders | Nothing written to the game's folder; more than one way to play one install |
 | The launcher and the engine one process, which stays for the game's run | The engine a child, started by its words, which the launcher waits on, holding its lock to the end | The engine is a program of its own; started by its words, a quoted word in the command line arrives whole |
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
-| The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The desktop's screens, from a laptop's to a television's, and pads |
+| The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The handheld's 1280 x 720 screen and its pad |
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
 | Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
 | The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads world texture detail alone, only to leave its detail textures out below High, as the Detail textures row does; the saves are 1112fm's |
