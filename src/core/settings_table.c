@@ -358,7 +358,8 @@ const dxl_setting dxl_settings_table[] = {
               "runs it in a window, which this device does not show.", .kind = DXL_SET_BOOL,
       .def = "0", .at = { NEXT("-nohard") }, .flags = DXL_SET_ADVANCED },
     { .id = "next.defaultres", .page = "Launcher", .label = "Next run: at 640 x 480",
-      .help = "The next run alone at the game's first size (-defaultres).", .kind = DXL_SET_BOOL, .def = "0",
+      .help = "The next run alone at the game's first size (-defaultres), which full screen on this device "
+              "does not take.", .kind = DXL_SET_BOOL, .def = "0",
       .at = { NEXT("-defaultres") }, .flags = DXL_SET_ADVANCED },
     { .id = "next.nojoy", .page = "Launcher", .label = "Next run: no pad",
       .help = "The next run alone with the pad ignored (-nojoy).", .kind = DXL_SET_BOOL, .def = "0",

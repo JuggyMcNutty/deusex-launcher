@@ -1,6 +1,6 @@
 /* The settings' registry (core/settings.h): its rows, read and written
  * through each place's codec in both generations of the system ini, the
- * sizes, the run's words, Settings.json, the presets, and the defaults a
+ * run's words, Settings.json, the presets, and the defaults a
  * new profile has. The inis are written here, a line or two each. */
 #include "test.h"
 #include "core/engine_sections.h"

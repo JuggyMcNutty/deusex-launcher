@@ -522,9 +522,10 @@ Every run is full screen, whatever the profile's `DeusEx.ini` says
 
 **The next run's words**, `-nosound`, `-nohard` (the software renderer, full
 screen, not in the window the original's safe mode adds `-noddraw` for),
-`-defaultres` (640 x 480) and `-nojoy`, are Launcher's advanced rows and
-Recovery's: added to the original's command line of the run Play starts
-next, and of no other.
+`-defaultres` (640 x 480, which full screen here does not take: the game
+covers the screen whatever size the ini names) and `-nojoy`, are Launcher's
+advanced rows and Recovery's: added to the original's command line of the
+run Play starts next, and of no other.
 
 The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's volumes and reduced motion
@@ -685,7 +686,7 @@ run as it was: its Play plays, as Recovery's does.
 `scripts/dx.sh test trimui-smartpro` runs the host tests side by side, all
 but `test_ui_scripts` with no display.
 `test_settings` takes the registry's rows through each codec, both
-generations of the system ini, the sizes, the next run's words,
+generations of the system ini, the next run's words,
 `Settings.json`, the presets and a new profile's defaults; `test_keys` the
 key names, bindings and their reset; `test_bindings` the controller's
 layouts, labels and actions; `test_padcurve` its sticks and triggers as the

@@ -107,8 +107,9 @@ scripts/dx.sh deploy trimui-smartpro   # build, stage, send
 tailoring, each a commit of its own on top of linux-aarch64's
 ([what differs](ports/trimui-smartpro/README.md#what-differs-from-linux-aarch64)):
 an SDL3 video driver for the device's framebuffer and EGL, the spruceOS
-app, the CPU modes, the big screen alone, no desktop, deleting for good, a
-pad without stick clicks, spruceOS's Ports folder, the device's data.
+app, the CPU modes, the big screen alone, the game full screen alone, no
+desktop, deleting for good, a pad without stick clicks, spruceOS's Ports
+folder, the device's data, no Mesa CPU drivers.
 Cross-built it makes `deusex-launcher`, `dxl-cli` and `dxl-shots`; its host
 build, `ports/linux-x86_64/port.cmake` and its preset, makes them for the PC
 and runs the tests. Nothing merges into it, `main` included: a change from
