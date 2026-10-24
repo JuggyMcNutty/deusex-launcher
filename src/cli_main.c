@@ -4,7 +4,7 @@
  *   dxl-cli --print-command [...]     the engine's command line, nothing run
  *   dxl-cli --import --game=<dir> [--profile=<id>]
  *   dxl-cli --play [...]              play, no Home (app/run.h)
- *   dxl-cli --probe [--ini]           the GPU this machine has; --ini, for a program
+ *   dxl-cli --probe [--ini]           the GPU, Mesa's CPU drivers; --ini, for a program
  *   dxl-cli --find                    the installs the first run would list
  *   dxl-cli --mods [--game=<dir>]     the mods a profile can be made of (core/mods.h)
  *   dxl-cli --import --game=<dir> --mod=<dir> --profile=<id>   a mod's profile
@@ -42,8 +42,9 @@ static void usage(FILE *f) {
         "  --print-command  the engine's command line for this profile; nothing is run\n"
         "  --import         a profile made from --game's install, nothing run\n"
         "  --play           play, with no Home screen; a screen that is due is a message\n"
-        "  --probe [--ini]  the Vulkan, OpenGL ES and OpenGL this machine offers; --ini as\n"
-        "                   the [Probe] section the launcher's window reads\n"
+        "  --probe [--ini]  the Vulkan, OpenGL ES and OpenGL this machine's GPU offers, and\n"
+        "                   Mesa's CPU drivers; --ini as the [Probe] section the launcher's\n"
+        "                   window reads\n"
         "  --find           the installs of Deus Ex the first run would find here, but\n"
         "                   launcher.ini's: each folder, where it was found, its build\n"
         "  --mods           the mods a profile can be made of: the install's folder's (the profile's,\n"
@@ -85,6 +86,10 @@ static int probe(int as_ini) {
         printf("  version  %s\n", p.gles_version);
     }
     printf("opengl     %s\n", p.gl ? "yes" : "no");
+    printf("vulkan cpu %s\n", p.vulkan_cpu ? "yes" : "no");
+    if (p.vulkan_cpu) printf("  device   %s\n", p.vulkan_cpu_device);
+    printf("opengl cpu %s\n", p.gl_cpu ? "yes" : "no");
+    if (p.gl_cpu) printf("  renderer %s\n", p.gl_cpu_renderer);
     return 0;
 }
 
