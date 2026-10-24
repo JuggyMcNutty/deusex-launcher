@@ -107,9 +107,9 @@ with the toolchain file, and its block in `CMakeLists.txt` with the
 On any distribution with glibc 2.28 or newer, whatever the glibc of the
 machine that built it. The launcher needs only the C library, its window
 and sound the machine's own X11 or Wayland, ALSA, PulseAudio or PipeWire,
-opened when found; the engine links the distribution's X11 (with Xi),
-D-Bus, GLib and GIO, fontconfig, FreeType, glvnd's EGL and OpenGL, and
-OpenAL Soft (`libopenal.so.1`). An engine built with the machine's own
+opened when found; the engine links the distribution's X11 (with Xi and Xext),
+D-Bus, GLib and GIO, fontconfig, FreeType, glvnd's EGL and OpenGL, and OpenAL
+Soft (`libopenal.so.1`). An engine built with the machine's own
 compiler instead runs only on a glibc as new as its builder's: the launcher
 refuses it where it cannot start, and says so ("needs glibc 2.44, this
 system has 2.43").
