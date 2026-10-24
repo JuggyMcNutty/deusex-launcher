@@ -1,7 +1,7 @@
-/* What to do after a run that did not end cleanly, for Recovery: the
- * engine's known errors, from its own messages (DXEngine's
- * Exception::Throw), and the ways a run ends, each with advice and the fix
- * Recovery offers for it. */
+/* What to do after a run that did not end cleanly, or that the software
+ * renderer drew in the chosen one's place, for Recovery: the engine's known
+ * errors, from its own messages (DXEngine's Exception::Throw), and the ways
+ * a run ends, each with advice and the fix Recovery offers for it. */
 #ifndef DXL_ADVICE_H
 #define DXL_ADVICE_H
 
@@ -21,7 +21,8 @@ typedef struct {
     dxl_fix     fix;
 } dxl_advice;
 
-/* The advice for how the run ended; NULL for a clean end or none known. */
+/* The advice for how the run ended; NULL for a clean end on the renderer
+ * chosen, or none known. */
 const dxl_advice *dxl_advice_for(const dxl_lastrun *l);
 
 #endif

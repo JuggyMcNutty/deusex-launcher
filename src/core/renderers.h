@@ -7,17 +7,18 @@
  *     RenderDevice.Type takes. Empty means the engine has no such backend
  *     (DXEngine's GL device runs on OpenGL ES too, as GLES; its software
  *     renderer needs nothing of the device).
- *   - Does *this device* have the graphics API it needs? Measured at startup
- *     by the GPU probe (platform/gpu_probe.c), never assumed.
+ *   - Does *this device* have the graphics API it needs? Measured by the
+ *     GPU probe (platform/gpu_probe.c) when a page needs it, never assumed.
  *
  * The original tested Direct3D by running itself again, once, with
  * testrendev=D3DDrv.D3DRenderDevice, so a crashing driver only killed a
  * child (dx-reverse-info/wizard.md, Renderer page). The probe keeps that idea
  * -- detection runs in a forked child -- without the re-exec.
  *
- * The choice is written to Settings.json, not to [Engine.Engine]
- * GameRenderDevice: DXEngine overrides that ini key with its own device
- * class, so writing it changed nothing.
+ * The choice is written to Settings.json's Type, which DXEngine takes over
+ * [Engine.Engine] GameRenderDevice: that key chooses only where no Type is
+ * named (SoftDrv.SoftwareRenderDevice the software device, any other the
+ * Vulkan one), and -nohard goes over both.
  */
 #ifndef DXL_RENDERERS_H
 #define DXL_RENDERERS_H
@@ -107,8 +108,7 @@ void dxl_renderer_value(const dxl_renderer *r, char *out, size_t size);
 /* Index of the entry of that value, or -1. */
 int  dxl_renderers_find_value(const dxl_renderer_list *l, const char *value);
 
-/* First selectable entry, or -1. What a launch falls back to when the
- * configured renderer cannot run here. */
+/* First selectable entry, or -1. */
 int dxl_renderers_first_selectable(const dxl_renderer_list *l);
 
 const char *dxl_gfx_api_name(dxl_gfx_api a);
