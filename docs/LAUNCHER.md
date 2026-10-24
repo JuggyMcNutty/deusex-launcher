@@ -795,4 +795,5 @@ it whatever the install. Changed:
 
 - **The finder reads no database**: a Lutris game whose program is named
   from its folder, which only Lutris' `pga.db` holds, is found by the
-  folder browser or `--game=<dir>`.
+  folder browser or `--game=<dir>`. Only the PC build meets it: spruceOS
+  has no Lutris.

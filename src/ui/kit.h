@@ -33,7 +33,6 @@ typedef struct {
     int   page_up, page_down;
     int   start;           /* the pad's Start, F5: play */
     int   shoulder_l, shoulder_r;
-    int   toggle_big;      /* F11 */
     int   pointer_moved;
     float px, py;          /* the pointer, dp */
     int   pressed, released;   /* the left button, this frame */

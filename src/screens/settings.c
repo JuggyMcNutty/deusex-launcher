@@ -184,13 +184,7 @@ static void choose(dxl_shell *s, const dxl_setting *st, const char *value) {
 
 /* What the launcher's own settings change in its window, at once. */
 static void live(dxl_shell *s, const dxl_setting *st) {
-    if (!strcmp(st->id, "launcher.ui_scale")) s->ui.user_scale = (float)dxl_setting_number(&s->stores, st);
-    else if (!strcmp(st->id, "launcher.reduced_motion")) s->ui.reduced_motion = dxl_setting_bool(&s->stores, st);
-    else if (!strcmp(st->id, "launcher.big_screen")) {
-        char v[16];
-        dxl_setting_get(&s->stores, st, v, sizeof v);
-        dxl_shell_big_setting(s, v);
-    }
+    if (!strcmp(st->id, "launcher.reduced_motion")) s->ui.reduced_motion = dxl_setting_bool(&s->stores, st);
     else if (!strcmp(st->id, "hud.menu_theme")) dxl_shell_theme(s);
     else if (!strcmp(st->id, "launcher.music_volume") || !strcmp(st->id, "launcher.sound_volume")) dxl_shell_volumes(s);
 }
@@ -257,11 +251,8 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
         if (dxl_slider(ui, id, r, st->label, &n, st->min, st->max, st->step, shown, 0)) {
             snprintf(v, sizeof v, "%.6g", n);
             dxl_setting_set(&s->stores, st, v);
-            if (strcmp(st->id, "launcher.ui_scale") != 0) live(s, st);
+            live(s, st);
         }
-        /* The launcher's size follows its slider once the pointer lets go of
-         * it: under a drag, the slider itself would move. */
-        if (!strcmp(st->id, "launcher.ui_scale") && ui->held != id) live(s, st);
         break;
     }
     case DXL_SET_CHOICE: {

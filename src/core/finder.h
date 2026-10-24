@@ -16,12 +16,12 @@
  *
  * In a Wine prefix's drive_c, and on a drive, the game is looked for where
  * Windows' installers put it: DeusEx, the CD's folder; each folder in GOG
- * Games, GOG Galaxy's Games and Games; Steam's library, Windows' own and
- * one of its own. On a drive also at its top and two folders down. The
- * drives are what /proc/self/mountinfo has mounted under those folders,
- * however deep (a user's /run/media/<user>/<label>, the automounter's
- * /run/media/system/<label>), each once, a folder that links to another
- * looked in once.
+ * Games, GOG Galaxy's Games, Games and spruceOS's Roms/PORTS, the card's;
+ * Steam's library, Windows' own and one of its own. On a drive also at its
+ * top and two folders down. The drives are what /proc/self/mountinfo has
+ * mounted under those folders, however deep (a user's
+ * /run/media/<user>/<label>, the automounter's /run/media/system/<label>),
+ * each once, a folder that links to another looked in once.
  *
  * Each folder there is checked (core/install.h) and listed once, however
  * many ways lead to it; one that is not there is not listed, though the

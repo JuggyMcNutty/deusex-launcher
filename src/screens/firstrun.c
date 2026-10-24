@@ -135,11 +135,11 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
     if (ui->focus_moved || ui->in.pointer_moved || ui->in.pressed || ui->in.activate) s->find_focus = 0;
     if (s->found.count == 0) {
         dxl_paragraph(ui, in, DXL_FONT_BODY,
-                      s->finding ? "Looking for it in Steam's libraries, in Heroic's, GOG's and Lutris' games, in "
-                                   "Bottles and the other Wine prefixes, and on the drives mounted here..."
-                                 : "It is not in the usual places: Steam's libraries, Heroic's, GOG's and Lutris' games, "
-                                   "Bottles and the other Wine prefixes, the drives mounted here. Show DXLauncher the "
-                                   "folder the game is in, the one with System and Maps in it.",
+                      s->finding ? "Looking for it in spruceOS's Ports folder, Roms/PORTS on the card, and on the "
+                                   "drives mounted here..."
+                                 : "It is not in spruceOS's Ports folder, Roms/PORTS on the card, nor on the drives "
+                                   "mounted here. Show DXLauncher the folder the game is in, the one with System and "
+                                   "Maps in it.",
                       t->text);
     } else {
         float hint = dxl_paragraph(ui, in, DXL_FONT_SMALL,

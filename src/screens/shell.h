@@ -343,10 +343,8 @@ typedef struct dxl_shell {
     char         join_address[96], join_password[64], join_password_for[96];
     char         join_link[256], link_asked[256];
 
-    /* The big screen (core/bigscreen.h): the window's now, and whether it
-     * has been offered in this run. */
+    /* The big screen: the window's now. */
     int          big;
-    int          big_offered;
     /* The window's: full screen or not, s->big and the kit's with it. NULL
      * offscreen, where the two are set alone. */
     void       (*set_big)(struct dxl_shell *s, int on);
@@ -396,12 +394,6 @@ void        dxl_shell_volumes(dxl_shell *s);
 void        dxl_shell_cue(dxl_shell *s, int cues);
 /* The window on the big screen, or off it. */
 void        dxl_shell_big(dxl_shell *s, int on);
-/* launcher.ini's BigScreen as it is now, its value value: on or off at
- * once, automatic as --big-screen and the environment say. */
-void        dxl_shell_big_setting(dxl_shell *s, const char *value);
-/* The question the first press of a pad's asks, in a window that is not
- * the big screen: whether it should be. */
-void        dxl_shell_offer_big(dxl_shell *s);
 /* The install chosen: on the first run the profile to be made from it, on
  * Your profile; else the profile pointed at it, and the screen done -- or,
  * asked for from a page but Recovery, that page again. */

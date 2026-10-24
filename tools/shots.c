@@ -87,7 +87,6 @@ typedef enum {
     SCENE_ABOUT,
     SCENE_PROFILES,         /* three: the one in use, a mod's, one whose game is gone */
     SCENE_HOME_NEW,         /* a profile with no saves yet: Play first */
-    SCENE_BIG_OFFER,        /* Home, a pad's first press asking whether the big screen should be */
     SCENE_SAVES,            /* thirteen, the quick save the newest, one with no snapshot */
     SCENE_SAVES_NONE,
     SCENE_SAVES_OLD,        /* an engine that starts on no save */
@@ -122,7 +121,7 @@ typedef enum {
 
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "find-looking", "find-more", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
-    "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "big-offer", "saves", "saves-none", "saves-old-engine", "shots",
+    "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "saves", "saves-none", "saves-old-engine", "shots",
     "shots-none", "shot-whole", "servers", "servers-asking", "servers-failed", "servers-password", "mods", "mods-none",
     "mod-profile", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
@@ -446,10 +445,6 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
             r->last.known = 0;
         }
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
-        break;
-    case SCENE_BIG_OFFER:
-        dxl_shell_enter(s, r, DXL_VIEW_HOME);
-        dxl_shell_offer_big(s);
         break;
     case SCENE_SERVERS:
     case SCENE_SERVERS_ASKING:
