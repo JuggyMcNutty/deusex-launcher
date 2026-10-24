@@ -568,6 +568,12 @@ static void commit(dxl_run *r) {
     /* The engine's own sections whole before it runs, a profile made by an
      * earlier launcher's too (core/engine_sections.h). */
     if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");
+    /* Full screen whatever the profile's ini says: the device shows a
+     * window only in its corner (ports/trimui-smartpro/README.md). */
+    if (!dxl_ini_get_bool(dxl_config_ini(r->config), "Engine.DXEngineClient", "StartupFullscreen", 0)) {
+        dxl_ini_set(dxl_config_ini(r->config), "Engine.DXEngineClient", "StartupFullscreen", "True");
+        dxl_log("full screen: the device shows nothing else");
+    }
     if (dxl_sentinel_create(&r->sentinel, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     dxl_config_clamp_first_run(r->config);
     if (dxl_config_save(r->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));

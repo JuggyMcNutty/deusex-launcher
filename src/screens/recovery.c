@@ -132,7 +132,7 @@ static void next_run_set(dxl_shell *s, const char *id, int on) {
 /* Those words as toggles, two by two, under their heading. */
 static void next_run(dxl_shell *s, dxl_rect r) {
     static const struct { const char *id, *label; } rows[] = {
-        { "next.nosound", "No sound" }, { "next.windowed", "In a window" },
+        { "next.nosound", "No sound" }, { "next.software", "Software renderer" },
         { "next.defaultres", "At 640 x 480" }, { "next.nojoy", "No pad" },
     };
     dxl_ui *ui = &s->ui;

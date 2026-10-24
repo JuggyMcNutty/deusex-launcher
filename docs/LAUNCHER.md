@@ -438,7 +438,7 @@ takes (`src/core/settings.c`):
 
 | Kept in | What |
 |---|---|
-| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
+| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer, and full screen, which every run sets; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
 | `launcher.ini`, `profile.ini` | the launcher's own: the engine, reduced motion, Home after playing, its renderer, its volumes, the CPU mode; the profile's game, the engine's extra words |
@@ -517,10 +517,14 @@ to). The game's folder: the profile's install, another chosen on The game.
 keeps what the game takes in a name, letters, digits and `[ ] ( )`, and is
 `Player` when nothing of it is left.
 
-**The next run's words**, `-nosound`, `-nohard -noddraw` (the software
-renderer, in a window), `-defaultres` (640 x 480) and `-nojoy`, are
-Launcher's advanced rows and Recovery's: added to the original's command
-line of the run Play starts next, and of no other.
+Every run is full screen, whatever the profile's `DeusEx.ini` says
+(`src/app/run.c`): the device shows a window only in its corner.
+
+**The next run's words**, `-nosound`, `-nohard` (the software renderer, full
+screen, not in the window the original's safe mode adds `-noddraw` for),
+`-defaultres` (640 x 480) and `-nojoy`, are Launcher's advanced rows and
+Recovery's: added to the original's command line of the run Play starts
+next, and of no other.
 
 The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's volumes and reduced motion
@@ -743,7 +747,7 @@ with the stub for the engine and no beacon asked (`DXL_LAN=none`), and
 reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
 in its file as its reader takes it, and the next run's words on that run;
-`recovery` goes from a crash to Recovery's log, the next run in a window
+`recovery` goes from a crash to Recovery's log, the next run on Software
 and another renderer, and finds those on the next run alone; `remap_pad`
 binds three buttons of a virtual Xbox pad, two found by pressing or pulling
 them, maps that pad with the wizard its own confirm opened, and a
@@ -792,7 +796,7 @@ it whatever the install. Changed:
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The handheld's 1280 x 720 screen and its pad |
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
-| Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
+| Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard` (without `-noddraw`'s window, which the device does not show), `-defaultres` and `-nojoy`, for the run Play starts next | The others name what the engine does not use: MMX, KNI, 3DNow!, A3D and EAX |
 | The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads world texture detail alone, only to leave its detail textures out below High, as the Detail textures row does; the saves are 1112fm's |
 | No server browser: the game's menus have one | Multiplayer: the local network's servers, the master's and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
 | A mod started by a shortcut of its own, `INI=` and `USERINI=` naming its inis; its `.int` files in the game's `System` | Mods: a profile of its own for each, its folders first in its paths by their absolute paths; its text read from its folders | A mod in a folder of its own, anywhere, with the game's folder left as it is |

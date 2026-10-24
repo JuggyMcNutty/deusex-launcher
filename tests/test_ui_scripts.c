@@ -163,14 +163,16 @@ static void test_settings_roundtrip(void) {
     open_files(&a);
     CHECK(a.sys && a.usr);
     if (!a.sys || !a.usr) return;
-    char was_size[64], was_aa[32], was_theme[64], was_c[128], crouch[32] = "";
+    char was_aa[32], was_theme[64], was_c[128], crouch[32] = "";
     snprintf(was_c, sizeof was_c, "%s", value(a.usr, "Engine.Input", "C"));
     const char *keys[2];
     if (dxl_keys_bound(a.usr, "Duck", keys, 2) > 0) snprintf(crouch, sizeof crouch, "%s", keys[0]);
-    snprintf(was_size, sizeof was_size, "%sx%s", value(a.sys, "Engine.DXEngineClient", "WindowedViewportX"),
-             value(a.sys, "Engine.DXEngineClient", "WindowedViewportY"));
     snprintf(was_aa, sizeof was_aa, "%s", dxl_es_choice(a.es, DXL_ES_ANTIALIAS));
     snprintf(was_theme, sizeof was_theme, "%s", value(a.usr, "DeusEx.DeusExPlayer", "MenuThemeName"));
+
+    /* A profile whose ini asks for a window: the run is full screen all the same. */
+    dxl_ini_set(a.sys, "Engine.DXEngineClient", "StartupFullscreen", "False");
+    CHECK_INT(dxl_ini_save(a.sys, a.p.system_ini, NULL), 0);
 
     CHECK_INT(launch("settings_roundtrip.script", "ready"), 0);
     script_ok();
@@ -181,13 +183,8 @@ static void test_settings_roundtrip(void) {
         return;
     }
 
-    /* Display. */
-    CHECK_INT(dxl_ini_get_bool(b.sys, "Engine.DXEngineClient", "StartupFullscreen", -1),
-              !dxl_ini_get_bool(a.sys, "Engine.DXEngineClient", "StartupFullscreen", -1));
-    char size[64];
-    snprintf(size, sizeof size, "%sx%s", value(b.sys, "Engine.DXEngineClient", "WindowedViewportX"),
-             value(b.sys, "Engine.DXEngineClient", "WindowedViewportY"));
-    CHECK(strcmp(size, was_size) != 0);
+    /* Display: full screen for the run, whatever the ini said. */
+    CHECK_INT(dxl_ini_get_bool(b.sys, "Engine.DXEngineClient", "StartupFullscreen", -1), 1);
     double fov = atof(value(a.usr, "Engine.PlayerPawn", "DesiredFOV")) + 5;
     if (fov > 120) fov = 120;
     CHECK(atof(value(b.usr, "Engine.PlayerPawn", "DesiredFOV")) == fov);
@@ -225,15 +222,17 @@ static void test_settings_roundtrip(void) {
     CHECK(strstr(log, worn) != NULL);
     char line[2048];
     line_with(log, "starting the game:", 0, line, sizeof line);
-    CHECK(strstr(line, "-nohard -noddraw") != NULL);
+    CHECK(strstr(line, "-nohard") != NULL);
+    CHECK(strstr(line, "-noddraw") == NULL);
+    CHECK(strstr(log, "full screen: the device shows nothing else") != NULL);
     CHECK(strstr(log, "the game ended: 0, cleanly") != NULL);
     free(log);
     close_files(&a);
     close_files(&b);
 }
 
-/* After a crash: Recovery, its log page, the next run in a window, another
- * renderer; Play; the window's words on that run alone. */
+/* After a crash: Recovery, its log page, the next run on the software
+ * renderer, another renderer; Play; the window's words on that run alone. */
 static void test_recovery(void) {
     CHECK_INT(fresh_home(), 0);
     profile_files a, b;
@@ -248,7 +247,8 @@ static void test_recovery(void) {
     line_with(log, "starting the game:", 0, first, sizeof first);
     line_with(log, "starting the game:", 1, second, sizeof second);
     CHECK(strstr(first, "-nohard") == NULL);
-    CHECK(strstr(second, "-nohard -noddraw") != NULL);
+    CHECK(strstr(second, "-nohard") != NULL);
+    CHECK(strstr(second, "-noddraw") == NULL);
     /* The renderer chosen, when this machine runs more than one. */
     open_files(&b);
     char chose[256];

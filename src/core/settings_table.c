@@ -29,13 +29,6 @@ const size_t dxl_settings_pages_count = sizeof dxl_settings_pages / sizeof *dxl_
 #define LAUNCHER(k, c) { DXL_STORE_LAUNCHER, "Launcher", k, c, 0, 0, 0 }
 #define PROFILE(k, c) { DXL_STORE_PROFILE, "Profile", k, c, 0, 0, 0 }
 
-static const dxl_set_choice sizes[] = {
-    { "1024x768", "1024 x 768", NULL }, { "1280x720", "1280 x 720", NULL }, { "1280x800", "1280 x 800", NULL },
-    { "1366x768", "1366 x 768", NULL }, { "1600x900", "1600 x 900", NULL }, { "1920x1080", "1920 x 1080", NULL },
-    { "1920x1200", "1920 x 1200", NULL }, { "2560x1440", "2560 x 1440", NULL }, { "3840x2160", "3840 x 2160", NULL },
-    { NULL, NULL, NULL },
-};
-
 static const dxl_set_choice gammas[] = {
     { "D3D9", "Direct3D 9", "Brightness is a gamma power on red, green and blue apart, as the game's Direct3D "
                            "renderer had it." },
@@ -113,18 +106,6 @@ static const dxl_set_choice render_drivers[] = {
 
 const dxl_setting dxl_settings_table[] = {
     /* ---- Display ---------------------------------------------------------- */
-    { .id = "display.fullscreen", .page = "Display", .label = "Full screen",
-      .help = "The game on the whole display, at its own resolution, as a window without borders: the display's "
-              "mode never changes.",
-      .kind = DXL_SET_BOOL, .def = "0", .at = { CLIENT("StartupFullscreen", DXL_CODEC_BOOL) } },
-    { .id = "display.window_size", .page = "Display", .label = "The window's size",
-      .help = "The game's window when it is not full screen, in pixels; under X11 SDL scales it by the "
-              "display's DPI.",
-      .kind = DXL_SET_CHOICE, .choices = sizes, .def = "1920x1080",
-      .at = { { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_ENGINE },
-              { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_ENGINE },
-              { DXL_STORE_SYSTEM, "WinDrv.WindowsClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_RETAIL },
-              { DXL_STORE_SYSTEM, "WinDrv.WindowsClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_RETAIL } } },
     { .id = "display.brightness", .page = "Display", .label = "Brightness",
       .help = "The setting the game's own Adjust Brightness changes: 0.40 shows the game as it was drawn, the "
               "game's default is 0.60.",
@@ -372,10 +353,10 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "next.nosound", .page = "Launcher", .label = "Next run: no sound",
       .help = "The next run alone with no sound device (-nosound); the sound settings stay as they are.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { NEXT("-nosound") }, .flags = DXL_SET_ADVANCED },
-    { .id = "next.windowed", .page = "Launcher", .label = "Next run: in a window",
-      .help = "The next run alone on the software renderer, in a window (-nohard -noddraw), as the "
-              "original's safe mode runs it.", .kind = DXL_SET_BOOL,
-      .def = "0", .at = { NEXT("-nohard -noddraw") }, .flags = DXL_SET_ADVANCED },
+    { .id = "next.software", .page = "Launcher", .label = "Next run: on the software renderer",
+      .help = "The next run alone on the software renderer, full screen (-nohard): the original's safe mode "
+              "runs it in a window, which this device does not show.", .kind = DXL_SET_BOOL,
+      .def = "0", .at = { NEXT("-nohard") }, .flags = DXL_SET_ADVANCED },
     { .id = "next.defaultres", .page = "Launcher", .label = "Next run: at 640 x 480",
       .help = "The next run alone at the game's first size (-defaultres).", .kind = DXL_SET_BOOL, .def = "0",
       .at = { NEXT("-defaultres") }, .flags = DXL_SET_ADVANCED },

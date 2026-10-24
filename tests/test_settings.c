@@ -101,19 +101,17 @@ static void test_rows(void) {
 static void test_generations(void) {
     dxl_stores st;
     memset(&st, 0, sizeof st);
-    st.system = parse("[WinDrv.WindowsClient]\nStartupFullscreen=True\nBrightness=0.700000\n"
-                      "WindowedViewportX=800\nWindowedViewportY=600\n"
+    st.system = parse("[WinDrv.WindowsClient]\nDecals=False\nBrightness=0.700000\n"
                       "[Galaxy.GalaxyAudioSubsystem]\nMusicVolume=153\nOutputRate=22050Hz\n");
     CHECK_INT(dxl_settings_engine_generation(st.system), 0);
-    CHECK_STR(get(&st, "display.fullscreen"), "1");
+    CHECK_STR(get(&st, "graphics.decals"), "0");
     CHECK_STR(get(&st, "display.brightness"), "0.7");
-    CHECK_STR(get(&st, "display.window_size"), "800x600");
     CHECK_STR(get(&st, "audio.music_volume"), "0.6");
     CHECK_STR(get(&st, "audio.rate"), "22050");
     CHECK_STR(get(&st, "audio.sound_volume"), "0.784314");
-    CHECK_INT(set(&st, "display.fullscreen", "0"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "StartupFullscreen"), "False");
-    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "StartupFullscreen"), "False");
+    CHECK_INT(set(&st, "graphics.decals", "1"), 0);
+    CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "Decals"), "True");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "Decals"), "True");
     dxl_ini_free(st.system);
 
     st.system = parse("[WinDrv.WindowsClient]\nBrightness=0.700000\n[Engine.DXEngineClient]\nBrightness=0.450000\n"
@@ -161,20 +159,12 @@ static void test_codecs(void) {
     dxl_ini_free(st.system);
 }
 
-/* A size is two places, read and written as WxH; a number clamped. */
-static void test_sizes_and_numbers(void) {
+/* A number clamped; text kept as written. The device has no size to choose:
+ * its window is the whole screen. */
+static void test_numbers(void) {
     dxl_stores st;
     open_all(&st);
     dxl_engine_sections_seed(st.system);
-    CHECK_INT(set(&st, "display.window_size", "1600x900"), 0);
-    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "WindowedViewportX"), "1600");
-    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "WindowedViewportY"), "900");
-    CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "WindowedViewportX"), "1600");
-    CHECK_STR(get(&st, "display.window_size"), "1600x900");
-    CHECK_INT(set(&st, "display.window_size", "100x100"), -1);
-    CHECK_INT(set(&st, "display.window_size", "wide"), -1);
-    CHECK_STR(get(&st, "display.window_size"), "1600x900");
-
     CHECK_INT(set(&st, "display.fov", "200"), 0);
     CHECK_STR(dxl_ini_get(st.user, "Engine.PlayerPawn", "DefaultFOV"), "120.000000");
     CHECK_STR(dxl_ini_get(st.user, "Engine.PlayerPawn", "DesiredFOV"), "120.000000");
@@ -209,20 +199,20 @@ static void test_choices_and_text(void) {
     close_all(&st);
 }
 
-/* The next run's words: on and off, a two-word one too, kept nowhere. */
+/* The next run's words: on and off, kept nowhere. */
 static void test_next_run(void) {
     dxl_stores st;
     memset(&st, 0, sizeof st);
-    CHECK_INT(set(&st, "next.windowed", "1"), 0);
-    CHECK_STR(st.next_run, "-nohard -noddraw");
+    CHECK_INT(set(&st, "next.software", "1"), 0);
+    CHECK_STR(st.next_run, "-nohard");
     CHECK_INT(set(&st, "next.nosound", "1"), 0);
-    CHECK_STR(st.next_run, "-nohard -noddraw -nosound");
-    CHECK_STR(get(&st, "next.windowed"), "1");
+    CHECK_STR(st.next_run, "-nohard -nosound");
+    CHECK_STR(get(&st, "next.software"), "1");
     CHECK_INT(set(&st, "next.nosound", "1"), 0);
-    CHECK_STR(st.next_run, "-nohard -noddraw -nosound");
-    CHECK_INT(set(&st, "next.windowed", "0"), 0);
+    CHECK_STR(st.next_run, "-nohard -nosound");
+    CHECK_INT(set(&st, "next.software", "0"), 0);
     CHECK_STR(st.next_run, "-nosound");
-    CHECK_STR(get(&st, "next.windowed"), "0");
+    CHECK_STR(get(&st, "next.software"), "0");
     CHECK_INT(set(&st, "next.nosound", "0"), 0);
     CHECK_STR(st.next_run, "");
     snprintf(st.next_run, sizeof st.next_run, "-nosoundx");
@@ -317,7 +307,6 @@ static void test_reset(void) {
     open_all(&st);
     dxl_engine_sections_seed(st.system);
     set(&st, "display.brightness", "0.9");
-    set(&st, "display.fullscreen", "0");
     set(&st, "audio.rate", "11025");
     set(&st, "mouse.sensitivity", "8");
     set(&st, "graphics.antialias", "MSAA2x");
@@ -325,7 +314,6 @@ static void test_reset(void) {
     set(&st, "display.render_scale", "1");
     dxl_settings_reset(&st, &fresh, "Display");
     CHECK_STR(get(&st, "display.brightness"), "0.6");    /* Default.ini's */
-    CHECK_STR(get(&st, "display.fullscreen"), "1");
     CHECK_STR(get(&st, "audio.rate"), "11025");          /* another page's: as it was */
     dxl_settings_reset(&st, &fresh, NULL);
     CHECK_STR(get(&st, "audio.rate"), "22050");
@@ -375,7 +363,7 @@ TEST_MAIN_BEGIN
     RUN(test_rows);
     RUN(test_generations);
     RUN(test_codecs);
-    RUN(test_sizes_and_numbers);
+    RUN(test_numbers);
     RUN(test_choices_and_text);
     RUN(test_next_run);
     RUN(test_engine_json);

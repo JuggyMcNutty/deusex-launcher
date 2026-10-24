@@ -90,7 +90,7 @@ int dxl_settings_engine_generation(const dxl_ini *system);
 #define DXL_ANTIALIAS_ROW "graphics.antialias"
 
 typedef struct {
-    const char *id;             /* "display.fullscreen" */
+    const char *id;             /* "display.brightness" */
     const char *page;           /* "Display" */
     const char *label;
     const char *help;           /* the help line under the page */

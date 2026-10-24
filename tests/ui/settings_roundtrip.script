@@ -7,11 +7,7 @@ key Return
 wait 0.5
 expect settings
 
-# Display: a toggle and a size in DeusEx.ini, a slider in User.ini.
-find Full screen
-key Return
-find The window's size
-key Right
+# Display: a slider in User.ini.
 find Field of view
 key Right *5
 
@@ -73,11 +69,11 @@ type JC (Denton)!
 key Return
 wait 0.3
 
-# Launcher: the next run alone in a window.
+# Launcher: the next run alone on the software renderer.
 find Launcher
 key Return
 wait 0.3
-find Next run: in a window
+find Next run: on the software renderer
 key Return
 
 find Done
