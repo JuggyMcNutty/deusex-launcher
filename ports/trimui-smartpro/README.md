@@ -7,7 +7,7 @@ linux-aarch64's, tailored to the handheld: the app the spruceOS menu starts.
 ## Status
 
 The launcher and the engine run on the device, and the game plays on Vulkan or OpenGL ES (the
-Graphics page's choice; Software draws it on the CPU, at under half their frame rate), at
+Graphics page's choice; Software draws it on the CPU, at half their frame rate or less), at
 853x480 by default: [Performance](#performance) has the numbers, and
 [where a frame goes](#where-a-frame-goes) the work left.
 
@@ -180,7 +180,7 @@ and `dxl-cli --probe` reproduce it.
 | Framebuffer | `/dev/fb0` alone (`/sys/class/graphics`); 1280x720, 32 bpp, BGRA in memory (red at bit 16), `line_length` 5120, 64 MB, found at a virtual 1280x13107; takes a 2x and 3x `yres_virtual`, pans to any page; `FBIO_WAITFORVSYNC` returns at once. A 1280x720 copy into it ~3.5 ms at power-save (`probe-fbdev-egl.c`) |
 | EGL | 1.4, Imagination's `1.19@6345021`, OpenGL ES alone; `libEGL.so.1`, `libEGL.so`, `libGLESv2.so.2` and `libGLESv2.so` all load. Window surfaces: a NULL native window only (`{ushort w,h}` and `{int w,h}` refused, `EGL_BAD_NATIVE_WINDOW`); the surface's height not given by `eglQuerySurface`; swaps flip fb0 between pages 0 and 1, 16.6 ms apart at interval 0 and 1. Five create-draw-terminate cycles in one process draw, ~170 ms each; `dxl-cli --probe` beside a live surface works; a process killed mid-draw leaves the next drawing; the vendor SDL2 draws after all of it |
 | Consoles | `/dev/tty0`, `/dev/tty1` in text mode; no fbcon cursor control in sysfs |
-| SDL (the engine's) | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`**; 1280x720 @60Hz, `opengles2` |
+| SDL (the engine's) | vendor 2.30.8 in `/usr/trimui/lib`; video driver **`mali`**; 1280x720 @60Hz, `opengles2`; a window not full screen drawn at its size in the screen's bottom left corner, the rest black (the software device's 640x480 with `-nohard -noddraw`, the next run in a window) |
 | GPU APIs | Vulkan **1.3.225** on the PowerVR Rogue GE8300; **OpenGL ES 3.2** (`build 1.19@6345021`) through EGL; no desktop OpenGL. Detection takes ~0.5 s. Vulkan: no `VK_EXT_descriptor_indexing`; BC1–5, RGB8 and RGBA32F not sampled or filtered as the engine needs (`probe-vulkan-caps.c`, `probe-texture-formats.c`). OpenGL ES: no S3TC, float-linear filtering, anisotropy or `glBufferStorage`; `GL_MIRROR_CLAMP_TO_EDGE` rejected (`probe-gles-sampler.c`); no `EXT_clip_cull_distance`; RGB10_A2 drawn, resolved, sampled and read with its ten bits, multisampled up to 4x but 1 beside the R32UI hit buffer (`probe-gles-scene.c`) |
 | Input | one pad, `event3` `"TRIMUI Player1"`, USB ids `045e:028e` (an Xbox 360 pad's), 11 keys, both sticks ±32767, triggers 0–255, a hat; besides it the power key, the audio jack and two keys (`sunxi-keyboard`). `libudev.so.1` loads |
 | Pad | to SDL `"Xbox 360 Controller"`, GUID `0300a3845e0400008e02000014010000`, with SDL's built-in mapping |
