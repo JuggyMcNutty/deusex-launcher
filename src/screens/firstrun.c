@@ -241,6 +241,7 @@ static int begin_on_software(dxl_shell *s) {
     char *def = dxl_path_join(s->run->session.data_dir, "engine-settings.json.default");
     dxl_engine_settings *es = dxl_es_open(path, def);
     dxl_err e;
+    if (es) dxl_es_set_bool(es, DXL_ES_CPU_DRIVER, 0);
     int done = es && dxl_es_set_choice(es, DXL_ES_RENDER_TYPE, "Software") == 0 && dxl_es_save(es, &e) == 0;
     if (done) dxl_log("renderer: Software, the probe having found no GPU driver");
     dxl_es_free(es);

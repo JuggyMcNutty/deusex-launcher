@@ -38,6 +38,7 @@ typedef enum {
     DXL_ES_HDR_SCALE,
     DXL_ES_GAMMA_SCREENSHOTS,
     DXL_ES_DEBUG_LAYER,
+    DXL_ES_CPU_DRIVER,          /* Mesa's CPU driver asked for (renderers.ini's CPUDriver) */
     /* Gamepad -- read by DXEngine's controller support */
     DXL_ES_PAD_ENABLED,
     DXL_ES_PAD_DEADZONE,

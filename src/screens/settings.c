@@ -134,7 +134,7 @@ static int choices_of(dxl_shell *s, const dxl_setting *st, const char **labels, 
         for (size_t i = 0; i < s->renderers.count && n < max; i++) {
             const dxl_renderer *rd = &s->renderers.items[i];
             if (!rd->selectable) continue;
-            snprintf(values[n], 64, "%s", rd->engine_type);
+            dxl_renderer_value(rd, values[n], 64);
             labels[n++] = rd->label;
         }
         return n;

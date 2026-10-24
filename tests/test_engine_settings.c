@@ -116,6 +116,10 @@ static void test_setters_validate(void) {
     /* The software renderer, the engine's on every platform. */
     CHECK_INT(dxl_es_set_choice(s, DXL_ES_RENDER_TYPE, "Software"), 0);
     CHECK_STR(dxl_es_choice(s, DXL_ES_RENDER_TYPE), "Software");
+    /* Mesa's CPU driver not asked for until it is */
+    CHECK_INT(dxl_es_bool(s, DXL_ES_CPU_DRIVER), 0);
+    dxl_es_set_bool(s, DXL_ES_CPU_DRIVER, 1);
+    CHECK_INT(dxl_es_bool(s, DXL_ES_CPU_DRIVER), 1);
 
     dxl_es_set_number(s, DXL_ES_PAD_DEADZONE, 9.0);
     CHECK(dxl_es_number(s, DXL_ES_PAD_DEADZONE) <= 0.5);

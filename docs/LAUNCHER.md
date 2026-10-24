@@ -479,7 +479,12 @@ Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2,
 OpenGL ES 3.2, and Software, which draws on the CPU and needs nothing of the
 GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds the GPU's in a
 child process as the page needs them, and a profile made where it finds
-none begins on Software.
+none begins on Software. Mesa's CPU drivers, where they are installed, are
+rows of their own, Vulkan (lavapipe) and OpenGL (llvmpipe), slower than
+Software, which the engine takes for no GPU unless asked (`Settings.json`'s
+`CPUDriver`,
+[which device draws](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering));
+the probe finds llvmpipe in a child of its own (`LIBGL_ALWAYS_SOFTWARE`).
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -669,7 +674,7 @@ Recovery's does.
 | `--print-command` | the engine's command line for the profile; nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
-| `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
+| `--probe` | the Vulkan, OpenGL ES and OpenGL this machine's GPU offers, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |

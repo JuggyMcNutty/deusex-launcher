@@ -665,8 +665,9 @@ void dxl_shell_probed(dxl_shell *s, const dxl_gpu_probe *p) {
     s->probe = *p;
     s->probe_state = 2;
     dxl_renderers_resolve(&s->renderers, &s->probe);
-    dxl_log("probe: Vulkan %d (%s), OpenGL ES %d (%s), OpenGL %d%s%s", p->vulkan, p->vulkan_device, p->gles,
-            p->gles_version, p->gl, p->note[0] ? "; " : "", p->note);
+    dxl_log("probe: Vulkan %d (%s), OpenGL ES %d (%s), OpenGL %d; on the CPU, lavapipe %d (%s), llvmpipe %d (%s)%s%s",
+            p->vulkan, p->vulkan_device, p->gles, p->gles_version, p->gl, p->vulkan_cpu, p->vulkan_cpu_device,
+            p->gl_cpu, p->gl_cpu_renderer, p->note[0] ? "; " : "", p->note);
 }
 
 /* ---- the frame ------------------------------------------------------ */

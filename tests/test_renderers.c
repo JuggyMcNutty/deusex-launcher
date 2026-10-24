@@ -163,6 +163,40 @@ static void test_software_where_no_gpu(void) {
     dxl_renderers_free(&l);
 }
 
+/* A machine with Mesa's CPU drivers alone: the GPU rows say so, the CPU
+ * drivers' rows and the software renderer offered, Software first. */
+static void test_cpu_drivers_alone(void) {
+    dxl_renderer_list l;
+    dxl_renderers_load(&l, DXL_RENDERERS);
+    dxl_gpu_probe p;
+    memset(&p, 0, sizeof p);
+    p.probed = 1;
+    p.vulkan_cpu = 1;
+    snprintf(p.vulkan_cpu_device, sizeof p.vulkan_cpu_device, "llvmpipe (LLVM 23.1.1, 256 bits)");
+    p.gl_cpu = 1;
+    snprintf(p.gl_cpu_renderer, sizeof p.gl_cpu_renderer, "llvmpipe (LLVM 23.1.1, 256 bits)");
+    dxl_renderers_resolve(&l, &p);
+    int vk = dxl_renderers_find_value(&l, "Vulkan"), vkcpu = dxl_renderers_find_value(&l, "Vulkan+CPU");
+    int gl = dxl_renderers_find_value(&l, "OpenGL"), glcpu = dxl_renderers_find_value(&l, "OpenGL+CPU");
+    int soft = dxl_renderers_find_value(&l, "Software");
+    CHECK(vk >= 0 && vkcpu >= 0 && gl >= 0 && glcpu >= 0 && soft >= 0);
+    CHECK_INT(l.items[vk].selectable, 0);
+    CHECK(strstr(l.items[vk].status, "lavapipe") != NULL);
+    CHECK_INT(l.items[gl].selectable, 0);
+    CHECK(strstr(l.items[gl].status, "llvmpipe") != NULL);
+    CHECK_INT(l.items[vkcpu].selectable, 1);
+    CHECK_INT(l.items[vkcpu].cpu_driver, 1);
+    CHECK(strstr(l.items[vkcpu].status, "on the CPU") != NULL);
+    CHECK_INT(l.items[glcpu].selectable, 1);
+    CHECK_INT(dxl_renderers_first_selectable(&l), soft);
+    char v[64];
+    dxl_renderer_value(&l.items[glcpu], v, sizeof v);
+    CHECK_STR(v, "OpenGL+CPU");
+    CHECK_INT(dxl_renderers_find_value(&l, "vulkan+cpu"), vkcpu);
+    CHECK_INT(dxl_renderers_find_value(&l, "D3D11"), -1);
+    dxl_renderers_free(&l);
+}
+
 /* The MSAA lock follows the GPU, not the device, and needs evidence. */
 static void test_msaa_broken_on_powervr_only(void) {
     dxl_gpu_probe p = smart_pro();
@@ -180,6 +214,10 @@ static void test_msaa_broken_on_powervr_only(void) {
 static void test_probe_ini(void) {
     dxl_gpu_probe p = smart_pro(), q;
     snprintf(p.note, sizeof p.note, "a note = with an equals sign");
+    p.vulkan_cpu = 1;
+    snprintf(p.vulkan_cpu_device, sizeof p.vulkan_cpu_device, "llvmpipe (LLVM 23.1.1, 256 bits)");
+    p.gl_cpu = 1;
+    snprintf(p.gl_cpu_renderer, sizeof p.gl_cpu_renderer, "softpipe");
     char *text = dxl_gpu_probe_to_ini(&p);
     CHECK(strstr(text, "[Probe]") != NULL);
     CHECK_INT(dxl_gpu_probe_from_ini(text, &q), 0);
@@ -189,6 +227,10 @@ static void test_probe_ini(void) {
     CHECK_INT(q.gles, p.gles);
     CHECK_STR(q.gles_version, p.gles_version);
     CHECK_INT(q.gl, p.gl);
+    CHECK_INT(q.vulkan_cpu, 1);
+    CHECK_STR(q.vulkan_cpu_device, p.vulkan_cpu_device);
+    CHECK_INT(q.gl_cpu, 1);
+    CHECK_STR(q.gl_cpu_renderer, "softpipe");
     CHECK_STR(q.note, p.note);
     free(text);
     CHECK_INT(dxl_gpu_probe_from_ini("nothing here", &q), -1);
@@ -206,5 +248,6 @@ TEST_MAIN_BEGIN
     RUN(test_find_is_case_insensitive_and_skips_empty);
     RUN(test_missing_file_is_empty);
     RUN(test_software_where_no_gpu);
+    RUN(test_cpu_drivers_alone);
     RUN(test_msaa_broken_on_powervr_only);
 TEST_MAIN_END

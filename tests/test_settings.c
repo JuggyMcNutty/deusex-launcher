@@ -245,6 +245,14 @@ static void test_engine_json(void) {
     CHECK_STR(get(&st, "graphics.renderer"), "OpenGL");
     CHECK_INT(set(&st, "graphics.renderer", "D3D11"), -1);   /* fatal on Linux: refused */
     CHECK_STR(get(&st, "graphics.renderer"), "OpenGL");
+    /* Mesa's CPU driver asked for: the Type, and CPUDriver beside it */
+    CHECK_INT(set(&st, "graphics.renderer", "Vulkan+CPU"), 0);
+    CHECK_STR(dxl_es_choice(st.engine, DXL_ES_RENDER_TYPE), "Vulkan");
+    CHECK_INT(dxl_es_bool(st.engine, DXL_ES_CPU_DRIVER), 1);
+    CHECK_STR(get(&st, "graphics.renderer"), "Vulkan+CPU");
+    CHECK_INT(set(&st, "graphics.renderer", "Software"), 0);
+    CHECK_INT(dxl_es_bool(st.engine, DXL_ES_CPU_DRIVER), 0);
+    CHECK_STR(get(&st, "graphics.renderer"), "Software");
     close_all(&st);
 }
 

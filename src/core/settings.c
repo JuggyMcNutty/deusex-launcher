@@ -1,4 +1,5 @@
 #include "core/settings.h"
+#include "core/renderers.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -223,6 +224,18 @@ static int write_place(dxl_stores *st, const dxl_set_place *p, const char *value
 /* ---- values -------------------------------------------------------------- */
 
 int dxl_setting_get(const dxl_stores *st, const dxl_setting *s, char *out, size_t size) {
+    /* The renderer: its Type, and whether Mesa's CPU driver is asked for,
+     * the next place (core/renderers.h, dxl_renderer_value). */
+    if ((s->flags & DXL_SET_RENDERER) && s->at[1].store != DXL_STORE_NONE) {
+        char type[64], cpu[8];
+        if (read_place(st, &s->at[0], type, sizeof type)) {
+            int asked = read_place(st, &s->at[1], cpu, sizeof cpu) && strcmp(cpu, "1") == 0;
+            snprintf(out, size, "%s%s", type, asked ? DXL_RENDERER_CPU_SUFFIX : "");
+            return 1;
+        }
+        snprintf(out, size, "%s", s->def ? s->def : "");
+        return 0;
+    }
     for (int i = 0; i < DXL_SET_PLACES && s->at[i].store != DXL_STORE_NONE; i++) {
         /* A size: its width's place and its height's, the next. */
         if (s->at[i].codec == DXL_CODEC_WIDTH && i + 1 < DXL_SET_PLACES && s->at[i + 1].codec == DXL_CODEC_HEIGHT) {
@@ -320,6 +333,13 @@ int dxl_setting_set(dxl_stores *st, const dxl_setting *s, const char *value) {
         if (s->at[i].codec == DXL_CODEC_WIDTH || s->at[i].codec == DXL_CODEC_HEIGHT) {
             sscanf(v, "%dx%d", &w, &h);
             snprintf(half, sizeof half, "%d", s->at[i].codec == DXL_CODEC_WIDTH ? w : h);
+            part = half;
+        } else if (s->flags & DXL_SET_RENDERER) {
+            /* "Vulkan+CPU": the Type, then CPUDriver */
+            size_t n = strlen(v), k = strlen(DXL_RENDERER_CPU_SUFFIX);
+            int asked = n > k && dxl_stricmp(v + n - k, DXL_RENDERER_CPU_SUFFIX) == 0;
+            if (i == 0) snprintf(half, sizeof half, "%.*s", (int)(asked ? n - k : n), v);
+            else snprintf(half, sizeof half, "%d", asked);
             part = half;
         }
         if (write_place(st, &s->at[i], part) != 0) rc = -1;

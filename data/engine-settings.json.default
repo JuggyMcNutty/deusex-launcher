@@ -1,6 +1,7 @@
 {
   "RenderDevice": {
     "Type": "Vulkan",
+    "CPUDriver": false,
     "Antialias": "MSAA4x",
     "Light": "Normal",
     "Gamma": "D3D9",
