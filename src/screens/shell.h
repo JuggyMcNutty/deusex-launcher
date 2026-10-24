@@ -412,6 +412,9 @@ void        dxl_shell_engine_answer(dxl_shell *s, uint32_t id);
  * as dxl_shell_probed hands the answer in. */
 void        dxl_shell_probe(dxl_shell *s);
 void        dxl_shell_probed(dxl_shell *s, const dxl_gpu_probe *p);
+/* The probe's answer in, with no GPU driver the GPU renderers can use: a
+ * profile made here begins on Software, and so do its defaults. */
+int         dxl_shell_no_gpu(const dxl_shell *s);
 
 /* The pages, each in r: the window less its head and foot. */
 void dxl_page_home(dxl_shell *s, dxl_rect r);

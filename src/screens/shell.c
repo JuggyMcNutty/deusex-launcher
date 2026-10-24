@@ -553,6 +553,10 @@ void dxl_shell_probed(dxl_shell *s, const dxl_gpu_probe *p) {
             p->gles_version, p->gl, p->note[0] ? "; " : "", p->note);
 }
 
+int dxl_shell_no_gpu(const dxl_shell *s) {
+    return s->probe_state == 2 && s->probe.probed && !s->probe.vulkan && !s->probe.gl && !s->probe.gles;
+}
+
 /* ---- the frame ------------------------------------------------------ */
 
 static float margin(const dxl_ui *ui) {

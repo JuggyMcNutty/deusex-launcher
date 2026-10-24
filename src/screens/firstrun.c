@@ -229,10 +229,10 @@ static const char *in_install(const dxl_shell *s, const char *path, char *buf, s
 }
 
 /* A profile begun on a machine whose GPU has no driver the GPU renderers
- * can use, as the probe found it: on the software renderer, which needs
- * none. 1 when it was. */
+ * can use, as the probe found it (dxl_shell_no_gpu): on the software
+ * renderer, which needs none. 1 when it was. */
 static int begin_on_software(dxl_shell *s) {
-    if (s->probe_state != 2 || !s->probe.probed || s->probe.vulkan || s->probe.gl || s->probe.gles) return 0;
+    if (!dxl_shell_no_gpu(s)) return 0;
     char *path = dxl_path_join(s->run->session.profile.engine_dir, "Settings.json");
     char *def = dxl_path_join(s->run->session.data_dir, "engine-settings.json.default");
     dxl_engine_settings *es = dxl_es_open(path, def);
