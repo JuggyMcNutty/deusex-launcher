@@ -47,7 +47,9 @@ The port's files, each Windows':
 The UTF-8 code page lets the C library's narrow calls take UTF-8, as every
 path above the platform is kept: it is what needs 1903. The engine's
 D3D11 device is built but not offered
-([the renderers](../../docs/LAUNCHER.md#settings)).
+([the renderers](../../docs/LAUNCHER.md#settings)), nor are linux-x86_64's
+renderers on Mesa's CPU drivers, lavapipe and llvmpipe: the probe looks for
+Windows' own drivers alone.
 
 ## Verified
 
