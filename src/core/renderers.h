@@ -5,8 +5,8 @@
  *   - Does this *engine build* have a backend for it? Declared per renderer
  *     in renderers.ini as EngineType -- the value Settings.json
  *     RenderDevice.Type takes. Empty means the engine has no such backend
- *     (DXEngine has no software renderer at all; its GL device
- *     runs on OpenGL ES too, as GLES).
+ *     (DXEngine's GL device runs on OpenGL ES too, as GLES; its software
+ *     renderer needs nothing of the device).
  *   - Does *this device* have the graphics API it needs? Measured at startup
  *     by the GPU probe (platform/gpu_probe.c), never assumed.
  *

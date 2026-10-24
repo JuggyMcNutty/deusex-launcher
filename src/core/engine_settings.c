@@ -10,7 +10,7 @@
 /* The types the engine has on Linux (LauncherSettings.cpp; D3D11 there
  * stops it: "Render API not available on this platform"). An unknown Type
  * keeps its default, Vulkan. */
-static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", NULL };
+static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", "Software", NULL };
 static const char *const aa_modes[]     = { "Off", "MSAA2x", "MSAA4x", NULL };
 static const char *const light_modes[]  = { "Normal", "OneX", "BrighterActors", NULL };
 static const char *const gamma_modes[]  = { "D3D9", "XOpenGL", NULL };

@@ -610,10 +610,13 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     /* Where it started, a server's password left out. */
     const char *pw = strstr(r->url, "?password=");
     snprintf(last->start, sizeof last->start, "%.*s", pw ? (int)(pw - r->url) : (int)strlen(r->url), r->url);
-    if (!r->played.started)
+    if (!r->played.started) {
         snprintf(last->error, sizeof last->error, "%s", r->played.error);
-    else
+    } else {
         dxl_lastrun_error_line(log, last->error, sizeof last->error);
+        if (dxl_lastrun_fallback_line(log, last->fallback, sizeof last->fallback))
+            dxl_log("renderer: %s", last->fallback);
+    }
     dxl_err e;
     if (dxl_lastrun_save(last, r->session.profile.state_dir, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     free(log);

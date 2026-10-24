@@ -10,6 +10,7 @@ static void test_record(void) {
     dxl_lastrun r = { .ended = 1760000000, .status = END_CRASH_STATUS, .signal = END_CRASH, .ready = 1,
                       .clean = 0 };
     snprintf(r.error, sizeof r.error, "two\nlines");
+    snprintf(r.fallback, sizeof r.fallback, "The Vulkan device did not start\n(x)");
     snprintf(r.start, sizeof r.start, "?loadgame=10");
     CHECK_INT(dxl_lastrun_save(&r, dir, NULL), 0);
     dxl_lastrun back;
@@ -21,6 +22,7 @@ static void test_record(void) {
     CHECK_INT(back.ready, 1);
     CHECK_INT(back.clean, 0);
     CHECK_STR(back.error, "two lines");
+    CHECK_STR(back.fallback, "The Vulkan device did not start (x)");
     CHECK_STR(back.start, "?loadgame=10");
     char line[256];
     dxl_lastrun_describe(&back, line, sizeof line);
@@ -50,13 +52,18 @@ static void test_describe(void) {
 static void test_log(void) {
     const char *dir = scratch_dir("lastrun-log");
     scratch_write(dir, "logs/last-run.log",
-                  "Launching Deus Ex 1112fm\n[] Game: Deus Ex\nDXEngine error: first\n"
+                  "Launching Deus Ex 1112fm\n[] Game: Deus Ex\n"
+                  "[] The Vulkan device did not start (No Vulkan devices found): the software device draws in its "
+                  "place\r\n[] Software device: 16 threads, SSE2\nDXEngine error: first\n"
                   "  log: one\nDXEngine error: Could not open x\r\n  log: two\n");
     char *logs = scratch_path(dir, "logs");
     char *log = scratch_path(dir, "logs/last-run.log");
     char err[128];
     CHECK_INT(dxl_lastrun_error_line(log, err, sizeof err), 1);
     CHECK_STR(err, "Could not open x");
+    char fell[256];
+    CHECK_INT(dxl_lastrun_fallback_line(log, fell, sizeof fell), 1);
+    CHECK_STR(fell, "The Vulkan device did not start (No Vulkan devices found): the software device draws in its place");
     char *tail = dxl_lastrun_tail(log, 2);
     CHECK_STR(tail, "DXEngine error: Could not open x\r\n  log: two");
     free(tail);
@@ -70,6 +77,7 @@ static void test_log(void) {
     CHECK_INT(scratch_exists(dir, "logs/last-run.log"), 0);
     CHECK_INT(scratch_exists(dir, "logs/previous-run.log"), 1);
     CHECK_INT(dxl_lastrun_error_line(log, err, sizeof err), 0);
+    CHECK_INT(dxl_lastrun_fallback_line(log, fell, sizeof fell), 0);
     CHECK(dxl_lastrun_tail(log, 5) == NULL);
     free(fresh);
     free(log);
