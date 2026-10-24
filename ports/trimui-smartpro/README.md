@@ -402,6 +402,3 @@ A profile stops the engine with SIGKILL; started without the launcher, it leaves
   mid-profile): the page shown is at the pan's line (`/sys/class/graphics/fb0/pan`, `x,y`; EGL
   flips between 0 and 720), so `dd if=/dev/fb0 bs=5120 skip=<y> count=720`, gzip it to copy,
   and decode it as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
-- **A missing `Save/` directory is fatal to the engine**
-  (`directory iterator cannot open directory`). A fresh install has it empty, so a `tar` that
-  lists only populated directories loses it.
