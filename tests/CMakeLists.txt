@@ -43,6 +43,7 @@ dxl_test(test_padmap)
 dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
+target_compile_definitions(test_renderers PRIVATE DXL_RENDERERS="${DXL_ROOT}/data/renderers.ini")
 
 dxl_test(test_delete)
 target_link_libraries(test_delete PRIVATE dxl_platform)

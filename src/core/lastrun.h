@@ -1,8 +1,9 @@
 /* What a profile's last run left: how it ended, and its log.
  *
  *   <state>/LastRun.ini         [LastRun] Ended, Status, Signal, Ready, Clean,
- *                               Error, Start: the run's end, written as it
- *                               ends, and where the game started
+ *                               Error, Fallback, Start: the run's end,
+ *                               written as it ends, and where the game
+ *                               started
  *   <state>/logs/last-run.log   the engine's output, all of it
  *   <state>/logs/previous-run.log   the run's before it
  *
@@ -27,6 +28,8 @@ typedef struct {
     int  ready;        /* the engine said its first map was in */
     int  clean;        /* exit 0 with ready seen */
     char error[512];   /* the engine's "DXEngine error: ..." line, or "" */
+    char fallback[512];/* the engine's line where its GPU renderer did not start and its software
+                          one drew instead, or "" */
     char start[64];    /* where the game started: a save's ?loadgame=N; "" for its own start */
 } dxl_lastrun;
 
@@ -40,6 +43,10 @@ char *dxl_lastrun_rotate(const char *logs_dir);
 /* The engine's error line in a log, without its "DXEngine error: ":
  * 1 when there is one. */
 int   dxl_lastrun_error_line(const char *log_path, char *out, size_t size);
+/* The engine's line where a GPU renderer did not start and the software one
+ * drew in its place ("The Vulkan device did not start (...): the software
+ * device draws in its place"), without its log prefix: 1 when there is one. */
+int   dxl_lastrun_fallback_line(const char *log_path, char *out, size_t size);
 /* The last lines of a log, at most max_lines; caller frees. NULL when
  * there is none. */
 char *dxl_lastrun_tail(const char *log_path, int max_lines);

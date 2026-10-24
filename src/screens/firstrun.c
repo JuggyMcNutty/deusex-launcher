@@ -3,6 +3,7 @@
  * a new profile's too, and a mod's (screens/mods.c). */
 #define _GNU_SOURCE
 #include "screens/shell.h"
+#include "core/engine_settings.h"
 #include "core/log.h"
 #include "core/paths.h"
 #include "platform/fs.h"
@@ -227,11 +228,30 @@ static const char *in_install(const dxl_shell *s, const char *path, char *buf, s
     return dxl_shell_tilde(path, buf, size);
 }
 
+/* A profile begun on a machine whose GPU has no driver the GPU renderers
+ * can use, as the probe found it: on the software renderer, which needs
+ * none. 1 when it was. */
+static int begin_on_software(dxl_shell *s) {
+    if (s->probe_state != 2 || !s->probe.probed || s->probe.vulkan || s->probe.gl || s->probe.gles) return 0;
+    char *path = dxl_path_join(s->run->session.profile.engine_dir, "Settings.json");
+    char *def = dxl_path_join(s->run->session.data_dir, "engine-settings.json.default");
+    dxl_engine_settings *es = dxl_es_open(path, def);
+    dxl_err e;
+    int done = es && dxl_es_set_choice(es, DXL_ES_RENDER_TYPE, "Software") == 0 && dxl_es_save(es, &e) == 0;
+    if (done) dxl_log("renderer: Software, the probe having found no GPU driver");
+    dxl_es_free(es);
+    free(def);
+    free(path);
+    return done;
+}
+
 void dxl_page_import(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
     const dxl_import *p = &s->plan;
     const dxl_mod *mod = s->making_mod.dir ? &s->making_mod : NULL;
+    /* What the machine draws with, known by the time the profile is made */
+    dxl_shell_probe(s);
     float w = r.w < 900 ? r.w : 900;
     char title[1100], shown[1024], v[1200], buf[1024];
     snprintf(title, sizeof title, "From %s", dxl_shell_tilde(mod ? mod->dir : s->chosen.root, shown, sizeof shown));
@@ -332,6 +352,7 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         const dxl_pad_preset *layout = pad && s->begin_layout > 0 ? dxl_pad_preset_at((size_t)s->begin_layout - 1) : NULL;
         if (dxl_session_begin_with(&s->run->session, looks_with, layout, &e) != 0)
             dxl_log("warning: the profile's graphics and layout: %s", dxl_err_msg(&e));
+        int software = begin_on_software(s);
         char saves[32], shots[40];
         snprintf(saves, sizeof saves, done.saves == 1 ? "1 save" : "%d saves", done.saves);
         snprintf(shots, sizeof shots, done.shots == 1 ? "1 screenshot" : "%d screenshots", done.shots);
@@ -342,6 +363,10 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
                      done.saves ? saves : shots, mod ? "mod's" : "game's");
         else
             snprintf(s->note, sizeof s->note, "The profile is made.");
+        if (software) {
+            size_t n = strlen(s->note);
+            snprintf(s->note + n, sizeof s->note - n, " It draws on the software renderer: no GPU driver was found.");
+        }
         dxl_mod_free(&s->making_mod);
         if (s->making) {
             /* From the Profiles page: the run's profile this one now, Home;

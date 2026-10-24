@@ -470,8 +470,10 @@ multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
 a first run's engine defaults among them. Its
 Renderer offers the engine's renderers that run here, Vulkan and OpenGL
-ES 3.2 (`data/renderers.ini`), the Smart Pro's two, which
-`dxl-cli --probe --ini` finds in a child process as the page needs them.
+ES 3.2, the Smart Pro's two, and Software, which draws on the CPU and needs
+nothing of the GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds
+the GPU's in a child process as the page needs them, and a profile made
+where it finds none begins on Software.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -514,10 +516,10 @@ to). The game's folder: the profile's install, another chosen on The game.
 keeps what the game takes in a name, letters, digits and `[ ] ( )`, and is
 `Player` when nothing of it is left.
 
-**The next run's words**, `-nosound`, `-nohard -noddraw` (a window),
-`-defaultres` (640 x 480) and `-nojoy`, are Launcher's advanced rows and
-Recovery's: added to the original's command line of the run Play starts
-next, and of no other.
+**The next run's words**, `-nosound`, `-nohard -noddraw` (the software
+renderer, in a window), `-defaultres` (640 x 480) and `-nojoy`, are
+Launcher's advanced rows and Recovery's: added to the original's command
+line of the run Play starts next, and of no other.
 
 The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's volumes and reduced motion
@@ -640,21 +642,24 @@ own back.
 folder: made before the game, taken away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`DXEngine error: ...`),
-whether it was ever ready, and the save it started on. The window opens on
-Recovery after a run that was not clean, and at the next start that finds
-`Running.ini`; with no window (`dxl-cli`), that start says so with the end
-of the run's log, and exits 3.
+its line where the renderer chosen did not start and the software one drew
+in its place, whether it was ever ready, and the save it started on. The
+window opens on Recovery after a run that was not clean, and at the next
+start that finds `Running.ini`; with no window (`dxl-cli`), that start says
+so with the end of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
-crash, and for the errors it knows -- the Vulkan renderer not made, OpenAL
-not started, a package or the engine's `.pk3` not found, an engine that
-ended before its first map, a save it started on that did not load -- it
-says the likely cause, and has its fix as a button: another renderer, of
-those that run here; a run without sound; the game's folder; Saves. Below
-are the end of the log where it fits, the [next
-run's words](#settings), and Play, the fix, the log, the defaults of a
-page or of all, Home, Quit. Home, or the back button, goes to Home with
-the run as it was: its Play plays, as Recovery's does.
+crash, and for the errors it knows -- OpenAL not started, a package or the
+engine's `.pk3` not found, an engine that ended before its first map, a save
+it started on that did not load -- it says the likely cause, and has its fix
+as a button: another renderer, of those that run here; a run without sound;
+the game's folder; Saves. A run the engine drew with its software renderer,
+the one chosen not having started, ends cleanly: Home says so of the last
+run, and the page, opened, has the engine's line and that fix. Below are the
+end of the log where it fits, the [next run's words](#settings), and Play,
+the fix, the log, the defaults of a page or of all, Home, Quit. Home, or the
+back button, goes to Home with the run as it was: its Play plays, as
+Recovery's does.
 
 ## dxl-cli
 
