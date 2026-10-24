@@ -37,7 +37,7 @@ static const dxl_advice save_failed = {
 };
 
 static const dxl_advice crashed = {
-    "The engine crashed. If it does so again at the same place, try the other renderer, or a run without "
+    "The engine crashed. If it does so again at the same place, try another renderer, or a run without "
     "sound to rule the audio out; the end of its log may say more.",
     DXL_FIX_RENDERER,
 };

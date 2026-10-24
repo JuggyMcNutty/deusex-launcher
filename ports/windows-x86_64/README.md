@@ -40,7 +40,7 @@ The port's files, each Windows':
 |---|---|
 | `toolchain.cmake` | llvm-mingw 20261006 (Clang and LLD 23.1.3, mingw-w64 on the UCRT), its pin and SHA256 in `port.sh`, linking statically, so the programs need none of its DLLs, with Windows 10 as their PE headers' OS and subsystem versions; the tests' emulator Port Ex Machina's `scripts/wine.sh` |
 | `port.cmake` | Windows 10 1903 the floor (`DXL_PORT_WINDOWS_MIN`), which `scripts/check-abi.sh --windows` holds the programs to after each build, with the DLLs they may import: Windows' own, the UCRT's and the engine's `OpenAL32.dll`; SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources; each program's resources (`win32/`) |
-| `engine.cmake` | the engine with its SDL3 window, static, the one the launcher asks for, and Windows' own beside it; its Vulkan, OpenGL and D3D11 devices; OpenAL Soft as `OpenAL32.dll` |
+| `engine.cmake` | the engine with its SDL3 window, static, the one the launcher asks for, and Windows' own beside it; its Vulkan, OpenGL, D3D11 and software devices; OpenAL Soft as `OpenAL32.dll` |
 | `port.sh` | `deps`: llvm-mingw, checked by a C and a C++ program that must import none of its DLLs; the window's sources; the engine's SDL3, the launcher's version, static, into `deps/prefix/windows-x86_64`; the Wine prefix. `stage` adds the notices the programs' runtimes and OpenAL Soft ask for, in `licenses/`, and zips the app. `run` and `test` under Wine |
 | `win32/` | the programs' manifest -- run as the user, Windows 10's, the UTF-8 code page, each monitor's own DPI, long paths -- and their resource scripts, with their versions |
 

@@ -94,6 +94,8 @@ void dxl_settings_defaults(dxl_shell *s, const char *page) {
     if (sys) dxl_profile_defaults(sys, &fresh.system, &fresh.user);
     char *def = dxl_path_join(ss->data_dir, "engine-settings.json.default");
     fresh.engine = dxl_es_open("", def);
+    /* The renderer a profile made here begins on (dxl_shell_no_gpu) */
+    if (fresh.engine && dxl_shell_no_gpu(s)) dxl_es_set_choice(fresh.engine, DXL_ES_RENDER_TYPE, "Software");
     dxl_settings_reset(&s->stores, &fresh, page);
     /* The keys as DefUser.ini has them; the controller's, its Joy lines. */
     if ((!page || !strcmp(page, KEYS_PAGE)) && fresh.user && s->stores.user) dxl_keys_reset(s->stores.user, fresh.user);
