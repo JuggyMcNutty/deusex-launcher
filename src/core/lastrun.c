@@ -68,6 +68,15 @@ int dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err) 
     return rc;
 }
 
+int dxl_lastrun_clear(const char *state_dir) {
+    char *path = dxl_path_join(state_dir, "LastRun.ini");
+    int rc = remove(path) == 0 || !dxl_path_exists(path) ? 0 : -1;
+    free(path);
+    return rc;
+}
+
+int dxl_lastrun_shown(const dxl_lastrun *r, int unclean) { return r->known && !(unclean && r->clean); }
+
 char *dxl_lastrun_rotate(const char *logs_dir) {
     char *last = dxl_path_join(logs_dir, DXL_LASTRUN_LOG);
     char *previous = dxl_path_join(logs_dir, DXL_PREVIOUSRUN_LOG);

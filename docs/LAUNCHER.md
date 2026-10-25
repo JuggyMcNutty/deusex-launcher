@@ -659,7 +659,11 @@ folder: made before the game, taken away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`DXEngine error: ...`),
 its line where the renderer chosen did not start and the software one drew
-in its place, whether it was ever ready, and the save it started on. The
+in its place, whether it was ever ready, and the save it started on. It is
+written as the run ends, the run before's taken away as `Running.ini` is
+made: a launcher stopped while the game plays (killed, the session's end,
+a power cut) leaves none, and Recovery, Home and `dxl-cli` say how that
+run ended is not known, never the run before's end. The
 window opens on Recovery after a run that was not clean, and at the next
 start that finds `Running.ini`; with no window (`dxl-cli`), that start says
 so with the end of the run's log, and exits 3.
@@ -733,7 +737,8 @@ helpers and a scratch sysfs, each CPU mode and the state put back;
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
 infos and snapshots of any saves it has -- plays the stub from a scratch
-home through a first run, a crash and the Recovery that follows, and checks
+home through a first run, a crash and the Recovery that follows, and a
+launcher killed while it plays, and checks
 that nothing in the game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
