@@ -121,13 +121,22 @@ static int beacon_answer(const dxl_browse_lan *lan, const char *text) {
  * With lan, what the beacons answer till lan_until at least: each server
  * one names asked too. */
 static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long lan_until, const atomic_int *stop) {
+    char buf[4096], from[64];
+    /* What the beacons answered while the master was asked, read whatever
+     * it took and listed: their servers asked with its. */
+    for (int port = 0; lan;) {
+        long n = dxl_udp_recv(fd, buf, sizeof buf - 1, 0, from, sizeof from, &port);
+        if (n <= 0) break;
+        buf[n] = '\0';
+        int beacon = beacon_answer(lan, buf);
+        if (beacon) listed_as(q, from, beacon, 1);
+    }
     long t = now_ms();
     for (int i = 0; i < q->count; i++) {
         dxl_udp_send(fd, q->a[i].address, q->a[i].port, STATUS, 8);
         q->a[i].sent = t;
         q->a[i].asks = 1;
     }
-    char buf[4096], from[64];
     int left = q->count;
     while ((left > 0 || (lan && now_ms() < lan_until)) && !stopped(stop)) {
         t = now_ms();
