@@ -106,6 +106,9 @@ static void choose_renderer(dxl_shell *s, const char *label) {
         dxl_err e;
         dxl_es_set_bool(es, DXL_ES_CPU_DRIVER, rd->cpu_driver);
         if (dxl_es_set_choice(es, DXL_ES_RENDER_TYPE, rd->engine_type) == 0 && dxl_es_save(es, &e) == 0) {
+            if (dxl_es_kept(es))
+                dxl_log("%s could not be read (%s): kept as %s, and written anew", path, dxl_es_problem(es),
+                        dxl_es_kept(es));
             dxl_log("renderer: %s%s from the next run", rd->engine_type, rd->cpu_driver ? " on Mesa's CPU driver" : "");
             dxl_shell_toast(s, "The game's renderer is %s from its next run.", rd->label);
         } else {
