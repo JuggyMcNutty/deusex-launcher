@@ -220,6 +220,9 @@ static void test_headless_run(void) {
     char *log = dxl_path_join(p.logs_dir, DXL_LASTRUN_LOG);
     CHECK_INT(dxl_path_exists(log), 1);
 
+    /* The profile's state folder gone, as a home's state removed: made again
+     * with the run's Running.ini. */
+    CHECK_INT(dxl_fs_remove_tree(p.state_dir), 0);
     dxl_env_set("DXL_STUB", "crash");
     CHECK_INT(run_launcher(root, NULL), END_CRASH_STATUS);
     CHECK_INT(dxl_path_exists(sentinel), 1);

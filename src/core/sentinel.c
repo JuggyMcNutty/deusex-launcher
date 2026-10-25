@@ -31,6 +31,11 @@ int dxl_sentinel_exists(const dxl_sentinel *s) {
 }
 
 int dxl_sentinel_create(dxl_sentinel *s, dxl_err *err) {
+    /* Its folder made first: a profile's state folder removed, or never
+     * made on this machine, must not cost the run its sentinel. */
+    char *dir = dxl_path_dirname(s->path);
+    dxl_path_mkdirs(dir);
+    free(dir);
     FILE *f = fopen(s->path, "wb");
     if (!f) {
         dxl_err_set(err, "cannot create %s", s->path);
