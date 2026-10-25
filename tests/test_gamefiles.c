@@ -12,6 +12,7 @@
 #include "core/saves.h"
 #include "core/theme_colors.h"
 #include "core/upkg_assets.h"
+#include "platform/instance.h"
 #include "platform/os.h"
 
 #include <dirent.h>
@@ -304,6 +305,58 @@ static void test_killed_mid_game(void) {
     free(home);
 }
 
+/* A dedicated server takes no line a second start hands on, as the
+ * original's -server: started so, or relaunched to it by the game, its
+ * launcher holds the lock alone, and a forward finds no one to take it. */
+static void test_server_takes_no_handover(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-server"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_session ss;
+    CHECK_INT(dxl_session_open(&ss, NULL, NULL), 0);
+    char *id = dxl_session_instance_id(&ss);
+    char *log = dxl_path_join(ss.xdg.state, "launcher.log");
+    dxl_env_set("DXL_STUB_MS", "2500");
+    dxl_env_set("DXL_STUB_LINE", "DX.dx -server");
+    for (int relaunched = 0; relaunched < 2; relaunched++) {
+        dxl_env_set("DXL_STUB", relaunched ? "relaunch" : "ready");
+        pid_t pid = fork();
+        if (pid == 0) _exit(run_launcher(root, relaunched ? NULL : "-server"));
+        /* The server's engine up: its start the run's, or the relaunch's. */
+        int starts = 0;
+        for (int i = 0; i < 200 && starts < 1 + relaunched; i++) {
+            dxl_os_sleep_ms(50);
+            char *text = slurp(log, NULL);
+            starts = 0;
+            for (const char *p = text; p && (p = strstr(p, "starting the game:")); p++) starts++;
+            free(text);
+        }
+        dxl_os_sleep_ms(300);
+        CHECK_INT(starts, 1 + relaunched);
+        CHECK_INT(dxl_instance_other_running(id), 1);
+        dxl_err e;
+        CHECK(dxl_instance_forward(id, "-nosound", 1000, &e) != 0);
+        int status = 0;
+        waitpid(pid, &status, 0);
+        CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    }
+    free(log);
+    free(id);
+    dxl_session_close(&ss);
+    free(root);
+    dxl_env_set("DXL_STUB_LINE", NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window that plays from its first Home and quits at the next, looking
  * at the inis then. */
 static int views, saw_rewrite;
@@ -517,5 +570,6 @@ TEST_MAIN_BEGIN
     RUN(test_changed_seen);
     RUN(test_headless_run);
     RUN(test_killed_mid_game);
+    RUN(test_server_takes_no_handover);
     RUN(test_back_home);
 TEST_MAIN_END

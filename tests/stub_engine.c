@@ -19,7 +19,9 @@
  *               file DXL_STUB_COUNT names
  *   crash       hello, ready, then SIGSEGV (Windows: an access violation)
  *   fail        hello, then "DXEngine error: <DXL_STUB_LINE>", exit 1
- *   relaunch    hello, ready, "relaunch <DXL_STUB_LINE>", exit 0
+ *   relaunch    hello, ready, "relaunch <DXL_STUB_LINE>", exit 0; started
+ *               with that line for its --cmdline, as the run it relaunches,
+ *               ready's
  *   stubborn    hello, ready, deaf to the launcher's stop (SIGTERM; on
  *               Windows Quit and WM_CLOSE), sleeps until killed
  *   handles     (Windows) whether the handle DXL_STUB_HANDLE names is the
@@ -110,6 +112,13 @@ static long long now_ms(void) {
 static const char *env_or(const char *name, const char *fallback) {
     const char *v = getenv(name);
     return v && *v ? v : fallback;
+}
+
+/* Started with line for the original's command line (--cmdline=<line>). */
+static int started_with(int argc, char **argv, const char *line) {
+    for (int i = 1; i < argc; i++)
+        if (strncmp(argv[i], "--cmdline=", 10) == 0 && strcmp(argv[i] + 10, line) == 0) return 1;
+    return 0;
 }
 
 /* Its working folder, '/' between names, then its words, one a line. */
@@ -222,7 +231,7 @@ int main(int argc, char **argv) {
 #endif
         return 2;
     }
-    if (strcmp(mode, "relaunch") == 0) {
+    if (strcmp(mode, "relaunch") == 0 && !started_with(argc, argv, env_or("DXL_STUB_LINE", "-changevideo"))) {
         char text[1100];
         snprintf(text, sizeof text, "relaunch %s", env_or("DXL_STUB_LINE", "-changevideo"));
         say(text);
