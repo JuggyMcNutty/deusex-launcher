@@ -268,6 +268,20 @@ static void *beacon_main(void *p) {
     return NULL;
 }
 
+/* A master that says nothing for a second and a half, then refuses: what
+ * the beacons answered meanwhile waits on the browser's socket. */
+static void *slow_master_main(void *p) {
+    master *m = p;
+    sock c = accept(m->fd, NULL, NULL);
+    if (c == NO_SOCK) return NULL;
+    dxl_os_sleep_ms(1500);
+    const char *no = "\\error\\Try again later\\final\\";
+    send(c, no, (int)strlen(no), 0);
+    dxl_os_sleep_ms(100);
+    close_sock(c);
+    return NULL;
+}
+
 static long ms_now(void) {
 #ifdef _WIN32
     return (long)GetTickCount64();
@@ -338,6 +352,30 @@ static void test_lan(void) {
     CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
     CHECK(ms_now() - t0 < 1000);
     CHECK_INT(b[0].asked, 1);
+
+    /* A master slower than the beacons' second, which lists nothing: what
+     * they answered meanwhile read, and their server asked, all the same. */
+    snprintf(env, sizeof env, "127.0.0.1:%d", beacon_port[0]);
+    dxl_env_set("DXL_LAN", env);
+    dxl_browse_lan_init(&lan, 0, NULL);
+    master m;
+    memset(&m, 0, sizeof m);
+    int master_port = 0;
+    m.fd = local_socket(SOCK_STREAM, &master_port);
+    listen(m.fd, 1);
+    pthread_t mt;
+    pthread_create(&mt, NULL, slow_master_main, &m);
+    char at[64];
+    snprintf(at, sizeof at, "127.0.0.1:%d", master_port);
+    memset(&w, 0, sizeof w);
+    CHECK_INT(dxl_browse(at, NULL, &lan, &fns, &w, NULL, &e), -1);
+    CHECK(strstr(e.msg, "Try again later") != NULL);
+    pthread_join(mt, NULL);
+    close_sock(m.fd);
+    CHECK_INT(b[0].asked, 2);
+    CHECK_INT(w.listed, 1);
+    CHECK_INT(w.lan, 1);
+    CHECK_INT(w.answered, 1);
     dxl_env_set("DXL_LAN", NULL);
 
     for (int i = 0; i < 2; i++) wake_waits(b[i].fd);

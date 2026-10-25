@@ -253,7 +253,8 @@ ten ports from `DeusEx.ini`'s `[DeusEx.DeusExLocalLink] ServerBeaconPort`
 (8777 when none), at 255.255.255.255 and each broadcast address of the
 machine's interfaces; a beacon's answer that begins with its
 `BeaconProduct` (`DeusEx`) and a space names its server's query port, and
-the server is listed as LAN; the beacons are given a second at least.
+the server is listed as LAN; the beacons are given a second at least, and
+what they answer is read however long the master takes.
 Then the profile's master server,
 `DeusEx.ini`'s `[DeusEx.MenuScreenJoinGame] MasterServerAddress`
 (333networks', which the import writes), over TCP on 28900, its challenge
@@ -725,10 +726,10 @@ the filters (on this network among them), the join URL and the
 favourites; `test_browser` a look at a master and servers of its own on
 this machine, one of them silent, one losing a packet of its first answer,
 and at beacons of its own (`DXL_LAN`): the game's, its server asked and
-handed over as LAN, another game's passed over, a second given them, none
-asked with `none`. The stand-in
-engine `tests/stub_engine.c` answers `--version` -- or fails it as a loader
-that cannot start it does -- and talks on the line as
+handed over as LAN, another game's passed over, a second given them, their
+answers read past a master slower than that, none asked with `none`. The
+stand-in engine `tests/stub_engine.c` answers `--version` -- or fails it as
+a loader that cannot start it does -- and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`). `test_profile` imports from a fake
