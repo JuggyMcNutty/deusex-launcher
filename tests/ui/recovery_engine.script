@@ -1,0 +1,10 @@
+# Recovery at a start that finds Running.ini, with an engine this system
+# cannot start: the page says why, and the play key starts nothing; Quit.
+# test_ui_scripts.c finds no game started and the launcher's exit 0.
+wait 1.5
+expect recovery
+key F5
+wait 0.5
+expect recovery
+find Quit
+key Return

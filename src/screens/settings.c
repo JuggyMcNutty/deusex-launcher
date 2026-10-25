@@ -522,11 +522,20 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
     if (conflict > 0) bind(s, s->bind_action, s->bind_slot, s->bind_key, conflict == 2);
 
     /* From -changevideo, as from the original's renderer page: on to the
-     * game. */
+     * game; not with an engine --version refuses, which it says beside
+     * Play, as Home does. */
     int graphics = s->view == DXL_VIEW_GRAPHICS;
+    if (graphics) dxl_shell_ask_engine(s);
+    int refused = graphics && !s->engine_ok;
     int reset = dxl_button(ui, "settings reset", dxl_cut_left(&buttons, 230), "Back to the defaults", 0);
     int done = dxl_button(ui, "settings done", dxl_cut_right(&buttons, 150), graphics ? "Play" : "Done",
-                          DXL_W_PRIMARY);
+                          DXL_W_PRIMARY | (refused ? DXL_W_DISABLED : 0));
+    if (refused) {
+        char said[300];
+        snprintf(said, sizeof said, "The engine: %s. The Launcher page has another.", s->engine_brief);
+        dxl_rect beside = { buttons.x + 16, buttons.y, buttons.w - 32, buttons.h };
+        dxl_label(ui, beside, DXL_FONT_SMALL, said, t->bad, DXL_W_RIGHT | DXL_W_MAY_CUT);
+    }
     if (reset) {
         dxl_shell_confirm(s, dxl_ui_id(ui, "settings reset"), names[s->settings_tab],
                           "Every setting on this page back to its default?", "Reset", "Keep them");

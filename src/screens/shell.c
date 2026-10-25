@@ -793,7 +793,7 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
         }
         break;
     case DXL_PAGE_RECOVERY:
-        it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
+        if (s->engine_ok) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
         break;
     case DXL_PAGE_FIND:
         if (!s->repoint || s->repoint_back) it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
