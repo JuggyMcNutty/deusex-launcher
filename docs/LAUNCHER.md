@@ -662,7 +662,9 @@ SIGTERM at its next frame, so only a stuck one is killed.
 
 `Running.ini`, the original's crash sentinel, in the profile's state
 folder: made before the game, the folder with it where it is gone, taken
-away at a clean end. Beside it,
+away at a clean end and at one with no game -- a quit on a screen,
+`-consolecommand=`, `-testrendev=` -- as the original's at every end but a
+crash and its CD prompt. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`DXEngine error: ...`),
 its line where the renderer chosen did not start and the software one drew
@@ -746,9 +748,11 @@ real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
 infos and snapshots of any saves it has -- plays the stub from a scratch
 home through a first run, a crash with the profile's state folder gone
-and the Recovery that follows, a launcher killed while it plays, and a
+and the Recovery that follows, a launcher killed while it plays, a
 dedicated server, started so or relaunched to, that takes no second
-start's line, and checks that nothing in the game's folder changed.
+start's line, and ends with no game after a crash, Recovery quit,
+`-consolecommand=` and `-testrendev=`, which take `Running.ini` away, and
+checks that nothing in the game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
 focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the
@@ -820,10 +824,10 @@ The original's behaviour is recorded in
 [`launcher.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launcher.md).
 Kept as the original does it: the decision's order (`-safe`, the
 `FirstRun` gates, `-changevideo`, `Running.ini`), `Running.ini` made after
-the screens and taken away at a clean end, `FirstRun` raised to 1100, the
-three command-line parsers (`ParseParam` stricter, as `main`'s), and the
-second start's hand-over, though its line goes to a launcher that keeps
-it whatever the install. Changed:
+the screens and taken away at a clean end or one with no game, `FirstRun`
+raised to 1100, the three command-line parsers (`ParseParam` stricter, as
+`main`'s), and the second start's hand-over, though its line goes to a
+launcher that keeps it whatever the install. Changed:
 
 | Original | DXLauncher | Why |
 |---|---|---|

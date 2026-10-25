@@ -580,6 +580,16 @@ static void hold_instance(dxl_run *r) {
     free(id);
 }
 
+/* An end with no game after it, as the original's every end but a crash
+ * and its CD prompt (dx-reverse-info/launch-flow.md, Exit paths): a quit on
+ * a screen, -consolecommand=, -testrendev= take Running.ini away; not
+ * another launcher's, live, which holds the lock. */
+static void end_without_game(dxl_run *r) {
+    if (!r->instance || !r->sentinel.path || !dxl_sentinel_exists(&r->sentinel)) return;
+    dxl_sentinel_remove(&r->sentinel);
+    dxl_log("Running.ini taken away: an end with no game");
+}
+
 /* Saved, FirstRun raised, the sentinel made: after the screens, before the
  * game, in the original's order (dx-reverse-info/launch-flow.md section
  * 5). */
@@ -767,16 +777,19 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         }
         if (r->decision.action == DXL_ACTION_CONSOLE_CMD) {
             dxl_log("Executing console command %s", r->decision.console_command);
+            end_without_game(r);
             goto done;
         }
         if (r->decision.action == DXL_ACTION_TEST_RENDEV) {
             fprintf(stderr, "-testrendev: the renderers this machine runs are dxl-cli --probe's\n");
+            end_without_game(r);
             goto done;
         }
         if (r->view != DXL_VIEW_NONE) {
             if (ui && ui->view) {
                 if (!ui->view(ui->ctx, r, r->view)) {
                     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+                    end_without_game(r);
                     goto done;
                 }
             } else if (r->view != DXL_VIEW_HOME) {
@@ -846,6 +859,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
                     answered = 1;
                     continue;
                 }
+                end_without_game(r);
             } else {
                 char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
                 fprintf(stderr, "Its log: %s\n", log);
