@@ -54,13 +54,12 @@ static void seed(ini_file *f, const char *system_dir, const char *default_name) 
 static char *given_path(const char *system_dir, const char *given) {
     char *p = dxl_path_from_ini(given);
     if (p[0] == '/') return p;
-    char *joined = dxl_path_join(system_dir, p);
+    /* Every component in any case, as Windows finds the original's
+     * "INI=..\MyMod\System\MyMod.ini" on a folder named mymod; the last
+     * component alone was. */
+    char *found = dxl_path_resolve_ci(system_dir, p);
+    if (!found) found = dxl_path_join(system_dir, p);
     free(p);
-    char *dir = dxl_path_dirname(joined);
-    char *found = dxl_path_resolve_ci(dir, dxl_path_basename(joined));
-    free(dir);
-    if (!found) return joined;
-    free(joined);
     return found;
 }
 
