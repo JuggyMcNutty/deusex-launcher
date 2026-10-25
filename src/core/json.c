@@ -376,6 +376,18 @@ static void put(dxl_json *obj, const char *key, dxl_json *v) {
     }
 }
 
+int dxl_json_remove(dxl_json *obj, const char *key) {
+    ssize_t i = find(obj, key);
+    if (i < 0) return 0;
+    size_t after = obj->count - (size_t)i - 1;
+    dxl_json_free(obj->items[i]);
+    free(obj->keys[i]);
+    memmove(&obj->items[i], &obj->items[i + 1], after * sizeof *obj->items);
+    memmove(&obj->keys[i], &obj->keys[i + 1], after * sizeof *obj->keys);
+    obj->count--;
+    return 1;
+}
+
 dxl_json *dxl_json_child(dxl_json *obj, const char *key) {
     dxl_json *c = dxl_json_get(obj, key);
     if (c && c->type == DXL_JSON_OBJECT) return c;

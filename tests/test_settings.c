@@ -256,6 +256,29 @@ static void test_engine_json(void) {
     close_all(&st);
 }
 
+/* The renderer where Settings.json names no Type: the one the engine takes
+ * by the ini's GameRenderDevice, the software one for SoftDrv's, else
+ * Vulkan; another row changed names none, a renderer chosen does. */
+static void test_renderer_unnamed(void) {
+    dxl_stores st;
+    open_all(&st);
+    CHECK_INT(dxl_es_names_type(st.engine), 0);
+    CHECK_STR(get(&st, "graphics.renderer"), "Vulkan");
+    dxl_ini_set(st.system, "Engine.Engine", "GameRenderDevice", "SoftDrv.SoftwareRenderDevice");
+    CHECK_STR(get(&st, "graphics.renderer"), "Software");
+    CHECK_INT(set(&st, "graphics.antialias", "Off"), 0);
+    CHECK_INT(dxl_es_names_type(st.engine), 0);
+    CHECK_STR(get(&st, "graphics.renderer"), "Software");
+    dxl_ini_set(st.system, "Engine.Engine", "GameRenderDevice", "D3DDrv.D3DRenderDevice");
+    CHECK_STR(get(&st, "graphics.renderer"), "Vulkan");
+    /* Chosen: named, even as the defaults file's Vulkan, and kept over the ini */
+    CHECK_INT(set(&st, "graphics.renderer", "Vulkan"), 0);
+    CHECK_INT(dxl_es_names_type(st.engine), 1);
+    dxl_ini_set(st.system, "Engine.Engine", "GameRenderDevice", "SoftDrv.SoftwareRenderDevice");
+    CHECK_STR(get(&st, "graphics.renderer"), "Vulkan");
+    close_all(&st);
+}
+
 /* A preset applied is the one matched; a row changed after, none. */
 static void test_presets(void) {
     dxl_stores st;
@@ -382,6 +405,7 @@ TEST_MAIN_BEGIN
     RUN(test_choices_and_text);
     RUN(test_next_run);
     RUN(test_engine_json);
+    RUN(test_renderer_unnamed);
     RUN(test_presets);
     RUN(test_no_msaa);
     RUN(test_reset);

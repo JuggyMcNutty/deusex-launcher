@@ -187,7 +187,10 @@ static int read_place(const dxl_stores *st, const dxl_set_place *p, char *out, s
         switch (info->kind) {
         case DXL_ES_BOOL: snprintf(out, size, "%d", dxl_es_bool(st->engine, p->field) ? 1 : 0); return 1;
         case DXL_ES_NUMBER: snprintf(out, size, "%.6g", dxl_es_number(st->engine, p->field) / scale_of(p)); return 1;
-        case DXL_ES_CHOICE: snprintf(out, size, "%s", dxl_es_choice(st->engine, p->field)); return 1;
+        case DXL_ES_CHOICE:
+            if (p->field == DXL_ES_RENDER_TYPE && !dxl_es_names_type(st->engine)) return 0;
+            snprintf(out, size, "%s", dxl_es_choice(st->engine, p->field));
+            return 1;
         }
         return 0;
     }
@@ -223,18 +226,26 @@ static int write_place(dxl_stores *st, const dxl_set_place *p, const char *value
 
 /* ---- values -------------------------------------------------------------- */
 
+/* The renderer the engine takes where Settings.json names no Type, as its
+ * Engine::ChooseRenderDevice: the software one for the system ini's
+ * [Engine.Engine] GameRenderDevice=SoftDrv.SoftwareRenderDevice, else
+ * Vulkan (core/renderers.h). */
+static const char *ini_renderer(const dxl_ini *system) {
+    const char *device = system ? dxl_ini_get(system, "Engine.Engine", "GameRenderDevice") : NULL;
+    return device && !dxl_stricmp(device, "SoftDrv.SoftwareRenderDevice") ? "Software" : "Vulkan";
+}
+
 int dxl_setting_get(const dxl_stores *st, const dxl_setting *s, char *out, size_t size) {
-    /* The renderer: its Type, and whether Mesa's CPU driver is asked for,
-     * the next place (core/renderers.h, dxl_renderer_value). */
+    /* The renderer: its Type, or the ini's where none is named, and
+     * whether Mesa's CPU driver is asked for, the next place
+     * (core/renderers.h, dxl_renderer_value). */
     if ((s->flags & DXL_SET_RENDERER) && s->at[1].store != DXL_STORE_NONE) {
         char type[64], cpu[8];
-        if (read_place(st, &s->at[0], type, sizeof type)) {
-            int asked = read_place(st, &s->at[1], cpu, sizeof cpu) && strcmp(cpu, "1") == 0;
-            snprintf(out, size, "%s%s", type, asked ? DXL_RENDERER_CPU_SUFFIX : "");
-            return 1;
-        }
-        snprintf(out, size, "%s", s->def ? s->def : "");
-        return 0;
+        int named = read_place(st, &s->at[0], type, sizeof type);
+        if (!named) snprintf(type, sizeof type, "%s", ini_renderer(st->system));
+        int asked = read_place(st, &s->at[1], cpu, sizeof cpu) && strcmp(cpu, "1") == 0;
+        snprintf(out, size, "%s%s", type, asked ? DXL_RENDERER_CPU_SUFFIX : "");
+        return named;
     }
     for (int i = 0; i < DXL_SET_PLACES && s->at[i].store != DXL_STORE_NONE; i++) {
         /* A size: its width's place and its height's, the next. */
