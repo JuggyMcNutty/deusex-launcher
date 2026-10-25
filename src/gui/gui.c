@@ -608,3 +608,9 @@ SDL_Texture *dxl_bitmap(SDL_Renderer *r, const char *path, int *w, int *h) {
     SDL_FreeSurface(s);
     return t;
 }
+
+/* A .int text as SDL takes it: UTF-8, Latin-1 converted (dxl_dialog_open's
+ * window title went to SDL_CreateWindow as the .int's bytes). Caller frees. */
+char *dxl_gui_utf8(const char *s) {
+    return utf8(s ? s : "", s ? strlen(s) : 0);
+}

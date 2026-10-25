@@ -121,4 +121,7 @@ int  dxl_mnemonic(const char *text);
 /* A .bmp as a texture; NULL when it cannot be read. */
 SDL_Texture *dxl_bitmap(SDL_Renderer *r, const char *path, int *w, int *h);
 
+/* A .int text as SDL takes it (UTF-8, Latin-1 converted). Caller frees. */
+char *dxl_gui_utf8(const char *s);
+
 #endif

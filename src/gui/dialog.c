@@ -1,4 +1,5 @@
 #include "gui/dialog.h"
+#include "gui/gui.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -104,8 +105,10 @@ dxl_dialog *dxl_dialog_open(dxl_gui *g, const char *title, int w, int h, int off
         d->surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
         d->ren = d->surface ? SDL_CreateSoftwareRenderer(d->surface) : NULL;
     } else {
-        d->win = SDL_CreateWindow(title ? title : "", SDL_WINDOWPOS_CENTERED,
+        char *utitle = dxl_gui_utf8(title);   /* a .int's Latin-1 caption, as the texts drawn */
+        d->win = SDL_CreateWindow(utitle, SDL_WINDOWPOS_CENTERED,
                                   SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_HIDDEN);
+        free(utitle);
         if (d->win) {
             d->ren = SDL_CreateRenderer(d->win, -1, SDL_RENDERER_ACCELERATED);
             if (!d->ren) d->ren = SDL_CreateRenderer(d->win, -1, SDL_RENDERER_SOFTWARE);
