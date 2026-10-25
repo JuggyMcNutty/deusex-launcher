@@ -387,7 +387,7 @@ void dxl_focus_rect(SDL_Renderer *r, SDL_Rect rc, SDL_Point origin, dxl_rgb unde
 
 /* The .int files are in the game's code page: text that is not UTF-8 is
  * read as Windows-1252's Latin-1 part. Caller frees. */
-static char *utf8(const char *s, size_t n) {
+static int valid_utf8(const char *s, size_t n) {
     int valid = 1;
     for (size_t i = 0; i < n && valid; i++) {
         unsigned char c = (unsigned char)s[i];
@@ -398,7 +398,11 @@ static char *utf8(const char *s, size_t n) {
             if (((unsigned char)s[i + (size_t)k] & 0xC0) != 0x80) valid = 0;
         i += (size_t)more;
     }
-    if (valid) return dxl_xstrndup(s, n);
+    return valid;
+}
+
+static char *utf8(const char *s, size_t n) {
+    if (valid_utf8(s, n)) return dxl_xstrndup(s, n);
     char *out = dxl_xmalloc(n * 2 + 1), *o = out;
     for (size_t i = 0; i < n; i++) {
         unsigned char c = (unsigned char)s[i];
@@ -464,9 +468,14 @@ static void draw_line(SDL_Renderer *r, TTF_Font *f, int x, int y, const char *s,
          * pixel short of the letter's width, as DrawText draws it. */
         char *pre = utf8(shown, (size_t)m);
         char one[8] = { 0 };
-        size_t len = 1;
+        size_t len = 1, left = strlen(shown + m);
         unsigned char c0 = (unsigned char)shown[m];
-        if (c0 >= 0x80) len = (c0 & 0xE0) == 0xC0 ? 2 : (c0 & 0xF0) == 0xE0 ? 3 : 4;
+        /* A UTF-8 letter's bytes by its lead byte; a Latin-1 letter is one,
+         * whatever its lead bits (an accented mnemonic once underlined two
+         * to four letters and read past the text). */
+        if (c0 >= 0x80 && valid_utf8(shown, strlen(shown)))
+            len = (c0 & 0xE0) == 0xC0 ? 2 : (c0 & 0xF0) == 0xE0 ? 3 : 4;
+        if (len > left) len = left;
         memcpy(one, shown + m, len < sizeof one ? len : sizeof one - 1);
         char *ch = utf8(one, strlen(one));
         int x0 = x + width_of(f, pre), w = width_of(f, ch);
