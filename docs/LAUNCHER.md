@@ -485,10 +485,12 @@ a first run's engine defaults among them. Its
 Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2,
 OpenGL ES 3.2, and Software, which draws on the CPU and needs nothing of the
 GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds the GPU's in a
-child process as the page needs them, and a profile made where it finds
-none begins on Software. The row is `Settings.json`'s `Type`, written only
-as a renderer is chosen; where none is, it shows the one the engine takes
-by `DeusEx.ini`'s `GameRenderDevice`, the software renderer for
+child process as the page needs them, OpenGL and OpenGL ES each by a
+context made at its version, so a driver below it is not offered, and a
+profile made where it finds none begins on Software. The row is
+`Settings.json`'s `Type`, written only as a renderer is chosen; where none
+is, it shows the one the engine takes by `DeusEx.ini`'s
+`GameRenderDevice`, the software renderer for
 `SoftDrv.SoftwareRenderDevice`, else Vulkan. Mesa's CPU drivers, where
 they are installed, are rows of their own, Vulkan (lavapipe) and OpenGL
 (llvmpipe), slower than Software, which the engine takes for no GPU unless
@@ -693,7 +695,7 @@ run as it was: its Play plays, as Recovery's does.
 | `--print-command` | the engine's command line for the profile; nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
-| `--probe` | the Vulkan, OpenGL ES and OpenGL this machine's GPU offers, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
+| `--probe` | the Vulkan, OpenGL ES 3.2 and OpenGL 4.2 core this machine's GPU offers, a context of each GL made and its version shown, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |
@@ -735,6 +737,9 @@ ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`). `test_profile` imports from a fake
 install made read-only, which it leaves as it was, and makes, lists and
 copies profiles; `test_trash` puts folders in a scratch trash;
+`test_gpu_probe` probes this machine's GPU, then with Mesa's versions
+lowered below OpenGL 4.2 and ES 3.2, which it then does not offer
+(skipped with no GPU of Mesa's);
 `test_gamefiles`, on a
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the

@@ -197,6 +197,42 @@ static void test_cpu_drivers_alone(void) {
     dxl_renderers_free(&l);
 }
 
+/* The GL renderer's versions, as the probe reads them off its contexts:
+ * desktop GL's 4.2 and ES's 3.2, a driver below either refused. */
+static void test_gl_versions(void) {
+    CHECK_INT(dxl_gl_version_at_least("4.6 (Core Profile) Mesa 26.2.4", 4, 2), 1);
+    CHECK_INT(dxl_gl_version_at_least("4.2.0 NVIDIA 470.256.02", 4, 2), 1);
+    CHECK_INT(dxl_gl_version_at_least("4.1 (Core Profile) Mesa 21.0", 4, 2), 0);
+    CHECK_INT(dxl_gl_version_at_least("3.3 (Core Profile) Mesa 22.3 (crocus)", 4, 2), 0);
+    CHECK_INT(dxl_gl_version_at_least("OpenGL ES 3.2 build 1.17", 3, 2), 1);
+    CHECK_INT(dxl_gl_version_at_least("OpenGL ES 3.1 Mesa 23.2 (V3D 4.2)", 3, 2), 0);
+    CHECK_INT(dxl_gl_version_at_least("OpenGL ES 2.0 Mesa", 3, 2), 0);
+    CHECK_INT(dxl_gl_version_at_least("OpenGL ES-CM 1.1", 1, 0), 0);
+    CHECK_INT(dxl_gl_version_at_least("EGL 1.5", 1, 0), 0);
+    CHECK_INT(dxl_gl_version_at_least("", 1, 0), 0);
+    CHECK_INT(dxl_gl_version_at_least(NULL, 1, 0), 0);
+    /* Neither there: each row says the version it needs. */
+    static const char *ini = "[Renderers]\nRenderer=GL\nRenderer=ES\n"
+                             "[GL]\nLabel=OpenGL\nEngineType=OpenGL\nRequires=gl\n"
+                             "[ES]\nLabel=OpenGL ES\nEngineType=GLES\nRequires=gles\n";
+    dxl_renderer_list l = load(ini);
+    dxl_gpu_probe p;
+    memset(&p, 0, sizeof p);
+    p.probed = 1;
+    snprintf(p.gles_version, sizeof p.gles_version, "OpenGL ES 3.1 Mesa 23.2 (V3D 4.2)");
+    dxl_renderers_resolve(&l, &p);
+    CHECK_INT(l.items[0].selectable, 0);
+    CHECK(strstr(l.items[0].status, "no OpenGL 4.2 driver") != NULL);
+    CHECK_INT(l.items[1].selectable, 0);
+    CHECK(strstr(l.items[1].status, "no OpenGL ES 3.2 driver") != NULL);
+    p.gl = 1;
+    snprintf(p.gl_version, sizeof p.gl_version, "4.6 (Core Profile) Mesa 26.2.4");
+    dxl_renderers_resolve(&l, &p);
+    CHECK_INT(l.items[0].selectable, 1);
+    CHECK_STR(l.items[0].status, "OpenGL 4.6 (Core Profile) Mesa 26.2.4");
+    dxl_renderers_free(&l);
+}
+
 /* The MSAA lock follows the GPU, not the device, and needs evidence. */
 static void test_msaa_broken_on_powervr_only(void) {
     dxl_gpu_probe p = smart_pro();
@@ -218,6 +254,8 @@ static void test_probe_ini(void) {
     snprintf(p.vulkan_cpu_device, sizeof p.vulkan_cpu_device, "llvmpipe (LLVM 23.1.1, 256 bits)");
     p.gl_cpu = 1;
     snprintf(p.gl_cpu_renderer, sizeof p.gl_cpu_renderer, "softpipe");
+    p.gl = 1;
+    snprintf(p.gl_version, sizeof p.gl_version, "4.6 (Core Profile) Mesa 26.2.4");
     char *text = dxl_gpu_probe_to_ini(&p);
     CHECK(strstr(text, "[Probe]") != NULL);
     CHECK_INT(dxl_gpu_probe_from_ini(text, &q), 0);
@@ -226,7 +264,8 @@ static void test_probe_ini(void) {
     CHECK_STR(q.vulkan_device, p.vulkan_device);
     CHECK_INT(q.gles, p.gles);
     CHECK_STR(q.gles_version, p.gles_version);
-    CHECK_INT(q.gl, p.gl);
+    CHECK_INT(q.gl, 1);
+    CHECK_STR(q.gl_version, p.gl_version);
     CHECK_INT(q.vulkan_cpu, 1);
     CHECK_STR(q.vulkan_cpu_device, p.vulkan_cpu_device);
     CHECK_INT(q.gl_cpu, 1);
@@ -249,5 +288,6 @@ TEST_MAIN_BEGIN
     RUN(test_missing_file_is_empty);
     RUN(test_software_where_no_gpu);
     RUN(test_cpu_drivers_alone);
+    RUN(test_gl_versions);
     RUN(test_msaa_broken_on_powervr_only);
 TEST_MAIN_END

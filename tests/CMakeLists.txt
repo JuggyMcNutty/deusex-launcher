@@ -49,6 +49,11 @@ dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
+# The GPU probe on this machine's own drivers: skipped with no GPU's of
+# Mesa's, whose versions it lowers.
+dxl_test(test_gpu_probe)
+target_link_libraries(test_gpu_probe PRIVATE dxl_platform)
+set_tests_properties(test_gpu_probe PROPERTIES SKIP_RETURN_CODE 77)
 # The server browser against a master and servers of its own on 127.0.0.1.
 find_package(Threads REQUIRED)
 dxl_test(test_browser)
