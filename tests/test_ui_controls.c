@@ -5,6 +5,8 @@
 #include "ui/text.h"
 #include "ui/widgets.h"
 
+#include <math.h>
+
 static dxl_ui ui;
 static double clock_s = 10;
 
@@ -128,6 +130,59 @@ static void test_toggle_slider_spinner(void) {
     changed = dxl_spinner(&ui, c, (dxl_rect){ 20, 120, 600, 44 }, "Spinner", &idx, labels, 3, 0);
     end();
     CHECK_INT(changed, DXL_SPIN_LIST);
+}
+
+/* A value outside the slider's range, or none (a NaN), shows at its end and
+ * is kept as it is, no change and no sound, until the player moves the
+ * slider, from where it shows. */
+static void test_slider_out_of_range(void) {
+    uint32_t fov = dxl_ui_id(&ui, "fov"), none = dxl_ui_id(&ui, "none");
+    dxl_rect a = { 20, 20, 600, 44 }, b = { 20, 70, 600, 44 };
+    double v = 130, n = NAN;
+    int changed = 0, cues = 0;
+    dxl_ui_forget(&ui);
+    dxl_ui_focus(&ui, fov);
+    for (int frame = 0; frame < 3; frame++) {
+        begin();
+        changed |= dxl_slider(&ui, fov, a, "Field of view", &v, 60, 120, 5, "130", 0);
+        changed |= dxl_slider(&ui, none, b, "None", &n, 0, 1, 0.1, "nan", 0);
+        cues |= ui.cues;
+        end();
+    }
+    CHECK_INT(changed, 0);
+    CHECK(v == 130);
+    CHECK(isnan(n));
+    CHECK(!(cues & DXL_CUE_SLIDE));
+    /* Right at the end it shows at: no further, and no change. */
+    key(SDLK_RIGHT, SDL_SCANCODE_RIGHT);
+    begin();
+    changed = dxl_slider(&ui, fov, a, "Field of view", &v, 60, 120, 5, "130", 0);
+    dxl_slider(&ui, none, b, "None", &n, 0, 1, 0.1, "nan", 0);
+    end();
+    CHECK_INT(changed, 0);
+    CHECK(v == 130);
+    key(SDLK_LEFT, SDL_SCANCODE_LEFT);
+    begin();
+    changed = dxl_slider(&ui, fov, a, "Field of view", &v, 60, 120, 5, "130", 0);
+    dxl_slider(&ui, none, b, "None", &n, 0, 1, 0.1, "nan", 0);
+    end();
+    CHECK_INT(changed, 1);
+    CHECK(v == 115);
+    /* The NaN's slider, moved, from its start. */
+    key(SDLK_DOWN, SDL_SCANCODE_DOWN);
+    begin();
+    dxl_slider(&ui, fov, a, "Field of view", &v, 60, 120, 5, "115", 0);
+    changed = dxl_slider(&ui, none, b, "None", &n, 0, 1, 0.1, "nan", 0);
+    end();
+    CHECK_INT(ui.focus, none);
+    CHECK_INT(changed, 0);
+    key(SDLK_RIGHT, SDL_SCANCODE_RIGHT);
+    begin();
+    dxl_slider(&ui, fov, a, "Field of view", &v, 60, 120, 5, "115", 0);
+    changed = dxl_slider(&ui, none, b, "None", &n, 0, 1, 0.1, "nan", 0);
+    end();
+    CHECK_INT(changed, 1);
+    CHECK(n > 0.09 && n < 0.11);
 }
 
 /* Edited in place: typed, erased, the caret moved; Enter keeps it, Esc
@@ -540,6 +595,7 @@ TEST_MAIN_BEGIN
     if (offscreen_open(&o, &ui, 1280, 720, 1) != 0) return 1;
     dxl_ui_input_begin(&ui);
     RUN(test_toggle_slider_spinner);
+    RUN(test_slider_out_of_range);
     RUN(test_text_field);
     RUN(test_text_select);
     RUN(test_text_typed_on);

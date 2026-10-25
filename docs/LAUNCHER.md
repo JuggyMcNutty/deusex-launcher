@@ -457,7 +457,9 @@ the same way, and is written to both, so the two agree. The engine stops at
 start on a value its converters refuse (`yes` for a bool, a rate without
 `Hz`): to a row such text is no value either. A value is written as the
 engine writes it (`True`, `0.600000`, `153`, `44100Hz`), and only as the
-player changes it. Before the page opens and before each run, each key of
+player changes it: one outside a slider's range, as the game's console or
+a hand sets it, shows at the slider's end and stays as it is until the
+slider is moved. Before the page opens and before each run, each key of
 the engine's sections that is missing is written, from the retail value
 where there is one, else the engine's default (`src/core/engine_sections.c`),
 so the engine reads what the page shows. A row's default is what is taken
@@ -747,7 +749,8 @@ and a second start handed over are run that way. `test_ui_scripts` runs
 with the stub for the engine and no beacon asked (`DXL_LAN=none`), and
 reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
-in its file as its reader takes it, and the next run's words on that run;
+in its file as its reader takes it, a value outside its slider's range as
+it was, and the next run's words on that run;
 `recovery` goes from a crash to Recovery's log, the next run in a window
 and another renderer, and finds those on the next run alone; `remap_pad`
 binds three buttons of a virtual Xbox pad, two found by pressing or pulling

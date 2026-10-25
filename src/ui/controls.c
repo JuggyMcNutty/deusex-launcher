@@ -68,18 +68,26 @@ int dxl_toggle(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *on, 
     return *on != was;
 }
 
+/* v as the slider shows it: within min and max, a NaN at min. */
+static double in_range(double v, double min, double max) {
+    if (!(v >= min)) return min;
+    return v > max ? max : v;
+}
+
 int dxl_slider(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, double *v, double min, double max,
                double step, const char *shown, int flags) {
     const dxl_theme *t = &ui->theme;
     int hits;
-    double was = *v;
+    /* A value outside the range shows at its end, and is kept as it is
+     * until the player moves the slider: from where it shows. */
+    double at = in_range(*v, min, max), was = at;
     dxl_rect a = row(ui, id, r, label, flags, &hits);
     const float vw = 72;
     dxl_rect track = { a.x, a.y + a.h / 2 - 3, a.w - vw - 14, 6 };
     if (track.w < 40) track.w = 40;
     if (!(flags & DXL_W_DISABLED) && max > min) {
         int lr = dxl_ui_take_lr(ui, id);
-        if (lr) *v += lr * step;
+        if (lr) at += lr * step;
         /* The pointer drags it from a press on the track to the release. */
         float *drag = dxl_ui_value(ui, id ^ DRAG_KEY, 0);
         int on_track = ui->in.px >= track.x - 10 && ui->in.px <= track.x + track.w + 10 && ui->in.py >= r.y &&
@@ -89,19 +97,18 @@ int dxl_slider(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, double *v
             double f = (ui->in.px - track.x) / track.w;
             if (f < 0) f = 0;
             if (f > 1) f = 1;
-            *v = min + f * (max - min);
-            if (step > 0) *v = min + floor((*v - min) / step + 0.5) * step;
+            at = min + f * (max - min);
+            if (step > 0) at = min + floor((at - min) / step + 0.5) * step;
         }
         if (!(hits & DXL_HIT_HELD)) *drag = 0;
         if (ui->in.wheel != 0 && (hits & DXL_HIT_HOVERED)) {
-            *v += (ui->in.wheel > 0 ? 1 : -1) * step;
+            at += (ui->in.wheel > 0 ? 1 : -1) * step;
             ui->in.wheel = 0;
         }
-        if (*v < min) *v = min;
-        if (*v > max) *v = max;
+        at = in_range(at, min, max);
     }
     dxl_well(ui, track);
-    float f = max > min ? (float)((*v - min) / (max - min)) : 0;
+    float f = max > min ? (float)((at - min) / (max - min)) : 0;
     dxl_rect fill = { track.x + 1, track.y + 1, (track.w - 2) * f, track.h - 2 };
     dxl_fill(ui, fill, dxl_rgba_fade(t->accent, (flags & DXL_W_DISABLED) ? 0.3f : 0.75f));
     dxl_rect knob = { track.x + track.w * f - 5, a.y + a.h / 2 - 10, 10, 20 };
@@ -109,8 +116,10 @@ int dxl_slider(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, double *v
     dxl_bevel(ui, knob, &ks);
     dxl_rect text = { a.x + a.w - vw, a.y, vw, a.h };
     dxl_label(ui, text, DXL_FONT_LABEL, shown, (hits & DXL_HIT_FOCUSED) ? t->text_focus : t->text, DXL_W_RIGHT);
-    if (*v != was) ui->cues |= DXL_CUE_SLIDE;
-    return *v != was;
+    if (at == was) return 0;
+    *v = at;
+    ui->cues |= DXL_CUE_SLIDE;
+    return 1;
 }
 
 static void arrow(dxl_ui *ui, dxl_rect r, int right, dxl_rgba c) {
