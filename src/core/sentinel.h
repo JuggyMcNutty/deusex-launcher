@@ -25,6 +25,7 @@ void dxl_sentinel_init(dxl_sentinel *s, const char *system_dir);
 void dxl_sentinel_free(dxl_sentinel *s);
 
 int  dxl_sentinel_exists(const dxl_sentinel *s);
+/* Its folder made with it. */
 int  dxl_sentinel_create(dxl_sentinel *s, dxl_err *err);
 /* Safe to call unconditionally on the exit path. */
 void dxl_sentinel_remove(dxl_sentinel *s);

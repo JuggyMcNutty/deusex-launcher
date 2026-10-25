@@ -661,7 +661,8 @@ SIGTERM at its next frame, so only a stuck one is killed.
 ## Recovery
 
 `Running.ini`, the original's crash sentinel, in the profile's state
-folder: made before the game, taken away at a clean end. Beside it,
+folder: made before the game, the folder with it where it is gone, taken
+away at a clean end. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`DXEngine error: ...`),
 its line where the renderer chosen did not start and the software one drew
@@ -744,10 +745,10 @@ lowered below OpenGL 4.2 and ES 3.2, which it then does not offer
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
 infos and snapshots of any saves it has -- plays the stub from a scratch
-home through a first run, a crash and the Recovery that follows, a
-launcher killed while it plays, and a dedicated server, started so or
-relaunched to, that takes no second start's line, and checks
-that nothing in the game's folder changed.
+home through a first run, a crash with the profile's state folder gone
+and the Recovery that follows, a launcher killed while it plays, and a
+dedicated server, started so or relaunched to, that takes no second
+start's line, and checks that nothing in the game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
 focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the
