@@ -188,6 +188,7 @@ int dxl_open_url(const char *url) {
     if (pid < 0) return -1;
     if (pid == 0) {
         if (fork() == 0) {
+            signal(SIGPIPE, SIG_DFL);   /* the launcher ignores it; the browser must not */
             execlp("xdg-open", "xdg-open", url, (char *)NULL);
             _exit(127);
         }
