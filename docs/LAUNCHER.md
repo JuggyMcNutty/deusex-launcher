@@ -531,6 +531,11 @@ The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's size, volumes, the big screen and
 reduced motion apply at once, its renderer from the window's next opening.
 
+`Settings.json` is read as the engine reads it, a comma before a close
+taken and what follows the document left unread. One neither can read is
+written anew the next time the launcher writes it, the old one kept beside
+it as `Settings.json.unreadable` and the launcher's log saying why.
+
 ## The controller
 
 The engine takes the first controller SDL has a mapping for, and reads its
@@ -765,7 +770,9 @@ reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
 in its file as its reader takes it, a value outside its slider's range as
 it was, no renderer named where none was chosen, and the next run's words
-on that run;
+on that run; `settings_kept` leaves Settings on a `Settings.json` edited
+by hand, and finds one the engine reads read as it was, one neither reads
+kept beside the new one, and said;
 `recovery` goes from a crash to Recovery's log, the next run in a window
 and another renderer, and finds those on the next run alone; `remap_pad`
 binds three buttons of a virtual Xbox pad, two found by pressing or pulling

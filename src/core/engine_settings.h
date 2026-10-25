@@ -17,10 +17,10 @@
  * costs every setting at once; a RenderDevice bool or number it cannot
  * find reads as false or 0, the rest as the engine's default. That is why
  * a save always writes every member of every section here, but a Type
- * none chose (dxl_es_names_type), and why an unreadable file is replaced
- * rather than left alone. A member the file lacks takes the packaged
- * default, so a field added later reaches an existing install with the
- * port's value.
+ * none chose (dxl_es_names_type), and why a file neither can read is
+ * replaced rather than left alone -- kept beside it, never written over.
+ * A member the file lacks takes the packaged default, so a field added
+ * later reaches an existing install with the port's value.
  */
 #ifndef DXL_ENGINE_SETTINGS_H
 #define DXL_ENGINE_SETTINGS_H
@@ -79,9 +79,12 @@ void                 dxl_es_free(dxl_engine_settings *s);
 
 const char *dxl_es_path(const dxl_engine_settings *s);
 /* Did the file exist, and could it be read? A file that existed but did not
- * parse is reported so the launcher can say it replaced it. */
+ * parse is reported so the launcher can say it replaced it: the reader's
+ * words for it, and where a save kept it (dxl_es_save), else "" and NULL. */
 int  dxl_es_existed(const dxl_engine_settings *s);
 int  dxl_es_was_corrupt(const dxl_engine_settings *s);
+const char *dxl_es_problem(const dxl_engine_settings *s);
+const char *dxl_es_kept(const dxl_engine_settings *s);
 int  dxl_es_dirty(const dxl_engine_settings *s);
 /* Was the field in the file as loaded (with a usable value), rather than
  * filled in from the defaults? */
@@ -95,7 +98,9 @@ int  dxl_es_was_present(const dxl_engine_settings *s, dxl_es_field f);
 int  dxl_es_names_type(const dxl_engine_settings *s);
 
 /* Writes the file, creating its directory. Every field but a Type none
- * named. */
+ * named. A file there that could not be read is kept first, its path with
+ * DXL_ES_KEPT after it, or nothing is written. */
+#define DXL_ES_KEPT ".unreadable"
 int  dxl_es_save(dxl_engine_settings *s, dxl_err *err);
 
 const char *dxl_es_choice(const dxl_engine_settings *s, dxl_es_field f);
@@ -127,7 +132,8 @@ void dxl_es_reset_section(dxl_engine_settings *s, const char *section);
 void dxl_es_antialias_taken(const char *path, char *out, size_t size);
 /* Antialias Off in the Settings.json at path, made from default_path when
  * it is missing or unreadable: for a GPU whose multisampling is broken.
- * 1 when the file changed, 0 when the engine takes Off from it already, -1
+ * 1 when the file changed, 2 when it replaced one that could not be read
+ * (kept, dxl_es_save), 0 when the engine takes Off from it already, -1
  * when it could not be written. */
 int  dxl_es_antialias_off(const char *path, const char *default_path, dxl_err *err);
 

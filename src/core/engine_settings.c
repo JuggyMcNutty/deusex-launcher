@@ -1,6 +1,7 @@
 #include "core/engine_settings.h"
 #include "core/json.h"
 #include "core/paths.h"
+#include "platform/fs.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -71,6 +72,8 @@ struct dxl_engine_settings {
     dxl_json *defaults;    /* the packaged default file, or NULL */
     int       existed, corrupt, dirty;
     unsigned char present[DXL_ES_FIELD_COUNT];
+    char      problem[DXL_ERR_LEN];   /* why the file could not be read */
+    char     *kept;                   /* where a save kept it */
 };
 
 static int choice_valid(const dxl_es_info *in, const char *v) {
@@ -118,11 +121,14 @@ dxl_engine_settings *dxl_es_open(const char *path, const char *default_path) {
 
     if (dxl_path_exists(path)) {
         s->existed = 1;
-        s->doc = dxl_json_load(path, NULL);
+        dxl_err e;
+        dxl_err_set(&e, "not a JSON object");
+        s->doc = dxl_json_load(path, &e);
         if (!s->doc || dxl_json_kind(s->doc) != DXL_JSON_OBJECT) {
             dxl_json_free(s->doc);
             s->doc = NULL;
             s->corrupt = 1;
+            snprintf(s->problem, sizeof s->problem, "%s", dxl_err_msg(&e));
         }
     }
     if (!s->doc) {
@@ -173,12 +179,15 @@ void dxl_es_free(dxl_engine_settings *s) {
     dxl_json_free(s->doc);
     dxl_json_free(s->defaults);
     free(s->path);
+    free(s->kept);
     free(s);
 }
 
 const char *dxl_es_path(const dxl_engine_settings *s) { return s->path; }
 int dxl_es_existed(const dxl_engine_settings *s)      { return s->existed; }
 int dxl_es_was_corrupt(const dxl_engine_settings *s)  { return s->corrupt; }
+const char *dxl_es_problem(const dxl_engine_settings *s) { return s->problem; }
+const char *dxl_es_kept(const dxl_engine_settings *s)    { return s->kept; }
 int dxl_es_dirty(const dxl_engine_settings *s)        { return s->dirty; }
 int dxl_es_was_present(const dxl_engine_settings *s, dxl_es_field f) {
     return f >= 0 && f < DXL_ES_FIELD_COUNT && s->present[f];
@@ -192,6 +201,19 @@ int dxl_es_save(dxl_engine_settings *s, dxl_err *err) {
         return -1;
     }
     free(dir);
+    /* The file it could not read, kept beside it: never written over. */
+    if (s->corrupt && dxl_path_exists(s->path)) {
+        size_t n = strlen(s->path) + sizeof DXL_ES_KEPT;
+        char *kept = dxl_xmalloc(n);
+        snprintf(kept, n, "%s" DXL_ES_KEPT, s->path);
+        if (dxl_fs_replace(s->path, kept) != 0) {
+            dxl_err_set(err, "cannot keep %s, which could not be read, as %s", s->path, kept);
+            free(kept);
+            return -1;
+        }
+        free(s->kept);
+        s->kept = kept;
+    }
     if (dxl_json_save(s->doc, s->path, err) != 0) return -1;
     s->dirty = 0;
     s->existed = 1;
@@ -282,7 +304,7 @@ int dxl_es_antialias_off(const char *path, const char *default_path, dxl_err *er
     if (!strcmp(now, "Off")) return 0;
     dxl_engine_settings *s = dxl_es_open(path, default_path);
     dxl_es_set_choice(s, DXL_ES_ANTIALIAS, "Off");
-    int rc = dxl_es_save(s, err) == 0 ? 1 : -1;
+    int rc = dxl_es_save(s, err) != 0 ? -1 : dxl_es_kept(s) ? 2 : 1;
     dxl_es_free(s);
     return rc;
 }

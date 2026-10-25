@@ -551,8 +551,10 @@ static void antialias_check(dxl_run *r) {
     if (dxl_gpu_msaa_broken(&r->gpu)) {
         char *def = dxl_path_join(r->session.data_dir, "engine-settings.json.default");
         dxl_err e;
-        if (dxl_es_antialias_off(json, def, &e) < 0) dxl_log("warning: %s", dxl_err_msg(&e));
+        int done = dxl_es_antialias_off(json, def, &e);
+        if (done < 0) dxl_log("warning: %s", dxl_err_msg(&e));
         else dxl_log("anti-aliasing: Off, not %s: %s multisamples badly", taken, r->gpu.vulkan_device);
+        if (done == 2) dxl_log("%s could not be read: kept as %s" DXL_ES_KEPT ", and written anew", json, json);
         free(def);
     }
     free(json);

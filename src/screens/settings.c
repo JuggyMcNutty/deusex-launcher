@@ -73,8 +73,13 @@ void dxl_settings_keep(dxl_shell *s) {
     snprintf(s->next_run, sizeof s->next_run, "%s", s->stores.next_run);
     dxl_err e;
     if (s->run->config && dxl_config_save(s->run->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
-    if (s->engine_settings && dxl_es_dirty(s->engine_settings) && dxl_es_save(s->engine_settings, &e) != 0)
-        dxl_log("warning: %s", dxl_err_msg(&e));
+    dxl_engine_settings *es = s->engine_settings;
+    if (es && dxl_es_dirty(es)) {
+        if (dxl_es_save(es, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+        else if (dxl_es_kept(es))
+            dxl_log("%s could not be read (%s): kept as %s, and written anew", dxl_es_path(es), dxl_es_problem(es),
+                    dxl_es_kept(es));
+    }
     if (dxl_session_save(&s->run->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     dxl_es_free(s->engine_settings);
     s->engine_settings = NULL;

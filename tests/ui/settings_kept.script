@@ -1,0 +1,16 @@
+# Settings opened and left, nothing changed, on a profile whose
+# Settings.json was edited by hand: test_ui_scripts.c finds one the engine
+# reads read as it reads it, and one neither reads kept beside the new one,
+# the launcher's log saying why.
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+find Done
+key Return
+wait 0.5
+expect home
+find Quit
+key Return

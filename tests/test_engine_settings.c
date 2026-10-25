@@ -30,6 +30,7 @@ static void put(const char *leaf, const char *text) {
 
 static void teardown(void) {
     remove(in_dir("Settings.json"));
+    remove(in_dir("Settings.json" DXL_ES_KEPT));
     remove(in_dir("default.json"));
     remove(in_dir("sub/deeper/Settings.json"));
     rmdir(in_dir("sub/deeper"));
@@ -60,22 +61,60 @@ static void test_missing_file_seeds_from_default(void) {
 }
 
 /* A file the engine cannot parse costs every setting -- MSAA4x included,
- * which is speckle on the PowerVR. It must be replaced, not trusted. */
+ * which is speckle on the PowerVR. It must be replaced, not trusted: and
+ * kept beside the new one, never written over, the reader's words for it
+ * kept to be said. */
 static void test_corrupt_file_is_replaced(void) {
     setup("corrupt");
     put("default.json", device_default);
-    put("Settings.json", "{\"RenderDevice\": {\"Type\": \"Vulkan\",");
+    const char *broken = "{\"RenderDevice\": {\"Type\": \"Vulkan\" \"Antialias\": \"MSAA2x\"}}";
+    put("Settings.json", broken);
     dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
     CHECK_INT(dxl_es_was_corrupt(s), 1);
+    CHECK(strstr(dxl_es_problem(s), "JSON: ") != NULL);
+    CHECK(dxl_es_kept(s) == NULL);
     CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "Off");
     dxl_err e;
     CHECK_INT(dxl_es_save(s, &e), 0);
+    CHECK_STR(dxl_es_kept(s), in_dir("Settings.json" DXL_ES_KEPT));
     dxl_es_free(s);
 
     dxl_json *j = dxl_json_load(in_dir("Settings.json"), NULL);
     CHECK(j != NULL);
     CHECK_STR(dxl_json_get_string(dxl_json_get(j, "RenderDevice"), "Antialias", NULL), "Off");
     dxl_json_free(j);
+    char *kept = slurp(in_dir("Settings.json" DXL_ES_KEPT), NULL);
+    CHECK_STR(kept, broken);
+    free(kept);
+    /* Read now, a save keeps nothing more. */
+    s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_was_corrupt(s), 0);
+    CHECK_STR(dxl_es_problem(s), "");
+    dxl_es_set_choice(s, DXL_ES_LIGHT, "OneX");
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    CHECK(dxl_es_kept(s) == NULL);
+    dxl_es_free(s);
+    teardown();
+}
+
+/* What the engine's reader takes, the launcher reads: a hand-edited file
+ * with a comma before a close, or something after the document, is the
+ * file the engine plays with, not a corrupt one to replace. */
+static void test_reads_what_the_engine_reads(void) {
+    setup("asengine");
+    put("default.json", device_default);
+    put("Settings.json", "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\",}}\nnotes of the player's");
+    dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_was_corrupt(s), 0);
+    CHECK_INT(dxl_es_was_present(s, DXL_ES_ANTIALIAS), 1);
+    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "MSAA2x");
+    dxl_err e;
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    CHECK(dxl_es_kept(s) == NULL);
+    dxl_es_free(s);
+    s = dxl_es_open(in_dir("Settings.json"), NULL);
+    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "MSAA2x");
+    dxl_es_free(s);
     teardown();
 }
 
@@ -328,6 +367,7 @@ TEST_MAIN_BEGIN
     RUN(test_antialias_taken_and_off);
     RUN(test_missing_file_seeds_from_default);
     RUN(test_corrupt_file_is_replaced);
+    RUN(test_reads_what_the_engine_reads);
     RUN(test_save_writes_every_field_and_keeps_games);
     RUN(test_setters_validate);
     RUN(test_reset_uses_packaged_default);
