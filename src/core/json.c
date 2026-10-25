@@ -207,7 +207,13 @@ static dxl_json *read_container(reader *r, int is_object) {
         push(v, key, child);
 
         skip_ws(r);
-        if (r->p < r->end && *r->p == ',') { r->p++; continue; }
+        if (r->p < r->end && *r->p == ',') {
+            /* A comma before the close, which the engine's reader takes. */
+            r->p++;
+            skip_ws(r);
+            if (r->p < r->end && *r->p == close) { r->p++; r->depth--; return v; }
+            continue;
+        }
         if (r->p < r->end && *r->p == close) { r->p++; r->depth--; return v; }
         fail(r, is_object ? "expected ',' or '}'" : "expected ',' or ']'");
         break;
@@ -244,15 +250,8 @@ dxl_json *dxl_json_parse(const char *text, size_t len, dxl_err *err) {
     if (len >= 3 && (unsigned char)text[0] == 0xEF && (unsigned char)text[1] == 0xBB &&
         (unsigned char)text[2] == 0xBF)
         r.p += 3;
-    dxl_json *v = read_value(&r);
-    if (!v) return NULL;
-    skip_ws(&r);
-    if (r.p != r.end) {
-        fail(&r, "trailing data after the document");
-        dxl_json_free(v);
-        return NULL;
-    }
-    return v;
+    /* One value, what follows it unread, as the engine's reader has it. */
+    return read_value(&r);
 }
 
 dxl_json *dxl_json_load(const char *path, dxl_err *err) {

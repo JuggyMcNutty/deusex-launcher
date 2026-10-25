@@ -98,12 +98,12 @@ static void test_string_escapes(void) {
     dxl_json_free(v); dxl_json_free(back);
 }
 
-/* The engine silently discards the whole file on any parse error, so we
- * must at least know when we are looking at one. */
+/* What the engine's reader refuses too, which costs the whole file there:
+ * known for what it is. */
 static void test_rejects_malformed(void) {
     const char *bad[] = {
-        "", "{", "{\"a\":}", "{\"a\" 1}", "{\"a\":1,}", "[1,2", "{\"a\":tru}",
-        "{\"a\":1} x", "{\"a\":\"unterminated}", "{\"a\":01x}",
+        "", "{", "{\"a\":}", "{\"a\" 1}", "{\"a\":1,,}", "[,]", "[1,2", "{\"a\":tru}",
+        "{\"a\":\"unterminated}", "{\"a\":01x}",
     };
     for (size_t i = 0; i < sizeof bad / sizeof *bad; i++) {
         dxl_err e;
@@ -112,6 +112,28 @@ static void test_rejects_malformed(void) {
         CHECK(v == NULL);
         dxl_json_free(v);
     }
+}
+
+/* What the engine's reader takes besides (DXEngine's JsonValue.cpp): a
+ * comma before an object's or an array's close, and one value, whatever
+ * follows it unread. */
+static void test_reads_as_the_engine(void) {
+    dxl_json *v = parse("{\"RenderDevice\": {\"Antialias\": \"Off\",}}");
+    CHECK(v != NULL);
+    CHECK_STR(dxl_json_get_string(dxl_json_get(v, "RenderDevice"), "Antialias", NULL), "Off");
+    dxl_json_free(v);
+    v = parse("{\"a\": [1, 2, ], \"b\": true , }");
+    CHECK(v != NULL);
+    CHECK_INT((int)dxl_json_count(dxl_json_get(v, "a")), 2);
+    CHECK_INT(dxl_json_get_bool(v, "b", 0), 1);
+    dxl_json_free(v);
+    v = parse("{\"a\": 1}\n{\"a\": 2} and more");
+    CHECK(v != NULL);
+    CHECK_INT((int)dxl_json_get_number(v, "a", 0), 1);
+    char *out = dxl_json_render(v);
+    CHECK(strstr(out, "more") == NULL);
+    free(out);
+    dxl_json_free(v);
 }
 
 static void test_child_creates_and_replaces(void) {
@@ -154,6 +176,7 @@ TEST_MAIN_BEGIN
     RUN(test_number_spelling);
     RUN(test_string_escapes);
     RUN(test_rejects_malformed);
+    RUN(test_reads_as_the_engine);
     RUN(test_child_creates_and_replaces);
     RUN(test_elements);
 TEST_MAIN_END

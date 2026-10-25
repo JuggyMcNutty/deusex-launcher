@@ -246,6 +246,53 @@ static void test_settings_roundtrip(void) {
     close_files(&b);
 }
 
+/* Settings.json edited by hand, then Settings opened and left, nothing
+ * changed: one with a comma before a close, which the engine reads, read as
+ * it reads it; one neither reads kept beside the new one, and said. */
+static void test_settings_kept(void) {
+    static const char *const files[] = {
+        "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\",}}\n",
+        "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\" \"Light\": \"OneX\"}}\n",
+    };
+    for (int i = 0; i < 2; i++) {
+        CHECK_INT(fresh_home(), 0);
+        profile_files a, b;
+        open_files(&a);
+        char *json = dxl_xstrdup(dxl_es_path(a.es)), kept[600];
+        snprintf(kept, sizeof kept, "%s" DXL_ES_KEPT, json);
+        close_files(&a);
+        char *dir = dxl_path_dirname(json);
+        dxl_path_mkdirs(dir);
+        free(dir);
+        FILE *f = fopen(json, "wb");
+        CHECK(f != NULL);
+        if (f) {
+            fputs(files[i], f);
+            fclose(f);
+        }
+        CHECK_INT(launch("settings_kept.script", "ready"), 0);
+        script_ok();
+        open_files(&b);
+        char *log = read_home("state/dxlauncher/launcher.log");
+        char *was = slurp(kept, NULL);
+        if (i == 0) {
+            CHECK_STR(dxl_es_choice(b.es, DXL_ES_ANTIALIAS), "MSAA2x");
+            CHECK(was == NULL);
+            CHECK(strstr(log, "could not be read") == NULL);
+        } else {
+            CHECK_STR(was, files[i]);
+            CHECK(strstr(log, "could not be read (JSON: ") != NULL);
+            CHECK_INT(dxl_es_was_corrupt(b.es), 0);
+        }
+        free(was);
+        free(log);
+        free(json);
+        close_files(&b);
+    }
+}
+
+/* After a crash: Recovery, its log page, the next run in a window, another
+ * renderer; Play; the window's words on that run alone. */
 /* After a crash: Recovery, its log page, the next run on the software
  * renderer, another renderer; Play; the window's words on that run alone. */
 static void test_recovery(void) {
@@ -777,6 +824,7 @@ int main(void) {
         return 1;
     }
     RUN(test_settings_roundtrip);
+    RUN(test_settings_kept);
     RUN(test_recovery);
     RUN(test_remap_pad);
     RUN(test_pad_test);
