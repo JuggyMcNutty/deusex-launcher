@@ -567,6 +567,19 @@ static void antialias_check(dxl_run *r) {
     free(json);
 }
 
+/* The instance for the run's words: the lock and the hand-over's channel,
+ * but for a dedicated server (-server), which takes no line a second start
+ * hands on, as the original's, whose log window is never IsBrowser: the
+ * lock alone. Taken again, of the other kind, when a relaunch changes it. */
+static void hold_instance(dxl_run *r) {
+    int server = dxl_cmd_param(r->words, "server");
+    if (r->instance && dxl_instance_listens(r->instance) == !server) return;
+    char *id = dxl_session_instance_id(&r->session);
+    dxl_instance_release(r->instance);
+    r->instance = server ? dxl_instance_acquire_lock(id) : dxl_instance_acquire(id);
+    free(id);
+}
+
 /* Saved, FirstRun raised, the sentinel made: after the screens, before the
  * game, in the original's order (dx-reverse-info/launch-flow.md section
  * 5). */
@@ -683,7 +696,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     }
     open_log(r);
     dxl_log("Init: command line: %s", r->words);
-    if (!r->opt.dry && !r->opt.print_command) r->instance = dxl_instance_acquire(id);
+    if (!r->opt.dry && !r->opt.print_command) hold_instance(r);
     free(id);
 
     /* 2. The profile, and its install. */
@@ -848,6 +861,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             dxl_log("relaunch: %s", r->played.relaunch);
             free(r->words);
             r->words = dxl_xstrdup(r->played.relaunch);
+            if (r->instance) hold_instance(r);
             continue;
         }
         /* Back to Home after a clean end, when the player asked for it:
