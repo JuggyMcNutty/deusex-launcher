@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 /* The checks tests/fixtures can only stand in for, run against a real install
@@ -250,6 +251,59 @@ static void test_headless_run(void) {
     free(home);
 }
 
+/* A launcher killed while the game plays, with its engine (a session's
+ * end, a power cut): Running.ini left, and the run before's record of a
+ * clean end gone with the run's start, not taken for this run's; the next
+ * start with no window stops at Recovery. */
+static void test_killed_mid_game(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-killed"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+    dxl_lastrun last;
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), 0);
+    CHECK_INT(last.clean, 1);
+
+    dxl_env_set("DXL_STUB", "stubborn");
+    pid_t pid = fork();
+    if (pid == 0) {
+        setpgid(0, 0);
+        _exit(run_launcher(root, NULL));
+    }
+    setpgid(pid, pid);
+    for (int i = 0; i < 200 && !dxl_path_exists(sentinel); i++) dxl_os_sleep_ms(50);
+    dxl_os_sleep_ms(500);   /* the engine up */
+    kill(-pid, SIGKILL);
+    int status = 0;
+    waitpid(pid, &status, 0);
+    CHECK(WIFSIGNALED(status));
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), -1);
+
+    dxl_env_set("DXL_STUB", "ready");
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_SCREEN);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window that plays from its first Home and quits at the next, looking
  * at the inis then. */
 static int views, saw_rewrite;
@@ -462,5 +516,6 @@ TEST_MAIN_BEGIN
     RUN(test_import_plan);
     RUN(test_changed_seen);
     RUN(test_headless_run);
+    RUN(test_killed_mid_game);
     RUN(test_back_home);
 TEST_MAIN_END

@@ -3,7 +3,7 @@
  *   <state>/LastRun.ini         [LastRun] Ended, Status, Signal, Ready, Clean,
  *                               Error, Fallback, Start: the run's end,
  *                               written as it ends, and where the game
- *                               started
+ *                               started; taken away as the next run begins
  *   <state>/logs/last-run.log   the engine's output, all of it
  *   <state>/logs/previous-run.log   the run's before it
  *
@@ -35,6 +35,15 @@ typedef struct {
 
 int  dxl_lastrun_load(dxl_lastrun *r, const char *state_dir);
 int  dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err);
+/* As a run begins, its Running.ini made: the run before's record taken
+ * away, so that a launcher stopped before this run's end (killed, the
+ * session's end, a power cut) leaves none, never that one's as this one's.
+ * 0 when there is none now. */
+int  dxl_lastrun_clear(const char *state_dir);
+/* Whether the record is the last run's to show, for a run that did not end
+ * cleanly (unclean: its Running.ini there) or for any: one that says it
+ * ended cleanly is not that run's, but an older launcher's record. */
+int  dxl_lastrun_shown(const dxl_lastrun *r, int unclean);
 
 /* Before a run: last-run.log becomes previous-run.log. Returns the new
  * log's path; caller frees. */
