@@ -204,6 +204,9 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     } else if (!safe) {
         dxl_field(ui, &in, lh, nw, "How it ended", "not known: the run left no record", t->warn, DXL_W_MAY_CUT);
     }
+    /* An engine --version refuses: why, as Home's field says it, and no
+     * Play; Home has the whole of it, and The engine.... */
+    if (!s->engine_ok) dxl_field(ui, &in, lh, nw, "The engine", s->engine_brief, t->bad, DXL_W_MAY_CUT);
     if (advice) {
         dxl_cut_top(&in, 6);
         float h = dxl_paragraph_typed(ui, in, DXL_FONT_BODY, advice->advice, t->text_focus, s->page_since);
@@ -221,7 +224,8 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     int fix = advice ? advice->fix : DXL_FIX_NONE;
     /* All in one row in the narrowest window, 960 dp: 800 dp of them with
      * the widest fix. */
-    int play = dxl_button(ui, "recovery play", dxl_cut_left(&buttons, 110), "Play", DXL_W_PRIMARY);
+    int play = dxl_button(ui, "recovery play", dxl_cut_left(&buttons, 110), "Play",
+                          DXL_W_PRIMARY | (s->engine_ok ? 0 : DXL_W_DISABLED));
     dxl_cut_left(&buttons, 10);
     int fixed = 0;
     const char *fix_label = fix == DXL_FIX_RENDERER ? "Another renderer..."
@@ -249,7 +253,7 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     got = dxl_shell_answer(s, defaults_id);
     if (got >= 0) reset_page(s, got);
 
-    if (play || ui->in.start) {
+    if (play || (ui->in.start && s->engine_ok)) {
         s->result = 1;
     } else if (fixed && fix == DXL_FIX_RENDERER) {
         dxl_shell_probe(s);

@@ -424,6 +424,39 @@ static void test_engine_and_game(void) {
     free(good);
 }
 
+/* An engine this system cannot start, DXL_ENGINE's: at a start that finds
+ * Running.ini, Recovery says why and its play key starts nothing; at
+ * -changevideo's Graphics, Play is off. No game started, and the launcher
+ * ends 0, not 4 with the reason on stderr alone. */
+static void test_play_refused(void) {
+    CHECK_INT(fresh_home(), 0);
+    engines();
+    char *glibc = home_file("engines/glibc/DXEngine");
+    char *running = home_file("state/dxlauncher/profiles/default/Running.ini");
+    CHECK_INT(sh("mkdir -p \"$(dirname '%s')\" && : >'%s'", running, running), 0);
+    char env[700];
+    snprintf(env, sizeof env, "DXL_ENGINE='%s'", glibc);
+    CHECK_INT(launch_with("recovery_engine.script", "ready", env), 0);
+    script_ok();
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "does not start here: it needs glibc 2.99") != NULL);
+    CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+    /* Its Play off, not to be found: the script ends there. */
+    CHECK_INT(sh("DXL_HOME='%s' %s %s DXL_UI_SCRIPT='%s/graphics_engine.script' '%s/deusex-launcher' -changevideo "
+                 ">>'%s/out.txt' 2>&1",
+                 home, OUR_PADS, env, DXL_UI_SCRIPTS, app, home),
+              0);
+    char *out = read_home("out.txt");
+    CHECK(strstr(out, "ui script: FAILED: no Play on settings") != NULL);
+    free(out);
+    log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+    free(running);
+    free(glibc);
+}
+
 /* The Profiles page: a profile made, named after its name, used; a copy
  * renamed and deleted, its four folders gone; the first in use again. */
 static void test_profiles(void) {
@@ -829,6 +862,7 @@ int main(void) {
     RUN(test_remap_pad);
     RUN(test_pad_test);
     RUN(test_engine_and_game);
+    RUN(test_play_refused);
     RUN(test_profiles);
     RUN(test_mods);
     RUN(test_multiplayer);

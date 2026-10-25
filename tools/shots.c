@@ -83,6 +83,7 @@ typedef enum {
     SCENE_REPOINT,
     SCENE_RECOVERY,
     SCENE_RECOVERY_SAVE,    /* a run started on a save that did not load */
+    SCENE_RECOVERY_ENGINE,  /* a crash, and an engine this system cannot start: no Play */
     SCENE_SAFE,
     SCENE_ABOUT,
     SCENE_PROFILES,         /* three: the one in use, a mod's, one whose game is gone */
@@ -116,16 +117,17 @@ typedef enum {
     SCENE_GAMEPLAY,
     SCENE_MULTIPLAYER,
     SCENE_LAUNCHER,
+    SCENE_GRAPHICS_ENGINE,  /* -changevideo's Graphics with an engine this system cannot start */
     SCENE_COUNT
 } scene;
 
 static const char *const scene_names[SCENE_COUNT] = {
     "welcome", "find", "find-none", "find-looking", "find-more", "browser", "message", "import", "home", "home-made", "home-engine", "theme-pastel", "theme-red", "repoint",
-    "recovery", "recovery-save", "safe", "about", "profiles", "home-new", "saves", "saves-none", "saves-old-engine", "shots",
+    "recovery", "recovery-save", "recovery-engine", "safe", "about", "profiles", "home-new", "saves", "saves-none", "saves-old-engine", "shots",
     "shots-none", "shot-whole", "servers", "servers-asking", "servers-failed", "servers-password", "mods", "mods-none",
     "mod-profile", "settings", "pick", "osk", "confirm", "log", "keys",
     "controller", "controller-end", "padwizard", "padtest", "graphics", "audio", "gameplay", "multiplayer",
-    "launcher",
+    "launcher", "graphics-engine",
 };
 
 /* The settings page each of those scenes shows. */
@@ -395,6 +397,16 @@ static void servers(dxl_shell *s, scene sc) {
     }
 }
 
+/* An engine this system cannot start, as the glibc check says it. */
+static void refused_engine(dxl_shell *s) {
+    s->engine_ok = 0;
+    snprintf(s->engine_brief, sizeof s->engine_brief, "needs glibc 2.44, this system has 2.43");
+    snprintf(s->engine_problem, sizeof s->engine_problem,
+             "%.200s/Applications/DXLauncher/DXEngine does not start here: it needs glibc 2.44, and this system "
+             "has 2.43. It was built on a newer system than this one: choose an engine built for this one, or "
+             "build it here.", home);
+}
+
 /* The scene's run and shell, entered. */
 static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
     int profile = sc >= SCENE_HOME && sc != SCENE_REPOINT;
@@ -526,13 +538,12 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         if (sc == SCENE_SHOT_WHOLE) s->shot_open = 1;
         break;
     case SCENE_HOME_ENGINE:
-        s->engine_ok = 0;
-        snprintf(s->engine_brief, sizeof s->engine_brief, "needs glibc 2.44, this system has 2.43");
-        snprintf(s->engine_problem, sizeof s->engine_problem,
-                 "%.200s/Applications/DXLauncher/DXEngine does not start here: it needs glibc 2.44, and this system "
-                 "has 2.43. It was built on a newer system than this one: choose an engine built for this one, or "
-                 "build it here.", home);
+        refused_engine(s);
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
+        break;
+    case SCENE_GRAPHICS_ENGINE:
+        refused_engine(s);
+        dxl_shell_enter(s, r, DXL_VIEW_GRAPHICS);
         break;
     case SCENE_THEME_PASTEL:
     case SCENE_THEME_RED: {
@@ -566,7 +577,9 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         break;
     }
     case SCENE_RECOVERY:
+    case SCENE_RECOVERY_ENGINE:
         crashed(r);
+        if (sc == SCENE_RECOVERY_ENGINE) refused_engine(s);
         dxl_shell_enter(s, r, DXL_VIEW_RECOVERY);
         break;
     case SCENE_RECOVERY_SAVE: {
