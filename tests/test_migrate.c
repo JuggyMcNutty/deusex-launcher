@@ -43,7 +43,25 @@ static void test_no_save_folder(void) {
     scratch_remove(dir);
 }
 
+/* A .usa whose number is past an int names no slot: atoi's overflow once
+ * made SlotNames[1215752191]. */
+static void test_number_past_an_int(void) {
+    const char *dir = scratch_dir("migrate-big");
+    scratch_write(dir, "System/placeholder", "");
+    scratch_write(dir, "Save/Save99999999999.usa", "x");
+    scratch_write(dir, "Save/Save7.usa", "x");
+    dxl_ini *user = dxl_ini_new();
+    char sys[300];
+    snprintf(sys, sizeof sys, "%s/System", dir);
+    CHECK_INT(dxl_migrate_saves(sys, user), 1);
+    CHECK_STR(dxl_ini_get(user, "UnrealShare.UnrealSlotMenu", "SlotNames[7]"), "Saved game");
+    CHECK(dxl_ini_get(user, "UnrealShare.UnrealSlotMenu", "SlotNames[1215752191]") == NULL);
+    dxl_ini_free(user);
+    scratch_remove(dir);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_slot_names_for_usa_files);
     RUN(test_no_save_folder);
+    RUN(test_number_past_an_int);
 TEST_MAIN_END
