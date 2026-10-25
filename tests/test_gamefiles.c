@@ -18,7 +18,9 @@
 #include <dirent.h>
 #include <signal.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
+#ifndef _WIN32
+#include <sys/wait.h>   /* the tests that fork a launcher: POSIX alone */
+#endif
 #include <unistd.h>
 
 /* The checks tests/fixtures can only stand in for, run against a real install
@@ -255,6 +257,8 @@ static void test_headless_run(void) {
     free(home);
 }
 
+#ifndef _WIN32
+/* Forks a launcher and kills it: POSIX alone. */
 /* A launcher killed while the game plays, with its engine (a session's
  * end, a power cut): Running.ini left, and the run before's record of a
  * clean end gone with the run's start, not taken for this run's; the next
@@ -307,7 +311,10 @@ static void test_killed_mid_game(void) {
     scratch_remove(home);
     free(home);
 }
+#endif /* !_WIN32 */
 
+#ifndef _WIN32
+/* Forks a launcher playing a server: POSIX alone. */
 /* A dedicated server takes no line a second start hands on, as the
  * original's -server: started so, or relaunched to it by the game, its
  * launcher holds the lock alone, and a forward finds no one to take it. */
@@ -359,6 +366,7 @@ static void test_server_takes_no_handover(void) {
     scratch_remove(home);
     free(home);
 }
+#endif /* !_WIN32 */
 
 /* A window closed at Recovery: its Quit. */
 static int recovery_views;
@@ -628,8 +636,12 @@ TEST_MAIN_BEGIN
     RUN(test_import_plan);
     RUN(test_changed_seen);
     RUN(test_headless_run);
+#ifndef _WIN32
     RUN(test_killed_mid_game);
+#endif
+#ifndef _WIN32
     RUN(test_server_takes_no_handover);
+#endif
     RUN(test_ends_without_a_game);
     RUN(test_back_home);
 TEST_MAIN_END
