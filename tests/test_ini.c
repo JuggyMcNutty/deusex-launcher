@@ -1,4 +1,7 @@
 #include "test.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include "scratch.h"
 #include "core/ini.h"
 
 /* The property that matters most: a file in the game's format, loaded and
@@ -29,6 +32,28 @@ static void test_roundtrip_fixtures(void) {
         free(orig);
         free(path);
     }
+}
+
+/* A read-only ini, a player's way of keeping settings, is not replaced:
+ * the save refuses, as the original's write in place would. */
+static void test_save_refuses_read_only(void) {
+    if (geteuid() == 0) return;   /* root writes anything */
+    const char *dir = scratch_dir("ini-ro");
+    scratch_write(dir, "System/DeusEx.ini", "[A]\r\nx=1\r\n");
+    char *path = scratch_path(dir, "System/DeusEx.ini");
+    chmod(path, 0444);
+    const char *src = "[A]\r\nx=2\r\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    dxl_err err = { 0 };
+    CHECK_INT(dxl_ini_save(ini, path, &err), -1);
+    size_t n = 0;
+    char *kept = slurp(path, &n);
+    CHECK(kept && strcmp(kept, "[A]\r\nx=1\r\n") == 0);
+    free(kept);
+    chmod(path, 0644);
+    free(path);
+    dxl_ini_free(ini);
+    scratch_remove(dir);
 }
 
 static void test_reads_values(void) {

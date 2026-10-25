@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <string.h>
 
 typedef enum {
@@ -202,12 +204,30 @@ int dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err) {
     free(text);
 
     if (bad) { remove(tmp); dxl_err_set(err, "short write on %s", tmp); free(tmp); return -1; }
-    if (rename(tmp, path) != 0) {
+    /* The fresh file takes the ini's place: a linked ini's target, not
+     * the link (which became a plain file, its target left stale), and
+     * never a read-only one, a UE1 player's way of keeping settings, which
+     * the original's write in place refuses. */
+    char *target = NULL;
+    struct stat st;
+    if (lstat(path, &st) == 0) {
+        if (S_ISLNK(st.st_mode)) target = realpath(path, NULL);
+        if (access(target ? target : path, W_OK) != 0) {
+            remove(tmp);
+            dxl_err_set(err, "%s is read-only", path);
+            free(target);
+            free(tmp);
+            return -1;
+        }
+    }
+    if (rename(tmp, target ? target : path) != 0) {
         remove(tmp);
-        dxl_err_set(err, "cannot replace %s", path);
+        dxl_err_set(err, "cannot replace %s", target ? target : path);
+        free(target);
         free(tmp);
         return -1;
     }
+    free(target);
     free(tmp);
     return 0;
 }
