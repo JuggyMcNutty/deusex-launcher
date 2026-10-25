@@ -5,6 +5,7 @@
 #include "ui/widgets.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -14,6 +15,9 @@ void dxl_page_home_enter(dxl_shell *s) {
     dxl_saves_reload(s);
     s->saves = s->save_list.count;
     s->unclean = dxl_sentinel_exists(&s->run->sentinel);
+    char *log = dxl_path_join(s->run->session.profile.logs_dir, DXL_LASTRUN_LOG);
+    s->played = s->unclean || dxl_path_exists(log);
+    free(log);
 }
 
 static void when(long t, char *out, size_t size) {
@@ -28,10 +32,11 @@ static dxl_rgba last_run(const dxl_shell *s, char *out, size_t size) {
     const dxl_lastrun *l = &s->run->last;
     const dxl_theme *t = &s->ui.theme;
     /* Its Running.ini there, the last run did not end cleanly: its record,
-     * or none, not an older one of a clean end. */
+     * or none, not an older one of a clean end. None where the profile has
+     * played: a run stopped with its launcher, its Recovery since quit. */
     if (!dxl_lastrun_shown(l, s->unclean)) {
-        snprintf(out, size, s->unclean ? "not known: it left no record" : "never, with this profile");
-        return s->unclean ? t->warn : t->text;
+        snprintf(out, size, s->played ? "not known: it left no record" : "never, with this profile");
+        return s->played ? t->warn : t->text;
     }
     char date[64], how[600];
     when(l->ended, date, sizeof date);
