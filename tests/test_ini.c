@@ -225,8 +225,25 @@ static void test_rewrite_normalises_line_ending(void) {
     dxl_ini_free(ini);
 }
 
+/* A key appended to a section that ends the file's last, unterminated line
+ * gets a line of its own: it was joined onto that line ("x=1y=2"). */
+static void test_append_after_unterminated_last_line(void) {
+    const char *src = "[A]\r\nx=1";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    dxl_ini_set(ini, "A", "y", "2");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\r\nx=1\r\ny=2\r\n");
+    free(out);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "1");
+    CHECK_STR(dxl_ini_get(ini, "A", "y"), "2");
+    dxl_ini_free(ini);
+}
+
+
 TEST_MAIN_BEGIN
     RUN(test_roundtrip_fixtures);
+    RUN(test_save_refuses_read_only);
     RUN(test_reads_values);
     RUN(test_repeated_keys);
     RUN(test_set_preserves_everything_else);
@@ -237,4 +254,5 @@ TEST_MAIN_BEGIN
     RUN(test_unterminated_last_line);
     RUN(test_lf_file_stays_lf);
     RUN(test_rewrite_normalises_line_ending);
+    RUN(test_append_after_unterminated_last_line);
 TEST_MAIN_END

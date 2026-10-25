@@ -43,6 +43,12 @@ static void line_clear(ini_line *l) {
 static ini_line *line_insert(dxl_ini *ini, size_t index) {
     lines_reserve(ini, ini->count + 1);
     if (index > ini->count) index = ini->count;
+    /* A line after the file's last, unterminated line gets its own line:
+     * joined onto it, "[A]\r\nx=1" with y=2 appended read "x=1y=2". */
+    if (index > 0 && ini->lines[index - 1].eol && ini->lines[index - 1].eol[0] == '\0') {
+        free(ini->lines[index - 1].eol);
+        ini->lines[index - 1].eol = dxl_xstrdup(ini->eol);
+    }
     memmove(ini->lines + index + 1, ini->lines + index,
             (ini->count - index) * sizeof *ini->lines);
     ini->count++;
