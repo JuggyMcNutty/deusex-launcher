@@ -43,16 +43,22 @@ typedef struct {
     int  vulkan;              /* a GPU's Vulkan device */
     char vulkan_device[128];  /* "PowerVR Rogue GE8300" */
     char vulkan_version[32];  /* "1.3.225" */
-    int  gles;                /* a GPU's OpenGL ES */
+    int  gles;                /* a GPU's OpenGL ES 3.2 or later, the GL renderer's */
     char gles_version[128];   /* GL_VERSION when a context could be made, else EGL's */
     char gles_renderer[128];
-    int  gl;                  /* a GPU's desktop GL through EGL */
+    int  gl;                  /* a GPU's desktop OpenGL 4.2 core context through EGL, the GL renderer's */
+    char gl_version[128];     /* that context's GL_VERSION */
     int  vulkan_cpu;          /* Mesa's lavapipe */
     char vulkan_cpu_device[128];
     int  gl_cpu;              /* Mesa's llvmpipe (or softpipe), through EGL */
     char gl_cpu_renderer[128];
     char note[192];           /* why a probe failed or timed out */
 } dxl_gpu_probe;
+
+/* Whether a GL_VERSION, desktop GL's ("4.6 (Core Profile) Mesa ...") or
+ * OpenGL ES's ("OpenGL ES 3.2 ..."), is major.minor or later: the GL
+ * renderer's contexts are 4.2 core and ES 3.2. 0 for none. */
+int dxl_gl_version_at_least(const char *version, int major, int minor);
 
 /* The probe as text and back: an ini of one section, [Probe], which
  * dxl-cli --probe --ini prints for a launcher that runs it as a program of

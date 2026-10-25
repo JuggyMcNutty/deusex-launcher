@@ -42,9 +42,9 @@ static void usage(FILE *f) {
         "  --print-command  the engine's command line for this profile; nothing is run\n"
         "  --import         a profile made from --game's install, nothing run\n"
         "  --play           play, with no Home screen; a screen that is due is a message\n"
-        "  --probe [--ini]  the Vulkan, OpenGL ES and OpenGL this machine's GPU offers, and\n"
-        "                   Mesa's CPU drivers; --ini as the [Probe] section the launcher's\n"
-        "                   window reads\n"
+        "  --probe [--ini]  the Vulkan, OpenGL ES 3.2 and OpenGL 4.2 core this machine's GPU\n"
+        "                   offers, a context of each made and its version read, and Mesa's\n"
+        "                   CPU drivers; --ini as the [Probe] section the launcher's window reads\n"
         "  --find           the installs of Deus Ex the first run would find here, but\n"
         "                   launcher.ini's: each folder, where it was found, its build\n"
         "  --mods           the mods a profile can be made of: the install's folder's (the profile's,\n"
@@ -80,12 +80,13 @@ static int probe(int as_ini) {
     }
     printf("vulkan     %s\n", p.vulkan ? "yes" : "no");
     if (p.vulkan) printf("  device   %s\n  api      %s\n", p.vulkan_device, p.vulkan_version);
-    printf("opengl es  %s\n", p.gles ? "yes" : "no");
-    if (p.gles) {
-        if (p.gles_renderer[0]) printf("  renderer %s\n", p.gles_renderer);
-        printf("  version  %s\n", p.gles_version);
-    }
-    printf("opengl     %s\n", p.gl ? "yes" : "no");
+    /* The GL renderer's two: an OpenGL ES 3.2 context and a 4.2 core one,
+     * a driver below them shown with its version. */
+    printf("opengl es  %s\n", p.gles ? "yes" : "no: the GL renderer needs OpenGL ES 3.2");
+    if (p.gles_renderer[0]) printf("  renderer %s\n", p.gles_renderer);
+    if (p.gles_version[0]) printf("  version  %s\n", p.gles_version);
+    printf("opengl     %s\n", p.gl ? "yes" : "no: the GL renderer needs an OpenGL 4.2 core context");
+    if (p.gl_version[0]) printf("  version  %s\n", p.gl_version);
     printf("vulkan cpu %s\n", p.vulkan_cpu ? "yes" : "no");
     if (p.vulkan_cpu) printf("  device   %s\n", p.vulkan_cpu_device);
     printf("opengl cpu %s\n", p.gl_cpu ? "yes" : "no");

@@ -74,6 +74,14 @@ void dxl_renderers_free(dxl_renderer_list *l) {
     memset(l, 0, sizeof *l);
 }
 
+int dxl_gl_version_at_least(const char *v, int major, int minor) {
+    int ma = 0, mi = 0;
+    if (!v) return 0;
+    if (!strncmp(v, "OpenGL ES ", 10)) v += 10;
+    if (sscanf(v, "%d.%d", &ma, &mi) != 2) return 0;
+    return ma > major || (ma == major && mi >= minor);
+}
+
 /* The one-line description of what the probe found for an API. */
 static void found_line(char *out, size_t n, dxl_gfx_api api, const dxl_gpu_probe *p) {
     switch (api) {
@@ -90,7 +98,8 @@ static void found_line(char *out, size_t n, dxl_gfx_api api, const dxl_gpu_probe
                  p->gles_version[0] ? p->gles_version : (p->gles_renderer[0] ? "" : "OpenGL ES driver present"));
         break;
     case DXL_API_GL:
-        snprintf(out, n, "desktop OpenGL driver present");
+        if (p->gl_version[0]) snprintf(out, n, "OpenGL %s", p->gl_version);
+        else snprintf(out, n, "desktop OpenGL driver present");
         break;
     case DXL_API_NONE:
         snprintf(out, n, "runs on the CPU");
@@ -156,7 +165,9 @@ void dxl_renderers_resolve(dxl_renderer_list *l, const dxl_gpu_probe *probe) {
                 snprintf(r->status, sizeof r->status, "Not available: OpenGL here is only Mesa's llvmpipe, on the CPU");
             else
                 snprintf(r->status, sizeof r->status, "Not available: no %s driver on this device",
-                         dxl_gfx_api_name(r->requires));
+                         r->requires == DXL_API_GL     ? "OpenGL 4.2"
+                         : r->requires == DXL_API_GLES ? "OpenGL ES 3.2"
+                                                       : dxl_gfx_api_name(r->requires));
             continue;
         }
         r->selectable = 1;
@@ -209,6 +220,7 @@ char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p) {
     dxl_ini_set(ini, PROBE, "GLESVersion", p->gles_version);
     dxl_ini_set(ini, PROBE, "GLESRenderer", p->gles_renderer);
     dxl_ini_set_bool(ini, PROBE, "GL", p->gl);
+    dxl_ini_set(ini, PROBE, "GLVersion", p->gl_version);
     dxl_ini_set_bool(ini, PROBE, "VulkanCPU", p->vulkan_cpu);
     dxl_ini_set(ini, PROBE, "VulkanCPUDevice", p->vulkan_cpu_device);
     dxl_ini_set_bool(ini, PROBE, "GLCPU", p->gl_cpu);
@@ -241,6 +253,7 @@ int dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out) {
     copy_key(ini, "GLESVersion", out->gles_version, sizeof out->gles_version);
     copy_key(ini, "GLESRenderer", out->gles_renderer, sizeof out->gles_renderer);
     out->gl = dxl_ini_get_bool(ini, PROBE, "GL", 0);
+    copy_key(ini, "GLVersion", out->gl_version, sizeof out->gl_version);
     out->vulkan_cpu = dxl_ini_get_bool(ini, PROBE, "VulkanCPU", 0);
     copy_key(ini, "VulkanCPUDevice", out->vulkan_cpu_device, sizeof out->vulkan_cpu_device);
     out->gl_cpu = dxl_ini_get_bool(ini, PROBE, "GLCPU", 0);

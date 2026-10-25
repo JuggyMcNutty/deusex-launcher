@@ -103,11 +103,80 @@ static int has_api_word(const char *apis, const char *word) {
 #define DXL_GL_VERSION  0x1F02
 typedef const unsigned char *(*get_string_fn)(unsigned int);
 
+/* EGL 1.5's, which a header of 1.4 lacks (EGL_KHR_create_context's). */
+#ifndef EGL_CONTEXT_MAJOR_VERSION
+#define EGL_CONTEXT_MAJOR_VERSION 0x3098
+#endif
+#ifndef EGL_CONTEXT_MINOR_VERSION
+#define EGL_CONTEXT_MINOR_VERSION 0x30FB
+#endif
+#ifndef EGL_CONTEXT_OPENGL_PROFILE_MASK
+#define EGL_CONTEXT_OPENGL_PROFILE_MASK 0x30FD
+#endif
+#ifndef EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT
+#define EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT 0x00000001
+#endif
+#define DXL_EGL_OPENGL_ES3_BIT 0x40
+
 /* Mesa's CPU renderers, as GL_RENDERER names them */
 static int cpu_renderer(const char *renderer) {
     return renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe"));
 }
 
+typedef struct {
+    PFNEGLBINDAPIPROC              bind_api;
+    PFNEGLCHOOSECONFIGPROC         choose_config;
+    PFNEGLCREATEPBUFFERSURFACEPROC create_pbuffer;
+    PFNEGLCREATECONTEXTPROC        create_context;
+    PFNEGLMAKECURRENTPROC          make_current;
+    PFNEGLDESTROYCONTEXTPROC       destroy_context;
+    PFNEGLDESTROYSURFACEPROC       destroy_surface;
+    PFNEGLGETPROCADDRESSPROC       get_proc;
+} egl_fns;
+
+/* A throwaway pbuffer context of an API, of a config that renders it and
+ * of the attributes asked for: its GL_VERSION and GL_RENDERER. 1 when one
+ * was made current. Not every driver offers pbuffers, nor every version. */
+static int context_strings(const egl_fns *f, EGLDisplay dpy, EGLenum api, EGLint renderable,
+                           const EGLint *ctx_attr, const char *const *libs, char *version, size_t vsize,
+                           char *renderer, size_t rsize) {
+    if (!f->bind_api || !f->choose_config || !f->create_pbuffer || !f->create_context || !f->make_current ||
+        !f->get_proc || !f->bind_api(api))
+        return 0;
+    const EGLint cfg_attr[] = { EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, renderable, EGL_NONE };
+    EGLConfig cfg;
+    EGLint ncfg = 0;
+    if (!f->choose_config(dpy, cfg_attr, &cfg, 1, &ncfg) || ncfg < 1) return 0;
+    const EGLint pb_attr[] = { EGL_WIDTH, 16, EGL_HEIGHT, 16, EGL_NONE };
+    EGLSurface surf = f->create_pbuffer(dpy, cfg, pb_attr);
+    if (surf == EGL_NO_SURFACE) return 0;
+    int made = 0;
+    EGLContext ctx = f->create_context(dpy, cfg, EGL_NO_CONTEXT, ctx_attr);
+    if (ctx != EGL_NO_CONTEXT && f->make_current(dpy, surf, surf, ctx)) {
+        made = 1;
+        /* EGL 1.4 only promises eglGetProcAddress for extensions, so fall
+         * back to the API's library itself for a core entry point. */
+        get_string_fn get = (get_string_fn)f->get_proc("glGetString");
+        void *lib = NULL;
+        if (!get && (lib = open_first(libs)) != NULL) get = (get_string_fn)dlsym(lib, "glGetString");
+        if (get) {
+            const char *v = (const char *)get(DXL_GL_VERSION);
+            const char *r = (const char *)get(DXL_GL_RENDERER);
+            if (v) snprintf(version, vsize, "%s", v);
+            if (r) snprintf(renderer, rsize, "%s", r);
+        }
+        f->make_current(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if (lib) dlclose(lib);
+    }
+    if (ctx != EGL_NO_CONTEXT && f->destroy_context) f->destroy_context(dpy, ctx);
+    if (f->destroy_surface) f->destroy_surface(dpy, surf);
+    return made;
+}
+
+/* OpenGL ES and desktop OpenGL as the engine's GL renderer asks SDL for
+ * them, an ES 3.2 context and a 4.2 core one: each offered only with a
+ * context made and its GL_VERSION at that, as Windows' probe asks for 4.2.
+ * EGL_CLIENT_APIS alone names a driver of any version. */
 static void probe_egl(dxl_gpu_probe *out) {
     static const char *const names[] = { "libEGL.so.1", "libEGL.so", NULL };
     void *lib = open_first(names);
@@ -119,71 +188,49 @@ static void probe_egl(dxl_gpu_probe *out) {
     LOAD(PFNEGLGETDISPLAYPROC,     eglGetDisplay);
     LOAD(PFNEGLINITIALIZEPROC,     eglInitialize);
     LOAD(PFNEGLQUERYSTRINGPROC,    eglQueryString);
-    LOAD(PFNEGLBINDAPIPROC,        eglBindAPI);
-    LOAD(PFNEGLCHOOSECONFIGPROC,   eglChooseConfig);
-    LOAD(PFNEGLCREATEPBUFFERSURFACEPROC, eglCreatePbufferSurface);
-    LOAD(PFNEGLCREATECONTEXTPROC,  eglCreateContext);
-    LOAD(PFNEGLMAKECURRENTPROC,    eglMakeCurrent);
-    LOAD(PFNEGLDESTROYCONTEXTPROC, eglDestroyContext);
-    LOAD(PFNEGLDESTROYSURFACEPROC, eglDestroySurface);
     LOAD(PFNEGLTERMINATEPROC,      eglTerminate);
-    LOAD(PFNEGLGETPROCADDRESSPROC, eglGetProcAddress);
 #undef LOAD
     if (!p_eglGetDisplay || !p_eglInitialize || !p_eglQueryString) { dlclose(lib); return; }
+    egl_fns f = {
+        (PFNEGLBINDAPIPROC)dlsym(lib, "eglBindAPI"),
+        (PFNEGLCHOOSECONFIGPROC)dlsym(lib, "eglChooseConfig"),
+        (PFNEGLCREATEPBUFFERSURFACEPROC)dlsym(lib, "eglCreatePbufferSurface"),
+        (PFNEGLCREATECONTEXTPROC)dlsym(lib, "eglCreateContext"),
+        (PFNEGLMAKECURRENTPROC)dlsym(lib, "eglMakeCurrent"),
+        (PFNEGLDESTROYCONTEXTPROC)dlsym(lib, "eglDestroyContext"),
+        (PFNEGLDESTROYSURFACEPROC)dlsym(lib, "eglDestroySurface"),
+        (PFNEGLGETPROCADDRESSPROC)dlsym(lib, "eglGetProcAddress"),
+    };
 
     EGLDisplay dpy = p_eglGetDisplay(EGL_DEFAULT_DISPLAY);
     EGLint major = 0, minor = 0;
     if (dpy == EGL_NO_DISPLAY || !p_eglInitialize(dpy, &major, &minor)) { dlclose(lib); return; }
 
     const char *apis = p_eglQueryString(dpy, EGL_CLIENT_APIS);
-    out->gles = has_api_word(apis, "OpenGL_ES");
-    out->gl   = has_api_word(apis, "OpenGL");
-    if (out->gles)
+    /* OpenGL ES: an ES 3 context, the highest 3.x the driver makes, else
+     * an ES 2 one, for its GL_VERSION ("OpenGL ES 3.2 build ..."). */
+    if (has_api_word(apis, "OpenGL_ES")) {
+        static const char *const gles_libs[] = { "libGLESv2.so.2", "libGLESv2.so", NULL };
+        static const EGLint es3[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+        static const EGLint es2[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
         snprintf(out->gles_version, sizeof out->gles_version, "EGL %d.%d", major, minor);
-
-    /* A throwaway pbuffer context gets the real GL_VERSION ("OpenGL ES 3.2
-     * build ..."), which is what decides whether a GLES 3 backend can run.
-     * Not every driver offers pbuffers; the EGL-level answer stands if not. */
-    if (out->gles && p_eglBindAPI && p_eglChooseConfig && p_eglCreatePbufferSurface &&
-        p_eglCreateContext && p_eglMakeCurrent && p_eglGetProcAddress &&
-        p_eglBindAPI(EGL_OPENGL_ES_API)) {
-        static const EGLint es3_bit = 0x40;   /* EGL_OPENGL_ES3_BIT */
-        const EGLint versions[] = { 3, 2 };
-        for (int vi = 0; vi < 2; vi++) {
-            EGLint cfg_attr[] = {
-                EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-                EGL_RENDERABLE_TYPE, versions[vi] == 3 ? es3_bit : EGL_OPENGL_ES2_BIT,
-                EGL_NONE
-            };
-            EGLConfig cfg;
-            EGLint ncfg = 0;
-            if (!p_eglChooseConfig(dpy, cfg_attr, &cfg, 1, &ncfg) || ncfg < 1) continue;
-            const EGLint pb_attr[] = { EGL_WIDTH, 16, EGL_HEIGHT, 16, EGL_NONE };
-            EGLSurface surf = p_eglCreatePbufferSurface(dpy, cfg, pb_attr);
-            if (surf == EGL_NO_SURFACE) continue;
-            const EGLint ctx_attr[] = { EGL_CONTEXT_CLIENT_VERSION, versions[vi], EGL_NONE };
-            EGLContext ctx = p_eglCreateContext(dpy, cfg, EGL_NO_CONTEXT, ctx_attr);
-            if (ctx != EGL_NO_CONTEXT && p_eglMakeCurrent(dpy, surf, surf, ctx)) {
-                /* EGL 1.4 only promises eglGetProcAddress for extensions, so
-                 * fall back to the GLES library itself for a core entry point. */
-                static const char *const gles_names[] = { "libGLESv2.so.2", "libGLESv2.so", NULL };
-                get_string_fn get = (get_string_fn)p_eglGetProcAddress("glGetString");
-                void *gles = NULL;
-                if (!get && (gles = open_first(gles_names)) != NULL)
-                    get = (get_string_fn)dlsym(gles, "glGetString");
-                if (get) {
-                    const char *v = (const char *)get(DXL_GL_VERSION);
-                    const char *r = (const char *)get(DXL_GL_RENDERER);
-                    if (v) snprintf(out->gles_version, sizeof out->gles_version, "%s", v);
-                    if (r) snprintf(out->gles_renderer, sizeof out->gles_renderer, "%s", r);
-                }
-                p_eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-                if (gles) dlclose(gles);
-            }
-            if (ctx != EGL_NO_CONTEXT && p_eglDestroyContext) p_eglDestroyContext(dpy, ctx);
-            if (p_eglDestroySurface) p_eglDestroySurface(dpy, surf);
-            if (out->gles_renderer[0]) break;
-        }
+        if (!context_strings(&f, dpy, EGL_OPENGL_ES_API, DXL_EGL_OPENGL_ES3_BIT, es3, gles_libs, out->gles_version,
+                             sizeof out->gles_version, out->gles_renderer, sizeof out->gles_renderer))
+            context_strings(&f, dpy, EGL_OPENGL_ES_API, EGL_OPENGL_ES2_BIT, es2, gles_libs, out->gles_version,
+                            sizeof out->gles_version, out->gles_renderer, sizeof out->gles_renderer);
+        out->gles = dxl_gl_version_at_least(out->gles_version, 3, 2);
+    }
+    /* Desktop OpenGL: a 4.2 core context, or none. */
+    if (has_api_word(apis, "OpenGL")) {
+        static const char *const gl_libs[] = { "libOpenGL.so.0", "libGL.so.1", "libGL.so", NULL };
+        static const EGLint core42[] = { EGL_CONTEXT_MAJOR_VERSION, 4, EGL_CONTEXT_MINOR_VERSION, 2,
+                                         EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                                         EGL_NONE };
+        char renderer[128] = "";
+        if (context_strings(&f, dpy, EGL_OPENGL_API, EGL_OPENGL_BIT, core42, gl_libs, out->gl_version,
+                            sizeof out->gl_version, renderer, sizeof renderer))
+            out->gl = dxl_gl_version_at_least(out->gl_version, 4, 2) && !cpu_renderer(renderer);
+        if (!out->gl) out->gl_version[0] = '\0';
     }
     if (p_eglTerminate) p_eglTerminate(dpy);
     dlclose(lib);
@@ -194,7 +241,7 @@ static void probe_egl(dxl_gpu_probe *out) {
         out->gl_cpu = 1;
         snprintf(out->gl_cpu_renderer, sizeof out->gl_cpu_renderer, "%s", out->gles_renderer);
         out->gles = out->gl = 0;
-        out->gles_version[0] = out->gles_renderer[0] = '\0';
+        out->gles_version[0] = out->gles_renderer[0] = out->gl_version[0] = '\0';
     }
 }
 
