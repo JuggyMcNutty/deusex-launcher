@@ -77,6 +77,24 @@ static void test_sentinel_lifecycle(void) {
     dxl_sentinel_free(&s);
 }
 
+/* A state folder gone (removed, or another machine's config): made with
+ * the sentinel, which is there for the next start. */
+static void test_sentinel_makes_its_folder(void) {
+    char dir[768];
+    snprintf(dir, sizeof dir, "%s/state/profiles/default", g_root);
+    dxl_sentinel s;
+    dxl_sentinel_init(&s, dir);
+    CHECK_INT(dxl_sentinel_create(&s, NULL), 0);
+    CHECK_INT(dxl_sentinel_exists(&s), 1);
+    dxl_sentinel_remove(&s);
+    dxl_sentinel_free(&s);
+    rmdir(dir);
+    snprintf(dir, sizeof dir, "%s/state/profiles", g_root);
+    rmdir(dir);
+    snprintf(dir, sizeof dir, "%s/state", g_root);
+    rmdir(dir);
+}
+
 /* A sentinel left behind by a killed process is exactly what the next launch
  * must notice. That is the whole of crash detection. */
 static void test_sentinel_survives_to_next_launch(void) {
@@ -163,6 +181,7 @@ TEST_MAIN_BEGIN
     build_install();
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);
+    RUN(test_sentinel_makes_its_folder);
     RUN(test_lock_is_exclusive);
     RUN(test_lock_is_per_install);
     RUN(test_handoff_delivers_the_command_line);
