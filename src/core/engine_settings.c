@@ -8,8 +8,8 @@
 #include <string.h>
 
 /* The types the engine has on Linux (LauncherSettings.cpp; D3D11 there
- * stops it: "Render API not available on this platform"). An unknown Type
- * keeps its default, Vulkan. */
+ * stops it: "Render API not available on this platform"). Another Type is
+ * dropped: with none the engine takes the ini's (dxl_es_names_type). */
 static const char *const render_types[] = { "Vulkan", "OpenGL", "GLES", "Software", NULL };
 static const char *const aa_modes[]     = { "Off", "MSAA2x", "MSAA4x", NULL };
 static const char *const light_modes[]  = { "Normal", "OneX", "BrighterActors", NULL };
@@ -127,8 +127,8 @@ dxl_engine_settings *dxl_es_open(const char *path, const char *default_path) {
     }
     if (!s->doc) {
         /* Missing or unreadable: start from nothing and let the defaults fill
-         * every field. Marked dirty so that saving replaces what the engine
-         * would otherwise have silently ignored. */
+         * every field but the Type. Marked dirty so that saving replaces what
+         * the engine would otherwise have silently ignored. */
         s->doc = dxl_json_new_object();
         s->dirty = 1;
     }
@@ -144,7 +144,14 @@ dxl_engine_settings *dxl_es_open(const char *path, const char *default_path) {
         case DXL_ES_CHOICE:
             usable = v && dxl_json_kind(v) == DXL_JSON_STRING &&
                      choice_valid(in, dxl_json_get_string(sec, in->key, NULL));
-            if (!usable) dxl_json_set_string(sec, in->key, default_choice(s, f));
+            if (usable) break;
+            if (f == DXL_ES_RENDER_TYPE) {
+                /* A Type only as one is chosen (dxl_es_names_type): one
+                 * the engine cannot take is dropped, not replaced. */
+                if (dxl_json_remove(sec, in->key)) s->dirty = 1;
+                continue;
+            }
+            dxl_json_set_string(sec, in->key, default_choice(s, f));
             break;
         case DXL_ES_BOOL:
             usable = v && dxl_json_kind(v) == DXL_JSON_BOOL;
@@ -197,7 +204,12 @@ static dxl_json *section_of(const dxl_engine_settings *s, dxl_es_field f) {
 }
 
 const char *dxl_es_choice(const dxl_engine_settings *s, dxl_es_field f) {
-    return dxl_json_get_string(section_of(s, f), fields[f].key, fields[f].def_choice);
+    const char *v = dxl_json_get_string(section_of(s, f), fields[f].key, NULL);
+    return v ? v : default_choice(s, f);
+}
+
+int dxl_es_names_type(const dxl_engine_settings *s) {
+    return dxl_json_get(section_of(s, DXL_ES_RENDER_TYPE), fields[DXL_ES_RENDER_TYPE].key) != NULL;
 }
 
 int dxl_es_bool(const dxl_engine_settings *s, dxl_es_field f) {
@@ -211,7 +223,9 @@ double dxl_es_number(const dxl_engine_settings *s, dxl_es_field f) {
 int dxl_es_set_choice(dxl_engine_settings *s, dxl_es_field f, const char *v) {
     const dxl_es_info *in = &fields[f];
     if (in->kind != DXL_ES_CHOICE || !choice_valid(in, v)) return -1;
-    if (strcmp(dxl_es_choice(s, f), v) == 0) return 0;
+    /* A Type none named is written even as the defaults file's: chosen. */
+    const char *now = dxl_json_get_string(section_of(s, f), in->key, NULL);
+    if (now && strcmp(now, v) == 0) return 0;
     dxl_json_set_string(dxl_json_child(s->doc, in->section), in->key, v);
     s->dirty = 1;
     return 0;

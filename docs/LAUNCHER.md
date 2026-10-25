@@ -458,7 +458,7 @@ the engine's sections that is missing is written, from the retail value
 where there is one, else the engine's default (`src/core/engine_sections.c`),
 so the engine reads what the page shows. A row's default is what is taken
 with no value kept: the engine's own, the class's for `User.ini`'s keys,
-the defaults file's for `Settings.json`.
+the defaults file's for `Settings.json` but its renderer (below).
 
 **Back to the defaults** gives a page what a new profile has: the install's
 `Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
@@ -476,7 +476,10 @@ Renderer offers the engine's renderers that run here, Vulkan and OpenGL
 ES 3.2, the Smart Pro's two, and Software, which draws on the CPU and needs
 nothing of the GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds
 the GPU's in a child process as the page needs them, and a profile made
-where it finds none begins on Software.
+where it finds none begins on Software. The row is `Settings.json`'s
+`Type`, written only as a renderer is chosen; where none is, it shows the
+one the engine takes by `DeusEx.ini`'s `GameRenderDevice`, the software
+renderer for `SoftDrv.SoftwareRenderDevice`, else Vulkan.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -689,7 +692,8 @@ run as it was: its Play plays, as Recovery's does.
 but `test_ui_scripts` with no display.
 `test_settings` takes the registry's rows through each codec, both
 generations of the system ini, the next run's words,
-`Settings.json`, the presets and a new profile's defaults; `test_keys` the
+`Settings.json` and the renderer where it names none, the presets and a
+new profile's defaults; `test_keys` the
 key names, bindings and their reset; `test_bindings` the controller's
 layouts, labels and actions; `test_padcurve` its sticks and triggers as the
 engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`
@@ -750,7 +754,8 @@ with the stub for the engine and no beacon asked (`DXL_LAN=none`), and
 reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
 in its file as its reader takes it, a value outside its slider's range as
-it was, and the next run's words on that run;
+it was, no renderer named where none was chosen, and the next run's words
+on that run;
 `recovery` goes from a crash to Recovery's log, the next run on Software
 and another renderer, and finds those on the next run alone; `remap_pad`
 binds three buttons of a virtual Xbox pad, two found by pressing or pulling

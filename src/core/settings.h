@@ -130,7 +130,9 @@ typedef struct {
 } dxl_stores;
 
 /* The value, from the first place that holds one, as text; the default
- * when none does. Returns 1 when a place held it. */
+ * when none does, the renderer's the one the engine takes by the system
+ * ini where Settings.json names no Type (dxl_es_names_type). Returns 1
+ * when a place held it. */
 int    dxl_setting_get(const dxl_stores *st, const dxl_setting *s, char *out, size_t size);
 double dxl_setting_number(const dxl_stores *st, const dxl_setting *s);
 int    dxl_setting_bool(const dxl_stores *st, const dxl_setting *s);

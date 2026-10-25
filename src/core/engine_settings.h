@@ -2,10 +2,11 @@
  * engine folder (--userdir), which the engine reads once, as its window
  * opens, and never writes (its LauncherSettings.cpp).
  *
- * The engine takes its renderer from here (RenderDevice.Type), and
- * DXEngine's own choices: anti-aliasing, lighting, the gamma curve, VSync,
- * bloom, HDR, the pad, the render scale. The rest of the game's display
- * settings are the inis' (core/settings_table.c).
+ * The engine takes its renderer from here where the file names one
+ * (RenderDevice.Type), else by the game's ini (GameRenderDevice,
+ * core/renderers.h), and DXEngine's own choices: anti-aliasing, lighting,
+ * the gamma curve, VSync, bloom, HDR, the pad, the render scale. The rest
+ * of the game's display settings are the inis' (core/settings_table.c).
  *
  * Every field is described by a table entry -- its JSON location, kind,
  * allowed values and range -- so the UI can build its rows from the table
@@ -15,10 +16,11 @@
  * The engine parses the file inside a catch-all, so a file it cannot read
  * costs every setting at once; a RenderDevice bool or number it cannot
  * find reads as false or 0, the rest as the engine's default. That is why
- * a save always writes every member of every section here, and why an
- * unreadable file is replaced rather than left alone. A member the file
- * lacks takes the packaged default, so a field added later reaches an
- * existing install with the port's value.
+ * a save always writes every member of every section here, but a Type
+ * none chose (dxl_es_names_type), and why an unreadable file is replaced
+ * rather than left alone. A member the file lacks takes the packaged
+ * default, so a field added later reaches an existing install with the
+ * port's value.
  */
 #ifndef DXL_ENGINE_SETTINGS_H
 #define DXL_ENGINE_SETTINGS_H
@@ -85,7 +87,15 @@ int  dxl_es_dirty(const dxl_engine_settings *s);
  * filled in from the defaults? */
 int  dxl_es_was_present(const dxl_engine_settings *s, dxl_es_field f);
 
-/* Writes the file, creating its directory. Always emits every field. */
+/* Whether the file names the renderer's Type: as read, or chosen since
+ * (dxl_es_set_choice). With none the engine takes the game's ini's
+ * GameRenderDevice, and a save writes none; a Type the engine cannot take
+ * is dropped as the file is read. dxl_es_choice gives the defaults file's
+ * for none. */
+int  dxl_es_names_type(const dxl_engine_settings *s);
+
+/* Writes the file, creating its directory. Every field but a Type none
+ * named. */
 int  dxl_es_save(dxl_engine_settings *s, dxl_err *err);
 
 const char *dxl_es_choice(const dxl_engine_settings *s, dxl_es_field f);

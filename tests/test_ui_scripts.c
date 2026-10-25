@@ -10,6 +10,7 @@
 #include "test.h"
 #include "core/engine_settings.h"
 #include "core/ini.h"
+#include "core/json.h"
 #include "core/keys.h"
 #include "core/paths.h"
 #include "core/bindings.h"
@@ -173,6 +174,11 @@ static void test_settings_roundtrip(void) {
      * sets one: shown on Keyboard & mouse, and kept as it is. */
     dxl_ini_set(a.usr, "Engine.PlayerPawn", "MouseSensitivity", "15");
     CHECK_INT(dxl_ini_save(a.usr, a.p.user_ini, NULL), 0);
+    /* The original's software renderer in the ini, and no Settings.json:
+     * the engine's choice, which the page shows, and no Type written. */
+    CHECK(!dxl_path_exists(dxl_es_path(a.es)));
+    dxl_ini_set(a.sys, "Engine.Engine", "GameRenderDevice", "SoftDrv.SoftwareRenderDevice");
+    CHECK_INT(dxl_ini_save(a.sys, a.p.system_ini, NULL), 0);
 
     /* A profile whose ini asks for a window: the run is full screen all the same. */
     dxl_ini_set(a.sys, "Engine.DXEngineClient", "StartupFullscreen", "False");
@@ -193,8 +199,12 @@ static void test_settings_roundtrip(void) {
     if (fov > 120) fov = 120;
     CHECK(atof(value(b.usr, "Engine.PlayerPawn", "DesiredFOV")) == fov);
     CHECK(atof(value(b.usr, "Engine.PlayerPawn", "DefaultFOV")) == fov);
-    /* Graphics. */
+    /* Graphics: Settings.json made, with no renderer named. */
     CHECK(strcmp(dxl_es_choice(b.es, DXL_ES_ANTIALIAS), was_aa) != 0);
+    dxl_json *json = dxl_json_load(dxl_es_path(b.es), NULL);
+    CHECK(json != NULL);
+    CHECK_STR(dxl_json_get_string(dxl_json_get(json, "RenderDevice"), "Type", "none"), "none");
+    dxl_json_free(json);
     /* Audio: two steps of 0.02 down, as a byte. */
     double music = atoi(value(a.sys, "Engine.DXEngineAudioDevice", "MusicVolume")) / 255.0 - 0.04;
     if (music < 0) music = 0;

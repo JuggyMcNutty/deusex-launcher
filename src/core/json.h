@@ -63,5 +63,7 @@ double      dxl_json_get_number(const dxl_json *obj, const char *key, double fal
 void dxl_json_set_string(dxl_json *obj, const char *key, const char *value);
 void dxl_json_set_bool  (dxl_json *obj, const char *key, int value);
 void dxl_json_set_number(dxl_json *obj, const char *key, double value);
+/* The member taken out, the others kept in order; 1 when there was one. */
+int  dxl_json_remove(dxl_json *obj, const char *key);
 
 #endif
