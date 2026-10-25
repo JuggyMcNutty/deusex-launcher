@@ -171,6 +171,10 @@ static void test_settings_roundtrip(void) {
              value(a.sys, "Engine.DXEngineClient", "WindowedViewportY"));
     snprintf(was_aa, sizeof was_aa, "%s", dxl_es_choice(a.es, DXL_ES_ANTIALIAS));
     snprintf(was_theme, sizeof was_theme, "%s", value(a.usr, "DeusEx.DeusExPlayer", "MenuThemeName"));
+    /* A value outside its slider's range, as the game's console or a hand
+     * sets one: shown on Keyboard & mouse, and kept as it is. */
+    dxl_ini_set(a.usr, "Engine.PlayerPawn", "MouseSensitivity", "15");
+    CHECK_INT(dxl_ini_save(a.usr, a.p.user_ini, NULL), 0);
 
     CHECK_INT(launch("settings_roundtrip.script", "ready"), 0);
     script_ok();
@@ -200,9 +204,10 @@ static void test_settings_roundtrip(void) {
     char want[16];
     snprintf(want, sizeof want, "%ld", lround(music * 255));
     CHECK_STR(value(b.sys, "Engine.DXEngineAudioDevice", "MusicVolume"), want);
-    /* Keyboard: J for Jump, in its second slot, the key there before let
-     * go; C for Jump as well, in its first, Space let go; Crouch's first
-     * key gone. */
+    /* Keyboard: the mouse's sensitivity as it was, untouched; J for Jump,
+     * in its second slot, the key there before let go; C for Jump as well,
+     * in its first, Space let go; Crouch's first key gone. */
+    CHECK_STR(value(b.usr, "Engine.PlayerPawn", "MouseSensitivity"), "15");
     CHECK_STR(value(b.usr, "Engine.Input", "J"), "Jump");
     CHECK_STR(value(b.usr, "Engine.Input", "Insert"), "");
     CHECK_STR(value(b.usr, "Engine.Input", "Space"), "");
