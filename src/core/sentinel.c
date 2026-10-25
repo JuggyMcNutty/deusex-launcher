@@ -46,11 +46,17 @@ int dxl_sentinel_create(dxl_sentinel *s, dxl_err *err) {
 
 void dxl_sentinel_remove(dxl_sentinel *s) {
     if (!s || !s->path) return;
-    if (remove(s->path) != 0) {
+    remove(s->path);
+    /* And a copy in another case, which exists() finds: left, a stale
+     * RUNNING.INI from a copied install opened RecoveryMode every launch. */
+    for (int again = 0; again < 8; again++) {
         char *dir = dxl_path_dirname(s->path);
         char *hit = dxl_path_resolve_ci(dir, "Running.ini");
         free(dir);
-        if (hit) { remove(hit); free(hit); }
+        if (!hit) break;
+        int gone = remove(hit) == 0;
+        free(hit);
+        if (!gone) break;
     }
     s->created = 0;
 }

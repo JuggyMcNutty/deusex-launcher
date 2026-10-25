@@ -174,11 +174,31 @@ static void test_lock_without_channel(void) {
     dxl_instance_release(client);
 }
 
+/* A Running.ini in another case, a copied install's, goes with the run's
+ * own: left, it opened RecoveryMode at every launch. */
+static void test_sentinel_removes_another_case(void) {
+    char sysdir[768], other[900];
+    snprintf(sysdir, sizeof sysdir, "%s/System", g_root);
+    snprintf(other, sizeof other, "%s/RUNNING.INI", sysdir);
+    FILE *f = fopen(other, "wb");
+    CHECK(f != NULL);
+    if (f) fclose(f);
+    dxl_sentinel s;
+    dxl_sentinel_init(&s, sysdir);
+    CHECK_INT(dxl_sentinel_exists(&s), 1);
+    CHECK_INT(dxl_sentinel_create(&s, NULL), 0);
+    dxl_sentinel_remove(&s);
+    CHECK_INT(dxl_sentinel_exists(&s), 0);
+    CHECK(access(other, F_OK) != 0);
+    dxl_sentinel_free(&s);
+}
+
 TEST_MAIN_BEGIN
     build_install();
     RUN(test_cd_check_with_shipped_path);
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);
+    RUN(test_sentinel_removes_another_case);
     RUN(test_lock_is_exclusive);
     RUN(test_lock_is_per_install);
     RUN(test_handoff_delivers_the_command_line);
