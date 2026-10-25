@@ -304,7 +304,10 @@ chosen -- or the game, while it plays, opens the server.
 1. **A second start** hands its command line to the launcher that runs and
    ends, unless the line holds one of the original's four bypass words
    (`Server`, `NewWindow`, `changevideo`, `TestRenDev`). One launcher for a
-   home: the lock is its config folder's.
+   home: the lock is its config folder's. One playing a dedicated server
+   (`-server`, started so or relaunched to it by the game) holds the lock
+   alone and takes no line, as the original's server, whose log window is
+   never `IsBrowser`: a second start plays beside it.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -737,8 +740,9 @@ helpers and a scratch sysfs, each CPU mode and the state put back;
 real install in `gamefiles/`, reads every asset the window takes from it --
 the menu themes, the art, the menu sounds, the title music, and the
 infos and snapshots of any saves it has -- plays the stub from a scratch
-home through a first run, a crash and the Recovery that follows, and a
-launcher killed while it plays, and checks
+home through a first run, a crash and the Recovery that follows, a
+launcher killed while it plays, and a dedicated server, started so or
+relaunched to, that takes no second start's line, and checks
 that nothing in the game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
