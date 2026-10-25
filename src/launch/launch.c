@@ -194,6 +194,8 @@ static int cd_check(run *r) {
  * and exits. */
 static int play(run *r, volatile int *stop) {
     char *script = dxl_path_join(r->base, GAME_SCRIPT);
+    /* The package's ini is the engine's too (run-game.sh). */
+    setenv("DXL_PACKAGE", r->package, 1);
     dxl_err e;
     dxl_game g;
     dxl_log("starting the game: %s %s", script, r->cmd);

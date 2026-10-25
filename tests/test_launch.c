@@ -506,7 +506,9 @@ static void test_run_game_script(void) {
     launch((const char *[]){ "INI=\"My Mod.ini\"", "-log", NULL }, &r);
     CHECK_STR(r.ended, "the game ran");
     char *args = read_file("System/engine-args.txt");
-    CHECK(strstr(args, "--no-launcher\n") != NULL);
+    CHECK(strstr(args, "--verbose\n") != NULL);   /* the log streamed, the engine's error window kept */
+    CHECK(strstr(args, "--no-launcher\n") == NULL);
+    CHECK(strstr(args, "--ini=") != NULL);
     CHECK(strstr(args, "\n--cmdline=INI=\"My Mod.ini\" -log\n") != NULL);
     free(args);
     dxl_launch_result_free(&r);

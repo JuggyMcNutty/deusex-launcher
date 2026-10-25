@@ -23,5 +23,11 @@ export DXE_DISPLAY_BACKEND="${DXE_DISPLAY_BACKEND:-SDL3}"
 
 # DXL_ENGINE_ARGS: more of the engine's own options, for a scripted run
 # (--timeline=<file>, DXEngine's ENGINE.md).
-exec "$engine" --no-launcher "$game" --ini="$here/DeusEx.ini" --userini="$here/User.ini" \
+# DXL_PACKAGE: the launcher's package, its own name (DeusEx, or a mod's it
+# is renamed to): the engine plays that package's ini, as the launcher
+# reads and writes it. --verbose streams the engine's log into DeusEx's;
+# without --no-launcher the engine opens its own error window on a critical
+# error, as the original's box shows one.
+pkg="${DXL_PACKAGE:-DeusEx}"
+exec "$engine" --verbose "$game" --ini="$here/$pkg.ini" --userini="$here/User.ini" \
     ${DXL_ENGINE_ARGS:-} --cmdline="$1"
