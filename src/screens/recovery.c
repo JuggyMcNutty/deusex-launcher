@@ -69,12 +69,17 @@ static void tail(dxl_shell *s, dxl_rect r) {
 }
 
 /* The renderers this machine runs, for the fix: their labels, and which
- * is Settings.json's now. */
+ * the engine takes now, as Graphics' row shows it. */
 static int renderer_choices(dxl_shell *s, const char **labels, int max, int *current) {
     char *path = dxl_path_join(s->run->session.profile.engine_dir, "Settings.json");
     char *def = dxl_path_join(s->run->session.data_dir, "engine-settings.json.default");
     dxl_engine_settings *es = dxl_es_open(path, def);
-    const char *now = dxl_es_choice(es, DXL_ES_RENDER_TYPE);
+    dxl_stores st;
+    memset(&st, 0, sizeof st);
+    st.system = s->run->config ? dxl_config_ini(s->run->config) : NULL;
+    st.engine = es;
+    char now[80], value[80];
+    dxl_setting_get(&st, dxl_setting_find("graphics.renderer"), now, sizeof now);
     int n = 0;
     *current = -1;
     for (size_t i = 0; i < s->renderers.count && n < max; i++) {

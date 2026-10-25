@@ -243,6 +243,51 @@ static void test_clean_file_is_not_dirty(void) {
     teardown();
 }
 
+/* A Type only as one is chosen: a file made with none chosen names none,
+ * the engine then taking the ini's GameRenderDevice; one chosen is
+ * written, the defaults file's too; one the engine cannot take here is
+ * dropped. */
+static void test_type_only_as_chosen(void) {
+    setup("type");
+    put("default.json", device_default);
+    dxl_err e;
+    dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_names_type(s), 0);
+    CHECK_STR(dxl_es_choice(s, DXL_ES_RENDER_TYPE), "Vulkan");   /* the defaults file's */
+    CHECK_INT(dxl_es_set_choice(s, DXL_ES_ANTIALIAS, "MSAA2x"), 0);
+    CHECK_INT(dxl_es_names_type(s), 0);
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_free(s);
+    dxl_json *j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK(j != NULL);
+    CHECK(dxl_json_get(dxl_json_get(j, "RenderDevice"), "Type") == NULL);
+    CHECK_STR(dxl_json_get_string(dxl_json_get(j, "RenderDevice"), "Antialias", NULL), "MSAA2x");
+    dxl_json_free(j);
+
+    /* Read again: none named, nothing to write. Then chosen. */
+    s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_names_type(s), 0);
+    CHECK_INT(dxl_es_dirty(s), 0);
+    CHECK_INT(dxl_es_set_choice(s, DXL_ES_RENDER_TYPE, "Vulkan"), 0);
+    CHECK_INT(dxl_es_names_type(s), 1);
+    CHECK_INT(dxl_es_dirty(s), 1);
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_free(s);
+    j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK_STR(dxl_json_get_string(dxl_json_get(j, "RenderDevice"), "Type", NULL), "Vulkan");
+    dxl_json_free(j);
+
+    put("Settings.json", "{\"RenderDevice\": {\"Type\": \"D3D11\", \"Antialias\": \"Off\"}}");
+    s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_names_type(s), 0);
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_free(s);
+    j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK(j && dxl_json_get(dxl_json_get(j, "RenderDevice"), "Type") == NULL);
+    dxl_json_free(j);
+    teardown();
+}
+
 /* The anti-aliasing the engine takes: the file's, or its own 4x where it
  * reads none; and Off written for a GPU that multisamples badly, the file
  * made from the packaged default when there is none, the rest kept. */
@@ -290,4 +335,5 @@ TEST_MAIN_BEGIN
     RUN(test_render_heights);
     RUN(test_save_creates_the_directory);
     RUN(test_clean_file_is_not_dirty);
+    RUN(test_type_only_as_chosen);
 TEST_MAIN_END
