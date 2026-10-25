@@ -169,8 +169,10 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     const dxl_theme *t = &ui->theme;
     const dxl_lastrun *l = &s->run->last;
     int safe = s->run->decision.screen == DXL_SCREEN_MAIN_SAFE;
-    int bad = l->known && !l->clean;
-    const dxl_advice *advice = dxl_advice_for(l);
+    /* Opened for a run that did not end cleanly, but by -safe: its record
+     * only, never one of a clean end, which is another run's. */
+    int known = dxl_lastrun_shown(l, !safe), bad = known && !l->clean;
+    const dxl_advice *advice = known ? dxl_advice_for(l) : NULL;
     float w = r.w < 1000 ? r.w : 1000;
     dxl_rect panel = { r.x, r.y + 6, w, r.h - 6 };
     dxl_rect in = dxl_window(ui, panel, bad || !safe ? "The last run did not end cleanly" : "Safe mode");
@@ -183,13 +185,13 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
 
     if (safe) {
         float h = dxl_paragraph(ui, in, DXL_FONT_BODY,
-                                l->known ? "DXLauncher was started with -safe, which opens this page before the "
-                                           "game; how the last run ended is below."
-                                         : "DXLauncher was started with -safe, which opens this page before the game.",
+                                known ? "DXLauncher was started with -safe, which opens this page before the "
+                                        "game; how the last run ended is below."
+                                      : "DXLauncher was started with -safe, which opens this page before the game.",
                                 t->text);
         dxl_cut_top(&in, h + 10);
     }
-    if (l->known) {
+    if (known) {
         if (l->clean) snprintf(v, sizeof v, "cleanly");
         else dxl_lastrun_describe(l, v, sizeof v);
         dxl_field(ui, &in, lh, nw, "How it ended", v, l->clean ? t->text : t->warn, DXL_W_MAY_CUT);
