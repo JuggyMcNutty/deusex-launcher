@@ -348,12 +348,13 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 | Saves | [the saves](#saves-and-screenshots): one loaded, one deleted |
 | Screenshots | [the shots](#saves-and-screenshots), a gallery: one shown whole, their folder opened, one deleted |
 | Multiplayer | [the servers](#multiplayer): the local network's, the master's and the favourites, sorted and filtered; one joined, with its password; a favourite or not; an address joined |
-| Recovery | how the last run ended and when, the engine's error, its line where the software renderer drew in the chosen one's place, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Home, Quit ([Recovery](#recovery)) |
+| Recovery | how the last run ended and when, the engine's error, its line where the software renderer drew in the chosen one's place, the engine where it does not start, what to do about it, the end of its log, the next run's words; Play, the fix, the log, the defaults, Home, Quit ([Recovery](#recovery)) |
 | The log | the last run's output, the run's before it, or the engine's own log, scrolled by the keys, the wheel or a pad; the file opened |
 | About | the launcher's version, the engine's and its features, the four folders, the libraries and fonts; the app menu's entry, the settings folder opened |
 
 Graphics (`-changevideo`, and an engine's `RELAUNCH` with it) opens
-Settings on its Graphics tab, whose Done is Play.
+Settings on its Graphics tab, whose Done is Play: off, the reason beside
+it, with an engine whose `--version` refuses it.
 
 It is our own drawing on SDL3's renderer (`src/ui/`), wearing the game's:
 steel panels with cut corners and lit edges, title bars in the theme's
@@ -688,7 +689,9 @@ run, and the page, opened by `-safe`, has the engine's line and that fix.
 Below are the end of the log where it fits, the
 [next run's words](#settings), and Play, the fix, the log, the defaults of a
 page or of all, Home, Quit. Home, or the back button, goes to Home with the
-run as it was: its Play plays, as Recovery's does.
+run as it was: its Play plays, as Recovery's does. With an engine whose
+`--version` refuses it, the page says why, as Home does, and Play is off:
+Home's The engine... chooses another.
 
 ## dxl-cli
 
@@ -793,6 +796,9 @@ read before it was, and finds the bindings in `User.ini`, the mappings in
 a virtual pad, whose buttons move nothing of the window until its back is
 held; `engine_and_game` starts with an engine this system cannot start,
 puts another in its place from Home, and the game's folder from Settings;
+`recovery_engine` and `graphics_engine` start with one at Recovery, after
+a run's `Running.ini`, and at `-changevideo`'s Graphics, whose play key
+and Play start nothing;
 `profiles` makes a profile, duplicates one, renames and deletes the copy to
 the trash, and uses the first again; `mods` makes a made-up mod's profile
 from Mods, and finds its paths, its settings and its save in it; `continue`
