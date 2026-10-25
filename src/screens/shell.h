@@ -209,6 +209,7 @@ typedef struct dxl_shell {
     /* Home and Recovery. */
     int          saves;           /* the profile's saves, counted as Home opens */
     int          unclean;         /* its Running.ini there as Home opens: the last run did not end cleanly */
+    int          played;          /* that, or a run's log there: the profile has played */
     /* Home's and the Saves page's: the profile's saves, read as either
      * opens, the one chosen; its snapshot, a texture of the window's
      * renderer, of the slot in save_snap_slot (DXL_SNAP_NONE for none). */

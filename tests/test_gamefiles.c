@@ -360,6 +360,62 @@ static void test_server_takes_no_handover(void) {
     free(home);
 }
 
+/* A window closed at Recovery: its Quit. */
+static int recovery_views;
+static int quit_at_recovery(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    (void)r;
+    if (which == DXL_VIEW_RECOVERY) recovery_views++;
+    return 0;
+}
+
+/* After a crash, an end with no game takes Running.ini away, as the
+ * original's every end but a crash and its CD prompt: a quit on Recovery,
+ * -consolecommand=, -testrendev=. */
+static void test_ends_without_a_game(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-ends"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+    static const char *const words[] = { NULL, "-consolecommand=Quit", "-testrendev=D3DDrv.D3DRenderDevice" };
+    for (int i = 0; i < 3; i++) {
+        dxl_env_set("DXL_STUB", "crash");
+        CHECK_INT(run_launcher(root, NULL), END_CRASH_STATUS);
+        CHECK_INT(dxl_path_exists(sentinel), 1);
+        dxl_env_set("DXL_STUB", "ready");
+        if (!words[i]) {
+            dxl_run_ui ui = { .view = quit_at_recovery };
+            char *argv[] = { "deusex-launcher", NULL };
+            static volatile int stop;
+            recovery_views = 0;
+            CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
+            CHECK_INT(recovery_views, 1);
+        } else {
+            CHECK_INT(run_launcher(root, words[i]), 0);
+        }
+        if (dxl_path_exists(sentinel)) fprintf(stderr, "  Running.ini kept after %s\n", words[i] ? words[i] : "Quit");
+        CHECK_INT(dxl_path_exists(sentinel), 0);
+    }
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window that plays from its first Home and quits at the next, looking
  * at the inis then. */
 static int views, saw_rewrite;
@@ -574,5 +630,6 @@ TEST_MAIN_BEGIN
     RUN(test_headless_run);
     RUN(test_killed_mid_game);
     RUN(test_server_takes_no_handover);
+    RUN(test_ends_without_a_game);
     RUN(test_back_home);
 TEST_MAIN_END
