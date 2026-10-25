@@ -13,6 +13,7 @@ void dxl_page_home_enter(dxl_shell *s) {
     dxl_shell_profile_mod(s);
     dxl_saves_reload(s);
     s->saves = s->save_list.count;
+    s->unclean = dxl_sentinel_exists(&s->run->sentinel);
 }
 
 static void when(long t, char *out, size_t size) {
@@ -26,9 +27,11 @@ static void when(long t, char *out, size_t size) {
 static dxl_rgba last_run(const dxl_shell *s, char *out, size_t size) {
     const dxl_lastrun *l = &s->run->last;
     const dxl_theme *t = &s->ui.theme;
-    if (!l->known) {
-        snprintf(out, size, "never, with this profile");
-        return t->text;
+    /* Its Running.ini there, the last run did not end cleanly: its record,
+     * or none, not an older one of a clean end. */
+    if (!dxl_lastrun_shown(l, s->unclean)) {
+        snprintf(out, size, s->unclean ? "not known: it left no record" : "never, with this profile");
+        return s->unclean ? t->warn : t->text;
     }
     char date[64], how[600];
     when(l->ended, date, sizeof date);

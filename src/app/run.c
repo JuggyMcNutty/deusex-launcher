@@ -86,13 +86,19 @@ static void stop_with(dxl_run *r, const char *fmt, ...) {
 static void say_view(dxl_run *r, dxl_view v) {
     char line[600];
     switch (v) {
-    case DXL_VIEW_RECOVERY:
-        if (r->last.known) {
+    case DXL_VIEW_RECOVERY: {
+        /* As the window's Recovery has it: the record where it is the last
+         * run's, -safe's words, or none known. */
+        int safe = r->decision.screen == DXL_SCREEN_MAIN_SAFE;
+        if (dxl_lastrun_shown(&r->last, !safe) && !r->last.clean) {
             dxl_lastrun_describe(&r->last, line, sizeof line);
             fprintf(stderr, "The last run of profile %s did not end cleanly: %s.\n",
                     r->session.profile.id, line);
-        } else {
+        } else if (safe) {
             fprintf(stderr, "Safe mode: the Recovery screen is the launcher's window's.\n");
+        } else {
+            fprintf(stderr, "The last run of profile %s did not end cleanly: how is not known, it left no record.\n",
+                    r->session.profile.id);
         }
         char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
         char *tail = dxl_lastrun_tail(log, 8);
@@ -102,6 +108,7 @@ static void say_view(dxl_run *r, dxl_view v) {
         fprintf(stderr, "Its Running.ini is %s: remove it to play again without the Recovery screen.\n",
                 dxl_sentinel_path(&r->sentinel));
         break;
+    }
     case DXL_VIEW_GRAPHICS:
         fprintf(stderr, "-changevideo: the Graphics screen is the launcher's window's.\n");
         break;
@@ -570,6 +577,8 @@ static void commit(dxl_run *r) {
      * earlier launcher's too (core/engine_sections.h). */
     if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");
     if (dxl_sentinel_create(&r->sentinel, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    if (dxl_lastrun_clear(r->session.profile.state_dir) != 0)
+        dxl_log("warning: the run before's LastRun.ini could not be taken away");
     dxl_config_clamp_first_run(r->config);
     if (dxl_config_save(r->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));

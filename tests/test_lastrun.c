@@ -32,6 +32,25 @@ static void test_record(void) {
     CHECK_INT(back.known, 0);
 }
 
+/* A run's start takes the run before's record away; one of a clean end is
+ * no record of a run that did not (its Running.ini there). */
+static void test_clear_and_shown(void) {
+    const char *dir = scratch_dir("lastrun-clear");
+    dxl_lastrun r = { .ended = 1760000000, .ready = 1, .clean = 1 };
+    CHECK_INT(dxl_lastrun_save(&r, dir, NULL), 0);
+    dxl_lastrun back;
+    CHECK_INT(dxl_lastrun_load(&back, dir), 0);
+    CHECK_INT(dxl_lastrun_shown(&back, 0), 1);
+    CHECK_INT(dxl_lastrun_shown(&back, 1), 0);
+    back.clean = 0;
+    CHECK_INT(dxl_lastrun_shown(&back, 1), 1);
+    CHECK_INT(dxl_lastrun_clear(dir), 0);
+    CHECK_INT(dxl_lastrun_load(&back, dir), -1);
+    CHECK_INT(dxl_lastrun_shown(&back, 0), 0);
+    CHECK_INT(dxl_lastrun_clear(dir), 0);   /* none there: as wanted */
+    scratch_remove(dir);
+}
+
 static void test_describe(void) {
     char line[256];
     dxl_lastrun r = { .known = 1, .status = 1 };
@@ -87,6 +106,7 @@ static void test_log(void) {
 
 TEST_MAIN_BEGIN
     RUN(test_record);
+    RUN(test_clear_and_shown);
     RUN(test_describe);
     RUN(test_log);
 TEST_MAIN_END
