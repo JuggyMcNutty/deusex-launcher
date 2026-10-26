@@ -16,7 +16,6 @@ static const char *const aa_modes[]     = { "Off", "MSAA2x", "MSAA4x", NULL };
 static const char *const light_modes[]  = { "Normal", "OneX", "BrighterActors", NULL };
 static const char *const gamma_modes[]  = { "D3D9", "XOpenGL", NULL };
 /* Preset ids from bindings.c, plus "custom" for hand-edited bindings. */
-static const char *const pad_layouts[]  = { "modern", "southpaw", "classic", "custom", NULL };
 
 #define RD "RenderDevice"
 #define GP "Gamepad"
@@ -46,7 +45,6 @@ static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_PAD_LOOK_Y]        = { GP, "LookSensitivityY",  DXL_ES_NUMBER, NULL, NULL, 1.00, 0.25, 3.00, 0.25 },
     [DXL_ES_PAD_INVERT_Y]      = { GP, "InvertY",           DXL_ES_BOOL,   NULL, NULL, 0,    0, 1, 1 },
     [DXL_ES_PAD_CURSOR_SPEED]  = { GP, "CursorSpeed",       DXL_ES_NUMBER, NULL, NULL, 1.00, 0.25, 3.00, 0.25 },
-    [DXL_ES_PAD_LAYOUT]        = { GP, "Layout",            DXL_ES_CHOICE, pad_layouts, "modern", 0, 0, 0, 0 },
 
     /* The engine clamps to 0.25..1; the UI offers dxl_es_render_heights. No
      * step: a height's exact fraction of the panel is kept, off any grid. */
