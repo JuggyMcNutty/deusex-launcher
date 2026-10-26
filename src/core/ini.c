@@ -247,20 +247,43 @@ void dxl_ini_set_eol(dxl_ini *ini, const char *eol) {
 
 /* ---- lookup --------------------------------------------------------- */
 
-/* Index of the section header line, or (size_t)-1. */
-static size_t find_section(const dxl_ini *ini, const char *section) {
-    for (size_t i = 0; i < ini->count; i++)
+/* A section written twice is one section to the engine, its blocks read in
+ * order, and a key given twice is read at its last value (as the original
+ * reads them: dx-reverse-info's core-dll.md), so they are to these lookups. */
+
+/* Index of the section's next header line at or after from, or (size_t)-1. */
+static size_t next_block(const dxl_ini *ini, const char *section, size_t from) {
+    for (size_t i = from; i < ini->count; i++)
         if (ini->lines[i].kind == LINE_SECTION &&
             dxl_stricmp(ini->lines[i].name, section) == 0)
             return i;
     return (size_t)-1;
 }
 
-/* One past the last line belonging to the section starting at header. */
+/* Index of the section's first header line, or (size_t)-1. */
+static size_t find_section(const dxl_ini *ini, const char *section) {
+    return next_block(ini, section, 0);
+}
+
+/* One past the last line belonging to the block starting at header. */
 static size_t section_end(const dxl_ini *ini, size_t header) {
     size_t i = header + 1;
     while (i < ini->count && ini->lines[i].kind != LINE_SECTION) i++;
     return i;
+}
+
+/* The section's header after the block at header, or (size_t)-1: the step
+ * of a loop over a section's blocks. */
+static size_t next_block_after(const dxl_ini *ini, const char *section, size_t header) {
+    return next_block(ini, section, section_end(ini, header));
+}
+
+/* Index of the section's last header line, or (size_t)-1. */
+static size_t last_block(const dxl_ini *ini, const char *section) {
+    size_t last = (size_t)-1;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h))
+        last = h;
+    return last;
 }
 
 /* Insertion point for a new key: after the section's last pair line, so new
@@ -272,34 +295,37 @@ static size_t section_insert_at(const dxl_ini *ini, size_t header) {
     return at;
 }
 
-static size_t find_pair(const dxl_ini *ini, const char *section, const char *key,
-                        size_t from) {
-    size_t header = find_section(ini, section);
-    if (header == (size_t)-1) return (size_t)-1;
-    size_t end = section_end(ini, header);
-    for (size_t i = (from > header) ? from : header + 1; i < end; i++)
-        if (ini->lines[i].kind == LINE_PAIR &&
-            dxl_stricmp(ini->lines[i].name, key) == 0)
-            return i;
-    return (size_t)-1;
+/* The line of the key's value the engine reads, the last of the key in the
+ * section's blocks, or (size_t)-1. */
+static size_t find_pair(const dxl_ini *ini, const char *section, const char *key) {
+    size_t found = (size_t)-1;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h)) {
+        size_t end = section_end(ini, h);
+        for (size_t i = h + 1; i < end; i++)
+            if (ini->lines[i].kind == LINE_PAIR &&
+                dxl_stricmp(ini->lines[i].name, key) == 0)
+                found = i;
+    }
+    return found;
 }
 
 const char *dxl_ini_get(const dxl_ini *ini, const char *section, const char *key) {
-    size_t i = find_pair(ini, section, key, 0);
+    size_t i = find_pair(ini, section, key);
     return (i == (size_t)-1) ? NULL : ini->lines[i].value;
 }
 
 size_t dxl_ini_get_all(const dxl_ini *ini, const char *section, const char *key,
                        const char **out, size_t max) {
-    size_t header = find_section(ini, section);
-    if (header == (size_t)-1) return 0;
-    size_t end = section_end(ini, header), n = 0;
-    for (size_t i = header + 1; i < end; i++)
-        if (ini->lines[i].kind == LINE_PAIR &&
-            dxl_stricmp(ini->lines[i].name, key) == 0) {
-            if (out && n < max) out[n] = ini->lines[i].value;
-            n++;
-        }
+    size_t n = 0;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h)) {
+        size_t end = section_end(ini, h);
+        for (size_t i = h + 1; i < end; i++)
+            if (ini->lines[i].kind == LINE_PAIR &&
+                dxl_stricmp(ini->lines[i].name, key) == 0) {
+                if (out && n < max) out[n] = ini->lines[i].value;
+                n++;
+            }
+    }
     return n;
 }
 
@@ -353,9 +379,10 @@ static void terminate_before(dxl_ini *ini, size_t at) {
     }
 }
 
-/* Ensures the section exists, returning its header index. */
+/* Ensures the section exists, returning the header index of its last block,
+ * the one a new key joins. */
 static size_t ensure_section(dxl_ini *ini, const char *section) {
-    size_t header = find_section(ini, section);
+    size_t header = last_block(ini, section);
     if (header != (size_t)-1) return header;
 
     terminate_before(ini, ini->count);
@@ -381,7 +408,7 @@ static size_t ensure_section(dxl_ini *ini, const char *section) {
 
 void dxl_ini_set(dxl_ini *ini, const char *section, const char *key,
                  const char *value) {
-    size_t i = find_pair(ini, section, key, 0);
+    size_t i = find_pair(ini, section, key);
     if (i != (size_t)-1) {
         if (strcmp(ini->lines[i].value, value ? value : "") == 0) return;
         pair_write(ini->lines + i, key, value, ini->eol);
@@ -412,14 +439,15 @@ void dxl_ini_set_bool(dxl_ini *ini, const char *section, const char *key, int va
 }
 
 void dxl_ini_copy_section(dxl_ini *dst, const dxl_ini *src, const char *section) {
-    size_t header = find_section(src, section);
-    if (header == (size_t)-1) return;
-    size_t end = section_end(src, header);
+    if (find_section(src, section) == (size_t)-1) return;
     ensure_section(dst, section);
     dst->dirty = 1;
-    for (size_t i = header + 1; i < end; i++)
-        if (src->lines[i].kind == LINE_PAIR)
-            dxl_ini_append(dst, section, src->lines[i].name, src->lines[i].value);
+    for (size_t h = find_section(src, section); h != (size_t)-1; h = next_block_after(src, section, h)) {
+        size_t end = section_end(src, h);
+        for (size_t i = h + 1; i < end; i++)
+            if (src->lines[i].kind == LINE_PAIR)
+                dxl_ini_append(dst, section, src->lines[i].name, src->lines[i].value);
+    }
 }
 
 int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
@@ -427,16 +455,17 @@ int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
 }
 
 size_t dxl_ini_pairs(const dxl_ini *ini, const char *section, const char **keys, const char **values, size_t max) {
-    size_t header = find_section(ini, section), n = 0;
-    if (header == (size_t)-1) return 0;
-    size_t end = section_end(ini, header);
-    for (size_t i = header + 1; i < end; i++) {
-        if (ini->lines[i].kind != LINE_PAIR) continue;
-        if (n < max) {
-            if (keys) keys[n] = ini->lines[i].name;
-            if (values) values[n] = ini->lines[i].value;
+    size_t n = 0;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h)) {
+        size_t end = section_end(ini, h);
+        for (size_t i = h + 1; i < end; i++) {
+            if (ini->lines[i].kind != LINE_PAIR) continue;
+            if (n < max) {
+                if (keys) keys[n] = ini->lines[i].name;
+                if (values) values[n] = ini->lines[i].value;
+            }
+            n++;
         }
-        n++;
     }
     return n;
 }
@@ -455,25 +484,25 @@ size_t dxl_ini_sections(const dxl_ini *ini, const char *prefix, const char **out
 }
 
 void dxl_ini_empty_section(dxl_ini *ini, const char *section) {
-    size_t header = find_section(ini, section);
-    if (header == (size_t)-1) return;
-    size_t i = header + 1;
-    while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
-        if (ini->lines[i].kind == LINE_PAIR) { line_remove(ini, i); ini->dirty = 1; }
-        else i++;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block(ini, section, h + 1)) {
+        size_t i = h + 1;
+        while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
+            if (ini->lines[i].kind == LINE_PAIR) { line_remove(ini, i); ini->dirty = 1; }
+            else i++;
+        }
     }
 }
 
 void dxl_ini_remove(dxl_ini *ini, const char *section, const char *key) {
-    size_t header = find_section(ini, section);
-    if (header == (size_t)-1) return;
-    size_t i = header + 1;
-    while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
-        if (ini->lines[i].kind == LINE_PAIR && dxl_stricmp(ini->lines[i].name, key) == 0) {
-            line_remove(ini, i);
-            ini->dirty = 1;
-        } else {
-            i++;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block(ini, section, h + 1)) {
+        size_t i = h + 1;
+        while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
+            if (ini->lines[i].kind == LINE_PAIR && dxl_stricmp(ini->lines[i].name, key) == 0) {
+                line_remove(ini, i);
+                ini->dirty = 1;
+            } else {
+                i++;
+            }
         }
     }
 }
