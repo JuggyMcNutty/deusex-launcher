@@ -529,7 +529,9 @@ static dxl_view view_of(const dxl_run *r) {
     }
     if (r->decision.action != DXL_ACTION_LAUNCH && r->decision.action != DXL_ACTION_SCREEN)
         return DXL_VIEW_NONE;
-    return home_wanted(r) ? DXL_VIEW_HOME : DXL_VIEW_NONE;
+    /* The game's RELAUNCH line starts the game again at once, as the
+     * original's relaunched DeusEx.exe does (-server a dedicated server). */
+    return home_wanted(r) && !r->relaunched ? DXL_VIEW_HOME : DXL_VIEW_NONE;
 }
 
 /* Whether another launcher is live: the one holding the lock this run did
@@ -807,6 +809,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     for (;;) {
         /* 3. The decision. */
         if (r->config) decide(r);
+        r->relaunched = 0;
         if (answered) r->view = DXL_VIEW_NONE;
         if (back_home) r->view = DXL_VIEW_HOME;
         answered = back_home = 0;
@@ -923,6 +926,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             dxl_log("relaunch: %s", r->played.relaunch);
             free(r->words);
             r->words = dxl_xstrdup(r->played.relaunch);
+            r->relaunched = 1;
             if (r->instance) hold_instance(r);
             continue;
         }
