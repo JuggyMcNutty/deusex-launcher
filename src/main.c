@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
     dxl_run_ui ui;
     dxl_window_ui(w, &ui);
     int rc = dxl_run_main(argc, argv, &ui, &stop);
+    dxl_startup_ended();
     dxl_window_free(w);
     return rc;
 }

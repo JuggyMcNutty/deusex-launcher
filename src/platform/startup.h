@@ -9,4 +9,9 @@
  * nothing to wake); a wait it breaks ends at once. */
 void dxl_startup(volatile int *stop, void (*wake)(void));
 
+/* The program's work is done (the run returned): what waits for the end to
+ * be clean -- Windows' closing console, which ends the process as its
+ * handler returns -- may let go. Nothing on POSIX. */
+void dxl_startup_ended(void);
+
 #endif
