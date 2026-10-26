@@ -2,6 +2,7 @@
 #include "scratch.h"
 #include "ends.h"
 #include "app/run.h"
+#include "core/bindings.h"
 #include "core/config.h"
 #include "core/ini.h"
 #include "core/install.h"
@@ -33,6 +34,21 @@ static char *game_file(const char *name) {
     char *p = malloc(n);
     snprintf(p, n, "%s/%s", DXL_GAMEFILES, name);
     return p;
+}
+
+/* The shipped DefUser.ini carries the classic layout's Joy lines, which the
+ * first run's switch recognises (test_bindings' fixture copies them). */
+static void test_shipped_bindings(void) {
+    char *path = game_file("DefUser.ini");
+    dxl_ini *ini = dxl_ini_load(path, NULL);
+    CHECK(ini != NULL);
+    if (ini) {
+        const dxl_pad_preset *p = dxl_bindings_detect(ini);
+        CHECK(p != NULL);
+        if (p) CHECK_STR(p->id, "classic");
+        dxl_ini_free(ini);
+    }
+    free(path);
 }
 
 /* DeusEx.ini and User.ini exist once the game has run, or as Steam ships
@@ -745,6 +761,7 @@ TEST_MAIN_BEGIN
         return 77;
     }
     RUN(test_roundtrip);
+    RUN(test_shipped_bindings);
     RUN(test_default_ini_matches_the_spec);
     RUN(test_assets);
     RUN(test_install);
