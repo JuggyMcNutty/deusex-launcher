@@ -46,6 +46,13 @@ static void test_fit(dxl_ui *ui) {
     CHECK(dxl_text_size(ui, DXL_FONT_BODY, out, 0).x <= full / 2 + 0.5f);
     CHECK_INT(dxl_text_fit_tail(ui, DXL_FONT_BODY, "Deus Ex", 500, out, sizeof out), 0);
     CHECK_STR(out, "Deus Ex");
+    /* A string longer than the buffer, whose kept bytes would fit: cut
+     * into the buffer, the head's start and the tail's end kept. */
+    char small[8];
+    CHECK_INT(dxl_text_fit(ui, DXL_FONT_BODY, "abcdefghijklmnopqrstuvwxyz0123456789ABCD", 5000, small, sizeof small), 1);
+    CHECK_STR(small, "abcd...");
+    CHECK_INT(dxl_text_fit_tail(ui, DXL_FONT_BODY, "abcdefghijklmnopqrstuvwxyz0123456789ABCD", 5000, small, sizeof small), 1);
+    CHECK_STR(small, "...ABCD");
     /* Never inside a character. */
     const char *accents = "\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9";
     float aw = dxl_text_size(ui, DXL_FONT_BODY, accents, 0).x;

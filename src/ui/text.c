@@ -187,31 +187,39 @@ SDL_FPoint dxl_text_draw(dxl_ui *ui, dxl_font_role role, const char *s, float x,
     return size;
 }
 
+/* Measured whole, the cut made into out: a string longer than out is cut
+ * too, at a character, with the "...". */
 int dxl_text_fit(dxl_ui *ui, dxl_font_role role, const char *s, float w, char *out, size_t size) {
-    snprintf(out, size, "%s", s ? s : "");
+    if (!s) s = "";
+    snprintf(out, size, "%s", s);
     TTF_Font *f = ui->fonts[role];
-    if (!f || !*out) return 0;
+    if (!f || !*s || size < 4) return 0;
+    size_t len = strlen(s);
     int max_px = (int)dxl_pxf(ui, w), width = 0;
     size_t fits = 0;
-    if (!TTF_MeasureString(f, out, 0, max_px, &width, &fits) || fits >= strlen(out)) return 0;
+    if (!TTF_MeasureString(f, s, 0, max_px, &width, &fits) || (fits >= len && len < size)) return 0;
     int dots = 0;
     TTF_GetStringSize(f, "...", 0, &dots, NULL);
-    if (!TTF_MeasureString(f, out, 0, max_px - dots, &width, &fits)) fits = 0;
+    if (!TTF_MeasureString(f, s, 0, max_px - dots, &width, &fits)) fits = 0;
+    if (fits + 4 > size) fits = size - 4;
     /* Not inside a UTF-8 sequence. */
-    while (fits > 0 && ((unsigned char)out[fits] & 0xc0) == 0x80) fits--;
-    if (fits + 4 > size) fits = size > 4 ? size - 4 : 0;
+    while (fits > 0 && ((unsigned char)s[fits] & 0xc0) == 0x80) fits--;
+    memcpy(out, s, fits);
     memcpy(out + fits, "...", 4);
     return 1;
 }
 
 int dxl_text_fit_tail(dxl_ui *ui, dxl_font_role role, const char *s, float w, char *out, size_t size) {
-    snprintf(out, size, "%s", s ? s : "");
+    if (!s) s = "";
+    snprintf(out, size, "%s", s);
     TTF_Font *f = ui->fonts[role];
-    if (!f || !*out) return 0;
+    if (!f || !*s || size < 4) return 0;
+    size_t len = strlen(s);
     int max_px = (int)dxl_pxf(ui, w), width = 0;
-    if (TTF_GetStringSize(f, out, 0, &width, NULL) && width <= max_px) return 0;
-    /* The shortest cut that fits: the narrower, the later the start. */
-    size_t len = strlen(s), lo = 0, hi = len;
+    if (len < size && TTF_GetStringSize(f, s, 0, &width, NULL) && width <= max_px) return 0;
+    /* The shortest cut that fits, in the width and in out: the narrower,
+     * the later the start. */
+    size_t lo = len + 4 > size ? len + 4 - size : 0, hi = len;
     char probe[1024];
     while (lo < hi) {
         size_t mid = (lo + hi) / 2;
