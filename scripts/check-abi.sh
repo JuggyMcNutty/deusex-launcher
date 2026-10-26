@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fail if a binary references glibc symbol versions newer than a ceiling.
 #
-#   scripts/check-abi.sh --max 2.33 <binary> [binary...]
+#   scripts/check-abi.sh --max 2.33 [--needed] <binary> [binary...]
 #
 # This is the guard for the one mistake that silently produces an unrunnable
 # binary: building with a toolchain whose glibc is newer than the target's.
@@ -11,10 +11,17 @@
 # Each port that needs it sets the ceiling (DXL_PORT_GLIBC_MAX in its
 # port.cmake); the build runs this after linking. readelf reads the version
 # needs of any ELF, whatever its architecture, so no cross binutils needed.
+#
+# With --needed, the shared libraries a program needs must be the C
+# library's alone (libc, libm, libdl, libpthread, librt, the loader): the
+# launcher's programs open everything else at run time, and a library linked
+# instead would add its own NEEDED and run nowhere it is not. The engine,
+# which the workspace checks with the same script, needs its own.
 set -euo pipefail
 
-max=""
+max="" needed=""
 if [ "${1:-}" = "--max" ]; then max="${2:-}"; shift 2; fi
+if [ "${1:-}" = "--needed" ]; then needed=1; shift; fi
 case "$max" in
     2.[0-9]*) ;;
     *) echo "usage: $0 --max 2.NN <binary> [binary...]" >&2; exit 2 ;;
@@ -24,6 +31,10 @@ MAX_MINOR="${max#2.}"
 
 versions() {
     readelf -V --wide "$1" 2>/dev/null | grep -oE 'GLIBC_2\.[0-9]+' | sort -u -t. -k2,2n
+}
+
+needed() {
+    readelf -d --wide "$1" 2>/dev/null | grep -oE 'Shared library: \[[^]]+\]' | sed 's/Shared library: \[\(.*\)\]/\1/'
 }
 
 rc=0
@@ -36,6 +47,13 @@ for bin in "$@"; do
         rc=1
     else
         echo "OK   $bin [$(echo "${have:-no glibc refs}" | tr '\n' ' ')]"
+    fi
+    if [ -n "$needed" ]; then
+        extra=$(needed "$bin" | grep -vE '^(libc|libm|libdl|libpthread|librt)\.so|^ld-linux' || true)
+        if [ -n "$extra" ]; then
+            echo "FAIL $bin needs $(echo "$extra" | tr '\n' ' '): the C library's alone are allowed" >&2
+            rc=1
+        fi
     fi
 done
 exit $rc

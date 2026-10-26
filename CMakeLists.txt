@@ -34,8 +34,8 @@ include("${DXL_ROOT}/cmake/deps.cmake")
 function(dxl_check_abi target)
     if(DXL_PORT_GLIBC_MAX)
         add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND "${DXL_ROOT}/scripts/check-abi.sh" --max "${DXL_PORT_GLIBC_MAX}" "$<TARGET_FILE:${target}>"
-            COMMENT "checking glibc ABI of ${target} against ${DXL_PORT_GLIBC_MAX}")
+            COMMAND "${DXL_ROOT}/scripts/check-abi.sh" --max "${DXL_PORT_GLIBC_MAX}" --needed "$<TARGET_FILE:${target}>"
+            COMMENT "checking glibc ABI of ${target} against ${DXL_PORT_GLIBC_MAX}, and its libraries")
     endif()
 endfunction()
 
