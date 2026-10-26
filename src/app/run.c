@@ -777,7 +777,12 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         if ((rc = repoint(r)) != 0) goto done;
     }
     if (r->opt.import_only) {
-        if (dxl_session_save(&r->session, &e) != 0) stop_with(r, "%s", dxl_err_msg(&e));
+        if (dxl_session_save(&r->session, &e) != 0) {
+            /* launcher.ini without the install the profile names: not made. */
+            stop_with(r, "%s", dxl_err_msg(&e));
+            rc = DXL_RUN_EXIT_NOGAME;
+            goto done;
+        }
         printf("profile %s made from %s\n", r->session.profile.id,
                r->session.install.root ? r->session.install.root : r->opt.game);
         goto done;
