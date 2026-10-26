@@ -56,25 +56,49 @@ static char *on_path(const char *name) {
     }
 }
 
-/* In the child, after fork: exec, or report why not through report_fd. */
-static void exec_child(char *const argv[], char *const env[], const char *workdir, int report_fd) {
-    for (size_t i = 0; env && env[i]; i++) {
-        const char *eq = strchr(env[i], '=');
-        if (!eq) {
-            unsetenv(env[i]);
-            continue;
+/* The game's environment, made before the fork (after it the child calls
+ * nothing but what is safe there: setenv takes a lock another thread may
+ * hold at the fork, for good). This process's, less the launcher's line
+ * and the names env sets or takes out, then env's settings, then the
+ * line's descriptor (fd_entry's text). The array is the caller's to free;
+ * its strings are environ's, env's and fd_entry. */
+static char **child_env(char *const env[], int keep_fd, char *fd_entry, size_t fd_entry_size) {
+    extern char **environ;
+    size_t ne = 0, nv = 0;
+    while (environ[ne]) ne++;
+    while (env && env[nv]) nv++;
+    char **out = dxl_xmalloc((ne + nv + 2) * sizeof *out);
+    size_t k = 0;
+    for (size_t i = 0; i < ne; i++) {
+        const char *eq = strchr(environ[i], '=');
+        size_t n = eq ? (size_t)(eq - environ[i]) : strlen(environ[i]);
+        int dropped = strncmp(environ[i], DXL_LAUNCHER_FD_ENV, n) == 0 && DXL_LAUNCHER_FD_ENV[n] == '\0';
+        for (size_t j = 0; !dropped && j < nv; j++) {
+            const char *veq = strchr(env[j], '=');
+            size_t vn = veq ? (size_t)(veq - env[j]) : strlen(env[j]);
+            dropped = vn == n && strncmp(env[j], environ[i], n) == 0;
         }
-        char name[256];
-        snprintf(name, sizeof name, "%.*s", (int)(eq - env[i]), env[i]);
-        setenv(name, eq + 1, 1);
+        if (!dropped) out[k++] = environ[i];
     }
+    for (size_t j = 0; j < nv; j++)
+        if (strchr(env[j], '=')) out[k++] = env[j];
+    if (keep_fd >= 0) {
+        snprintf(fd_entry, fd_entry_size, "%s=%d", DXL_LAUNCHER_FD_ENV, keep_fd);
+        out[k++] = fd_entry;
+    }
+    out[k] = NULL;
+    return out;
+}
+
+/* In the child, after fork: exec, or report why not through report_fd. */
+static void exec_child(char *const argv[], char *const envp[], const char *workdir, int report_fd) {
     if (workdir && *workdir && chdir(workdir) != 0) {
         int e = errno;
         ssize_t w = write(report_fd, &e, sizeof e);
         (void)w;
         _exit(127);
     }
-    execv(argv[0], argv);
+    execve(argv[0], argv, envp);
     int e = errno;
     ssize_t w = write(report_fd, &e, sizeof e);
     (void)w;
@@ -99,27 +123,24 @@ static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *
             return -1;
         }
     }
+    char fd_entry[64];
+    char **envp = child_env(env, keep_fd, fd_entry, sizeof fd_entry);
     *pid = fork();
     if (*pid < 0) {
         dxl_err_set(err, "fork: %s", strerror(errno));
         close(report[0]); close(report[1]);
         if (log_fd >= 0) close(log_fd);
+        free(envp);
         return -1;
     }
     if (*pid == 0) {
         signal(SIGPIPE, SIG_DFL);
         if (log_fd >= 0) { dup2(log_fd, STDOUT_FILENO); dup2(log_fd, STDERR_FILENO); }
         cloexec_all(keep_fd);
-        if (keep_fd >= 0) {
-            fcntl(keep_fd, F_SETFD, 0);   /* the one descriptor the game keeps */
-            char n[16];
-            snprintf(n, sizeof n, "%d", keep_fd);
-            setenv(DXL_LAUNCHER_FD_ENV, n, 1);
-        } else {
-            unsetenv(DXL_LAUNCHER_FD_ENV);
-        }
-        exec_child(argv, env, workdir, report[1]);
+        if (keep_fd >= 0) fcntl(keep_fd, F_SETFD, 0);   /* the one descriptor the game keeps */
+        exec_child(argv, envp, workdir, report[1]);
     }
+    free(envp);
     close(report[1]);
     if (log_fd >= 0) close(log_fd);
     int e = 0;
