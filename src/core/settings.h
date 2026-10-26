@@ -42,7 +42,7 @@ typedef enum {
 } dxl_store;
 
 typedef enum {
-    DXL_CODEC_BOOL,     /* True / False; reads True, true, 1, False, false, 0 alone */
+    DXL_CODEC_BOOL,     /* True / False; reads true, yes or 1 and false, no or 0 in any case, as the engine */
     DXL_CODEC_NOT,      /* the same, the value its opposite (NoDynamicLights for dynamic lights) */
     DXL_CODEC_INT,      /* "%d" of the value times scale, cut to a whole; reads the leading number */
     DXL_CODEC_BYTE,     /* the same, 0 to 255: the engine wraps what is past it */

@@ -169,6 +169,8 @@ static void test_bool_spelling(void) {
     CHECK_STR(dxl_ini_get(ini, "Galaxy.GalaxyAudioSubsystem", "UseFilter"), "True");
     CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "UseReverb", 1), 0);
     CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "Missing", 1), 1);
+    dxl_ini_set(ini, "Galaxy.GalaxyAudioSubsystem", "UseCDMusic", "yes");   /* a hand's: as the engine reads it */
+    CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "UseCDMusic", 0), 1);
     dxl_ini_free(ini);
 }
 

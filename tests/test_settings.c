@@ -127,10 +127,10 @@ static void test_generations(void) {
 static void test_codecs(void) {
     dxl_stores st;
     memset(&st, 0, sizeof st);
-    st.system = parse("[Engine.DXEngineAudioDevice]\nReverseStereo=TRUE\nUseReverb=0\nOutputRate=22050\n"
+    st.system = parse("[Engine.DXEngineAudioDevice]\nReverseStereo=TRUE\nUseReverb=No\nOutputRate=22050\n"
                       "EffectsChannels=24 channels\nMusicVolume=300\nAmbientFactor=0.5abc\n"
                       "[Engine.DXEngineClient]\nNoDynamicLights=True\nDecals=false\n");
-    CHECK_STR(get(&st, "audio.reverse"), "0");          /* TRUE: not the engine's */
+    CHECK_STR(get(&st, "audio.reverse"), "1");          /* TRUE: any case, as the engine reads it */
     CHECK_STR(get(&st, "audio.reverb"), "0");
     CHECK_STR(get(&st, "audio.rate"), "44100");         /* no Hz: not read */
     CHECK_STR(get(&st, "audio.channels"), "24");        /* the leading number */

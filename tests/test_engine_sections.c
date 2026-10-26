@@ -15,7 +15,7 @@ static void test_from_retail(void) {
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "WindowedViewportX"), "640");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Brightness"), "0.600000");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "MinDesiredFrameRate"), "1");
-    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Decals"), "True");          /* Yes: the default */
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Decals"), "True");          /* Yes: as the engine reads it */
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "TextureDetail"), "High");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "MusicVolume"), "153");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "OutputRate"), "22050Hz");
