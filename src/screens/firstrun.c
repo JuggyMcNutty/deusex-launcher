@@ -391,6 +391,7 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
             if (dxl_run_use_profile(s->run, s->run->session.profile.id, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
             s->making = 0;
             s->next_run[0] = '\0';
+            dxl_shell_rebrowse(s);
             dxl_shell_theme(s);
             dxl_shell_go(s, DXL_PAGE_HOME);
             return;
