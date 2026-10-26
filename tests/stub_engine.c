@@ -25,6 +25,9 @@
  *               ready's
  *   stubborn    hello, ready, deaf to the launcher's stop (SIGTERM; on
  *               Windows Quit and WM_CLOSE), sleeps until killed
+ *   fork        (POSIX) hello, ready, then exits 0 leaving a child of its
+ *               own that holds the line for 3 s, as a helper the game
+ *               started would: the launcher sees the end all the same
  *   handles     (Windows) whether the handle DXL_STUB_HANDLE names is the
  *               file DXL_STUB_FILE names, inherited: "handle kept" or
  *               "handle not kept"; and "line kept" when the launcher's line
@@ -241,6 +244,7 @@ int main(int argc, char **argv) {
      * engine does. */
     if (strcmp(mode, "stubborn") == 0) signal(SIGTERM, SIG_IGN);
     else signal(SIGTERM, on_stop);
+    signal(SIGHUP, on_stop);   /* a logout's, as the engine takes it */
 #endif
     say("ready");
     if (strcmp(mode, "crash") == 0) {
@@ -260,6 +264,16 @@ int main(int argc, char **argv) {
         free(text);
         return 0;
     }
+#ifndef _WIN32
+    if (strcmp(mode, "fork") == 0) {
+        pid_t child = fork();
+        if (child == 0) {
+            sleep(3);
+            _exit(0);
+        }
+        return 0;
+    }
+#endif
     if (strcmp(mode, "stubborn") == 0) {
 #ifdef _WIN32
         /* Nothing read from the line, no window to close. */
