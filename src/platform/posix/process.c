@@ -14,16 +14,37 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+/* The game's environment, made before the fork (after it the child calls
+ * nothing but what is safe there: setenv takes a lock another thread may
+ * hold at the fork, for good -- the wizard's renderer has threads up at
+ * the detection run). This process's, less the launcher's line, then the
+ * line's descriptor (fd_entry's text). The array is the caller's to free;
+ * its strings are environ's and fd_entry. */
+static char **child_env(int keep_fd, char *fd_entry, size_t fd_entry_size) {
+    extern char **environ;
+    size_t ne = 0;
+    while (environ[ne]) ne++;
+    char **out = dxl_xmalloc((ne + 2) * sizeof *out);
+    size_t k = 0, fd_len = strlen(DXL_LAUNCHER_FD_ENV);
+    for (size_t i = 0; i < ne; i++)
+        if (strncmp(environ[i], DXL_LAUNCHER_FD_ENV, fd_len) != 0 || environ[i][fd_len] != '=') out[k++] = environ[i];
+    if (keep_fd >= 0) {
+        snprintf(fd_entry, fd_entry_size, "%s=%d", DXL_LAUNCHER_FD_ENV, keep_fd);
+        out[k++] = fd_entry;
+    }
+    out[k] = NULL;
+    return out;
+}
+
 /* In the child, after fork: exec, or report why not through report_fd. */
-static void exec_child(const char *exe, const char *flags, const char *workdir, int report_fd) {
+static void exec_child(const char *exe, char *const argv[], char *const envp[], const char *workdir, int report_fd) {
     if (workdir && *workdir && chdir(workdir) != 0) {
         int e = errno;
         ssize_t w = write(report_fd, &e, sizeof e);
         (void)w;
         _exit(127);
     }
-    char **argv = dxl_argv_line(exe, flags);
-    execv(exe, argv);
+    execve(exe, argv, envp);
     int e = errno;
     ssize_t w = write(report_fd, &e, sizeof e);
     (void)w;
@@ -47,26 +68,26 @@ static int spawn(pid_t *pid, const char *exe, const char *flags, const char *wor
             return -1;
         }
     }
+    char **argv = dxl_argv_line(exe, flags);
+    char fd_entry[64];
+    char **envp = child_env(keep_fd, fd_entry, sizeof fd_entry);
     *pid = fork();
     if (*pid < 0) {
         dxl_err_set(err, "fork: %s", strerror(errno));
         close(report[0]); close(report[1]);
         if (log_fd >= 0) close(log_fd);
+        dxl_argv_free(argv);
+        free(envp);
         return -1;
     }
     if (*pid == 0) {
         signal(SIGPIPE, SIG_DFL);
         if (log_fd >= 0) { dup2(log_fd, STDOUT_FILENO); dup2(log_fd, STDERR_FILENO); }
-        if (keep_fd >= 0) {
-            fcntl(keep_fd, F_SETFD, 0);   /* the one descriptor the game keeps */
-            char n[16];
-            snprintf(n, sizeof n, "%d", keep_fd);
-            setenv(DXL_LAUNCHER_FD_ENV, n, 1);
-        } else {
-            unsetenv(DXL_LAUNCHER_FD_ENV);
-        }
-        exec_child(exe, flags, workdir, report[1]);
+        if (keep_fd >= 0) fcntl(keep_fd, F_SETFD, 0);   /* the one descriptor the game keeps */
+        exec_child(exe, argv, envp, workdir, report[1]);
     }
+    dxl_argv_free(argv);
+    free(envp);
     close(report[1]);
     if (log_fd >= 0) close(log_fd);
     int e = 0;
