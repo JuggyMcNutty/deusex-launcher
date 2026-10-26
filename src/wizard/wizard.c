@@ -118,6 +118,10 @@ static SDL_Rect map(int x, int y, int w, int h, int ox, int oy) {
 
 static page *top(dxl_wizard *w) { return w->depth ? &w->stack[w->depth - 1] : NULL; }
 
+/* A signal's quit asked for (dxl_gui's quit): what a wait leaves for the
+ * dialog to answer. */
+static int quitting(const dxl_wizard *w) { return w->d->gui->quit && *w->d->gui->quit; }
+
 static const char *window_text(dxl_wizard *w, const char *key) {
     return dxl_loc_general(w->req->loc, "Window", key);
 }
@@ -302,8 +306,9 @@ void dxl_wizard_first_paint(dxl_wizard *w, int detect) {
                                       &e) == 0;
         /* Up to 30 seconds for Detected.ini, in steps of 100 ms, as the
          * original waits. Input waits too, as it does there; the window
-         * keeps drawing. A run that ended without it is not waited for. */
-        for (int ms = DETECT_MS; ms > 0 && dxl_path_size(detected) < 0; ms -= 100) {
+         * keeps drawing. A run that ended without it is not waited for,
+         * nor a quit a signal asks for. */
+        for (int ms = DETECT_MS; ms > 0 && dxl_path_size(detected) < 0 && !quitting(w); ms -= 100) {
             if (running && dxl_child_reap(pid)) {
                 running = 0;
                 if (dxl_path_size(detected) < 0) break;
@@ -313,7 +318,7 @@ void dxl_wizard_first_paint(dxl_wizard *w, int detect) {
             SDL_Delay(100);
         }
         /* Detected.ini is the run's last word; give it a moment to end. */
-        for (int ms = 2000; running && ms > 0; ms -= 10) {
+        for (int ms = 2000; running && ms > 0 && !quitting(w); ms -= 10) {
             if (dxl_child_reap(pid)) running = 0;
             else SDL_Delay(10);
         }

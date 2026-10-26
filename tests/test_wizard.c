@@ -3,6 +3,8 @@
 #include "gui/msgbox.h"
 #include "wizard/wizard.h"
 
+#include <time.h>
+
 /* The wizard, clicked through with no display: dx-reverse-info/wizard.md.
  * The .int files here are stand-ins with the strings that matter. Skipped
  * (77) where no font can be found to draw with. */
@@ -244,6 +246,20 @@ static void test_msgbox_ampersands(void) {
     dxl_dialog_close(d);
 }
 
+/* A quit a signal asks for while the Renderer page detects is answered at
+ * once, not after the 30 s wait for Detected.ini (here no run starts). */
+static void test_quit_while_detecting(void) {
+    fixture_t f;
+    open_wizard(&f, DXL_PAGE_RENDERER);
+    volatile int quit = 1;
+    gui.quit = &quit;
+    time_t t0 = time(NULL);
+    dxl_wizard_first_paint(f.w, 1);
+    CHECK(time(NULL) - t0 < 5);
+    gui.quit = NULL;
+    close_wizard(&f);
+}
+
 /* Cancel, anywhere, ends it with 0. */
 static void test_cancel(void) {
     fixture_t f;
@@ -317,6 +333,7 @@ TEST_MAIN_BEGIN
     RUN(test_software_and_back);
     RUN(test_keys);
     RUN(test_msgbox_ampersands);
+    RUN(test_quit_while_detecting);
     RUN(test_cancel);
     RUN(test_safe_options);
     RUN(test_reset);
