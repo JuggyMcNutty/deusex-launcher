@@ -95,10 +95,10 @@ static const dxl_set_choice hud_themes[] = {
     THEME("Violet"), { NULL, NULL, NULL },
 };
 
+/* This port's SDL3 is built without OpenGL and Vulkan (port.cmake): OpenGL
+ * ES and the software one are its renderers. */
 static const dxl_set_choice render_drivers[] = {
-    { "", "Chosen by SDL", "The renderer SDL starts first here: OpenGL, Vulkan, or the software one." },
-    { "opengl", "OpenGL", NULL },
-    { "vulkan", "Vulkan", NULL },
+    { "", "Chosen by SDL", "The renderer SDL starts first here: OpenGL ES, or the software one." },
     { "opengles2", "OpenGL ES", NULL },
     { "software", "Software", "Drawn on the CPU: slow, but it needs no graphics driver." },
     { NULL, NULL, NULL },
