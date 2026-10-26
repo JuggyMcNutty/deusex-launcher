@@ -45,8 +45,22 @@ static void url_escape(const char *path, char *out, size_t size) {
     out[n] = '\0';
 }
 
+/* The path, absolute: its folder resolved, its last name as it is, so that
+ * a link is itself, not its target (dxl_trash_all's check lstats it too).
+ * NULL, with errno, for one that is not there. Caller frees. */
+static char *absolute(const char *path) {
+    struct stat st;
+    if (lstat(path, &st) != 0) return NULL;
+    if (!S_ISLNK(st.st_mode)) return realpath(path, NULL);
+    char *dir = dxl_path_dirname(path), *real = realpath(dir, NULL);
+    char *abs = real ? dxl_path_join(real, dxl_path_basename(path)) : NULL;
+    free(dir);
+    free(real);
+    return abs;
+}
+
 int dxl_trash(const char *path, const char *data_home, char *trashed, size_t trashed_size, dxl_err *err) {
-    char *abs = realpath(path, NULL);
+    char *abs = absolute(path);
     if (!abs) {
         dxl_err_set(err, "%s: %s", path, strerror(errno));
         return -1;
