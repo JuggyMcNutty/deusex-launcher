@@ -133,7 +133,7 @@ static const struct {
 } ends[] = {
     { 0xC0000005u, "an access violation", 1 },
     { 0xC00000FDu, "a stack overflow", 1 },
-    { 0xC0000409u, "a stack buffer overrun", 1 },
+    { 0xC0000409u, "an abort (a fast fail: the C runtime's abort, or a stack buffer overrun)", 1 },
     { 0xC000001Du, "an illegal instruction", 1 },
     { 0xC0000096u, "a privileged instruction", 1 },
     { 0xC0000094u, "an integer division by zero", 1 },
