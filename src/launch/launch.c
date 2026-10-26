@@ -299,9 +299,16 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
         }
     }
 
-    /* 2. appInit: the log, the configuration; -make; client or server. */
+    /* 2. appInit: the log, the configuration; -make; client or server. The
+     * log is emptied first, as the original's CREATE_ALWAYS does; beside a
+     * launcher that runs (a bypass word's launch, one beside -server's) it
+     * is appended to, where the original's second writer fails to open the
+     * file, which the first holds with read sharing alone, and that launch
+     * runs without a log. */
     r.log_path = log_path_of(&r);
-    dxl_log_open_new(r.log_path);
+    int other = dxl_instance_other_running(r.id);
+    if (other) dxl_log_open(r.log_path);
+    else dxl_log_open_new(r.log_path);
     dxl_log("Init: command line: %s", r.cmd);
     dxl_log("Init: base directory: %s", r.base);
     /* appInit's INI= and USERINI=: the configuration from other files. */
@@ -333,7 +340,6 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
 
     /* 4 and 5.3. The lock, and for a client the line a second launch
      * forwards to (the original's IsBrowser window). */
-    int other = dxl_instance_other_running(r.id);
     r.inst = client ? dxl_instance_acquire(r.id) : dxl_instance_acquire_lock(r.id);
 
     /* 5. InitEngine. */
