@@ -217,6 +217,9 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
 }
 
 void dxl_game_close(dxl_game *g) {
+    free(g->pending);
+    g->pending = NULL;
+    g->pending_len = g->pending_cap = 0;
     if (!g->os) return;
     if (g->os->line != INVALID_HANDLE_VALUE) {
         CancelIo(g->os->line);
@@ -228,23 +231,30 @@ void dxl_game_close(dxl_game *g) {
     g->os = NULL;
 }
 
-/* A whole line from what has come in, into line; 1 if there was one. */
-static int take_line(dxl_game *g, char *line, size_t size) {
-    char *nl = memchr(g->pending, '\n', g->pending_len);
-    if (!nl) {
-        if (g->pending_len < sizeof g->pending) return 0;
-        nl = g->pending + g->pending_len - 1;   /* an over-long line: cut it */
+/* A line is any length; one past this with no end is taken as it is. */
+#define LINE_MOST (1 << 20)
+
+/* A whole line from what has come in, malloc'd into *line; 1 if there was
+ * one. */
+static int take_line(dxl_game *g, char **line) {
+    char *nl = g->pending_len ? memchr(g->pending, '\n', g->pending_len) : NULL;
+    size_t used;
+    if (nl) {
+        used = (size_t)(nl - g->pending) + 1;
+    } else if (g->pending_len >= LINE_MOST) {
+        used = g->pending_len;
+        nl = g->pending + used;
+    } else {
+        return 0;
     }
     size_t n = (size_t)(nl - g->pending);
-    if (size) {
-        size_t c = n < size - 1 ? n : size - 1;
-        memcpy(line, g->pending, c);
-        line[c] = '\0';
-        if (c && line[c - 1] == '\r') line[c - 1] = '\0';
-    }
-    size_t used = n + 1 <= g->pending_len ? n + 1 : g->pending_len;
+    if (n && g->pending[n - 1] == '\r') n--;
+    char *out = dxl_xmalloc(n + 1);
+    memcpy(out, g->pending, n);
+    out[n] = '\0';
     memmove(g->pending, g->pending + used, g->pending_len - used);
     g->pending_len -= used;
+    *line = out;
     return 1;
 }
 
@@ -255,13 +265,18 @@ static void broken(dxl_game_os *os) {
     os->reading = 0;
 }
 
-/* A read pending on the line, unless it has one or is gone. */
+/* A read pending on the line, unless it has one or is gone. The buffer
+ * grows for a line of any length, only while no read is pending on it. */
 static void read_line(dxl_game *g) {
     dxl_game_os *os = g->os;
-    while (os->line != INVALID_HANDLE_VALUE && !os->reading && g->pending_len < sizeof g->pending) {
+    while (os->line != INVALID_HANDLE_VALUE && !os->reading) {
+        if (g->pending_len == g->pending_cap) {
+            g->pending_cap = g->pending_cap ? g->pending_cap * 2 : 1024;
+            g->pending = dxl_xrealloc(g->pending, g->pending_cap);
+        }
         ResetEvent(os->ov.hEvent);
         DWORD got = 0;
-        if (ReadFile(os->line, g->pending + g->pending_len, (DWORD)(sizeof g->pending - g->pending_len), &got,
+        if (ReadFile(os->line, g->pending + g->pending_len, (DWORD)(g->pending_cap - g->pending_len), &got,
                      &os->ov)) {
             g->pending_len += got;
             if (!got) broken(os);
@@ -285,11 +300,12 @@ static void finish_read(dxl_game *g) {
     }
 }
 
-int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t size) {
-    if (take_line(g, line, size)) return DXL_GAME_LINE;
+int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char **line) {
+    *line = NULL;
+    if (take_line(g, line)) return DXL_GAME_LINE;
     dxl_game_os *os = g->os;
     read_line(g);
-    if (take_line(g, line, size)) return DXL_GAME_LINE;
+    if (take_line(g, line)) return DXL_GAME_LINE;
     HANDLE h[3];
     int k = 0, chan = -1, extra = -1;
     if (os->reading) { chan = k; h[k++] = os->ov.hEvent; }
@@ -302,7 +318,7 @@ int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t si
     if (r != WAIT_TIMEOUT && r < WAIT_OBJECT_0 + (DWORD)k) {
         if (chan >= 0 && WaitForSingleObject(h[chan], 0) == WAIT_OBJECT_0) {
             finish_read(g);
-            if (take_line(g, line, size)) seen |= DXL_GAME_LINE;
+            if (take_line(g, line)) seen |= DXL_GAME_LINE;
         }
         if (extra >= 0 && WaitForSingleObject(h[extra], 0) == WAIT_OBJECT_0) seen |= DXL_GAME_EXTRA;
     }
