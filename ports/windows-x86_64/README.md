@@ -48,9 +48,9 @@ The UTF-8 code page lets the C library's narrow calls take UTF-8, as every
 path above the platform is kept: it is what needs 1903. The engine's
 D3D11 device is built but not offered
 ([the renderers](../../docs/LAUNCHER.md#settings)), nor are linux-x86_64's
-renderers on Mesa's CPU drivers, lavapipe and llvmpipe, which the probe
-takes for a GPU's where they are all a machine has
-([known defects](../../docs/LAUNCHER.md#known-defects)).
+renderers on Mesa's CPU drivers, lavapipe and llvmpipe: the probe takes
+them for no GPU, as the engine does, so a machine with only them begins on
+Software.
 
 ## Verified
 

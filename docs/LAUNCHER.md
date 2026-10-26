@@ -859,12 +859,5 @@ launcher that keeps it whatever the install. Changed:
 
 ## Known defects
 
-- **Mesa's CPU drivers taken for a GPU's**: where a machine's only Vulkan is
-  lavapipe or its only OpenGL llvmpipe (Wine on a host with no GPU, Mesa's
-  Windows builds), the probe reports Vulkan or OpenGL
-  (`src/platform/win32/gpu_probe.c`), so the GPU renderers are offered and a
-  profile begins on Vulkan; the engine takes them for no GPU and draws with
-  the software renderer, and Home says so.
-
-What is untried on Windows itself is the port's
+None on Windows' own calls. What is untried on Windows itself is the port's
 ([verified](../ports/windows-x86_64/README.md#verified)).

@@ -93,22 +93,18 @@ static void probe_vulkan(dxl_gpu_probe *out) {
         uint32_t n = 8;
         VkResult rc = enumerate(inst, &n, devs);
         if ((rc == VK_SUCCESS || rc == VK_INCOMPLETE) && n > 0) {
-            /* A real GPU before a CPU implementation, which is reported if
-             * it is all there is. */
+            /* The first GPU's: a CPU implementation (lavapipe) is no GPU,
+             * as the engine passes it over for the software device. */
             static VkPhysicalDeviceProperties p;
-            uint32_t pick = 0;
             for (uint32_t i = 0; i < n; i++) {
                 props(devs[i], &p);
-                if (p.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) {
-                    pick = i;
-                    break;
-                }
+                if (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) continue;
+                out->vulkan = 1;
+                snprintf(out->vulkan_device, sizeof out->vulkan_device, "%.127s", p.deviceName);
+                snprintf(out->vulkan_version, sizeof out->vulkan_version, "%u.%u.%u", p.apiVersion >> 22,
+                         (p.apiVersion >> 12) & 0x3ffu, p.apiVersion & 0xfffu);
+                break;
             }
-            props(devs[pick], &p);
-            out->vulkan = 1;
-            snprintf(out->vulkan_device, sizeof out->vulkan_device, "%.127s", p.deviceName);
-            snprintf(out->vulkan_version, sizeof out->vulkan_version, "%u.%u.%u", p.apiVersion >> 22,
-                     (p.apiVersion >> 12) & 0x3ffu, p.apiVersion & 0xfffu);
         }
     }
     if (destroy) destroy(inst, NULL);
@@ -119,6 +115,11 @@ static void probe_vulkan(dxl_gpu_probe *out) {
 
 #define DXL_GL_RENDERER 0x1F01
 #define DXL_GL_VERSION  0x1F02
+
+/* Mesa's CPU renderers, as GL_RENDERER names them */
+static int cpu_renderer(const char *renderer) {
+    return renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe"));
+}
 
 /* Desktop OpenGL: a context on a hidden window, its GL_VERSION, the GL
  * device's as the engine's Win32 window makes one. */
@@ -149,9 +150,12 @@ static void probe_wgl(dxl_gpu_probe *out) {
             HMODULE gl = GetModuleHandleW(L"opengl32.dll");
             get_string_fn get = gl ? (get_string_fn)(void *)GetProcAddress(gl, "glGetString") : NULL;
             const char *v = get ? (const char *)get(DXL_GL_VERSION) : NULL;
-            /* The renderer list asks for desktop GL; the GL device wants 4.2. */
+            const char *renderer = get ? (const char *)get(DXL_GL_RENDERER) : NULL;
+            /* The renderer list asks for desktop GL; the GL device wants 4.2,
+             * and a GPU's: llvmpipe is none, as the engine takes it. */
             int major = 0, minor = 0;
-            if (v && sscanf(v, "%d.%d", &major, &minor) == 2) out->gl = major > 4 || (major == 4 && minor >= 2);
+            if (v && sscanf(v, "%d.%d", &major, &minor) == 2)
+                out->gl = (major > 4 || (major == 4 && minor >= 2)) && !cpu_renderer(renderer);
             wglMakeCurrent(NULL, NULL);
         }
         if (ctx) wglDeleteContext(ctx);
