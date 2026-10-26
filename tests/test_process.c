@@ -239,6 +239,16 @@ static void test_capture(void) {
     char *none[] = { "/nonexistent/engine", "--version", NULL };
     CHECK_INT(dxl_run_capture(none, 1000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
     CHECK(strstr(errs, "/nonexistent/engine") != NULL);
+#ifndef _WIN32
+    /* A bare name, found on PATH as a shell finds it; one that is nowhere
+     * is said so. */
+    char *bare[] = { "sh", "-c", "echo found", NULL };
+    CHECK_INT(dxl_run_capture(bare, 3000, out, sizeof out, errs, sizeof errs, &status, &e), 0);
+    CHECK_STR(out, "found\n");
+    char *nowhere[] = { "dxl-no-such-program", NULL };
+    CHECK_INT(dxl_run_capture(nowhere, 1000, out, sizeof out, errs, sizeof errs, &status, &e), -1);
+    CHECK(strstr(dxl_err_msg(&e), "cannot run dxl-no-such-program: not found") != NULL);
+#endif
 }
 
 #ifdef _WIN32
