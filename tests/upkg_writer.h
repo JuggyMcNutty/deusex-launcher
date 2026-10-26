@@ -48,13 +48,26 @@ static inline void str(buf *b, const char *s) {
 }
 
 /* A property's tag, in the format's order: its name, its type and size
- * code, a struct's name, a size of a byte (code 5), an array index. */
+ * code, a struct's name, a size of a byte (code 5) or a word (code 6), an
+ * array index. */
 static inline void tag(buf *b, int name, int type, int size_code, int index, int struct_name, int size) {
     idx(b, name);
     u8(b, (uint8_t)(type | size_code << 4 | (index ? 0x80 : 0)));
     if (type == DXL_UPROP_STRUCT) idx(b, struct_name);
     if (size_code == 5) u8(b, (uint8_t)size);
+    if (size_code == 6) u16(b, (uint16_t)size);
     if (index) u8(b, (uint8_t)index);
+}
+
+/* The bytes a compact index takes. */
+static inline int idx_size(int32_t v) {
+    uint32_t a = (uint32_t)(v < 0 ? -v : v) >> 6;
+    int n = 1;
+    while (a) {
+        n++;
+        a >>= 7;
+    }
+    return n;
 }
 
 /* ---- a save's info ---------------------------------------------------- */
@@ -81,8 +94,11 @@ static inline void dxl_ts_int(buf *b, int name, int value) {
     u32(b, (uint32_t)value);
 }
 
+/* A string's bytes are its compact index and its text with the NUL: the
+ * index takes two bytes from 64 up. */
 static inline void dxl_ts_str(buf *b, int name, const char *value) {
-    tag(b, name, DXL_UPROP_STR, 5, 0, 0, (int)strlen(value) + 2);
+    int n = (int)strlen(value) + 1, size = idx_size(n) + n;
+    tag(b, name, DXL_UPROP_STR, size < 256 ? 5 : 6, 0, 0, size);
     str(b, value);
 }
 
