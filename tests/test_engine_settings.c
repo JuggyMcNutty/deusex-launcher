@@ -275,7 +275,7 @@ static void test_clean_file_is_not_dirty(void) {
     dxl_es_free(s);
     s = dxl_es_open(in_dir("Settings.json"), NULL);
     CHECK_INT(dxl_es_dirty(s), 0);
-    CHECK_INT(dxl_es_was_present(s, DXL_ES_PAD_LAYOUT), 1);
+    CHECK_INT(dxl_es_was_present(s, DXL_ES_PAD_INVERT_Y), 1);
     dxl_es_set_bool(s, DXL_ES_VSYNC, dxl_es_bool(s, DXL_ES_VSYNC));
     CHECK_INT(dxl_es_dirty(s), 0);
     dxl_es_free(s);
