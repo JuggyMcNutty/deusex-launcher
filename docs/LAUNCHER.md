@@ -34,7 +34,7 @@ platform (`src/core/xdg.h`):
 | `%LOCALAPPDATA%\DXLauncher\config\profiles\<id>\` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
 | `Saved Games\DXLauncher\` | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `Saved Games\DXLauncher\profiles\<id>\` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it where Windows lets the user make one, in its developer mode; else that folder is the shots folder itself) |
-| `%LOCALAPPDATA%\DXLauncher\state\` | `launcher.log`, each start's; per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
+| `%LOCALAPPDATA%\DXLauncher\state\` | `launcher.log`, each start's (a start beside a running launcher appends to it); per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `%LOCALAPPDATA%\DXLauncher\cache\profiles\<id>\Cache\` | the inis' `CachePath`: a net game's downloads |
 | `%LOCALAPPDATA%\DXLauncher\` | the Start menu's icon, `DXLauncher.ico`, and the pictures it is made of ([the app menu](#the-app-menu)) |
 | the Recycle Bin | a deleted profile's four folders, a save, a screenshot, each by its own name, to be restored from it ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
