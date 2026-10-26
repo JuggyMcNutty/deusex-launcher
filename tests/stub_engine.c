@@ -56,10 +56,15 @@ static int line_open(void) { return line != INVALID_HANDLE_VALUE; }
 
 static void say(const char *text) {
     if (!line_open()) return;
-    char buf[1100];
-    int n = snprintf(buf, sizeof buf, "%s\n", text);
+    /* Any length, as the engine sends a line. */
+    size_t n = strlen(text) + 1;
+    char *buf = malloc(n + 1);
+    memcpy(buf, text, n - 1);
+    buf[n - 1] = '\n';
+    buf[n] = '\0';
     DWORD wrote = 0;
     if (!WriteFile(line, buf, (DWORD)n, &wrote, NULL)) fprintf(stderr, "stub: send: error %lu\n", GetLastError());
+    free(buf);
 }
 
 /* What has come on the line, at most size: its bytes, 0 when nothing came
@@ -90,9 +95,14 @@ static int line_open(void) { return line_fd >= 0; }
 
 static void say(const char *text) {
     if (line_fd < 0) return;
-    char buf[1100];
-    int n = snprintf(buf, sizeof buf, "%s\n", text);
-    if (send(line_fd, buf, (size_t)n, MSG_NOSIGNAL) < 0) perror("stub: send");
+    /* Any length, as the engine sends a line. */
+    size_t n = strlen(text) + 1;
+    char *buf = malloc(n + 1);
+    memcpy(buf, text, n - 1);
+    buf[n - 1] = '\n';
+    buf[n] = '\0';
+    if (send(line_fd, buf, n, MSG_NOSIGNAL) < 0) perror("stub: send");
+    free(buf);
 }
 
 static long hear(char *buf, size_t size) {
@@ -232,9 +242,11 @@ int main(int argc, char **argv) {
         return 2;
     }
     if (strcmp(mode, "relaunch") == 0 && !started_with(argc, argv, env_or("DXL_STUB_LINE", "-changevideo"))) {
-        char text[1100];
-        snprintf(text, sizeof text, "relaunch %s", env_or("DXL_STUB_LINE", "-changevideo"));
+        const char *line = env_or("DXL_STUB_LINE", "-changevideo");
+        char *text = malloc(strlen(line) + 10);
+        sprintf(text, "relaunch %s", line);
         say(text);
+        free(text);
         return 0;
     }
     if (strcmp(mode, "stubborn") == 0) {

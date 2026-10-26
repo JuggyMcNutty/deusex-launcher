@@ -62,8 +62,8 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
 
     int since_term = 0;
     for (;;) {
-        char line[1024];
-        int ev = dxl_game_wait(&g, req->instance, out->stopped ? STOPPING_MS : WAKE_MS, line, sizeof line);
+        char *line = NULL;
+        int ev = dxl_game_wait(&g, req->instance, out->stopped ? STOPPING_MS : WAKE_MS, &line);
         if (ev & DXL_GAME_LINE) {
             if (strcmp(line, "hello") == 0) {
                 out->hello = 1;
@@ -76,6 +76,7 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
                 out->relaunch = dxl_xstrdup(line[8] ? line + 9 : "");
                 dxl_log("relaunch: %s", out->relaunch);
             }
+            free(line);
         }
         if (ev & DXL_GAME_EXTRA) {
             char msg[DXL_HANDOFF_MAX];
