@@ -698,7 +698,7 @@ Home's The engine... chooses another.
 | Mode | What it does |
 |---|---|
 | `--dry-run` | what the start would decide, make and run; nothing is written |
-| `--print-command` | the engine's command line for the profile; nothing is run |
+| `--print-command` | the engine's command line for the profile, a shell's (Windows' launcher prints cmd.exe's); nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
 | `--probe` | the Vulkan and OpenGL this machine offers, Windows having no OpenGL ES (`src/platform/win32/gpu_probe.c`: `vulkan-1.dll`, and WGL on a hidden window, on a thread a driver that hangs is left behind on); with `--ini`, as an ini, as the window reads it |
