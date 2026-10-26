@@ -26,12 +26,22 @@ dxl_dialog *dxl_msgbox_build(dxl_gui *g, const dxl_msgbox_spec *s, int offscreen
     bw *= 2;
     int bh = 2 * line, space = bw / 3;
 
+    /* A message box's text shows & as it is: escaped, so a path's & is no
+     * mnemonic, and measured as it is drawn. */
+    dxl_buf esc;
+    dxl_buf_init(&esc);
+    dxl_buf_add(&esc, "", 0);
+    for (const char *p = s->text; *p; p++) {
+        if (*p == '&') dxl_buf_add(&esc, "&", 1);
+        dxl_buf_add(&esc, p, 1);
+    }
+
     /* The text beside the icon, as wide as its widest line but never
      * narrower than the buttons need; both centred in a band 16 taller than
      * the taller of the two. */
     int text_w = 0;
     SDL_Rect measure = { 0, 0, WRAP, 0 };
-    int text_h = dxl_text_wrapped(NULL, g, f, measure, s->text, dxl_colors.text, &text_w);
+    int text_h = dxl_text_wrapped(NULL, g, f, measure, esc.data, dxl_colors.text, &text_w);
     int icon = s->error_icon ? ICON : 0;
     int text_x = icon ? ICON_X + ICON_X + icon : ICON_X;
     int need = (bw + space) * n + space - text_x;
@@ -41,7 +51,10 @@ dxl_dialog *dxl_msgbox_build(dxl_gui *g, const dxl_msgbox_spec *s, int offscreen
     int h = 8 + band + bh;
 
     dxl_dialog *d = dxl_dialog_open(g, s->title, w, h, offscreen, err);
-    if (!d) return NULL;
+    if (!d) {
+        dxl_buf_free(&esc);
+        return NULL;
+    }
     dxl_dialog_set_font(d, f);
     d->on_command = on_command;
     if (icon) {
@@ -49,14 +62,6 @@ dxl_dialog *dxl_msgbox_build(dxl_gui *g, const dxl_msgbox_spec *s, int offscreen
         dxl_dialog_add(d, DXL_CTL_ICON, 0, ir, "", 0);
     }
     SDL_Rect tr = { text_x, (band - text_h) / 2, text_w, text_h };
-    /* A message box's text shows & as it is. */
-    dxl_buf esc;
-    dxl_buf_init(&esc);
-    dxl_buf_add(&esc, "", 0);
-    for (const char *p = s->text; *p; p++) {
-        if (*p == '&') dxl_buf_add(&esc, "&", 1);
-        dxl_buf_add(&esc, p, 1);
-    }
     dxl_dialog_add(d, DXL_CTL_TEXT, -1, tr, esc.data, 0);
     dxl_buf_free(&esc);
     int bx = (w + FRAME_W - (bw + space) * n + space) / 2;

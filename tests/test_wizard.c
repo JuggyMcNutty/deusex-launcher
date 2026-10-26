@@ -1,5 +1,6 @@
 #include "test.h"
 #include "scratch.h"
+#include "gui/msgbox.h"
 #include "wizard/wizard.h"
 
 /* The wizard, clicked through with no display: dx-reverse-info/wizard.md.
@@ -222,6 +223,27 @@ static void test_keys(void) {
     SDL_QuitSubSystem(SDL_INIT_EVENTS);
 }
 
+/* A critical box's text, a path holding &, is as wide as it is drawn:
+ * each & shows, where it was measured as a mnemonic's, dropped. */
+static void test_msgbox_ampersands(void) {
+    dxl_msgbox_spec s = { "Deus Ex", "A&B&C&D&E&F&G&H&I&J&K&L&M&N&O&P&Q&R&S&T", 0, 1 };
+    dxl_err e;
+    dxl_dialog *d = dxl_msgbox_build(&gui, &s, 1, &e);
+    CHECK(d != NULL);
+    if (!d) return;
+    dxl_ctl *text = NULL;
+    for (int i = 0; i < d->count; i++)
+        if (d->ctls[i].kind == DXL_CTL_TEXT) text = &d->ctls[i];
+    CHECK(text != NULL);
+    if (text) {
+        int drawn = 0;
+        SDL_Rect wide = { 0, 0, 264, 0 };
+        dxl_text_wrapped(NULL, &gui, d->font, wide, text->text, dxl_colors.text, &drawn);
+        CHECK(text->rc.w >= drawn);
+    }
+    dxl_dialog_close(d);
+}
+
 /* Cancel, anywhere, ends it with 0. */
 static void test_cancel(void) {
     fixture_t f;
@@ -294,6 +316,7 @@ TEST_MAIN_BEGIN
     RUN(test_first_run);
     RUN(test_software_and_back);
     RUN(test_keys);
+    RUN(test_msgbox_ampersands);
     RUN(test_cancel);
     RUN(test_safe_options);
     RUN(test_reset);
