@@ -1,4 +1,5 @@
 #include "ui/text.h"
+#include "core/common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,7 +112,7 @@ static TTF_Text *get(dxl_ui *ui, dxl_font_role role, const char *s, int wrap_px)
     if (oldest->text) TTF_DestroyText(oldest->text);
     free(oldest->s);
     oldest->text = TTF_CreateText(ui->engine, ui->fonts[role], s, 0);
-    oldest->s = strdup(s);
+    oldest->s = dxl_xstrdup(s);
     oldest->hash = h;
     oldest->role = role;
     oldest->wrap_px = wrap_px;
