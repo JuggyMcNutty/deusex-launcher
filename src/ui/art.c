@@ -79,15 +79,16 @@ void dxl_art_free(dxl_art *a) {
             if (a->button[i][j]) SDL_DestroyTexture(a->button[i][j]);
         if (a->light[i]) SDL_DestroyTexture(a->light[i]);
     }
+    free(a->from);
     memset(a, 0, sizeof *a);
 }
 
 void dxl_art_load(dxl_art *a, dxl_ui *ui, const char *root) {
     if (!root) root = "";
-    if (a->renderer == ui->renderer && !strcmp(a->from, root)) return;
+    if (a->renderer == ui->renderer && a->from && !strcmp(a->from, root)) return;
     dxl_art_free(a);
     a->renderer = ui->renderer;
-    snprintf(a->from, sizeof a->from, "%s", root);
+    a->from = dxl_xstrdup(root);   /* whole: a key cut would never match again */
     if (!*root || !ui->renderer) return;
     wordmark(a, ui->renderer, root);
     char *system = dxl_path_resolve_ci(root, "System");
