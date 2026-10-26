@@ -719,10 +719,23 @@ static void tear_down(dxl_run *r) {
 
 /* ---- the frames -------------------------------------------------------- */
 
+/* The shot's frames that had a kit diagnostic, and the first such frame's
+ * diagnostics: the kit counts a frame's alone, and any frame's fails the
+ * shot. */
+static int  diag_frames;
+static int  diag_kept;
+static char diag_text[8][256];
+
 static void frame(dxl_shell *s, double now) {
     SDL_SetRenderDrawColor(s->ui.renderer, 0, 0, 0, 255);
     SDL_RenderClear(s->ui.renderer);
     dxl_shell_frame(s, now);
+    if (s->ui.diag_count) {
+        if (!diag_frames)
+            for (diag_kept = 0; diag_kept < s->ui.diag_count && diag_kept < 8; diag_kept++)
+                snprintf(diag_text[diag_kept], sizeof diag_text[diag_kept], "%s", s->ui.diag[diag_kept]);
+        diag_frames++;
+    }
     SDL_RenderPresent(s->ui.renderer);
 }
 
@@ -813,6 +826,7 @@ static void shoot(scene sc, int si, mode m) {
     dxl_shell_init(&s, "shots");
     dxl_ui_reset(&kit);
     s.ui = kit;
+    diag_frames = diag_kept = 0;
     s.big = kit.big;
     dxl_run r;
     set_up(sc, &r, &s);
@@ -863,10 +877,10 @@ static void shoot(scene sc, int si, mode m) {
     frame(&s, t += 2);
 
     shots++;
-    if (s.ui.diag_count) {
+    if (diag_frames) {
         failures++;
-        fprintf(stderr, "%s: %d diagnostics\n", name, s.ui.diag_count);
-        for (int i = 0; i < s.ui.diag_count && i < 8; i++) fprintf(stderr, "    %s\n", s.ui.diag[i]);
+        fprintf(stderr, "%s: diagnostics in %d frame%s, the first's:\n", name, diag_frames, diag_frames == 1 ? "" : "s");
+        for (int i = 0; i < diag_kept; i++) fprintf(stderr, "    %s\n", diag_text[i]);
     }
     if (out_dir && wanted(sc, si, m)) {
         char path[1024];
