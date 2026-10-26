@@ -11,10 +11,13 @@
  *      instead of starting a second copy.
  *
  * Both survive here; only the transport changes. The lock is flock on a
- * pidfile in $XDG_RUNTIME_DIR (else /tmp), held on the descriptor, not the
- * name: the file stays after the process, holding the last pid, and a stale
- * one never reads as live -- nothing is written to the install. The channel
- * is a Linux abstract unix socket, which leaves nothing behind.
+ * pidfile in the runtime folder ($XDG_RUNTIME_DIR, else one of the user's
+ * own under /tmp), held on the descriptor, not the name: the file stays
+ * after the process, holding the last pid, and a stale one never reads as
+ * live -- nothing is written to the install. The channel is a unix socket
+ * file in that folder, whose mode (0700) keeps other users' lines out, as
+ * the original's WM_COPYDATA stays within the player's desktop; removed at
+ * release, a stale one at the next bind.
  *
  * The protocol is unchanged: one message, the command line.
  */
