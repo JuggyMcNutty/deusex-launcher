@@ -91,8 +91,6 @@ add_library(dxl_core STATIC
     src/core/sentinel.c
     src/core/argv.c
     src/core/log.c
-    src/core/localize.c
-    src/core/peicon.c
     src/core/json.c
     src/core/engine_settings.c
     src/core/bindings.c
