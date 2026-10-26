@@ -158,7 +158,7 @@ int dxl_renderers_first_selectable(const dxl_renderer_list *l) {
 }
 
 int dxl_gpu_msaa_broken(const dxl_gpu_probe *g) {
-    return g->probed && strstr(g->vulkan_device, "PowerVR") != NULL;
+    return g->probed && (strstr(g->vulkan_device, "PowerVR") != NULL || strstr(g->gles_renderer, "PowerVR") != NULL);
 }
 
 #define PROBE "Probe"
