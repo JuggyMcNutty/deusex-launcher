@@ -10,10 +10,13 @@
  * The representation is therefore the *line list*, not a section->key map: a
  * loaded file that is saved without modification comes back byte-identical,
  * including comments, blank lines and whatever spacing the original had.
- * Only lines we actually change get regenerated. One thing is not kept: a
- * UTF-8 byte-order mark an editor left, read past and gone at the next save
- * (the file is marked for one), since the engine's reader takes it as text
- * and loses the section after it.
+ * Only lines we actually change get regenerated. Two things an editor leaves
+ * are not kept, the file marked for a save that drops them: a UTF-8
+ * byte-order mark, which the engine's reader takes as text, losing the
+ * section after it, and UTF-16 (Notepad's "Unicode", by its byte-order
+ * mark), read as the original reads it, into the game's 8-bit text, a
+ * character past Latin-1 a '?'. A NUL in a line ends what is read of it,
+ * not what is written.
  *
  * Lookup is ASCII case-insensitive, matching FConfigCacheIni.
  */
