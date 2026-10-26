@@ -319,7 +319,7 @@ static int each_save(const char *save_dir, const char *to, dxl_err *err) {
     while ((e = readdir(d)) != NULL) {
         if (e->d_name[0] == '.' || dxl_stricmp(e->d_name, "Current") == 0) continue;
         char *src = dxl_path_join(save_dir, e->d_name);
-        if (dxl_path_is_dir(src)) {
+        if (dxl_path_is_dir(src) && !dxl_fs_is_link(src)) {   /* a linked folder is no save's */
             if (to) {
                 char *dst = dxl_path_join(to, e->d_name);
                 int rc = dxl_path_copy_dir(src, dst, NULL, err);

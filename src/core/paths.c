@@ -146,7 +146,9 @@ int dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *er
         char *src = dxl_path_join(from, e->d_name);
         char *dst = dxl_path_join(to, e->d_name);
         if (dxl_path_is_dir(src)) {
-            rc = dxl_path_copy_dir(src, dst, copied, err);
+            /* A linked folder is not descended: a link to an ancestor would
+             * nest copies until ELOOP, one to a large tree copy all of it. */
+            if (!dxl_fs_is_link(src)) rc = dxl_path_copy_dir(src, dst, copied, err);
         } else {
             rc = dxl_path_copy(src, dst, err);
             if (rc == 0 && copied) (*copied)++;
