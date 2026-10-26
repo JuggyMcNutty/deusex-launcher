@@ -378,6 +378,9 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         return -1;
     }
     if (pid == 0) {
+        /* A group of its own: what it starts (a hook's helpers in their
+         * subshell) ends with it at the limit, not beside the game. */
+        setpgid(0, 0);
         dup2(pipefd[1], STDOUT_FILENO);
         int null = open("/dev/null", O_RDWR | O_CLOEXEC);
         if (null >= 0) dup2(null, STDIN_FILENO);
@@ -418,7 +421,10 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     }
     close(pipefd[0]);
     if (errfd[0] >= 0) close(errfd[0]);
-    if (timed_out) kill(pid, SIGKILL);
+    if (timed_out) {
+        kill(-pid, SIGKILL);
+        kill(pid, SIGKILL);
+    }
     int st = 0;
     while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}
     int code = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);
