@@ -73,8 +73,23 @@ static void test_fallback(void) {
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
 }
 
+/* A run the launcher stopped: nothing went wrong in the game. */
+static void test_stopped_by_launcher(void) {
+    dxl_lastrun l = run(1, 0, 1, "");
+    l.stopped = 1;
+    CHECK(strstr(dxl_advice_for(&l)->advice, "The launcher stopped the game") != NULL);
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NONE);
+    l.killed = 1;
+    CHECK(strstr(dxl_advice_for(&l)->advice, "The launcher stopped the game") != NULL);
+    /* Stopped and ended cleanly: nothing to say. */
+    dxl_lastrun c = run(0, 0, 1, "");
+    c.stopped = 1;
+    CHECK(dxl_advice_for(&c) == NULL);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_known);
     RUN(test_ends);
     RUN(test_fallback);
+    RUN(test_stopped_by_launcher);
 TEST_MAIN_END
