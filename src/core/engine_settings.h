@@ -48,7 +48,6 @@ typedef enum {
     DXL_ES_PAD_LOOK_Y,
     DXL_ES_PAD_INVERT_Y,
     DXL_ES_PAD_CURSOR_SPEED,
-    DXL_ES_PAD_LAYOUT,          /* which preset the launcher last applied */
     /* Performance -- DXEngine's speed-for-fidelity choices */
     DXL_ES_RENDER_SCALE,        /* the scene's size as a fraction of the window's */
     DXL_ES_FIELD_COUNT
