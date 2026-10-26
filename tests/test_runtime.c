@@ -145,7 +145,7 @@ static void test_handoff_delivers_the_command_line(void) {
     dxl_instance *primary = dxl_instance_acquire(g_root);
     CHECK(primary != NULL);
 
-    char buf[DXL_HANDOFF_MAX];
+    char buf[DXL_HANDOFF_MAX + 1];
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 0);   /* nothing yet */
 
     dxl_err e;
@@ -153,6 +153,15 @@ static void test_handoff_delivers_the_command_line(void) {
 
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 1);
     CHECK_STR(buf, "deusex://host/Map?NewWindow");
+
+    /* The longest line whole, its last byte too. */
+    char *line = dxl_xmalloc(DXL_HANDOFF_MAX + 1);
+    memset(line, 'x', DXL_HANDOFF_MAX);
+    line[DXL_HANDOFF_MAX] = '\0';
+    CHECK_INT(dxl_instance_forward(g_root, line, 1000, &e), 0);
+    CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 1);
+    CHECK_INT((int)strlen(buf), DXL_HANDOFF_MAX);
+    free(line);
 
     /* Drained. */
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 0);

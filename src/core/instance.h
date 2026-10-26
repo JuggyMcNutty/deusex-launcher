@@ -26,6 +26,8 @@
 
 #include "core/common.h"
 
+/* The longest message forwarded, its bytes: a receiver's buffer holds one
+ * more, for the terminating NUL dxl_instance_poll writes. */
 #define DXL_HANDOFF_MAX 4096
 
 typedef struct dxl_instance dxl_instance;

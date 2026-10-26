@@ -238,14 +238,14 @@ static int play(run *r, volatile int *stop) {
             }
         }
         if (ev & DXL_GAME_EXTRA) {
-            char msg[DXL_HANDOFF_MAX];
+            char msg[DXL_HANDOFF_MAX + 1];
             while (dxl_instance_poll(r->inst, msg, sizeof msg)) {
                 dxl_log("WM_COPYDATA: %s", msg);
                 /* The original's log window runs it only once the main loop
                  * has given it the engine. */
                 if (!ready) continue;
                 dxl_game_send(&g, "TakeFocus");
-                char url[DXL_HANDOFF_MAX];
+                char url[DXL_HANDOFF_MAX + 1];
                 if (first_token(msg, url, sizeof url) && url[0] != '-') {
                     char open[DXL_HANDOFF_MAX + 8];
                     snprintf(open, sizeof open, "Open %s", url);
