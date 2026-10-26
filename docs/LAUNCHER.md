@@ -458,9 +458,10 @@ takes (`src/core/settings.c`):
 `[Engine.DXEngineAudioDevice]` has a key, else the retail ones
 (`[WinDrv.WindowsClient]`, `[Galaxy.GalaxyAudioSubsystem]`, the render
 device's), taking its built-in default for a key missing there; a row reads
-the same way, and is written to both, so the two agree. The engine stops at
-start on a value its converters refuse (`yes` for a bool, a rate without
-`Hz`): to a row such text is no value either. A value is written as the
+the same way, and is written to both, so the two agree. The engine takes its
+built-in default for a value its converters cannot read (`maybe` for a bool,
+a rate without `Hz`), stopping nothing: to a row such text is no value
+either, so it shows that default. A value is written as the
 engine writes it (`True`, `0.600000`, `153`, `44100Hz`), and only as the
 player changes it: one outside a slider's range, as the game's console or
 a hand sets it, shows at the slider's end and stays as it is until the
