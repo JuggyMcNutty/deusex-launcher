@@ -134,9 +134,9 @@ static const char *env_or(const char *name, const char *fallback) {
 }
 
 /* Started with line for the original's command line (--cmdline=<line>). */
-static int started_with(int argc, char **argv, const char *line) {
+static int started_with(int argc, char **argv, const char *with) {
     for (int i = 1; i < argc; i++)
-        if (strncmp(argv[i], "--cmdline=", 10) == 0 && strcmp(argv[i] + 10, line) == 0) return 1;
+        if (strncmp(argv[i], "--cmdline=", 10) == 0 && strcmp(argv[i] + 10, with) == 0) return 1;
     return 0;
 }
 
@@ -253,9 +253,9 @@ int main(int argc, char **argv) {
         return 2;
     }
     if (strcmp(mode, "relaunch") == 0 && !started_with(argc, argv, env_or("DXL_STUB_LINE", "-changevideo"))) {
-        const char *line = env_or("DXL_STUB_LINE", "-changevideo");
-        char *text = malloc(strlen(line) + 10);
-        sprintf(text, "relaunch %s", line);
+        const char *said = env_or("DXL_STUB_LINE", "-changevideo");
+        char *text = malloc(strlen(said) + 10);
+        sprintf(text, "relaunch %s", said);
         say(text);
         free(text);
         return 0;
