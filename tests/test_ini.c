@@ -209,6 +209,19 @@ static void test_unterminated_last_line(void) {
     dxl_ini_free(ini);
 }
 
+/* ... and a key appended to that line's own section, which landed on it. */
+static void test_unterminated_last_line_key(void) {
+    const char *src = "[A]\r\nx=1";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    dxl_ini_set(ini, "A", "y", "2");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\r\nx=1\r\ny=2\r\n");
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "1");
+    free(out);
+    dxl_ini_free(ini);
+}
+
 static void test_lf_file_stays_lf(void) {
     const char *src = "[A]\nx=1\n";
     dxl_ini *ini = dxl_ini_parse(src, strlen(src));
@@ -333,6 +346,7 @@ TEST_MAIN_BEGIN
     RUN(test_bool_spelling);
     RUN(test_comments_and_oddities);
     RUN(test_unterminated_last_line);
+    RUN(test_unterminated_last_line_key);
     RUN(test_lf_file_stays_lf);
     RUN(test_rewrite_normalises_line_ending);
     RUN(test_save_is_atomic_and_keeps_the_mode);
