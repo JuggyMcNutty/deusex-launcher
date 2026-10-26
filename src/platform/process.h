@@ -27,8 +27,8 @@ typedef struct dxl_game_os dxl_game_os;
 typedef struct {
     dxl_game_os *os;
     long   pid;           /* its process id */
-    char   pending[1024]; /* a line the engine has not finished */
-    size_t pending_len;
+    char  *pending;       /* a line the engine has not finished, of any length */
+    size_t pending_len, pending_cap;
     int    status;        /* once ended: the exit code, or 128 + the signal */
     int    signal;        /* once ended: what ended it, not its own exit (platform/os.h,
                            * dxl_end_name), or 0 */
@@ -49,8 +49,9 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
 #define DXL_GAME_ENDED 4   /* the game ended: g->status */
 
 /* Waits up to ms for any of them (inst NULL: no second start's); 0 when
- * nothing happened. */
-int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char *line, size_t size);
+ * nothing happened. A line comes whole, of any length (the engine's RELAUNCH
+ * line can be long), malloc'd into *line: the caller frees it. */
+int dxl_game_wait(dxl_game *g, dxl_instance *inst, int ms, char **line);
 
 /* A line to the engine; nothing when it has no line. */
 void dxl_game_send(dxl_game *g, const char *line);

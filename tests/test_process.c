@@ -36,9 +36,12 @@ static void append(char *dst, size_t size, const char *word) {
 static int wait_end(dxl_game *g, int ms, char *said, size_t size) {
     if (size) said[0] = '\0';
     for (int waited = 0; waited < ms; waited += 20) {
-        char line[1024];
-        int ev = dxl_game_wait(g, NULL, 20, line, sizeof line);
-        if (ev & DXL_GAME_LINE) append(said, size, line);
+        char *line = NULL;
+        int ev = dxl_game_wait(g, NULL, 20, &line);
+        if (ev & DXL_GAME_LINE) {
+            append(said, size, line);
+            free(line);
+        }
         if (ev & DXL_GAME_ENDED) return 1;
     }
     return 0;
@@ -107,12 +110,13 @@ static void test_line(void) {
     char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=5000", NULL };
     dxl_game g;
     CHECK_INT(dxl_game_start_argv(&g, argv, env, NULL, log, NULL), 0);
-    char line[256];
     int hello = 0, ready = 0;
     for (int i = 0; i < 250 && !ready; i++) {
-        if (dxl_game_wait(&g, NULL, 20, line, sizeof line) & DXL_GAME_LINE) {
+        char *line = NULL;
+        if (dxl_game_wait(&g, NULL, 20, &line) & DXL_GAME_LINE) {
             if (strcmp(line, "hello") == 0) hello = 1;
             if (strcmp(line, "ready") == 0) ready = 1;
+            free(line);
         }
     }
     CHECK_INT(hello, 1);
@@ -126,6 +130,42 @@ static void test_line(void) {
     char *text = slurp(log, NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 01_NYC_UNATCOIsland\nline: quit\n") != NULL);
     free(text);
+    free(log);
+    dxl_game_close(&g);
+    scratch_remove(dir);
+    free(dir);
+}
+
+/* A line of any length arrives whole: the engine's RELAUNCH line can be
+ * long (the old reader cut one at 1023 bytes, the rest a line of its own). */
+static void test_long_line(void) {
+    char *dir = dxl_xstrdup(scratch_dir("process-long"));
+    char *log = scratch_path(dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    char *want = dxl_xmalloc(3000 + 16);
+    memset(want, 'a', 3000);
+    memcpy(want + 3000, " -server", 9);
+    char *entry = dxl_xmalloc(3100);
+    snprintf(entry, 3100, "DXL_STUB_LINE=%s", want);
+    char *env[] = { "DXL_STUB=relaunch", entry, NULL };
+    dxl_game g;
+    CHECK_INT(dxl_game_start_argv(&g, argv, env, NULL, log, NULL), 0);
+    char *relaunch = NULL;
+    for (int i = 0; i < 250 && !relaunch; i++) {
+        char *line = NULL;
+        if (dxl_game_wait(&g, NULL, 20, &line) & DXL_GAME_LINE) {
+            if (strncmp(line, "relaunch ", 9) == 0) relaunch = dxl_xstrdup(line + 9);
+            free(line);
+        }
+    }
+    CHECK(relaunch != NULL);
+    CHECK_INT(relaunch ? (int)strlen(relaunch) : 0, 3008);
+    CHECK(relaunch && strcmp(relaunch, want) == 0);
+    char said[64];
+    wait_end(&g, 5000, said, sizeof said);
+    free(relaunch);
+    free(entry);
+    free(want);
     free(log);
     dxl_game_close(&g);
     scratch_remove(dir);
@@ -397,6 +437,7 @@ TEST_MAIN_BEGIN
     RUN(test_words_kept);
     RUN(test_env);
     RUN(test_line);
+    RUN(test_long_line);
     RUN(test_crash);
     RUN(test_cannot_run);
     RUN(test_capture);
