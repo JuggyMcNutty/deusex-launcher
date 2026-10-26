@@ -20,7 +20,9 @@ Screenshots, Multiplayer, Recovery, the log, About
 
 ## Where everything lives
 
-Nothing is written to the game's folder. The launcher's files are in the
+Nothing is written to the game's folder, but for an ini a line's `INI=` or
+`USERINI=` names, the original's words: that one, in `System`, the engine
+and the launcher read and write. The launcher's files are in the
 user's own folders, Windows' Known Folders
 (`src/platform/win32/folders.c`): `%LOCALAPPDATA%\DXLauncher`, not the
 roaming folder, as its inis name this machine's paths, and the player's
