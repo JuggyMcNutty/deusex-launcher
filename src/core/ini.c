@@ -120,6 +120,16 @@ dxl_ini *dxl_ini_parse(const char *text, size_t len) {
     dxl_ini *ini = dxl_ini_new();
     int saw_crlf = 0, saw_lf = 0;
 
+    /* A UTF-8 byte-order mark (an editor's) is passed over, and gone at the
+     * next save, which the file is marked for: the engine's reader takes
+     * none, the section after it lost to it. */
+    if (len >= 3 && (unsigned char)text[0] == 0xef && (unsigned char)text[1] == 0xbb &&
+        (unsigned char)text[2] == 0xbf) {
+        text += 3;
+        len -= 3;
+        ini->dirty = 1;
+    }
+
     size_t i = 0;
     while (i < len) {
         size_t start = i;
