@@ -152,6 +152,8 @@ static void test_text(void) {
     CHECK_STR(out, "\xe2\x82\xac");
     dxl_text_utf8(NULL, out, sizeof out);
     CHECK_STR(out, "");
+    dxl_text_utf8("\xf5\xa1\xa2", out, sizeof out);   /* F5: no lead byte */
+    CHECK_STR(out, "\xc3\xb5\xc2\xa1\xc2\xa2");
     /* Through a save the original wrote. */
     const char *dir = scratch_dir("saves-text");
     static const int when[6] = { 2026, 9, 24, 22, 28, 41 };
