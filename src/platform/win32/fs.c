@@ -119,14 +119,19 @@ char *dxl_fs_real(const char *path) {
     /* Opened for nothing but its name, a folder too, links followed. */
     HANDLE h = CreateFileW(w, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
                            FILE_FLAG_BACKUP_SEMANTICS, NULL);
-    free(w);
     if (h == INVALID_HANDLE_VALUE) {
         dxl_win_errno(GetLastError());
+        free(w);
         return NULL;
     }
     wchar_t buf[32768];
     DWORD n = GetFinalPathNameByHandleW(h, buf, sizeof buf / sizeof *buf, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
     CloseHandle(h);
+    /* Where the volume has no DOS name to give (an ImDisk RAM disk's, some
+     * network redirectors'), the path as given, made full: it is there, as
+     * the open showed, and POSIX's realpath names it. */
+    if (!n) n = GetFullPathNameW(w, sizeof buf / sizeof *buf, buf, NULL);
+    free(w);
     if (!n || n >= sizeof buf / sizeof *buf) return NULL;
     char *out = plain(buf);
     /* No '/' at its end but a root's. */

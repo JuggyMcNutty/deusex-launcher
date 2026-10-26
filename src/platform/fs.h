@@ -41,8 +41,9 @@ char *dxl_fs_stored(const char *dir, const char *leaf);
 /* The running program's file. Caller frees; NULL if undeterminable. */
 char *dxl_fs_self(void);
 
-/* The file or folder path is, links followed, by its absolute name; NULL
- * when it is not there. Caller frees. */
+/* The file or folder path is, links followed, by its absolute name (on
+ * Windows the path made full where the volume has no DOS name to give);
+ * NULL when it is not there. Caller frees. */
 char *dxl_fs_real(const char *path);
 
 /* The working folder. Caller frees; NULL if undeterminable. */
