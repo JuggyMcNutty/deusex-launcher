@@ -47,15 +47,17 @@ static char *known(REFKNOWNFOLDERID id) {
 }
 
 const char *dxl_fs_home(void) {
-    static char home[4096];
+    /* Found once and kept: the finder's thread holds the pointer while the
+     * window's thread asks every frame, and USERPROFILE does not change. */
+    static char *home;
+    if (home) return home;
     const wchar_t *v = _wgetenv(L"USERPROFILE");
     char *h = v && *v ? dxl_u8(v, 1) : known(&FOLDERID_Profile);
     if (!h || !dxl_fs_is_absolute(h)) {
         free(h);
         return NULL;
     }
-    snprintf(home, sizeof home, "%s", h);
-    free(h);
+    if (InterlockedCompareExchangePointer((void *volatile *)&home, h, NULL) != NULL) free(h);   /* another thread's first */
     return home;
 }
 
