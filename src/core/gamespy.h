@@ -57,6 +57,7 @@ typedef struct {
     int    last;      /* the number of the one with \final\, 0 before it comes */
     int    id;        /* the answer's, -1 before its first packet */
     int    stale;     /* the answer asked over's id, -1 for none */
+    int    asked_again;   /* asked over: an answer with a higher id is the latest ask's */
 } dxl_gs_status;
 
 void dxl_gs_status_init(dxl_gs_status *st);
@@ -64,8 +65,10 @@ void dxl_gs_status_free(dxl_gs_status *st);
 /* The server asked again: what came of the last answer let go, and its
  * packets still to come not taken for the next one's. */
 void dxl_gs_status_restart(dxl_gs_status *st);
-/* A packet of it, as it came; -1 for one that is not of a status answer
- * (no \queryid\), of another answer, past the packets kept, or in. */
+/* A packet of it, as it came: 0; 1 for the first of a newer answer (a later
+ * ask's, the one gathered so far an earlier ask's late one, let go for it);
+ * -1 for one that is not of a status answer (no \queryid\), of an earlier
+ * answer, past the packets kept, or in. */
 int  dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len);
 /* Whether each packet from the first to the one with \final\ is in. */
 int  dxl_gs_status_whole(const dxl_gs_status *st);

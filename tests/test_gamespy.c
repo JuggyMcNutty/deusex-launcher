@@ -149,10 +149,35 @@ static void test_answers_apart(void) {
     dxl_gs_status_free(&st);
 }
 
+/* Asked over with no packet of the first answer in, that answer's late
+ * packets are taken until the later ask's come, the newer answer: the late
+ * one is let go for it, and its packets after that too. */
+static void test_newer_answer_wins(void) {
+    dxl_gs_status st;
+    dxl_gs_status_init(&st);
+    dxl_gs_status_restart(&st);   /* asked over: nothing had come */
+    char pkt[256];
+    packet(pkt, sizeof pkt, 41, 1, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 0);    /* the first ask's, late: taken */
+    packet(pkt, sizeof pkt, 42, 1, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 1);    /* the second ask's: newer */
+    CHECK_INT(st.id, 42);
+    CHECK_INT(st.count, 1);
+    packet(pkt, sizeof pkt, 41, 2, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), -1);   /* the earlier one's: let go */
+    for (int n = 2; n <= 3; n++) {
+        packet(pkt, sizeof pkt, 42, n, 0);
+        CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 0);
+    }
+    CHECK_INT(dxl_gs_status_whole(&st), 1);
+    dxl_gs_status_free(&st);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_validate);
     RUN(test_values_and_challenge);
     RUN(test_list);
     RUN(test_status);
     RUN(test_answers_apart);
+    RUN(test_newer_answer_wins);
 TEST_MAIN_END

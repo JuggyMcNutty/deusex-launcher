@@ -150,6 +150,7 @@ void dxl_gs_status_restart(dxl_gs_status *st) {
     int stale = st->id >= 0 ? st->id : st->stale;
     dxl_gs_status_free(st);
     st->stale = stale;
+    st->asked_again = 1;
 }
 
 int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
@@ -176,8 +177,23 @@ int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
             dxl_buf_add(&pairs, v, vn);
         }
     }
-    int other = id == st->stale || (st->id >= 0 && id != st->id);
-    if (number < 1 || number > DXL_GS_PACKETS || other || (number <= st->cap && st->packet[number - 1])) {
+    /* The answers' ids rise with the server's asks: once asked again, one
+     * above the answer gathered is the latest ask's, the one gathered an
+     * earlier ask's late answer, let go for it; any other id is another
+     * answer's. */
+    int newer = st->asked_again && st->id >= 0 && id > st->id;
+    int other = id == st->stale || (st->id >= 0 && id != st->id && !newer);
+    if (number < 1 || number > DXL_GS_PACKETS || other) {
+        dxl_buf_free(&pairs);
+        return -1;
+    }
+    if (newer) {
+        int stale = st->stale;
+        dxl_gs_status_free(st);
+        st->stale = stale;
+        st->asked_again = 1;
+    }
+    if (number <= st->cap && st->packet[number - 1]) {
         dxl_buf_free(&pairs);
         return -1;
     }
@@ -193,7 +209,7 @@ int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
     st->packet[number - 1] = pairs.data ? pairs.data : dxl_xstrdup("");
     st->count++;
     if (final) st->last = number;
-    return 0;
+    return newer;
 }
 
 int dxl_gs_status_whole(const dxl_gs_status *st) {
