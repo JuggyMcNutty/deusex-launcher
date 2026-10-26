@@ -272,6 +272,18 @@ static int play(run *r, volatile int *stop) {
     }
     splash_hide(r);
     dxl_log("the game ended: %d", g.status);
+    /* 127 before the engine's first word: run-game.sh found no engine to
+     * start, a start that failed, which the critical box says as it says
+     * one the launcher could not make (above). */
+    if (!hello && g.ended && g.status == 127) {
+        char *engine = dxl_path_join(r->base, "DXEngine");
+        dxl_buf b;
+        dxl_buf_init(&b);
+        dxl_buf_printf(&b, "no engine at %s", engine);
+        critical(r->ui, r->loc, b.data);
+        dxl_buf_free(&b);
+        free(engine);
+    }
     if (dxl_game_clean(&g)) {
         dxl_sentinel_remove(&r->sentinel);
     } else {

@@ -515,6 +515,29 @@ static void test_run_game_script(void) {
     scratch_remove(root);
 }
 
+/* The real run-game.sh with no engine beside it: its exit of 127 is a
+ * start that failed, said in the critical box, Running.ini kept. */
+static void test_run_game_without_an_engine(void) {
+    install("l-noengine", NULL);
+    size_t n = 0;
+    char *script = slurp(DXL_RUN_GAME, &n);
+    CHECK(script != NULL);
+    if (!script) return;
+    scratch_write(root, "System/run-game.sh", script);
+    free(script);
+    char *p = scratch_path(root, "System/run-game.sh");
+    chmod(p, 0755);
+    free(p);
+    dxl_launch_result r;
+    launch(NULL, &r);
+    CHECK_INT(r.exit_code, 127);
+    CHECK_INT(S.criticals, 1);
+    CHECK(strstr(S.critical_text, "no engine at ") != NULL && strstr(S.critical_text, "/System/DXEngine") != NULL);
+    CHECK_INT(scratch_exists(root, "System/Running.ini"), 1);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
 /* Safe mode's relaunch, and the engine's RELAUNCH: the launcher started
  * again with the line as its one argument, as it is. */
 static void test_relaunch_line(void) {
@@ -543,6 +566,7 @@ static void test_relaunch_line(void) {
 TEST_MAIN_BEGIN
     RUN(test_quoted_ini);
     RUN(test_run_game_script);
+    RUN(test_run_game_without_an_engine);
     RUN(test_relaunch_line);
     RUN(test_other_inis);
     RUN(test_stop_kills_a_stubborn_game);
