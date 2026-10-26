@@ -324,6 +324,14 @@ static void test_paths(void) {
     free(game_ini);
 }
 
+
+/* The first Paths= line, the mod's: dxl_ini_get gives the last, the value
+ * the engine reads for a key given once. */
+static const char *first_path(const dxl_ini *sys) {
+    const char *v[1];
+    return sys && dxl_ini_get_all(sys, "Core.System", "Paths", v, 1) ? v[0] : NULL;
+}
+
 static void test_import(void) {
     char *home = at("home");
     dxl_env_set("DXL_HOME", home);
@@ -357,7 +365,7 @@ static void test_import(void) {
         CHECK_STR(dxl_ini_get(sys, "Core.System", "SavePath"), p.save_dir);
         CHECK_STR(dxl_ini_get(sys, "Core.System", "CachePath"), p.cache_dir);
         char *first = at("game/GameMod/System/*.u");
-        CHECK_STR(dxl_ini_get(sys, "Core.System", "Paths"), first);
+        CHECK_STR(first_path(sys), first);
         free(first);
         CHECK_STR(dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"), "master.333networks.com");
         dxl_ini_free(sys);
@@ -381,7 +389,7 @@ static void test_import(void) {
     CHECK_INT(r.saves, 1);
     sys = dxl_ini_load(p.system_ini, NULL);
     char *own = at("home/data/dxlauncher/mods/Linked/System/*.u");
-    CHECK(sys && dxl_ini_get(sys, "Core.System", "Paths") && !strcmp(dxl_ini_get(sys, "Core.System", "Paths"), own));
+    CHECK(first_path(sys) && !strcmp(first_path(sys), own));
     free(own);
     dxl_ini_free(sys);
     dxl_mod_free(&m);
@@ -408,7 +416,7 @@ static void test_import(void) {
     CHECK_INT(r.saves, 0);
     sys = dxl_ini_load(p.system_ini, NULL);
     char *first = at("home/data/dxlauncher/mods/Bare/System/*.u");
-    CHECK(sys && dxl_ini_get(sys, "Core.System", "Paths") && !strcmp(dxl_ini_get(sys, "Core.System", "Paths"), first));
+    CHECK(first_path(sys) && !strcmp(first_path(sys), first));
     CHECK(sys && !strcmp(dxl_ini_get(sys, "URL", "Class"), "DeusEx.JCDentonMale"));
     free(first);
     dxl_ini_free(sys);

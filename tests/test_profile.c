@@ -73,6 +73,14 @@ static void test_paths(void) {
     dxl_env_set("DXL_HOME", NULL);
 }
 
+
+/* The first Paths= line, the mod's: dxl_ini_get gives the last, the value
+ * the engine reads for a key given once. */
+static const char *first_path(const dxl_ini *sys) {
+    const char *v[1];
+    return sys && dxl_ini_get_all(sys, "Core.System", "Paths", v, 1) ? v[0] : NULL;
+}
+
 static void test_import(void) {
     char *game = make_install();
     char *home = dxl_xstrdup(scratch_dir("profile-home"));
@@ -119,7 +127,7 @@ static void test_import(void) {
         CHECK_STR(dxl_ini_get(sys, "Core.System", "SavePath"), p.save_dir);
         CHECK_STR(dxl_ini_get(sys, "Core.System", "CachePath"), p.cache_dir);
         CHECK_INT(dxl_ini_get_all(sys, "Core.System", "Paths", NULL, 0), 2);
-        CHECK_STR(dxl_ini_get(sys, "Core.System", "Paths"), "..\\System\\*.u");
+        CHECK_STR(first_path(sys), "..\\System\\*.u");
         CHECK_STR(dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"),
                   "master.333networks.com");
         CHECK_STR(dxl_ini_get(sys, "Engine.DXEngineClient", "Brightness"), "0.7");
@@ -266,7 +274,7 @@ static void test_import_from_defaults(void) {
     dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
     CHECK(sys != NULL);
     if (sys) {
-        CHECK_STR(dxl_ini_get(sys, "Core.System", "Paths"), "..\\System\\*.u");
+        CHECK_STR(first_path(sys), "..\\System\\*.u");
         CHECK_STR(dxl_ini_get(sys, "Engine.Engine", "GameRenderDevice"), "D3DDrv.D3DRenderDevice");
         dxl_ini_free(sys);
     }
