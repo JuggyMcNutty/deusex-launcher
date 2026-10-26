@@ -193,7 +193,7 @@ static int seek(dxl_uiscript *u, dxl_shell *s) {
         dxl_ui_focus(&s->ui, id);
         s->ui.mode = DXL_INPUT_KEYBOARD;
         u->seek = NULL;
-        return 0;
+        return 1;   /* a frame draws it focused before the next line (uiscript.h) */
     }
     if (u->seek_left-- <= 0 || u->seek_tabs > SEEK_TABS) {
         char what[160];
