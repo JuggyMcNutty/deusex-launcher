@@ -1,6 +1,7 @@
 #include "core/renderdev.h"
 #include "core/paths.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,8 +41,15 @@ static char *field(const char *entry, const char *key) {
     return NULL;
 }
 
+/* NTFS keeps a folder's names in order of their upper case (its upcase
+ * table), which FindFiles lists them in: '_' after 'C', where a lower-case
+ * order puts it before 'c'. */
 static int by_name(const void *a, const void *b) {
-    return dxl_stricmp(*(char *const *)a, *(char *const *)b);
+    const unsigned char *x = *(const unsigned char *const *)a, *y = *(const unsigned char *const *)b;
+    for (;; x++, y++) {
+        int d = toupper(*x) - toupper(*y);
+        if (d || !*x) return d;
+    }
 }
 
 /* The .int files in name order, as FindFiles lists them on NTFS. */

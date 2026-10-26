@@ -139,6 +139,39 @@ static void test_tie_goes_to_the_last(void) {
     dxl_loc_free(loc);
 }
 
+/* Two files whose names part at a '_' and a letter: registered in NTFS's
+ * order, by upper case, AbC.int before Ab_x.int, so of the two, equally
+ * good, Ab_x's, registered last, is chosen. */
+static void test_ntfs_order(void) {
+    const char *dir = scratch_dir("rendev-order");
+    scratch_write(dir, "System/Ab_x.int",
+        "[Public]\r\nObject=(Name=Ab_x.UnderRenderDevice,Class=Class,MetaClass=Engine.RenderDevice,Autodetect=)\r\n"
+        "[UnderRenderDevice]\r\nClassCaption=\"Under\"\r\n");
+    scratch_write(dir, "System/AbC.int",
+        "[Public]\r\nObject=(Name=AbC.CeeRenderDevice,Class=Class,MetaClass=Engine.RenderDevice,Autodetect=)\r\n"
+        "[CeeRenderDevice]\r\nClassCaption=\"Cee\"\r\n");
+    char order[300];
+    snprintf(order, sizeof order, "%s/System", dir);
+    dxl_loc *loc = dxl_loc_open(order, NULL);
+    dxl_ini *ini = game("[Ab_x.UnderRenderDevice]\r\nDescFlags=1\r\n[AbC.CeeRenderDevice]\r\nDescFlags=1\r\n");
+    dxl_renderdev_list l;
+    dxl_renderdev_load(&l, order, loc, ini, NULL);
+    CHECK_INT(l.count, 2);
+    if (l.count == 2) {
+        CHECK_STR(l.items[0].path, "AbC.CeeRenderDevice");
+        CHECK_STR(l.items[1].path, "Ab_x.UnderRenderDevice");
+    }
+    char s[256];
+    int sel;
+    shown(&l, 0, s, sizeof s, &sel);
+    CHECK_STR(s, "Cee|Under");
+    CHECK_INT(sel, 1);
+    dxl_renderdev_free(&l);
+    dxl_ini_free(ini);
+    dxl_loc_free(loc);
+    scratch_remove(dir);
+}
+
 static void test_note(void) {
     dxl_loc *loc = dxl_loc_open(sys, NULL);
     CHECK_STR(dxl_renderdev_note(loc, "D3DDrv.D3DRenderDevice"), "Use Direct3D hardware rendering.");
@@ -165,6 +198,7 @@ TEST_MAIN_BEGIN
     RUN(test_nothing_detected);
     RUN(test_autodetect);
     RUN(test_tie_goes_to_the_last);
+    RUN(test_ntfs_order);
     RUN(test_note);
     RUN(test_testrendev);
     scratch_remove(scratch_dir("rendev"));
