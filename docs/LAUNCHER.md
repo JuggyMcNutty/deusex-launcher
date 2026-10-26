@@ -683,7 +683,8 @@ crash, and for the errors it knows -- OpenAL not started, a package or the
 engine's `.pk3` not found, an engine that ended before its first map, a save
 it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
-the game's folder; Saves. A run the engine drew with its software renderer,
+the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
+a stage or install of DXLauncher again). A run the engine drew with its software renderer,
 the one chosen not having started, ends cleanly: Home says so of the last
 run, and the page, opened by `-safe`, has the engine's line and that fix.
 Below are the end of the log where it fits, the
