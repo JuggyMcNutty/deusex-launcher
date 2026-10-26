@@ -247,8 +247,17 @@ static void probe_egl(dxl_gpu_probe *out) {
 
 /* Mesa's llvmpipe asked for (LIBGL_ALWAYS_SOFTWARE), where EGL's own driver
  * is a GPU's: in a child of its own, as the variable is read when the
- * driver loads. */
-static void probe_egl_cpu(dxl_gpu_probe *out) {
+ * driver loads, forked before any driver is loaded here (a driver's threads
+ * do not survive a fork) and read once the GPU's drivers have answered, in
+ * the time left to the probe. */
+typedef struct {
+    pid_t pid;
+    int   fd;
+} cpu_probe;
+
+static void cpu_probe_start(cpu_probe *c) {
+    c->pid = -1;
+    c->fd = -1;
     int fds[2];
     if (pipe(fds) != 0) return;
     pid_t pid = fork();
@@ -264,6 +273,14 @@ static void probe_egl_cpu(dxl_gpu_probe *out) {
         _exit(0);
     }
     close(fds[1]);
+    c->pid = pid;
+    c->fd = fds[0];
+}
+
+/* llvmpipe's answer, waited for at most left_ms: none past that, the
+ * probe's time being the GPU drivers' first. */
+static void cpu_probe_finish(cpu_probe *c, long left_ms, dxl_gpu_probe *out) {
+    if (c->pid < 0) return;
     char renderer[sizeof out->gl_cpu_renderer];
     size_t have = 0;
     struct timespec t0;
@@ -271,21 +288,21 @@ static void probe_egl_cpu(dxl_gpu_probe *out) {
     for (;;) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
-        long left = 3000 - ((now.tv_sec - t0.tv_sec) * 1000L + (now.tv_nsec - t0.tv_nsec) / 1000000L);
+        long left = left_ms - ((now.tv_sec - t0.tv_sec) * 1000L + (now.tv_nsec - t0.tv_nsec) / 1000000L);
         if (left <= 0) break;
-        struct pollfd pfd = { fds[0], POLLIN, 0 };
+        struct pollfd pfd = { c->fd, POLLIN, 0 };
         int pr = poll(&pfd, 1, (int)left);
         if (pr < 0 && errno == EINTR) continue;
         if (pr <= 0) break;
-        ssize_t n = read(fds[0], renderer + have, sizeof renderer - have);
+        ssize_t n = read(c->fd, renderer + have, sizeof renderer - have);
         if (n < 0 && errno == EINTR) continue;
         if (n <= 0) break;
         have += (size_t)n;
         if (have == sizeof renderer) break;
     }
-    close(fds[0]);
-    if (have < sizeof renderer) kill(pid, SIGKILL);
-    waitpid(pid, NULL, 0);
+    close(c->fd);
+    if (have < sizeof renderer) kill(c->pid, SIGKILL);
+    waitpid(c->pid, NULL, 0);
     renderer[sizeof renderer - 1] = '\0';
     if (have == sizeof renderer && renderer[0]) {
         out->gl_cpu = 1;
@@ -323,11 +340,17 @@ int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
         freopen("/dev/null", "w", stderr);
         dxl_gpu_probe r;
         memset(&r, 0, sizeof r);
-        /* llvmpipe's first, its child forked before any driver is loaded
-         * here: a driver's threads do not survive a fork */
-        probe_egl_cpu(&r);
+        /* llvmpipe's child forked first, before any driver is loaded here
+         * (a driver's threads do not survive a fork), and read after the
+         * GPU's drivers have answered, in the time left: its slow start
+         * costs the probe nothing it cannot spare. */
+        struct timespec t0;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        cpu_probe c;
+        cpu_probe_start(&c);
         probe_vulkan(&r);
         probe_egl(&r);
+        cpu_probe_finish(&c, timeout_ms - elapsed_ms(&t0) - 200, &r);
         r.probed = 1;
         ssize_t w = write(fds[1], &r, sizeof r);
         (void)w;
