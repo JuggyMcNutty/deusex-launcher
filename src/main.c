@@ -34,6 +34,14 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--remove-desktop") == 0) return dxl_window_desktop_entry(0);
     }
     dxl_startup(&stop, dxl_window_wake);
+#ifdef _WIN32
+    /* The handler's start: the link as one word, whatever it holds. */
+    char **link = dxl_startup_link_argv(argv);
+    if (link) {
+        argv = link;
+        argc = 2;
+    }
+#endif
 
     dxl_window *w = dxl_window_new(DXL_VERSION, &stop);
     dxl_run_ui ui;

@@ -29,6 +29,33 @@ static BOOL WINAPI on_console(DWORD event) {
     return TRUE;
 }
 
+char **dxl_startup_link_argv(char **argv) {
+    /* Past the program: quoted, or to the first blank. */
+    const wchar_t *p = GetCommandLineW();
+    if (*p == L'"') {
+        p++;
+        while (*p && *p != L'"') p++;
+        if (*p) p++;
+    } else {
+        while (*p && *p != L' ' && *p != L'\t') p++;
+    }
+    while (*p == L' ' || *p == L'\t') p++;
+    if (_wcsnicmp(p, L"\"deusex://", 10) != 0) return NULL;
+    p++;
+    size_t n = wcslen(p);
+    while (n && (p[n - 1] == L' ' || p[n - 1] == L'\t')) n--;
+    if (n && p[n - 1] == L'"') n--;
+    wchar_t *w = dxl_xmalloc((n + 1) * sizeof *w);
+    memcpy(w, p, n * sizeof *w);
+    w[n] = 0;
+    char **out = dxl_xmalloc(3 * sizeof *out);
+    out[0] = argv[0];
+    out[1] = dxl_u8(w, 0);
+    out[2] = NULL;
+    free(w);
+    return out;
+}
+
 void dxl_startup(volatile int *stop, void (*wake)(void)) {
     stop_flag = stop;
     wake_up = wake;

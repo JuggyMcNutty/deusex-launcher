@@ -15,4 +15,14 @@ void dxl_startup(volatile int *stop, void (*wake)(void));
  * handler returns -- may let go. Nothing on POSIX. */
 void dxl_startup_ended(void);
 
+#ifdef _WIN32
+/* A deusex:// link opened by the registered handler ("<program>" "%1")
+ * is the raw command line's one quoted argument, which Windows puts there
+ * as it is: a '"' in it splits it into more words for the C runtime's
+ * parse, taken as options. The link whole, as argv of two (the program's
+ * name, then the link; the caller keeps it), when the raw line's first
+ * argument is a quoted deusex:// link; else NULL. */
+char **dxl_startup_link_argv(char **argv);
+#endif
+
 #endif
