@@ -44,6 +44,14 @@ static void test_status(void) {
     CHECK_INT(dxl_server_rule(&s, 2, key, sizeof key, value, sizeof value), 1);
     CHECK_STR(key, "AdminName");
 
+    /* The packet's 8-bit text, as a DXEngine server sends it, shown as UTF-8. */
+    dxl_server_take_status(&s, "\\hostname\\Caf\xe9\\maptitle\\\xc3\x89t\xc3\xa9\\player_0\\Jos\xe9");
+    CHECK_STR(s.name, "Caf\xc3\xa9");
+    CHECK_STR(s.map_title, "\xc3\x89t\xc3\xa9");
+    char who[64];
+    CHECK_INT(dxl_server_player(&s, 0, who, sizeof who, NULL, NULL), 1);
+    CHECK_STR(who, "Jos\xc3\xa9");
+
     /* Another version: not the game's to join. */
     dxl_server_take_status(&s, "\\gamever\\1000\\minnetver\\1000\\hostname\\Old");
     CHECK_INT(dxl_server_joinable(&s), 0);
