@@ -5,11 +5,22 @@
 #include <string.h>
 #include <sys/sysinfo.h>
 
-/* The clock in MHz: /proc/cpuinfo's "cpu MHz" where the CPU reports one, else
- * cpufreq's maximum; 0 when neither says. */
+/* The CPU's rated clock in MHz, as the original's figure is its cycle
+ * counter's rate (GSecondsPerCycle; dx-reverse-info/ini-keys.md), a
+ * constant: cpufreq's maximum, else, where there is no cpufreq (a VM),
+ * /proc/cpuinfo's "cpu MHz", the clock its counter runs at; 0 when neither
+ * says. cpu MHz on a host is a core's clock of the moment, an idle one's
+ * far under its rating. */
 static double cpu_mhz(void) {
     double mhz = 0;
-    FILE *f = fopen("/proc/cpuinfo", "r");
+    FILE *f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r");
+    if (f) {
+        long khz = 0;
+        if (fscanf(f, "%ld", &khz) == 1) mhz = khz / 1000.0;
+        fclose(f);
+    }
+    if (mhz > 0) return mhz;
+    f = fopen("/proc/cpuinfo", "r");
     if (f) {
         char line[256];
         while (fgets(line, sizeof line, f))
@@ -18,13 +29,6 @@ static double cpu_mhz(void) {
                 if (colon) mhz = atof(colon + 1);
                 break;
             }
-        fclose(f);
-    }
-    if (mhz > 0) return mhz;
-    f = fopen("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r");
-    if (f) {
-        long khz = 0;
-        if (fscanf(f, "%ld", &khz) == 1) mhz = khz / 1000.0;
         fclose(f);
     }
     return mhz;
