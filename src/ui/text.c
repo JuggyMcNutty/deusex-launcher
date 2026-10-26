@@ -57,6 +57,13 @@ int dxl_text_open(dxl_ui *ui) {
         snprintf(path, sizeof path, "%s/%s", ui->fonts_dir, roles[i].file);
         ui->fonts[i] = TTF_OpenFont(path, roles[i].dp * ui->scale);
         if (!ui->fonts[i]) {
+            /* None open: the kit says so (-1), and tries again at another
+             * scale alone, not every frame. */
+            for (int j = 0; j < i; j++) {
+                TTF_CloseFont(ui->fonts[j]);
+                ui->fonts[j] = NULL;
+            }
+            ui->font_scale = ui->scale;
             SDL_SetError("cannot open the font %s", path);
             return -1;
         }
