@@ -774,8 +774,9 @@ them as PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>`
 gives the window a script of keys, text, controls found by their labels,
 virtual controllers, page checks and shots, through its own event queue
 (`src/screens/uiscript.h`): a first
-run from a fresh home to the game and its clean end, a crash into Recovery,
-and a second start handed over are run that way. `test_ui_scripts` runs
+run from a fresh home to the game and its clean end, and a crash into
+Recovery, are run that way (a second start's hand-over is `test_play`'s,
+from a thread). `test_ui_scripts` runs
 `tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home,
 with the stub for the engine and no beacon asked (`DXL_LAN=none`), and
 reads what they changed:
