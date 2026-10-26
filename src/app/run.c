@@ -761,6 +761,8 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     last->signal = r->played.signal;
     last->ready = r->played.ready;
     last->clean = r->played.clean;
+    last->stopped = r->played.stopped;
+    last->killed = r->played.killed;
     /* Where it started, a server's password left out. */
     const char *pw = strstr(r->url, "?password=");
     snprintf(last->start, sizeof last->start, "%.*s", pw ? (int)(pw - r->url) : (int)strlen(r->url), r->url);

@@ -25,6 +25,8 @@ int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     r->signal = dxl_ini_get_int(ini, SECTION, "Signal", 0);
     r->ready = dxl_ini_get_bool(ini, SECTION, "Ready", 0);
     r->clean = dxl_ini_get_bool(ini, SECTION, "Clean", 0);
+    r->stopped = dxl_ini_get_bool(ini, SECTION, "Stopped", 0);
+    r->killed = dxl_ini_get_bool(ini, SECTION, "Killed", 0);
     const char *e = dxl_ini_get(ini, SECTION, "Error");
     snprintf(r->error, sizeof r->error, "%s", e ? e : "");
     const char *fallback = dxl_ini_get(ini, SECTION, "Fallback");
@@ -49,6 +51,8 @@ int dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err) 
     dxl_ini_set_int(ini, SECTION, "Signal", r->signal);
     dxl_ini_set_bool(ini, SECTION, "Ready", r->ready);
     dxl_ini_set_bool(ini, SECTION, "Clean", r->clean);
+    if (r->stopped) dxl_ini_set_bool(ini, SECTION, "Stopped", 1);
+    if (r->killed) dxl_ini_set_bool(ini, SECTION, "Killed", 1);
     /* One line: an error with a line break in it would end the value. */
     char error[sizeof r->error];
     snprintf(error, sizeof error, "%s", r->error);
@@ -164,7 +168,15 @@ char *dxl_lastrun_tail(const char *log_path, int max_lines) {
 
 void dxl_lastrun_describe(const dxl_lastrun *r, char *out, size_t size) {
     char sig[64];
-    if (r->signal)
+    if (r->killed)
+        snprintf(out, size, "stopped by the launcher, which killed it when it took no notice%s",
+                 r->ready ? "" : ", before its first map was in");
+    else if (r->stopped && r->signal)
+        snprintf(out, size, "stopped by the launcher: ended by %s%s", dxl_end_name(r->signal, sig, sizeof sig),
+                 r->ready ? "" : ", before its first map was in");
+    else if (r->stopped)
+        snprintf(out, size, "stopped by the launcher: exit %d%s", r->status, r->ready ? "" : ", before its first map was in");
+    else if (r->signal)
         snprintf(out, size, "killed by %s%s", dxl_end_name(r->signal, sig, sizeof sig),
                  r->ready ? "" : ", before its first map was in");
     else if (r->error[0])
