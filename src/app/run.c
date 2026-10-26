@@ -434,7 +434,10 @@ int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err) {
 
 /* ---- the run ---------------------------------------------------------- */
 
-static void open_log(dxl_run *r) {
+/* Each start's log, emptied first; a start beside a launcher that runs (a
+ * bypass word's, an import's, a failed hand-over's) appends to its log,
+ * which that launcher is still writing. */
+static void open_log(dxl_run *r, int beside) {
     if (r->opt.dry || r->opt.print_command) {
         dxl_log_set_to_file(0);
         dxl_log_set_echo(0);
@@ -442,7 +445,8 @@ static void open_log(dxl_run *r) {
     }
     dxl_path_mkdirs(r->session.xdg.state);
     char *path = dxl_path_join(r->session.xdg.state, "launcher.log");
-    dxl_log_open_new(path);
+    if (beside) dxl_log_open(path);
+    else dxl_log_open_new(path);
     free(path);
 }
 
@@ -745,7 +749,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         free(id);
         goto done;
     }
-    open_log(r);
+    open_log(r, busy);
     dxl_log("Init: command line: %s", r->words);
     if (!r->opt.dry && !r->opt.print_command) hold_instance(r);
     free(id);
