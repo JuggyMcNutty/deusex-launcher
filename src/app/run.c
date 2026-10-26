@@ -262,9 +262,10 @@ static int check_engine(dxl_run *r, dxl_engine_version *v) {
 static char **engine_argv(const dxl_run *r) {
     const dxl_profile *p = &r->session.profile;
     const char *mine = dxl_profile_get(p, "EngineArgs"), *env = getenv("DXL_ENGINE_ARGS");
-    char extra[2048];
-    snprintf(extra, sizeof extra, "%s%s%s", mine ? mine : "", mine && *mine && env && *env ? " " : "",
-             env ? env : "");
+    dxl_buf extra;
+    dxl_buf_init(&extra);
+    if (mine && *mine) dxl_buf_puts(&extra, mine);
+    if (env && *env) dxl_buf_word(&extra, env);
     dxl_engine_command c = {
         .engine = r->session.engine,
         .game = r->session.install.root,
@@ -272,10 +273,12 @@ static char **engine_argv(const dxl_run *r) {
         .user_ini = p->user_ini,
         .user_dir = p->engine_dir,
         .url = r->url[0] ? r->url : NULL,
-        .extra = extra,
+        .extra = extra.data,
         .cmdline = r->words,
     };
-    return dxl_engine_argv(&c);
+    char **argv = dxl_engine_argv(&c);
+    dxl_buf_free(&extra);
+    return argv;
 }
 
 /* The launcher's pad mappings (core/padmap.h): the controllers the mapping
