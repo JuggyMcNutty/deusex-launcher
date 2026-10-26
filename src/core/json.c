@@ -40,7 +40,18 @@ void dxl_json_free(dxl_json *v) {
     free(v);
 }
 
+static ssize_t find(const dxl_json *obj, const char *key);
+
 static void push(dxl_json *parent, char *key, dxl_json *child) {
+    /* A member given twice is the last given, as the engine's reader (a
+     * std::map) keeps it: read there, set there, written once. */
+    ssize_t had = key ? find(parent, key) : -1;
+    if (had >= 0) {
+        dxl_json_free(parent->items[had]);
+        parent->items[had] = child;
+        free(key);
+        return;
+    }
     if (parent->count == parent->cap) {
         parent->cap = parent->cap ? parent->cap * 2 : 8;
         parent->items = dxl_xrealloc(parent->items, parent->cap * sizeof *parent->items);

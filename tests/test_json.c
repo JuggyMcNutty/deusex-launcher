@@ -169,6 +169,18 @@ static void test_elements(void) {
     dxl_json_free(v);
 }
 
+/* A member given twice is the last given, as the engine's reader (a
+ * std::map) keeps it: read there, set there, written once. */
+static void test_last_member_wins(void) {
+    dxl_json *v = parse("{\"RenderDevice\": {\"Type\": \"Vulkan\", \"Type\": \"OpenGL\"}}");
+    CHECK(v != NULL);
+    if (!v) return;
+    dxl_json *rd = dxl_json_get(v, "RenderDevice");
+    CHECK_STR(dxl_json_get_string(rd, "Type", NULL), "OpenGL");
+    CHECK_INT((int)dxl_json_count(rd), 1);
+    dxl_json_free(v);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_reads_the_engine_file);
     RUN(test_round_trip_keeps_unknown_members);
@@ -177,6 +189,7 @@ TEST_MAIN_BEGIN
     RUN(test_string_escapes);
     RUN(test_rejects_malformed);
     RUN(test_reads_as_the_engine);
+    RUN(test_last_member_wins);
     RUN(test_child_creates_and_replaces);
     RUN(test_elements);
 TEST_MAIN_END
