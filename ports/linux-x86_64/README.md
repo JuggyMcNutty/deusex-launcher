@@ -1,7 +1,7 @@
 # Port: Linux x86_64 -- the development platform
 
-Desktop Linux (or a handheld PC running it), with glibc 2.28 or newer:
-RHEL 8's, the oldest of the actively maintained mainline distributions. The
+Desktop Linux (or a handheld PC running it), with glibc 2.28 or newer
+([why 2.28](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided)). The
 unit tests, the engine's Vulkan validation and the side-by-side checks of
 engine changes run here.
 
