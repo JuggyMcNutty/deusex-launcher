@@ -72,12 +72,17 @@ static wchar_t *environment(char *const env[], const wchar_t *name, const wchar_
     }
     FreeEnvironmentStringsW(mine);
     for (size_t i = 0; i <= nchanges; i++) {
-        wchar_t set[1024];
+        /* Whole, whatever its length: a pad mapping block runs to thousands
+         * of characters. */
+        wchar_t *set, *made = NULL;
         if (i < nchanges) {
             if (!wcschr(changes[i], L'=')) continue;
-            swprintf(set, sizeof set / sizeof *set, L"%ls", changes[i]);
+            set = changes[i];
         } else if (name && value) {
-            swprintf(set, sizeof set / sizeof *set, L"%ls=%ls", name, value);
+            size_t n = wcslen(name) + wcslen(value) + 2;
+            made = dxl_xmalloc(n * sizeof *made);
+            swprintf(made, n, L"%ls=%ls", name, value);
+            set = made;
         } else {
             continue;
         }
@@ -85,6 +90,7 @@ static wchar_t *environment(char *const env[], const wchar_t *name, const wchar_
         while (len + vl + 2 > cap) block = dxl_xrealloc(block, (cap *= 2) * sizeof *block);
         memcpy(block + len, set, vl * sizeof *set);
         len += vl;
+        free(made);
     }
     block[len] = 0;
     if (!len) block[++len] = 0;
