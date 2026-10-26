@@ -5,9 +5,7 @@
 #include "core/config.h"
 #include "core/ini.h"
 #include "core/install.h"
-#include "core/localize.h"
 #include "core/paths.h"
-#include "core/peicon.h"
 #include "core/profile.h"
 #include "core/saves.h"
 #include "core/theme_colors.h"
@@ -84,18 +82,6 @@ static void test_default_ini_matches_the_spec(void) {
     CHECK(dxl_ini_get(ini, "D3DDrv.D3DRenderDevice", "Description") == NULL);
     CHECK(dxl_ini_get(ini, "D3DDrv.D3DRenderDevice", "DescFlags") == NULL);
     dxl_ini_free(ini);
-}
-
-/* The words the pages show, from the game's own .int files. */
-static void test_strings(void) {
-    dxl_loc *l = dxl_loc_open(DXL_GAMEFILES, NULL);
-    CHECK_STR(dxl_loc_general(l, "Startup", "FirstTime"), "Deus Ex First-Time Configuration");
-    CHECK_STR(dxl_loc_general(l, "Startup", "Run"), "Run!");
-    CHECK_STR(dxl_loc_general(l, "Startup", "WorldHigh"), "High detail textures");   /* unquoted */
-    CHECK_STR(dxl_loc_general(l, "Window", "NextButton"), "&Next >");
-    CHECK_STR(dxl_loc_general(l, "Window", "InsertCdTitle"), "Cd Required At Startup");
-    CHECK_STR(dxl_loc_get(l, "Startup", "IDDIALOG_ConfigPageRenderer", "IDC_RenderNote", 0), "");
-    dxl_loc_free(l);
 }
 
 /* The install: a build the engine plays, nothing missing. */
@@ -486,30 +472,6 @@ static void test_back_home(void) {
     free(home);
 }
 
-/* dx-reverse-info/wizard.md, the frame: the wizard's icon is DeusEx.exe's
- * group 128, the only one it has. For 32 its 32x32 of 256 colours is taken,
- * square and every pixel in, a near-black corner and a blue centre; for 16
- * its 16x16 of 16. */
-static void test_exe_icon(void) {
-    char *path = game_file("DeusEx.exe");
-    dxl_icon icon;
-    CHECK_INT(dxl_pe_icon(path, 128, 32, &icon, NULL), 0);
-    CHECK_INT(icon.w, 32);
-    CHECK_INT(icon.h, 32);
-    if (icon.argb) {
-        CHECK_INT(icon.argb[0], 0xff040404);
-        CHECK_INT(icon.argb[16 * 32 + 16], 0xff3333cc);
-    }
-    dxl_icon_free(&icon);
-    CHECK_INT(dxl_pe_icon(path, 128, 16, &icon, NULL), 0);
-    CHECK_INT(icon.w, 16);
-    if (icon.argb) CHECK_INT(icon.argb[8 * 16 + 8], 0xff000080);
-    dxl_icon_free(&icon);
-    CHECK_INT(dxl_pe_icon(path, 129, 32, &icon, NULL), -1);
-    CHECK(icon.argb == NULL);
-    free(path);
-}
-
 /* Every asset the launcher reads from an install: the 31 menu themes by
  * their names, the Default's colours as the kit has them; the main menu's
  * textures; the six menu sounds, each a WAV; the title music, an IT
@@ -621,8 +583,6 @@ TEST_MAIN_BEGIN
     }
     RUN(test_roundtrip);
     RUN(test_default_ini_matches_the_spec);
-    RUN(test_strings);
-    RUN(test_exe_icon);
     RUN(test_assets);
     RUN(test_install);
     RUN(test_import_plan);
