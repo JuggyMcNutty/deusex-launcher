@@ -173,6 +173,23 @@ static void test_stop_clean(void) {
     done(&s, &r);
 }
 
+#ifndef _WIN32
+/* The engine's end seen though a child of its own still holds the line (a
+ * helper it started): the wait wakes once a second for it, not on the
+ * line's end alone. */
+static void test_line_outlived(void) {
+    char *env[] = { "DXL_STUB=fork", NULL };
+    scratch_run s;
+    dxl_play_result r;
+    time_t t0 = time(NULL);
+    play_stub(&s, "play-fork", env, NULL, NULL, &r);
+    CHECK_INT(r.started, 1);
+    CHECK_INT(r.clean, 1);
+    CHECK(time(NULL) - t0 < 3);
+    done(&s, &r);
+}
+#endif
+
 /* A line a second launch forwards: TakeFocus and Open for its URL once the
  * engine is up; one sent before then is dropped, as the original's log
  * window takes one only once it has the engine. The second launches are a
@@ -262,6 +279,9 @@ TEST_MAIN_BEGIN
     RUN(test_quotes_kept);
     RUN(test_stop_then_kill);
     RUN(test_stop_clean);
+#ifndef _WIN32
+    RUN(test_line_outlived);
+#endif
     RUN(test_forwarded);
     RUN(test_cannot_start);
 TEST_MAIN_END
