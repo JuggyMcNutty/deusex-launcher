@@ -345,6 +345,18 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     int make = dxl_button(ui, "import make", dxl_cut_left(&buttons, 230), "Make the profile",
                           DXL_W_PRIMARY | (s->plan_error[0] ? DXL_W_DISABLED : 0));
     int back = dxl_button(ui, "import back", dxl_cut_right(&buttons, 150), "Back", 0);
+    /* Pressed before the probe has answered: made once it has, so that a
+     * profile begun where it finds no GPU driver begins on the software
+     * renderer (below), not the defaults' Vulkan. */
+    if (make && s->probe_state == 1) {
+        s->make_waits = 1;
+        make = 0;
+    }
+    if (s->make_waits && s->probe_state != 1) {
+        s->make_waits = 0;
+        make = 1;
+    }
+    if (s->make_waits) dxl_ui_animate(ui);
 
     if (make) {
         dxl_import done;
