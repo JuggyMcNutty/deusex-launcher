@@ -15,6 +15,7 @@ typedef enum {
 typedef struct {
     line_kind kind;
     char *raw;   /* the line as it will be written, without its terminator */
+    size_t raw_len;   /* its bytes, a NUL among them kept: read up to one, written whole */
     char *eol;   /* "\r\n", "\n", or "" for a final line with no terminator */
     char *name;  /* LINE_SECTION: section name; LINE_PAIR: key */
     char *value; /* LINE_PAIR only */
@@ -77,6 +78,7 @@ void dxl_ini_free(dxl_ini *ini) {
 /* Classifies one line's text (terminator already stripped). */
 static void classify(ini_line *l, const char *text, size_t len) {
     l->raw = dxl_xstrndup(text, len);
+    l->raw_len = len;
 
     char *scan = dxl_xstrndup(text, len);
     char *t = dxl_trim(scan);
@@ -116,9 +118,39 @@ static void classify(ini_line *l, const char *text, size_t len) {
     free(scan);
 }
 
+/* The game's 8-bit text of UTF-16 bytes that begin with their byte-order
+ * mark: a unit below 256 is its byte, any other character a '?' (one for a
+ * surrogate pair), an odd last byte dropped. */
+static char *from_utf16(const char *text, size_t len, size_t *out_len) {
+    const unsigned char *u = (const unsigned char *)text;
+    int big = u[0] == 0xfe;
+    char *out = dxl_xmalloc(len / 2 + 1);
+    size_t n = 0;
+    for (size_t i = 2; i + 1 < len; i += 2) {
+        unsigned unit = big ? (unsigned)((u[i] << 8) | u[i + 1]) : (unsigned)((u[i + 1] << 8) | u[i]);
+        if (unit >= 0xd800 && unit < 0xdc00 && i + 3 < len) i += 2;   /* the pair's second unit */
+        out[n++] = unit < 0x100 ? (char)unit : '?';
+    }
+    out[n] = '\0';
+    *out_len = n;
+    return out;
+}
+
 dxl_ini *dxl_ini_parse(const char *text, size_t len) {
     dxl_ini *ini = dxl_ini_new();
     int saw_crlf = 0, saw_lf = 0;
+
+    /* Notepad's "Unicode" (UTF-16 by its byte-order mark) is read as the
+     * original reads it (Core's appLoadFileToString takes either byte
+     * order), its text made the game's 8-bit one, and written so at the
+     * next save, which the file is marked for. */
+    char *narrow = NULL;
+    const unsigned char *u = (const unsigned char *)text;
+    if (len >= 2 && ((u[0] == 0xff && u[1] == 0xfe) || (u[0] == 0xfe && u[1] == 0xff))) {
+        narrow = from_utf16(text, len, &len);
+        text = narrow;
+        ini->dirty = 1;
+    }
 
     /* A UTF-8 byte-order mark (an editor's) is passed over, and gone at the
      * next save, which the file is marked for: the engine's reader takes
@@ -157,6 +189,7 @@ dxl_ini *dxl_ini_parse(const char *text, size_t len) {
     /* New lines follow whatever the file predominantly uses. */
     free(ini->eol);
     ini->eol = dxl_xstrdup((saw_lf && !saw_crlf) ? "\n" : "\r\n");
+    free(narrow);
     return ini;
 }
 
@@ -182,7 +215,7 @@ char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
     dxl_buf b;
     dxl_buf_init(&b);
     for (size_t i = 0; i < ini->count; i++) {
-        dxl_buf_puts(&b, ini->lines[i].raw);
+        dxl_buf_add(&b, ini->lines[i].raw, ini->lines[i].raw_len);
         dxl_buf_puts(&b, ini->lines[i].eol);
     }
     if (!b.data) dxl_buf_add(&b, "", 0);
@@ -307,6 +340,7 @@ static void pair_write(ini_line *l, const char *key, const char *value,
     size_t n = strlen(name) + 1 + strlen(text) + 1;
     l->raw = dxl_xmalloc(n);
     snprintf(l->raw, n, "%s=%s", name, text);
+    l->raw_len = n - 1;
 }
 
 /* A line inserted at index after the file's unterminated last line would
@@ -340,6 +374,7 @@ static size_t ensure_section(dxl_ini *ini, const char *section) {
     size_t n = strlen(section) + 3;
     l->raw = dxl_xmalloc(n);
     snprintf(l->raw, n, "[%s]", section);
+    l->raw_len = n - 1;
     l->eol = dxl_xstrdup(ini->eol);
     return header;
 }
