@@ -59,7 +59,19 @@ static char *raw_cmdline(int argc, char **argv, const char *exe) {
     dxl_buf b;
     dxl_buf_init(&b);
     dxl_buf_puts(&b, argc > 0 && argv[0] ? argv[0] : exe);
-    for (int i = 1; i < argc; i++) dxl_buf_word(&b, argv[i]);
+    /* A word holding a space quoted, as Windows' line keeps it (dxl_cmdline_join). */
+    for (int i = 1; i < argc; i++) {
+        const char *a = argv[i];
+        if (!*a) continue;
+        dxl_buf_add(&b, " ", 1);
+        if (strchr(a, ' ') && !strchr(a, '"') && *a != ' ') {
+            dxl_buf_add(&b, "\"", 1);
+            dxl_buf_puts(&b, a);
+            dxl_buf_add(&b, "\"", 1);
+        } else {
+            dxl_buf_puts(&b, a);
+        }
+    }
     return b.data;
 }
 

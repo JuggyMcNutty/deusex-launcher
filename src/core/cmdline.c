@@ -21,10 +21,28 @@ static const char *strfind(const char *hay, const char *needle) {
     return NULL;
 }
 
+/* A word onto the line: one holding a space is quoted -- after its NAME=
+ * when it has one, as the original's raw line keeps its quotes and Parse
+ * reads them (dxl_cmd_value too) -- unless it holds a quote already or
+ * begins with a blank, a relaunch's whole line handed over as one word. */
+static void quoted_word(dxl_buf *b, const char *a) {
+    if (!*a) return;
+    if (!strchr(a, ' ') || strchr(a, '"') || *a == ' ' || *a == '\t') {
+        dxl_buf_word(b, a);
+        return;
+    }
+    const char *eq = strchr(a, '=');
+    if (b->len) dxl_buf_add(b, " ", 1);
+    if (eq) dxl_buf_add(b, a, (size_t)(eq - a) + 1);
+    dxl_buf_add(b, "\"", 1);
+    dxl_buf_puts(b, eq ? eq + 1 : a);
+    dxl_buf_add(b, "\"", 1);
+}
+
 char *dxl_cmdline_join(int argc, char *const *argv) {
     dxl_buf b;
     dxl_buf_init(&b);
-    for (int i = 1; i < argc; i++) dxl_buf_word(&b, argv[i]);
+    for (int i = 1; i < argc; i++) quoted_word(&b, argv[i]);
     if (!b.data) dxl_buf_puts(&b, "");
     size_t blanks = strspn(b.data, " \t");
     memmove(b.data, b.data + blanks, strlen(b.data + blanks) + 1);

@@ -122,6 +122,16 @@ static void test_join(void) {
     j = dxl_cmdline_join(2, argv3);
     CHECK_STR(j, "-nosound -nojoy");
     free(j);
+
+    /* A word holding a space, quoted after its NAME=, read back whole. */
+    char *argv4[] = { "deusex-launcher", "INI=/home/u/My Games/x.ini", "My Map", "-log" };
+    j = dxl_cmdline_join(4, argv4);
+    CHECK_STR(j, "INI=\"/home/u/My Games/x.ini\" \"My Map\" -log");
+    char v[128];
+    CHECK_INT(dxl_cmd_value(j, "INI", v, sizeof v), 1);
+    CHECK_STR(v, "/home/u/My Games/x.ini");
+    CHECK_INT(dxl_cmd_param(j, "log"), 1);
+    free(j);
 }
 
 /* argv[0] is excluded from the joined command line, the one core/policy.c
