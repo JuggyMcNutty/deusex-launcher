@@ -26,7 +26,9 @@ Screenshots, Multiplayer, Recovery, the log, About
 
 ## Where everything lives
 
-Nothing is written to the game's folder. The launcher's files are in the
+Nothing is written to the game's folder, but for an ini a line's `INI=` or
+`USERINI=` names, the original's words: that one, in `System`, the engine
+and the launcher read and write. The launcher's files are in the
 home's XDG folders, each with a `dxlauncher` folder in it
 (`src/core/xdg.h`); `DXL_HOME=<dir>` puts all four under one folder, a
 scratch home. On the Smart Pro the app's `launch.sh` names one, `home` in
