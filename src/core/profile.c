@@ -345,6 +345,10 @@ static int each_shot(const char *system_dir, const char *to, dxl_err *err) {
             char *src = dxl_path_join(system_dir, e->d_name);
             char *dst = dxl_path_join(to, e->d_name);
             int rc = dxl_path_copy(src, dst, err);
+            /* Taken when the game wrote it, as Screenshots dates and orders
+             * a shot: the copy keeps the time. */
+            long when = dxl_path_mtime(src);
+            if (rc == 0 && when >= 0) dxl_fs_set_mtime(dst, when);
             free(src);
             free(dst);
             if (rc != 0) { closedir(d); return -1; }
