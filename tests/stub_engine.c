@@ -12,8 +12,9 @@
  *               (any other mode prints its words too with DXL_STUB_ARGS set)
  *   env         prints the value of the variable DXL_STUB_ENV names
  *   ready       hello, ready, then prints each line the launcher sends,
- *               exiting 0 at "quit", or at "Quit", the launcher's stop the
- *               engine takes, or after DXL_STUB_MS (default 5000)
+ *               exiting 0 at "quit", at "Quit" or SIGTERM, the launcher's
+ *               stops the engine takes (its inis written back), or after
+ *               DXL_STUB_MS (default 5000)
  *   rewrite     ready's, having written to its --userini as the engine does
  *               at a clean end ([DXL.Stub] Wrote=1), and added an x to the
  *               file DXL_STUB_COUNT names
@@ -103,6 +104,14 @@ static void say(const char *text) {
     buf[n] = '\0';
     if (send(line_fd, buf, n, MSG_NOSIGNAL) < 0) perror("stub: send");
     free(buf);
+}
+
+/* The launcher's stop (SIGTERM), taken as the engine takes it: quits at
+ * its next turn. */
+static volatile sig_atomic_t stop_signalled;
+static void on_stop(int sig) {
+    (void)sig;
+    stop_signalled = 1;
 }
 
 static long hear(char *buf, size_t size) {
@@ -228,8 +237,10 @@ int main(int argc, char **argv) {
     }
 #ifndef _WIN32
     /* Deaf before it says so: a stop that comes after the ready finds it
-     * deaf, never still starting. */
+     * deaf, never still starting. Any other mode takes the stop as the
+     * engine does. */
     if (strcmp(mode, "stubborn") == 0) signal(SIGTERM, SIG_IGN);
+    else signal(SIGTERM, on_stop);
 #endif
     say("ready");
     if (strcmp(mode, "crash") == 0) {
@@ -281,6 +292,12 @@ int main(int argc, char **argv) {
     size_t have = 0;
     long long start = now_ms();
     for (;;) {
+#ifndef _WIN32
+        if (stop_signalled) {
+            printf("stopped: quitting\n");
+            return 0;
+        }
+#endif
         if (now_ms() - start >= ms || !line_open()) break;
         long n = hear(pending + have, sizeof pending - have - 1);
         if (n < 0) break;
