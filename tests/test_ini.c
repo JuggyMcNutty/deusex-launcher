@@ -73,8 +73,8 @@ static void test_repeated_keys(void) {
     const char *vals[8];
     size_t got = dxl_ini_get_all(ini, "Core.System", "Paths", vals, 8);
     CHECK_INT(got, 5);
-    /* get() yields the first, in file order. */
-    CHECK_STR(dxl_ini_get(ini, "Core.System", "Paths"), vals[0]);
+    /* get() yields the last, the value the engine reads. */
+    CHECK_STR(dxl_ini_get(ini, "Core.System", "Paths"), vals[4]);
 
     dxl_ini_free(ini);
 }
@@ -206,6 +206,29 @@ static void test_unterminated_last_line(void) {
     char *out = dxl_ini_render(ini, &len);
     CHECK_STR(out, "[A]\r\nx=1\r\n\r\n[B]\r\ny=2\r\n");
     free(out);
+    dxl_ini_free(ini);
+}
+
+/* A key given twice reads and is set at its last value, and a section
+ * written twice is one section, its blocks read in order: the engine reads
+ * them so, as the original does. */
+static void test_last_given_wins(void) {
+    const char *src = "[A]\nx=1\nx=2\n[B]\nq=0\n[A]\nx=3\ny=1\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "3");
+    CHECK_INT(dxl_ini_get_all(ini, "A", "x", NULL, 0), 3);
+    CHECK_INT(dxl_ini_pairs(ini, "A", NULL, NULL, 0), 4);
+    const char *names[4];
+    CHECK_INT(dxl_ini_sections(ini, "", names, 4), 2);
+    dxl_ini_set(ini, "A", "x", "4");
+    dxl_ini_set(ini, "A", "z", "5");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\nx=1\nx=2\n[B]\nq=0\n[A]\nx=4\ny=1\nz=5\n");
+    free(out);
+    dxl_ini_remove(ini, "A", "x");
+    CHECK(dxl_ini_get(ini, "A", "x") == NULL);
+    CHECK_INT(dxl_ini_pairs(ini, "A", NULL, NULL, 0), 2);
     dxl_ini_free(ini);
 }
 
@@ -384,6 +407,7 @@ TEST_MAIN_BEGIN
     RUN(test_bool_spelling);
     RUN(test_comments_and_oddities);
     RUN(test_unterminated_last_line);
+    RUN(test_last_given_wins);
     RUN(test_utf16_and_nul);
     RUN(test_bom_is_read_past);
     RUN(test_unterminated_last_line_key);

@@ -150,6 +150,13 @@ static void close_files(profile_files *f) {
     dxl_xdg_free(&f->x);
 }
 
+/* The first Paths= line, the mod's: dxl_ini_get gives the last, the value
+ * the engine reads for a key given once. */
+static const char *first_path(const dxl_ini *sys) {
+    const char *v[1];
+    return sys && dxl_ini_get_all(sys, "Core.System", "Paths", v, 1) ? v[0] : NULL;
+}
+
 static const char *value(const dxl_ini *ini, const char *section, const char *key) {
     const char *v = ini ? dxl_ini_get(ini, section, key) : NULL;
     return v ? v : "";
@@ -531,7 +538,7 @@ static void test_mods(void) {
     char *sys_path = home_file("config/dxlauncher/profiles/testmod/DeusEx.ini");
     dxl_ini *sys = dxl_ini_load(sys_path, NULL);
     snprintf(want, sizeof want, "%s/System/*.u", real ? real : dir);
-    CHECK_STR(value(sys, "Core.System", "Paths"), want);
+    CHECK_STR(first_path(sys), want);
     CHECK_STR(value(sys, "URL", "Class"), "TestMod.ModPlayer");
     dxl_ini_free(sys);
     free(sys_path);
