@@ -35,6 +35,18 @@ int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
     if (s->engine_by_env) s->engine = dxl_fs_path(engine);
     else if (chosen && *chosen) s->engine = dxl_xstrdup(chosen);
     else s->engine = dxl_session_own_engine(s);
+    /* Absolute, from where the launcher started: the game runs in the
+     * install's System folder, where a relative one is another file or
+     * none. */
+    if (!dxl_fs_is_absolute(s->engine)) {
+        char *cwd = dxl_fs_cwd();
+        if (cwd) {
+            char *abs = dxl_path_join(cwd, s->engine);
+            free(s->engine);
+            s->engine = abs;
+            free(cwd);
+        }
+    }
 
     const char *id = profile_id;
     if (!id || !*id) id = dxl_ini_get(s->ini, LAUNCHER, "Profile");
