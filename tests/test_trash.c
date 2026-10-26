@@ -1,6 +1,7 @@
 #include "test.h"
 #include "scratch.h"
 #include "platform/trash.h"
+#include "platform/fs.h"
 
 #include <dirent.h>
 
@@ -53,6 +54,20 @@ static void test_trash(void) {
     info = info_of(data, "a file");
     CHECK(info && strstr(info, "/stuff/a%20file\n") != NULL);
     free(info);
+    /* A link is trashed, not its target. */
+    scratch_write(dir, "stuff/target", "t");
+    char *link = scratch_path(dir, "stuff/a link");
+    CHECK_INT(dxl_fs_link_dir("target", link), 0);
+    CHECK_INT(dxl_trash(link, data, name, sizeof name, NULL), 0);
+    CHECK_STR(name, "a link");
+    CHECK(scratch_exists(dir, "stuff/target"));
+    char *moved = scratch_path(data, "Trash/files/a link");
+    CHECK_INT(dxl_fs_is_link(moved), 1);
+    info = info_of(data, "a link");
+    CHECK(info && strstr(info, "/stuff/a%20link\n") != NULL);
+    free(info);
+    free(moved);
+    free(link);
     /* What is not there stays not there. */
     dxl_err e;
     CHECK_INT(dxl_trash(save, data, NULL, 0, &e), -1);
