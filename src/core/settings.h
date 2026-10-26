@@ -9,9 +9,10 @@
  * reads: its own [Engine.DXEngine*] sections once [Engine.DXEngineAudioDevice]
  * has a key, the retail ones before (DXEngine's PackageManager.cpp); one
  * missing there is the engine's own default, the row's. It is written to
- * every place, so both generations agree. The codecs read as strictly as
- * the engine and write as it does: a value it would refuse at start is
- * no value. Values travel as text in one form: "1"/"0", a number with
+ * every place, so both generations agree. The codecs read as the engine
+ * reads and write as it does: a value its converters cannot read (a rate
+ * without "Hz") is no value, the row showing the engine's default, which
+ * it takes for one. Values travel as text in one form: "1"/"0", a number with
  * "%.6g", a choice's own value, "WxH" for a size, text. The rows are
  * core/settings_table.c's; the presets are data too.
  */
