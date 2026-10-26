@@ -233,12 +233,17 @@ static void test_gl_versions(void) {
     dxl_renderers_free(&l);
 }
 
-/* The MSAA lock follows the GPU, not the device, and needs evidence. */
+/* The MSAA lock follows the GPU, not the device or the driver, and needs evidence. */
 static void test_msaa_broken_on_powervr_only(void) {
     dxl_gpu_probe p = smart_pro();
     CHECK_INT(dxl_gpu_msaa_broken(&p), 1);
     p.probed = 0;
     CHECK_INT(dxl_gpu_msaa_broken(&p), 0);
+    memset(&p, 0, sizeof p);
+    p.probed = 1;
+    p.gles = 1;
+    snprintf(p.gles_renderer, sizeof p.gles_renderer, "PowerVR Rogue GE8300");   /* a board without Vulkan */
+    CHECK_INT(dxl_gpu_msaa_broken(&p), 1);
     memset(&p, 0, sizeof p);
     p.probed = 1;
     p.vulkan = 1;
