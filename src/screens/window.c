@@ -181,7 +181,9 @@ static void take_lines(dxl_window *w) {
     char line[DXL_HANDOFF_MAX];
     while (w->run && dxl_instance_poll(w->run->instance, line, sizeof line)) {
         dxl_log("a second start's command line: %s", line);
-        SDL_RestoreWindow(w->window);
+        /* Brought back when minimized alone: SDL's restore un-maximizes a
+         * maximized window too. */
+        if (SDL_GetWindowFlags(w->window) & SDL_WINDOW_MINIMIZED) SDL_RestoreWindow(w->window);
         SDL_RaiseWindow(w->window);
         if (has_word(line, "--big-screen")) dxl_shell_big(&w->shell, 1);
         /* A link's server, the line's first word: Multiplayer asks. */
