@@ -127,6 +127,7 @@ static void start_new(dxl_shell *s) {
 void dxl_shell_making_cancel(dxl_shell *s) {
     dxl_err e;
     if (dxl_run_use_profile(s->run, s->making_before, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    dxl_shell_rebrowse(s);
     s->making = 0;
     dxl_page back = s->making_mod.dir ? DXL_PAGE_MODS : DXL_PAGE_PROFILES;
     dxl_mod_free(&s->making_mod);
@@ -149,6 +150,7 @@ void dxl_shell_use_profile(dxl_shell *s, const char *id, const char *name) {
      * one whose last run left its Running.ini opens on Recovery, as a start
      * of it does. */
     s->note[0] = s->next_run[0] = '\0';
+    dxl_shell_rebrowse(s);
     dxl_shell_theme(s);
     dxl_shell_toast(s, "The profile is %s.", name);
     if (dxl_sentinel_exists(&s->run->sentinel)) {
