@@ -332,6 +332,49 @@ static const char *first_path(const dxl_ini *sys) {
     return sys && dxl_ini_get_all(sys, "Core.System", "Paths", v, 1) ? v[0] : NULL;
 }
 
+/* Back to the defaults on a mod's profile: the mod's own settings and
+ * controls, as its import takes them; the game's where it has none. */
+static void test_defaults(void) {
+    dxl_mod m;
+    dxl_ini *sys = NULL, *usr = NULL;
+    char *d = at("game/GameMod");
+    dxl_mod_check(d, &m, NULL);
+    dxl_profile_defaults(system_dir, &m, &sys, &usr);
+    CHECK(sys && !strcmp(dxl_ini_get(sys, "URL", "Class"), "GameMod.ModPlayer"));
+    CHECK(sys && !strcmp(dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"),
+                         "master.333networks.com"));
+    CHECK(usr && !strcmp(dxl_ini_get(usr, "Engine.Input", "F1"), "TheMods"));
+    dxl_ini_free(sys);
+    dxl_ini_free(usr);
+    dxl_mod_free(&m);
+    free(d);
+
+    /* OutMod: its Default.ini and DefUser.ini are its own. */
+    d = at("home/data/dxlauncher/mods/OutMod");
+    dxl_mod_check(d, &m, NULL);
+    dxl_profile_defaults(system_dir, &m, &sys, &usr);
+    CHECK(first_path(sys) && strstr(first_path(sys), "OutMod") != NULL);
+    CHECK(usr && !strcmp(dxl_ini_get(usr, "Engine.Input", "F1"), "Out"));
+    dxl_ini_free(sys);
+    dxl_ini_free(usr);
+    dxl_mod_free(&m);
+    free(d);
+
+    /* Bare, with none, and the game: DefUser.ini's controls; no Default.ini
+     * in this install. */
+    d = at("home/data/dxlauncher/mods/Bare");
+    dxl_mod_check(d, &m, NULL);
+    for (int i = 0; i < 2; i++) {
+        dxl_profile_defaults(system_dir, i ? NULL : &m, &sys, &usr);
+        CHECK(sys == NULL);
+        CHECK(usr && !strcmp(dxl_ini_get(usr, "Engine.Input", "F1"), "TheGames"));
+        dxl_ini_free(sys);
+        dxl_ini_free(usr);
+    }
+    dxl_mod_free(&m);
+    free(d);
+}
+
 static void test_import(void) {
     char *home = at("home");
     dxl_env_set("DXL_HOME", home);
@@ -435,6 +478,7 @@ TEST_MAIN_BEGIN
     RUN(test_folders);
     RUN(test_paths);
     RUN(test_import);
+    RUN(test_defaults);
     scratch_remove(root);
     free(root);
 TEST_MAIN_END
