@@ -54,7 +54,10 @@ static int recycle(wchar_t *const *paths, int n, dxl_err *err) {
     memset(&op, 0, sizeof op);
     op.wFunc = FO_DELETE;
     op.pFrom = from;
-    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+    /* FOF_WANTNUKEWARNING: an item the bin will not take (the bin off for
+     * the drive, one over its size) is asked about, not deleted outright
+     * without a word, as trash.h promises. */
+    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_WANTNUKEWARNING | FOF_NOERRORUI | FOF_SILENT;
     int rc = SHFileOperationW(&op);
     free(from);
     if (rc != 0 || op.fAnyOperationsAborted) {
