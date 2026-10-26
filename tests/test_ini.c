@@ -209,6 +209,20 @@ static void test_unterminated_last_line(void) {
     dxl_ini_free(ini);
 }
 
+/* A UTF-8 byte-order mark an editor left is read past, and gone at the next
+ * save: the engine's reader takes it as text and loses the section after it. */
+static void test_bom_is_read_past(void) {
+    const char *src = "\xef\xbb\xbf[Launcher]\nProfile=x\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_STR(dxl_ini_get(ini, "Launcher", "Profile"), "x");
+    CHECK_INT(dxl_ini_dirty(ini), 1);
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[Launcher]\nProfile=x\n");
+    free(out);
+    dxl_ini_free(ini);
+}
+
 /* ... and a key appended to that line's own section, which landed on it. */
 static void test_unterminated_last_line_key(void) {
     const char *src = "[A]\r\nx=1";
@@ -346,6 +360,7 @@ TEST_MAIN_BEGIN
     RUN(test_bool_spelling);
     RUN(test_comments_and_oddities);
     RUN(test_unterminated_last_line);
+    RUN(test_bom_is_read_past);
     RUN(test_unterminated_last_line_key);
     RUN(test_lf_file_stays_lf);
     RUN(test_rewrite_normalises_line_ending);
