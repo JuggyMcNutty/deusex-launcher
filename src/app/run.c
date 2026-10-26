@@ -534,11 +534,22 @@ static dxl_view view_of(const dxl_run *r) {
     return home_wanted(r) && !r->relaunched ? DXL_VIEW_HOME : DXL_VIEW_NONE;
 }
 
+/* Whether another launcher is live: the one holding the lock this run did
+ * not get. A dry run or a printed command takes no lock, so it asks. */
+static int other_instance(dxl_run *r) {
+    if (r->instance) return 0;
+    if (!r->opt.dry && !r->opt.print_command) return 1;
+    char *id = dxl_session_instance_id(&r->session);
+    int other = dxl_instance_other_running(id);
+    free(id);
+    return other;
+}
+
 static void decide(dxl_run *r) {
     dxl_policy_input in = {
         .cmdline = r->words,
         .first_run = dxl_config_first_run(r->config),
-        .other_instance = r->instance == NULL,
+        .other_instance = other_instance(r),
         .forward_tried = 1,
         .running_ini_exists = dxl_sentinel_exists(&r->sentinel),
         .is_client = !dxl_cmd_param(r->words, "server"),
