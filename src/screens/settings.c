@@ -143,11 +143,20 @@ static int choices_of(dxl_shell *s, const dxl_setting *st, const char **labels, 
     int n = 0;
     if (st->flags & DXL_SET_RENDERER) {
         dxl_shell_probe(s);
+        /* The profile's own, where the probe found it does not run here:
+         * shown as it is and said so, not as the first that runs. */
+        char now[64];
+        dxl_setting_get(&s->stores, st, now, sizeof now);
         for (size_t i = 0; i < s->renderers.count && n < max; i++) {
             const dxl_renderer *rd = &s->renderers.items[i];
-            if (!rd->selectable) continue;
             snprintf(values[n], 64, "%s", rd->engine_type);
-            labels[n++] = rd->label;
+            if (rd->selectable) {
+                labels[n++] = rd->label;
+            } else if (now[0] && !dxl_stricmp(values[n], now)) {
+                snprintf(shown[n], 64, "%s (not on this machine)", rd->label);
+                labels[n] = shown[n];
+                n++;
+            }
         }
         return n;
     }
