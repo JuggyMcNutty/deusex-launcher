@@ -1,6 +1,7 @@
 #include "test.h"
 #include "scratch.h"
 #include "core/ini.h"
+#include "platform/fs.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -358,6 +359,19 @@ static void test_save_is_atomic_and_keeps_the_mode(void) {
     CHECK_INT(st.st_mode & 0777, 0644);
 #endif
     dxl_ini_free(ini);
+#ifndef _WIN32
+    /* Through a link: the target replaced, the link kept. */
+    char *linked = scratch_path(dir, "linked.ini");
+    CHECK_INT(dxl_fs_link_dir("DeusEx.ini", linked), 0);
+    ini = dxl_ini_parse("[C]\nz=1\n", 9);
+    CHECK_INT(dxl_ini_save(ini, linked, &e), 0);
+    dxl_ini_free(ini);
+    CHECK_INT(dxl_fs_is_link(linked), 1);
+    text = slurp(path, &len);
+    CHECK_STR(text, "[C]\nz=1\n");
+    free(text);
+    free(linked);
+#endif
     free(fresh);
     free(path);
     scratch_remove(dir);
