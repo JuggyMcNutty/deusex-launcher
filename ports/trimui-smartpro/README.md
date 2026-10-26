@@ -42,9 +42,8 @@ out): ask its owner to wake it.
 
 ```sh
 export DXL_HOME=$PWD/home    # the app's home, as launch.sh names it: an absolute path, or none
-./dxl-cli --dry-run          # decision, the profile, Settings.json, renderers; writes nothing
-./dxl-cli --dry-run --probe  # ...with the renderer list checked against this GPU
-./dxl-cli --probe            # just the GPU: Vulkan device, OpenGL ES version
+./dxl-cli --dry-run          # the launcher's files, the profile and its install, the decision, the engine's command; writes nothing
+./dxl-cli --probe            # the GPU alone: Vulkan device, OpenGL ES version (with --probe nothing else runs)
 ./dxl-cli --print-command    # the engine's command line for the profile in use
 ```
 
