@@ -136,8 +136,8 @@ void dxl_buf_word(dxl_buf *b, const char *s) {
 /* The length of the UTF-8 character s begins, or 0 for one that is not. */
 static size_t utf8_char(const unsigned char *s) {
     if (s[0] < 0x80) return 1;
-    size_t n = s[0] >= 0xf0 && s[0] <= 0xf4 ? 4 : s[0] >= 0xe0 ? 3 : s[0] >= 0xc2 && s[0] <= 0xdf ? 2 : 0;
-    if (!n || s[0] >= 0xf8) return 0;
+    size_t n = s[0] >= 0xf0 && s[0] <= 0xf4 ? 4 : s[0] >= 0xe0 && s[0] <= 0xef ? 3 : s[0] >= 0xc2 && s[0] <= 0xdf ? 2 : 0;
+    if (!n) return 0;
     for (size_t i = 1; i < n; i++)
         if ((s[i] & 0xc0) != 0x80) return 0;
     if (n == 3 && s[0] == 0xe0 && s[1] < 0xa0) return 0;   /* overlong */
