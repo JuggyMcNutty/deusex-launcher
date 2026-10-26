@@ -132,7 +132,7 @@ int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brie
 char *dxl_engine_in(const char *dir);
 /* Whether the engine at path finds its DXEngine.pk3: beside it, or
  * where the engine looks after (/usr/share/dxengine, the data home's
- * dxengine, ~/.dxengine). */
+ * dxengine, ~/.dxengine); on Windows beside it alone, as its engine looks. */
 int dxl_engine_pk3_found(const char *path);
 
 #endif

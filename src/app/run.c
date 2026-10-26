@@ -234,6 +234,11 @@ int dxl_engine_pk3_found(const char *path) {
     int found = dxl_path_exists(beside);
     free(beside);
     free(dir);
+#ifdef _WIN32
+    /* The Windows engine looks beside its exe alone (WidgetResourceData's
+     * other places are Linux's). */
+    return found;
+#else
     if (found || dxl_path_exists("/usr/share/dxengine/DXEngine.pk3")) return 1;
     const char *home = getenv("HOME"), *data = getenv("XDG_DATA_HOME");
     char p[2048];
@@ -242,6 +247,7 @@ int dxl_engine_pk3_found(const char *path) {
     if (dxl_path_exists(p)) return 1;
     snprintf(p, sizeof p, "%s/.dxengine/DXEngine.pk3", home ? home : "");
     return dxl_path_exists(p);
+#endif
 }
 
 /* The engine's --version, before the game: refused without the userdir
