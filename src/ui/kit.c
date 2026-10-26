@@ -574,7 +574,9 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
 
     /* A pad's held direction repeats; none while the pads are another's,
      * whose letting go it would not see. */
-    if (ui->pads_off) held_dir = stick_dir = -1;
+    /* A capture takes the triggers alone: a stick held into one would
+     * repeat through it, its release unseen. */
+    if (ui->pads_off || ui->capture_id) held_dir = stick_dir = -1;
     if (held_dir >= 0 && held_new) {
         held_next = now + REPEAT_FIRST;
     } else if (held_dir >= 0 && now >= held_next) {
