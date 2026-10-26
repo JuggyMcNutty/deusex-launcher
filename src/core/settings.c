@@ -110,10 +110,8 @@ static int decode(const dxl_set_place *p, const char *v, char *out, size_t size)
     switch (p->codec) {
     case DXL_CODEC_BOOL:
     case DXL_CODEC_NOT: {
-        int b;
-        if (!strcmp(v, "True") || !strcmp(v, "true") || !strcmp(v, "1")) b = 1;
-        else if (!strcmp(v, "False") || !strcmp(v, "false") || !strcmp(v, "0")) b = 0;
-        else return 0;
+        int b = dxl_text_bool(v);
+        if (b < 0) return 0;
         snprintf(out, size, "%d", p->codec == DXL_CODEC_NOT ? !b : b);
         return 1;
     }

@@ -342,9 +342,8 @@ int dxl_ini_get_bool(const dxl_ini *ini, const char *section, const char *key,
                      int fallback) {
     const char *v = dxl_ini_get(ini, section, key);
     if (!v || !*v) return fallback;
-    if (dxl_stricmp(v, "True") == 0 || dxl_stricmp(v, "1") == 0) return 1;
-    if (dxl_stricmp(v, "False") == 0 || dxl_stricmp(v, "0") == 0) return 0;
-    return fallback;
+    int b = dxl_text_bool(v);
+    return b < 0 ? fallback : b;
 }
 
 /* ---- mutation ------------------------------------------------------- */
