@@ -35,6 +35,27 @@ static void cloexec_all(int keep) {
         if (fd != keep) fcntl(fd, F_SETFD, FD_CLOEXEC);
 }
 
+/* The program's path: a name with a '/' as it is, a bare one found on
+ * PATH as a shell finds it, so that the child execs a path and searches
+ * nothing after the fork. NULL for a bare name that is nowhere. Caller
+ * frees. */
+static char *on_path(const char *name) {
+    if (strchr(name, '/')) return dxl_xstrdup(name);
+    const char *path = getenv("PATH");
+    if (!path || !*path) path = "/usr/local/bin:/usr/bin:/bin";
+    for (const char *p = path;; p++) {
+        const char *end = strchr(p, ':');
+        size_t n = end ? (size_t)(end - p) : strlen(p);
+        size_t size = n + strlen(name) + 3;
+        char *full = dxl_xmalloc(size);
+        snprintf(full, size, "%.*s/%s", n ? (int)n : 1, n ? p : ".", name);
+        if (access(full, X_OK) == 0) return full;
+        free(full);
+        if (!end) return NULL;
+        p = end;
+    }
+}
+
 /* In the child, after fork: exec, or report why not through report_fd. */
 static void exec_child(char *const argv[], char *const env[], const char *workdir, int report_fd) {
     for (size_t i = 0; env && env[i]; i++) {
@@ -258,15 +279,23 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
                     int *status, dxl_err *err) {
     if (size) out[0] = '\0';
     if (errs && errs_size) errs[0] = '\0';
+    char *exe = on_path(argv[0]);
+    if (!exe) {
+        dxl_err_set(err, "cannot run %s: not found", argv[0]);
+        if (status) *status = 127;
+        return -1;
+    }
     int pipefd[2], errfd[2] = { -1, -1 };
     if (pipe2(pipefd, O_CLOEXEC) != 0) {
         dxl_err_set(err, "pipe: %s", strerror(errno));
+        free(exe);
         return -1;
     }
     if (errs && pipe2(errfd, O_CLOEXEC) != 0) {
         dxl_err_set(err, "pipe: %s", strerror(errno));
         close(pipefd[0]);
         close(pipefd[1]);
+        free(exe);
         return -1;
     }
     /* Its environment this one's but the launcher's line, made before the
@@ -285,6 +314,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         close(pipefd[0]); close(pipefd[1]);
         if (errfd[0] >= 0) { close(errfd[0]); close(errfd[1]); }
         free(envp);
+        free(exe);
         return -1;
     }
     if (pid == 0) {
@@ -294,7 +324,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         if (errfd[1] >= 0) dup2(errfd[1], STDERR_FILENO);
         else if (null >= 0) dup2(null, STDERR_FILENO);
         cloexec_all(-1);
-        execve(argv[0], argv, envp);
+        execve(exe, argv, envp);
         /* Why, as a shell says it, on the errors' line: write alone, the
          * launcher's other threads' locks being anyone's after the fork. */
         const char *why = errno == ENOENT ? ": No such file or directory\n"
@@ -304,6 +334,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         _exit(127);
     }
     free(envp);
+    free(exe);
     close(pipefd[1]);
     if (errfd[1] >= 0) close(errfd[1]);
     size_t got = 0, got_err = 0;
