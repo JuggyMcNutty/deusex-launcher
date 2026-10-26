@@ -209,6 +209,30 @@ static void test_unterminated_last_line(void) {
     dxl_ini_free(ini);
 }
 
+/* Notepad's "Unicode" ini, UTF-16 by its byte-order mark, reads as the
+ * game's 8-bit text and is written so; a NUL in a line is written back. */
+static void test_utf16_and_nul(void) {
+    const char src[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0\xe9\0\x20\x20\r\0\n\0";
+    dxl_ini *ini = dxl_ini_parse(src, sizeof src - 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "\xe9?");
+    CHECK_INT(dxl_ini_dirty(ini), 1);
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\r\nx=\xe9?\r\n");
+    free(out);
+    dxl_ini_free(ini);
+
+    const char nul[] = "[A]\r\nx=1\r\nju\0nk\r\n";
+    ini = dxl_ini_parse(nul, sizeof nul - 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "1");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
+    out = dxl_ini_render(ini, &len);
+    CHECK_INT(len, sizeof nul - 1);
+    CHECK(memcmp(out, nul, len) == 0);
+    free(out);
+    dxl_ini_free(ini);
+}
+
 /* A UTF-8 byte-order mark an editor left is read past, and gone at the next
  * save: the engine's reader takes it as text and loses the section after it. */
 static void test_bom_is_read_past(void) {
@@ -360,6 +384,7 @@ TEST_MAIN_BEGIN
     RUN(test_bool_spelling);
     RUN(test_comments_and_oddities);
     RUN(test_unterminated_last_line);
+    RUN(test_utf16_and_nul);
     RUN(test_bom_is_read_past);
     RUN(test_unterminated_last_line_key);
     RUN(test_lf_file_stays_lf);
