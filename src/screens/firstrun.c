@@ -330,11 +330,22 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
         dxl_rect line = dxl_cut_top(&in, ch), left = line, right = line;
         left.w = right.w = (line.w - 16) / 2;
         right.x = left.x + left.w + 16;
-        dxl_spinner(ui, dxl_ui_id(ui, "import graphics"), left, "Graphics", &s->begin_graphics, looks, nl, 0);
+        /* Each row's list on its activation, as Settings' rows open theirs. */
+        uint32_t gid = dxl_ui_id(ui, "import graphics");
+        const char *gpicked = dxl_shell_picked(s, dxl_shell_answer(s, gid));
+        for (int i = 0; gpicked && i < nl; i++)
+            if (!strcmp(looks[i], gpicked)) s->begin_graphics = i;
+        if (dxl_spinner(ui, gid, left, "Graphics", &s->begin_graphics, looks, nl, 0) == DXL_SPIN_LIST)
+            dxl_shell_pick(s, gid, "Graphics", looks, nl, s->begin_graphics);
         if (pad) {
             layouts[nk++] = "As imported";
             for (size_t i = 0; i < dxl_pad_preset_count() && nk < 8; i++) layouts[nk++] = dxl_pad_preset_at(i)->label;
-            dxl_spinner(ui, dxl_ui_id(ui, "import layout"), right, "Controller", &s->begin_layout, layouts, nk, 0);
+            uint32_t lid = dxl_ui_id(ui, "import layout");
+            const char *lpicked = dxl_shell_picked(s, dxl_shell_answer(s, lid));
+            for (int i = 0; lpicked && i < nk; i++)
+                if (!strcmp(layouts[i], lpicked)) s->begin_layout = i;
+            if (dxl_spinner(ui, lid, right, "Controller", &s->begin_layout, layouts, nk, 0) == DXL_SPIN_LIST)
+                dxl_shell_pick(s, lid, "Controller", layouts, nk, s->begin_layout);
         }
         dxl_cut_top(&in, 10);
         dxl_paragraph(ui, in, DXL_FONT_SMALL, kept_in, t->help);
