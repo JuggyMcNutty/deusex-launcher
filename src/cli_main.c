@@ -245,5 +245,7 @@ int main(int argc, char **argv) {
         return DXL_RUN_EXIT_USAGE;
     }
     dxl_startup(&stop, NULL);
-    return dxl_run_main(argc, argv, NULL, &stop);
+    int rc = dxl_run_main(argc, argv, NULL, &stop);
+    dxl_startup_ended();
+    return rc;
 }

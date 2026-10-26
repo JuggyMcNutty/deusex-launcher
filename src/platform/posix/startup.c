@@ -24,3 +24,5 @@ void dxl_startup(volatile int *stop, void (*wake)(void)) {
     sigaction(SIGHUP, &sa, NULL);
     signal(SIGPIPE, SIG_IGN);
 }
+
+void dxl_startup_ended(void) {}
