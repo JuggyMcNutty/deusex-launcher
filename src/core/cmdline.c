@@ -21,10 +21,27 @@ static const char *strfind(const char *hay, const char *needle) {
     return NULL;
 }
 
+/* The player's words as one line. A word holding a space is quoted --
+ * after its NAME= when it has one, as the original's raw line keeps its
+ * quotes and the engine's Parse reads them (dxl_cmd_value too); one that
+ * holds a quote already goes as it is. */
 char *dxl_cmdline_join(int argc, char *const *argv) {
     dxl_buf b;
     dxl_buf_init(&b);
-    for (int i = 1; i < argc; i++) dxl_buf_word(&b, argv[i]);
+    for (int i = 1; i < argc; i++) {
+        const char *a = argv[i];
+        if (!*a) continue;
+        if (!strchr(a, ' ') || strchr(a, '"')) {
+            dxl_buf_word(&b, a);
+            continue;
+        }
+        const char *eq = strchr(a, '=');
+        if (b.len) dxl_buf_add(&b, " ", 1);
+        if (eq) dxl_buf_add(&b, a, (size_t)(eq - a) + 1);
+        dxl_buf_add(&b, "\"", 1);
+        dxl_buf_puts(&b, eq ? eq + 1 : a);
+        dxl_buf_add(&b, "\"", 1);
+    }
     if (!b.data) dxl_buf_puts(&b, "");
     return b.data;
 }
