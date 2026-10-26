@@ -53,12 +53,19 @@ static const dxl_advice stopped = {
     DXL_FIX_NONE,
 };
 
+static const dxl_advice stopped_by_launcher = {
+    "The launcher stopped the game -- its window closed, a signal, a logout -- before the game had quit: "
+    "nothing went wrong in the game, but its settings and the last save may not have been written.",
+    DXL_FIX_NONE,
+};
+
 const dxl_advice *dxl_advice_for(const dxl_lastrun *l) {
     if (!l || !l->known) return NULL;
     if (l->clean) return l->fallback[0] ? &fell_back : NULL;
     for (size_t i = 0; i < sizeof known / sizeof *known; i++)
         if (strncmp(l->error, known[i].starts, strlen(known[i].starts)) == 0) return &known[i].advice;
     if (dxl_end_crashed(l->signal)) return &crashed;
+    if (l->stopped || l->killed) return &stopped_by_launcher;
     if (l->status == 0 && !l->ready) return &no_game;
     /* Started on a save, stopped by an error the engine names before it was
      * up: the save's level is what did not load. */

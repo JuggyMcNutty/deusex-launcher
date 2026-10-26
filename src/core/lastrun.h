@@ -27,6 +27,8 @@ typedef struct {
     int  signal;       /* what ended it, 0 when it exited (platform/os.h, dxl_end_name) */
     int  ready;        /* the engine said its first map was in */
     int  clean;        /* exit 0 with ready seen */
+    int  stopped;      /* the launcher stopped it: its window closed, a signal, a logout */
+    int  killed;       /* it took no notice of the stop and was killed */
     char error[512];   /* the engine's "DXEngine error: ..." line, or "" */
     char fallback[512];/* the engine's line where its GPU renderer did not start and its software
                           one drew instead, or "" */
