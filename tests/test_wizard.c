@@ -185,6 +185,43 @@ static void test_software_and_back(void) {
     close_wizard(&f);
 }
 
+/* A key as the dialog takes it from the queue. */
+static void key_event(fixture_t *f, Uint32 type, SDL_Keycode sym, Uint16 mod, Uint8 repeat) {
+    SDL_Event e;
+    memset(&e, 0, sizeof e);
+    e.type = type;
+    e.key.repeat = repeat;
+    e.key.keysym.sym = sym;
+    e.key.keysym.mod = mod;
+    SDL_PushEvent(&e);
+    dxl_dialog_step(f->d, 0);
+}
+
+/* Space clicks the button with the focus as it is let go, as a Win32
+ * button does, not as it goes down nor on its repeats; a letter while the
+ * Detail page's edit has the focus is the edit's, with Alt the mnemonic. */
+static void test_keys(void) {
+    CHECK_INT(SDL_InitSubSystem(SDL_INIT_EVENTS), 0);
+    fixture_t f;
+    open_wizard(&f, DXL_PAGE_DETAIL);
+    CHECK(page(&f, 1100) != NULL);
+    f.d->focus = (int)(frame(&f, 1004) - f.d->ctls);       /* Next */
+    key_event(&f, SDL_KEYDOWN, SDLK_SPACE, 0, 0);
+    key_event(&f, SDL_KEYDOWN, SDLK_SPACE, 0, 1);          /* its repeat */
+    CHECK(page(&f, 1100) != NULL);                         /* Detail still */
+    key_event(&f, SDL_KEYUP, SDLK_SPACE, 0, 0);
+    CHECK(page(&f, 1002) != NULL);                         /* FirstTime */
+    dxl_dialog_click(f.d, 3);                              /* Back */
+    CHECK(page(&f, 1100) != NULL);
+    f.d->focus = (int)(page(&f, 1100) - f.d->ctls);        /* the edit */
+    key_event(&f, SDL_KEYDOWN, SDLK_n, 0, 0);
+    CHECK(page(&f, 1100) != NULL);
+    key_event(&f, SDL_KEYDOWN, SDLK_n, KMOD_LALT, 0);      /* Alt+N: &Next */
+    CHECK(page(&f, 1002) != NULL);
+    close_wizard(&f);
+    SDL_QuitSubSystem(SDL_INIT_EVENTS);
+}
+
 /* Cancel, anywhere, ends it with 0. */
 static void test_cancel(void) {
     fixture_t f;
@@ -256,6 +293,7 @@ TEST_MAIN_BEGIN
     RUN(test_layout);
     RUN(test_first_run);
     RUN(test_software_and_back);
+    RUN(test_keys);
     RUN(test_cancel);
     RUN(test_safe_options);
     RUN(test_reset);

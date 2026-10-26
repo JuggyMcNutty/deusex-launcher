@@ -66,6 +66,7 @@ struct dxl_dialog {
     dxl_ctl      *ctls;
     int           count, cap;
     int           focus, hover, pressed;     /* control indices, or -1 */
+    int           space;      /* the control Space pressed, clicked as it is let go; -1 */
     int           alt;        /* Alt held: mnemonics underlined */
     int           ended, result;
     dxl_command_fn on_command;

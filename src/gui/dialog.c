@@ -99,7 +99,7 @@ dxl_dialog *dxl_dialog_open(dxl_gui *g, const char *title, int w, int h, int off
     d->line_h = g->line_h;
     d->w = w;
     d->h = h;
-    d->focus = d->hover = d->pressed = d->last_click_ctl = -1;
+    d->focus = d->hover = d->pressed = d->space = d->last_click_ctl = -1;
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     if (offscreen) {
         d->surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
@@ -191,7 +191,7 @@ void dxl_dialog_remove_layer(dxl_dialog *d, int layer) {
         d->ctls[o++] = d->ctls[i];
     }
     d->count = o;
-    d->focus = d->hover = d->pressed = d->last_click_ctl = -1;
+    d->focus = d->hover = d->pressed = d->space = d->last_click_ctl = -1;
     d->dirty = 1;
 }
 
@@ -590,7 +590,12 @@ static void key(dxl_dialog *d, const SDL_KeyboardEvent *k) {
         notify(d, DXL_IDOK, DXL_CLICKED);
         return;
     case SDLK_SPACE:
-        if (f && f->kind != DXL_CTL_LIST && f->kind != DXL_CTL_TEXT) activate(d, d->focus);
+        /* A Win32 button: pushed as Space goes down, its repeats nothing,
+         * clicked as it comes up (key_up) */
+        if (!k->repeat && f && f->kind != DXL_CTL_LIST && f->kind != DXL_CTL_TEXT && f->kind != DXL_CTL_EDIT) {
+            d->space = d->pressed = d->focus;
+            d->dirty = 1;
+        }
         return;
     case SDLK_UP: case SDLK_DOWN: case SDLK_LEFT: case SDLK_RIGHT:
     case SDLK_HOME: case SDLK_END:
@@ -613,12 +618,24 @@ static void key(dxl_dialog *d, const SDL_KeyboardEvent *k) {
     default:
         break;
     }
-    if (sym >= SDLK_a && sym <= SDLK_z && (alt || !f || f->kind != DXL_CTL_LIST))
+    /* A letter is a list's or an edit's, which take characters, unless Alt
+     * makes it a mnemonic */
+    if (sym >= SDLK_a && sym <= SDLK_z && (alt || !f || (f->kind != DXL_CTL_LIST && f->kind != DXL_CTL_EDIT)))
         mnemonic(d, (int)sym);
 }
 
+static void key_up(dxl_dialog *d, const SDL_KeyboardEvent *k) {
+    if (k->keysym.sym != SDLK_SPACE || d->space < 0) return;
+    int i = d->space;
+    d->space = d->pressed = -1;
+    d->dirty = 1;
+    if (i == d->focus) activate(d, i);
+}
+
+/* An offscreen dialog's (tools/pageshots.c, the tests) are the events
+ * addressed to no window. */
 static int our_window(dxl_dialog *d, Uint32 id) {
-    return d->win && SDL_GetWindowID(d->win) == id;
+    return d->win ? SDL_GetWindowID(d->win) == id : id == 0;
 }
 
 static void handle(dxl_dialog *d, const SDL_Event *e) {
@@ -674,6 +691,10 @@ static void handle(dxl_dialog *d, const SDL_Event *e) {
     case SDL_KEYDOWN:
         if (!our_window(d, e->key.windowID)) return;
         key(d, &e->key);
+        return;
+    case SDL_KEYUP:
+        if (!our_window(d, e->key.windowID)) return;
+        key_up(d, &e->key);
         return;
     default:
         return;
