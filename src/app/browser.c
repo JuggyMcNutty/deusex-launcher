@@ -183,8 +183,10 @@ static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long la
         for (int i = 0; i < q->count; i++) {
             asked *s = &q->a[i];
             if (s->done || s->port != port || strcmp(s->address, from) != 0) continue;
-            if (dxl_gs_status_add(&s->status, buf, (size_t)n) != 0) break;
-            if (!s->first) s->first = now_ms();
+            int added = dxl_gs_status_add(&s->status, buf, (size_t)n);
+            if (added < 0) break;
+            /* The ping from the answer's first packet; a newer answer's, from its. */
+            if (added > 0 || !s->first) s->first = now_ms();
             if (dxl_gs_status_whole(&s->status)) {
                 char *text = dxl_gs_status_text(&s->status);
                 if (q->fns && q->fns->answered) q->fns->answered(q->ctx, s->address, s->port, (int)(s->first - s->sent), text);
