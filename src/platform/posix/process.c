@@ -258,17 +258,25 @@ int dxl_game_clean(const dxl_game *g) { return g->ended && g->status == 0; }
 
 
 int dxl_open_url(const char *url) {
+    /* The opener found first: its exec's failure is lost in the grandchild,
+     * and a system without it is told nothing opened. */
+    char *opener = on_path("xdg-open");
+    if (!opener) return -1;
     /* Two forks, so the opener is nobody's child to wait for. */
     pid_t pid = fork();
-    if (pid < 0) return -1;
+    if (pid < 0) {
+        free(opener);
+        return -1;
+    }
     if (pid == 0) {
         if (fork() == 0) {
             cloexec_all(-1);
-            execlp("xdg-open", "xdg-open", url, (char *)NULL);
+            execl(opener, "xdg-open", url, (char *)NULL);
             _exit(127);
         }
         _exit(0);
     }
+    free(opener);
     waitpid(pid, NULL, 0);
     return 0;
 }
