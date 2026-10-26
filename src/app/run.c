@@ -315,10 +315,54 @@ static char **engine_env(const dxl_run *r) {
     return env;
 }
 
+#ifdef _WIN32
+/* A word onto a line as CommandLineToArgvW, the engine's, splits it back:
+ * quoted when it is empty or has a space, a tab or a quote; a quote escaped
+ * by a backslash, the backslashes before one doubled. */
+static void win_word(dxl_buf *b, const char *s) {
+    if (*s && !strpbrk(s, " \t\"")) {
+        dxl_buf_puts(b, s);
+        return;
+    }
+    dxl_buf_puts(b, "\"");
+    size_t bs = 0;
+    for (; *s; s++) {
+        if (*s == '\\') {
+            bs++;
+            continue;
+        }
+        size_t n = *s == '"' ? 2 * bs + 1 : bs;
+        for (size_t i = 0; i < n; i++) dxl_buf_add(b, "\\", 1);
+        bs = 0;
+        dxl_buf_add(b, s, 1);
+    }
+    for (size_t i = 0; i < 2 * bs; i++) dxl_buf_add(b, "\\", 1);
+    dxl_buf_puts(b, "\"");
+}
+#endif
+
 static void print_command(const dxl_run *r) {
     char **argv = engine_argv(r);
-    char *line = dxl_argv_quoted(argv);
     char **env = engine_env(r);
+#ifdef _WIN32
+    /* cmd.exe's: the folder, each variable set, the line as CreateProcessW
+     * is given it. A POSIX shell's line runs in neither cmd nor PowerShell. */
+    dxl_buf line;
+    dxl_buf_init(&line);
+    dxl_buf_puts(&line, "cd /d ");
+    win_word(&line, r->session.install.system_dir);
+    for (int i = 0; env[i]; i++) dxl_buf_printf(&line, "\nset \"%s\"", env[i]);
+    dxl_buf_puts(&line, "\n");
+    for (int i = 0; argv[i]; i++) {
+        if (i) dxl_buf_puts(&line, " ");
+        win_word(&line, argv[i]);
+    }
+    printf("%s\n", line.data ? line.data : "");
+    dxl_buf_free(&line);
+    printf("rem and DXL_LAUNCHER_FD, the launcher's line; output into %s/%s\n",
+           r->session.profile.logs_dir, DXL_LASTRUN_LOG);
+#else
+    char *line = dxl_argv_quoted(argv);
     char *cwd[] = { r->session.install.system_dir, NULL };
     char *dir = dxl_argv_quoted(cwd);
     /* Each variable NAME=value, its value quoted: a quoted name is no
@@ -338,6 +382,7 @@ static void print_command(const dxl_run *r) {
            r->session.profile.logs_dir, DXL_LASTRUN_LOG);
     free(dir);
     free(line);
+#endif
     dxl_argv_free(argv);
 }
 
