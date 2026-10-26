@@ -62,7 +62,13 @@ M=$(pidof MainUI)
 [ -n "$M" ] && kill -STOP $M
 cpu_after() { :; }
 restore() { cpu_after; [ -n "$M" ] && kill -CONT $M; }
-trap restore EXIT INT TERM HUP
+# A signal (a dropped SSH session's HUP, a kill) ends the run, the engine
+# with it, and says so in the log; a trap alone would put the CPU back and
+# resume MainUI while the engine played on to SECS.
+# shellcheck disable=SC2046
+on_signal() { echo "stopped by a signal" >> $OUT; kill -9 $(pidof DXEngine) 2>/dev/null; restore; trap - EXIT; exit 1; }
+trap on_signal INT TERM HUP
+trap restore EXIT
 if [ "$MODE" = "launcher" ]; then
     cpu_mode=$(sed -n 's/^[[:space:]]*CpuMode[[:space:]]*=[[:space:]]*//p' "$INI" 2>/dev/null | tr -d '\r' | head -n 1)
     sh $APPDIR/port-hooks.sh before "${cpu_mode:-Overclock}" >> $OUT 2>&1
