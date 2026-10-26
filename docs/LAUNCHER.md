@@ -498,7 +498,9 @@ Renderer offers the engine's renderers that run here, Vulkan and OpenGL
 ES 3.2, the Smart Pro's two, and Software, which draws on the CPU and needs
 nothing of the GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds
 the GPU's in a child process as the page needs them, and a profile made
-where it finds none begins on Software. The row is `Settings.json`'s
+where it finds none begins on Software. A profile's renderer that does not
+run here shows as it is, "(not on this machine)" after it. The row is
+`Settings.json`'s
 `Type`, written only as a renderer is chosen; where none is, it shows the
 one the engine takes by `DeusEx.ini`'s `GameRenderDevice`, the software
 renderer for `SoftDrv.SoftwareRenderDevice`, else Vulkan.
