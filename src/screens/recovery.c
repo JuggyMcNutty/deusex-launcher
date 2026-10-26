@@ -78,7 +78,7 @@ static int renderer_choices(dxl_shell *s, const char **labels, int max, int *cur
     memset(&st, 0, sizeof st);
     st.system = s->run->config ? dxl_config_ini(s->run->config) : NULL;
     st.engine = es;
-    char now[80], value[80];
+    char now[80];
     dxl_setting_get(&st, dxl_setting_find("graphics.renderer"), now, sizeof now);
     int n = 0;
     *current = -1;
