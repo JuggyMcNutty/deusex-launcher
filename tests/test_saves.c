@@ -170,6 +170,18 @@ static void test_text(void) {
     CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
     CHECK(s.count == 1 && !strcmp(s.items[0].info.description, "Caf\xc3\xa9 du Monde"));
     dxl_saves_free(&s);
+    /* A description past 63 characters: its property's size two bytes in
+     * the writer's tag, read whole. */
+    char longdesc[101];
+    memset(longdesc, 'd', 100);
+    longdesc[100] = '\0';
+    write_info(dir, "Save0002", 2, when, longdesc, "Paris", 95);
+    CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
+    int found = 0;
+    for (int i = 0; i < s.count; i++)
+        if (!strcmp(s.items[i].info.description, longdesc)) found = 1;
+    CHECK_INT(found, 1);
+    dxl_saves_free(&s);
     scratch_remove(dir);
 }
 
