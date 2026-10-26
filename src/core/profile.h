@@ -124,7 +124,9 @@ dxl_ini *dxl_profile_user_preview(const char *path);
 /* The settings a profile has before any is changed, as the import makes
  * them of the install's defaults: Default.ini, GameSpy's master given
  * 333networks', the engine's sections seeded from its own (core/
- * engine_sections.h); and DefUser.ini. NULL for a file the install lacks. */
-void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini **user);
+ * engine_sections.h); and DefUser.ini. A mod's profile's (mod not NULL):
+ * the mod's own ini and controls where it has them, as
+ * dxl_profile_import_mod takes them. NULL for a file there is none of. */
+void dxl_profile_defaults(const char *game_system_dir, const dxl_mod *mod, dxl_ini **system, dxl_ini **user);
 
 #endif

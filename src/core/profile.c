@@ -390,11 +390,24 @@ dxl_ini *dxl_profile_user_preview(const char *path) {
     return usr;
 }
 
-void dxl_profile_defaults(const char *game_system_dir, dxl_ini **system, dxl_ini **user) {
+void dxl_profile_defaults(const char *game_system_dir, const dxl_mod *mod, dxl_ini **system, dxl_ini **user) {
     char *def_ini = dxl_path_resolve_ci(game_system_dir, "Default.ini");
     char *def_user = dxl_path_resolve_ci(game_system_dir, "DefUser.ini");
-    *system = def_ini ? dxl_ini_load(def_ini, NULL) : NULL;
-    *user = def_user ? dxl_ini_load(def_user, NULL) : NULL;
+    /* A mod's: its own settings and controls, as its import takes them, one
+     * with no Paths over Default.ini; the game's where it has none. */
+    const char *sys_from = mod && mod->ini ? mod->ini : def_ini;
+    const char *user_from = mod && mod->user_ini ? mod->user_ini : def_user;
+    *system = sys_from ? dxl_ini_load(sys_from, NULL) : NULL;
+    *user = user_from ? dxl_ini_load(user_from, NULL) : NULL;
+    if (*system && def_ini && sys_from != def_ini && !dxl_ini_get(*system, "Core.System", "Paths")) {
+        dxl_ini *base = dxl_ini_load(def_ini, NULL);
+        if (base) {
+            dxl_ini_overlay(base, *system);
+            dxl_ini_free(*system);
+            *system = base;
+        }
+    }
+    if (*user) fold_bindings(*user, 1);
     if (*system) {
         const char *master = dxl_ini_get(*system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
         if (master && dxl_stricmp(master, DEAD_MASTER) == 0)
