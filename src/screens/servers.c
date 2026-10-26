@@ -142,8 +142,17 @@ void dxl_shell_browse(dxl_shell *s) {
     free(list);
 }
 
+void dxl_shell_rebrowse(dxl_shell *s) {
+    if (s->browsing) s->rebrowse = 1;
+    else s->browsed = 0;
+}
+
 void dxl_page_servers_enter(dxl_shell *s) {
     if (!s->servers) s->servers = dxl_xmalloc(sizeof *s->servers * DXL_SERVERS_MAX);
+    if (s->rebrowse && !s->browsing) {
+        s->rebrowse = 0;
+        s->browsed = 0;
+    }
     if (!s->browsed && !s->browsing) dxl_shell_browse(s);
 }
 

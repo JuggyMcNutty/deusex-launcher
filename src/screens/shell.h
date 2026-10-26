@@ -348,6 +348,7 @@ typedef struct dxl_shell {
     int          server_count, servers_shown;
     char         server_chosen[96];   /* "a.b.c.d:query port" */
     int          browsing, browsed, servers_sorted;
+    int          rebrowse;   /* the profile changed under the look: asked again as the page comes */
     char         browse_error[300];
     int          server_sort, server_show;
     char         join_address[96], join_password[64], join_password_for[96];
@@ -498,6 +499,9 @@ void dxl_shell_server_listed(dxl_shell *s, const char *address, int query_port, 
 void dxl_shell_server_answered(dxl_shell *s, const char *address, int query_port, int ping_ms, const char *status);
 /* The look's end: error, the master's failure, or NULL. */
 void dxl_shell_browsed(dxl_shell *s, const char *error);
+/* The profile changed (another used, one made, a making cancelled): its
+ * master and favourites are the look's, asked again as the page comes. */
+void dxl_shell_rebrowse(dxl_shell *s);
 /* The game started joining host:port, with a password for it or none: the
  * screen done, to play. */
 void dxl_shell_join(dxl_shell *s, const char *host, int port, int lan, const char *password);
