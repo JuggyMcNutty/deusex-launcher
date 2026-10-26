@@ -75,6 +75,11 @@ static int keep_mode(int fd, mode_t mode) {
 }
 
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
+    /* A linked file (a dotfiles repository's) is written where it points:
+     * the rename would put a file in the link's place, its target stale. */
+    struct stat ls;
+    char *target = lstat(path, &ls) == 0 && S_ISLNK(ls.st_mode) ? realpath(path, NULL) : NULL;
+    if (target) path = target;
     char *dir = dxl_path_dirname(path);
     size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 16;
     char *tmp = dxl_xmalloc(n);
@@ -120,6 +125,7 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
 out:
     free(tmp);
     free(dir);
+    free(target);
     return rc;
 }
 
