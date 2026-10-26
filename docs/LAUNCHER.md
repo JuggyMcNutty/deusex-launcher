@@ -471,7 +471,8 @@ the defaults file's for `Settings.json` but its renderer (below).
 **Back to the defaults** gives a page what a new profile has: the install's
 `Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
 defaults file, Software for the renderer where the probe finds no GPU
-driver; on Keyboard & mouse the keys too, on Controller its
+driver; a mod's profile the mod's own ini and controls where it has them,
+as its import takes them; on Keyboard & mouse the keys too, on Controller its
 buttons. Recovery's Defaults...
 does it for a page or for all.
 

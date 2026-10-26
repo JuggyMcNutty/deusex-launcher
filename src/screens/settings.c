@@ -96,7 +96,12 @@ void dxl_settings_defaults(dxl_shell *s, const char *page) {
     const char *sys = ss->install.system_dir;
     dxl_stores fresh;
     memset(&fresh, 0, sizeof fresh);
-    if (sys) dxl_profile_defaults(sys, &fresh.system, &fresh.user);
+    /* A mod's profile: the mod's own, where it has them. */
+    const char *mod_dir = dxl_profile_get(&ss->profile, "Mod");
+    dxl_mod mod;
+    int modded = mod_dir && *mod_dir && dxl_mod_check(mod_dir, &mod, NULL) == 0;
+    if (sys) dxl_profile_defaults(sys, modded ? &mod : NULL, &fresh.system, &fresh.user);
+    if (modded) dxl_mod_free(&mod);
     char *def = dxl_path_join(ss->data_dir, "engine-settings.json.default");
     fresh.engine = dxl_es_open("", def);
     /* The renderer a profile made here begins on (dxl_shell_no_gpu) */
