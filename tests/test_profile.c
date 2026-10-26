@@ -47,6 +47,10 @@ static char *make_install(void) {
     char *user = scratch_path(g, "System/User.ini");
     dxl_fs_set_mtime(user, (long)time(NULL) - 3600);
     free(user);
+    /* The shot taken two hours ago. */
+    char *shot = scratch_path(g, "System/Shot0003.bmp");
+    dxl_fs_set_mtime(shot, (long)time(NULL) - 7200);
+    free(shot);
     return g;
 }
 
@@ -168,6 +172,7 @@ static void test_import(void) {
     free(f);
     f = dxl_path_join(p.shots_dir, "Shot0003.bmp");
     CHECK_INT(dxl_path_exists(f), 1);
+    CHECK(dxl_path_mtime(f) <= (long)time(NULL) - 7000);   /* taken when the game wrote it */
     free(f);
     f = dxl_path_join(p.engine_dir, "Screenshots/Shot0003.bmp");
     CHECK_INT(dxl_path_exists(f), 1);
