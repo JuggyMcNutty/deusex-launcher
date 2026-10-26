@@ -2,6 +2,7 @@
 #include "platform/process.h"
 
 #include "core/argv.h"
+#include "core/log.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -62,11 +63,10 @@ static int spawn(pid_t *pid, const char *exe, const char *flags, const char *wor
     int log_fd = -1;
     if (log_path) {
         log_fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
-        if (log_fd < 0) {
-            dxl_err_set(err, "cannot open %s: %s", log_path, strerror(errno));
-            close(report[0]); close(report[1]);
-            return -1;
-        }
+        /* A log that cannot be opened stops nothing: the game runs without
+         * one, as the original's does when its log device cannot make the
+         * file (FOutputDeviceFile: the device dead, the game on). */
+        if (log_fd < 0) dxl_log("warning: cannot open %s: %s: the game runs without its log", log_path, strerror(errno));
     }
     char **argv = dxl_argv_line(exe, flags);
     char fd_entry[64];
