@@ -7,6 +7,7 @@
 #include "core/advice.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "core/renderers.h"
 #include "ui/controls.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
@@ -160,6 +161,9 @@ static void reset_page(dxl_shell *s, int page) {
     int was_open = s->settings_open;
     dxl_page_settings_enter(s);
     if (!s->settings_open) return;
+    /* As the Settings page sets it: Off written for it where the GPU
+     * multisamples badly, not the defaults file's MSAA4x. */
+    s->stores.no_msaa = s->probe_state == 2 && dxl_gpu_msaa_broken(&s->probe);
     int pages = (int)dxl_settings_page_count();
     dxl_settings_defaults(s, page < pages ? dxl_settings_page((size_t)page) : NULL);
     dxl_shell_toast(s, "%s back to the defaults.", page < pages ? dxl_settings_page((size_t)page) : "Every setting");
