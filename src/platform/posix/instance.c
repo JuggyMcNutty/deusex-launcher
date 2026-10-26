@@ -85,7 +85,7 @@ static char *lock_path_for(const char *id) {
 
 static dxl_instance *acquire(const char *id, int listen) {
     char *path = lock_path_for(id);
-    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
     if (fd < 0) { free(path); return NULL; }
 
     if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
@@ -153,7 +153,7 @@ void dxl_instance_release(dxl_instance *inst) {
 
 int dxl_instance_other_running(const char *id) {
     char *path = lock_path_for(id);
-    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
     free(path);
     if (fd < 0) return 0;
 
