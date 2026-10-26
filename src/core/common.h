@@ -44,6 +44,10 @@ char *dxl_trim(char *s);
  * Latin-1, the game's own (a save the original wrote); cut at a whole
  * character to fit size. */
 void  dxl_text_utf8(const char *in, char *out, size_t size);
+/* Drops what a cut at a byte count left of a last UTF-8 character (its lead
+ * byte without all its continuation bytes), before dxl_text_utf8 judges the
+ * text; Latin-1 text loses at most that one character. */
+void  dxl_text_drop_cut(char *s);
 
 /* Growable string, used for building flag strings and file contents. */
 typedef struct {
