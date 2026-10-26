@@ -299,18 +299,22 @@ static void pair_write(ini_line *l, const char *key, const char *value,
     snprintf(l->raw, n, "%s=%s", name, text);
 }
 
+/* A line inserted at index after the file's unterminated last line would
+ * run onto it: that line is terminated first -- before a separator is
+ * added, or the separator is what gets swallowed. */
+static void terminate_before(dxl_ini *ini, size_t at) {
+    if (at && at == ini->count && ini->lines[at - 1].eol[0] == '\0') {
+        free(ini->lines[at - 1].eol);
+        ini->lines[at - 1].eol = dxl_xstrdup(ini->eol);
+    }
+}
+
 /* Ensures the section exists, returning its header index. */
 static size_t ensure_section(dxl_ini *ini, const char *section) {
     size_t header = find_section(ini, section);
     if (header != (size_t)-1) return header;
 
-    /* A final line with no terminator would run into whatever we append, so
-     * terminate it first -- before adding the separator, or the separator is
-     * what gets swallowed. */
-    if (ini->count && ini->lines[ini->count - 1].eol[0] == '\0') {
-        free(ini->lines[ini->count - 1].eol);
-        ini->lines[ini->count - 1].eol = dxl_xstrdup(ini->eol);
-    }
+    terminate_before(ini, ini->count);
     /* Separate from whatever precedes, matching the file's own style. */
     if (ini->count && ini->lines[ini->count - 1].kind != LINE_BLANK) {
         ini_line *blank = line_insert(ini, ini->count);
@@ -345,7 +349,9 @@ void dxl_ini_set(dxl_ini *ini, const char *section, const char *key,
 void dxl_ini_append(dxl_ini *ini, const char *section, const char *key,
                     const char *value) {
     size_t header = ensure_section(ini, section);
-    ini_line *l = line_insert(ini, section_insert_at(ini, header));
+    size_t at = section_insert_at(ini, header);
+    terminate_before(ini, at);
+    ini_line *l = line_insert(ini, at);
     pair_write(l, key, value, ini->eol);
     ini->dirty = 1;
 }
