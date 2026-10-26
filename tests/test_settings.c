@@ -125,7 +125,7 @@ static void test_generations(void) {
     dxl_ini_free(st.system);
 }
 
-/* Read as strictly as the engine reads at start, written as it writes. */
+/* Read as the engine reads, written as it writes. */
 static void test_codecs(void) {
     dxl_stores st;
     memset(&st, 0, sizeof st);
