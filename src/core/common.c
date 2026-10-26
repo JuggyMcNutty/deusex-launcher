@@ -179,3 +179,12 @@ void dxl_text_utf8(const char *in, char *out, size_t size) {
     }
     out[o] = '\0';
 }
+
+void dxl_text_drop_cut(char *s) {
+    size_t len = strlen(s), p = len;
+    while (p > 0 && len - p < 3 && ((unsigned char)s[p - 1] & 0xc0) == 0x80) p--;
+    if (p == 0) return;
+    unsigned char c = (unsigned char)s[p - 1];
+    size_t need = c >= 0xf0 && c <= 0xf4 ? 4 : c >= 0xe0 && c <= 0xef ? 3 : c >= 0xc2 && c <= 0xdf ? 2 : 0;
+    if (need > len - (p - 1)) s[p - 1] = '\0';
+}

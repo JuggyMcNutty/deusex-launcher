@@ -223,6 +223,8 @@ void dxl_saveinfo_free(dxl_saveinfo *s) {
 static void shown_str(const dxl_uprop *pr, char *out, size_t size) {
     char raw[512];
     dxl_uprop_str(pr, raw, sizeof raw);
+    /* A text longer than the buffer was cut at a byte: cut at a character. */
+    if (strlen(raw) == sizeof raw - 1) dxl_text_drop_cut(raw);
     dxl_text_utf8(raw, out, size);
 }
 
