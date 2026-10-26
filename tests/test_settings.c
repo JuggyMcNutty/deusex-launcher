@@ -338,7 +338,7 @@ static void test_no_msaa(void) {
 static void test_reset(void) {
     dxl_stores fresh;
     memset(&fresh, 0, sizeof fresh);
-    dxl_profile_defaults(DXL_FIXTURES, &fresh.system, &fresh.user);
+    dxl_profile_defaults(DXL_FIXTURES, NULL, &fresh.system, &fresh.user);
     CHECK(fresh.system && fresh.user);
     if (!fresh.system || !fresh.user) return;
     fresh.engine = dxl_es_open("", DXL_ES_DEFAULTS);
