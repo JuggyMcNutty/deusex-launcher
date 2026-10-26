@@ -302,7 +302,7 @@ typedef struct dxl_shell {
      * the System folder they are of): the window wears the player's. */
     dxl_menu_theme *themes;
     int          theme_count;
-    char         themes_from[1024];
+    char        *themes_from;
     /* The install's art the window wears (ui/art.h): its renderer's
      * textures, let go with the window. */
     dxl_art      art;
@@ -313,7 +313,7 @@ typedef struct dxl_shell {
     size_t       music_len;
     uint8_t     *sounds[DXL_SOUND_COUNT];
     size_t       sound_len[DXL_SOUND_COUNT];
-    char         sounds_from[1024];
+    char        *sounds_from;
     dxl_audio   *audio;
     int          audio_given;
 
