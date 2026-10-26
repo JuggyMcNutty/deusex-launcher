@@ -51,6 +51,10 @@ static char *make_install(void) {
     char *shot = scratch_path(g, "System/Shot0003.bmp");
     dxl_fs_set_mtime(shot, (long)time(NULL) - 7200);
     free(shot);
+    /* A link in the save folder to the folder itself: no save, not followed. */
+    char *loop = scratch_path(g, "Save/Loop");
+    dxl_fs_link_dir(".", loop);
+    free(loop);
     return g;
 }
 
@@ -168,6 +172,9 @@ static void test_import(void) {
     CHECK_INT(dxl_path_exists(f), 1);
     free(f);
     f = dxl_path_join(p.save_dir, "Current");
+    CHECK_INT(dxl_path_exists(f), 0);
+    free(f);
+    f = dxl_path_join(p.save_dir, "Loop");
     CHECK_INT(dxl_path_exists(f), 0);
     free(f);
     f = dxl_path_join(p.shots_dir, "Shot0003.bmp");
