@@ -172,13 +172,13 @@ SDL_FPoint dxl_text_draw(dxl_ui *ui, dxl_font_role role, const char *s, float x,
     if (clipped) SDL_GetRenderClipRect(ui->renderer, &old);
     if (whole > 0) {
         SDL_Rect r = { (int)px, (int)py, w, (int)(whole * line_px + 0.5f) };
-        if (clipped) SDL_GetRectIntersection(&r, &old, &r);
+        if (clipped && !SDL_GetRectIntersection(&r, &old, &r)) r = (SDL_Rect){ r.x, r.y, 0, 0 };   /* none: nothing drawn */
         SDL_SetRenderClipRect(ui->renderer, &r);
         TTF_DrawRendererText(t, px, py);
     }
     if (whole < lines && part > 0) {
         SDL_Rect r = { (int)px, (int)(py + whole * line_px + 0.5f), (int)(w * part), (int)(line_px + 0.5f) };
-        if (clipped) SDL_GetRectIntersection(&r, &old, &r);
+        if (clipped && !SDL_GetRectIntersection(&r, &old, &r)) r = (SDL_Rect){ r.x, r.y, 0, 0 };   /* none: nothing drawn */
         SDL_SetRenderClipRect(ui->renderer, &r);
         TTF_DrawRendererText(t, px, py);
     }
