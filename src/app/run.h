@@ -77,6 +77,7 @@ typedef struct {
     dxl_view        view;
     dxl_lastrun     last;       /* the last run's end, for Recovery */
     dxl_play_result played;     /* this run's */
+    int             relaunched; /* the words are the game's RELAUNCH line: played at once, no Home */
     /* Where the next game starts, the engine's --url: a save's ?loadgame=N
      * (core/saves.h), the window's Continue or a save's Load; a server's
      * host:port, with ?password= when it asks for one, Multiplayer's Join;
