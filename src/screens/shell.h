@@ -314,6 +314,7 @@ typedef struct dxl_shell {
      * window's worker (start_probe): 0 not asked, 1 asked, 2 known; and
      * renderers.ini's list, resolved by it. */
     int          probe_state;
+    int          make_waits;     /* Make the profile pressed before the probe answered: made once it has */
     dxl_gpu_probe probe;
     dxl_renderer_list renderers;
     void       (*start_probe)(struct dxl_shell *s);
