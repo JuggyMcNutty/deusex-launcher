@@ -8,7 +8,7 @@
 static void test_record(void) {
     const char *dir = scratch_dir("lastrun");
     dxl_lastrun r = { .ended = 1760000000, .status = END_CRASH_STATUS, .signal = END_CRASH, .ready = 1,
-                      .clean = 0 };
+                      .clean = 0, .stopped = 1, .killed = 1 };
     snprintf(r.error, sizeof r.error, "two\nlines");
     snprintf(r.fallback, sizeof r.fallback, "The Vulkan device did not start\n(x)");
     snprintf(r.start, sizeof r.start, "?loadgame=10");
@@ -21,10 +21,15 @@ static void test_record(void) {
     CHECK_INT(back.signal, END_CRASH);
     CHECK_INT(back.ready, 1);
     CHECK_INT(back.clean, 0);
+    CHECK_INT(back.stopped, 1);
+    CHECK_INT(back.killed, 1);
     CHECK_STR(back.error, "two lines");
     CHECK_STR(back.fallback, "The Vulkan device did not start (x)");
     CHECK_STR(back.start, "?loadgame=10");
     char line[256];
+    dxl_lastrun_describe(&back, line, sizeof line);
+    CHECK(strstr(line, "stopped by the launcher, which killed it") != NULL);
+    back.killed = back.stopped = 0;
     dxl_lastrun_describe(&back, line, sizeof line);
     CHECK_STR(line, "killed by " END_CRASH_NAME);
     scratch_remove(dir);
