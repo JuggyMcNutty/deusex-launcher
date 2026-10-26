@@ -129,10 +129,11 @@ char *dxl_lastrun_tail(const char *log_path, int max_lines) {
     }
     /* Read the end of the file, enough for that many long lines. */
     long want = (long)max_lines * 240;
-    fseek(f, 0, SEEK_END);
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return NULL; }
     long size = ftell(f);
+    if (size < 0) { fclose(f); return NULL; }   /* unseekable, or past what a long holds */
     long from = size > want ? size - want : 0;
-    fseek(f, from, SEEK_SET);
+    if (fseek(f, from, SEEK_SET) != 0) { fclose(f); return NULL; }
     char *buf = dxl_xmalloc((size_t)(size - from) + 1);
     size_t got = fread(buf, 1, (size_t)(size - from), f);
     fclose(f);
