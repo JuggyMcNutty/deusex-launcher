@@ -149,6 +149,30 @@ static void test_stop_then_kill(void) {
     done(&s, &r);
 }
 
+/* A stop the engine takes: it quits at its next turn, exit 0, a clean end
+ * (DXEngine's SIGTERM), well before the kill. */
+static void test_stop_clean(void) {
+    char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=20000", NULL };
+    stop_now = 0;
+    scratch_run s = { dxl_xstrdup(scratch_dir("play-stop")), NULL };
+    s.log = scratch_path(s.dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    dxl_play_request req = {
+        .argv = argv, .env = env, .workdir = s.dir, .log_path = s.log,
+        .stop = &stop_now, .on_ready = stop_on_ready,
+    };
+    dxl_play_result r;
+    time_t t0 = time(NULL);
+    dxl_play(&req, &r);
+    CHECK_INT(r.stopped, 1);
+    CHECK_INT(r.killed, 0);
+    CHECK_INT(r.status, 0);
+    CHECK_INT(r.clean, 1);
+    CHECK(time(NULL) - t0 < DXL_PLAY_KILL_AFTER_MS / 1000);
+    stop_now = 0;
+    done(&s, &r);
+}
+
 /* A line a second launch forwards: TakeFocus and Open for its URL once the
  * engine is up; one sent before then is dropped, as the original's log
  * window takes one only once it has the engine. The second launches are a
@@ -237,6 +261,7 @@ TEST_MAIN_BEGIN
     RUN(test_relaunch);
     RUN(test_quotes_kept);
     RUN(test_stop_then_kill);
+    RUN(test_stop_clean);
     RUN(test_forwarded);
     RUN(test_cannot_start);
 TEST_MAIN_END
