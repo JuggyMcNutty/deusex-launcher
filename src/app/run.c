@@ -402,6 +402,21 @@ static void dry_run(dxl_run *r) {
 
 /* ---- the profile ---------------------------------------------------- */
 
+/* The profile's DeusEx.ini and User.ini, the engine's --ini and --userini;
+ * but a line's INI= or USERINI=, the original's words, names an ini in the
+ * game's System folder, which the engine reads and writes back over those:
+ * that one is the launcher's too, seeded and read as the profile's would
+ * be. */
+static dxl_config *open_config(dxl_run *r) {
+    char ini_word[512], user_word[512];
+    const char *ini = dxl_cmd_value(r->words, "INI", ini_word, sizeof ini_word) && ini_word[0]
+                          ? ini_word : r->session.profile.system_ini;
+    const char *user_ini = dxl_cmd_value(r->words, "USERINI", user_word, sizeof user_word) && user_word[0]
+                               ? user_word : r->session.profile.user_ini;
+    return dxl_config_open_files(r->session.install.system_dir ? r->session.install.system_dir : ".", PACKAGE, ini,
+                                 user_ini);
+}
+
 int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err) {
     if (dxl_session_use_profile(&r->session, id, err) != 0) return -1;
     dxl_config_free(r->config);
@@ -410,9 +425,7 @@ int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err) {
     dxl_sentinel_init(&r->sentinel, r->session.profile.state_dir);
     memset(&r->last, 0, sizeof r->last);
     dxl_lastrun_load(&r->last, r->session.profile.state_dir);
-    if (dxl_profile_exists(&r->session.profile))
-        r->config = dxl_config_open_files(r->session.install.system_dir ? r->session.install.system_dir : ".",
-                                          PACKAGE, r->session.profile.system_ini, r->session.profile.user_ini);
+    if (dxl_profile_exists(&r->session.profile)) r->config = open_config(r);
     return 0;
 }
 
@@ -748,9 +761,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     }
     dxl_sentinel_init(&r->sentinel, r->session.profile.state_dir);
     dxl_lastrun_load(&r->last, r->session.profile.state_dir);
-    if (dxl_profile_exists(&r->session.profile))
-        r->config = dxl_config_open_files(r->session.install.system_dir ? r->session.install.system_dir : ".",
-                                          PACKAGE, r->session.profile.system_ini, r->session.profile.user_ini);
+    if (dxl_profile_exists(&r->session.profile)) r->config = open_config(r);
 
     if (!dxl_profile_exists(&r->session.profile)) r->view = DXL_VIEW_FIRST_RUN;
     /* A screen the player has just answered with Play: none again for this
