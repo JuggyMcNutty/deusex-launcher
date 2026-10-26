@@ -134,6 +134,13 @@ void dxl_buf_word(dxl_buf *b, const char *s) {
 }
 
 /* The length of the UTF-8 character s begins, or 0 for one that is not. */
+int dxl_text_bool(const char *v) {
+    if (!v) return -1;
+    if (!dxl_stricmp(v, "True") || !dxl_stricmp(v, "Yes") || !strcmp(v, "1")) return 1;
+    if (!dxl_stricmp(v, "False") || !dxl_stricmp(v, "No") || !strcmp(v, "0")) return 0;
+    return -1;
+}
+
 static size_t utf8_char(const unsigned char *s) {
     if (s[0] < 0x80) return 1;
     size_t n = s[0] >= 0xf0 && s[0] <= 0xf4 ? 4 : s[0] >= 0xe0 && s[0] <= 0xef ? 3 : s[0] >= 0xc2 && s[0] <= 0xdf ? 2 : 0;

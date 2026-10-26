@@ -66,11 +66,12 @@ static const struct {
 static int as_written(int type, const char *v, char *out, size_t size) {
     char *end;
     switch (type) {
-    case BOOL:
-        if (!strcmp(v, "True") || !strcmp(v, "true") || !strcmp(v, "1")) snprintf(out, size, "True");
-        else if (!strcmp(v, "False") || !strcmp(v, "false") || !strcmp(v, "0")) snprintf(out, size, "False");
-        else return 0;
+    case BOOL: {
+        int b = dxl_text_bool(v);
+        if (b < 0) return 0;
+        snprintf(out, size, "%s", b ? "True" : "False");
         return 1;
+    }
     case INT: {
         long n = strtol(v, &end, 10);
         if (end == v) return 0;
