@@ -63,7 +63,8 @@ void dxl_shell_free(dxl_shell *s) {
     free(s->themes);
     s->themes = NULL;
     s->theme_count = 0;
-    s->themes_from[0] = '\0';
+    free(s->themes_from);
+    s->themes_from = NULL;
     dxl_shell_release(s);
     dxl_thumbs_free(s->thumbs);
     dxl_thumbs_free(s->shot_whole);
@@ -80,7 +81,8 @@ void dxl_shell_free(dxl_shell *s) {
         free(s->sounds[i]);
         s->sounds[i] = NULL;
     }
-    s->sounds_from[0] = '\0';
+    free(s->sounds_from);
+    s->sounds_from = NULL;
 }
 
 /* A file of the install by its folder's and its own names, any case. */
@@ -135,8 +137,9 @@ void dxl_shell_volumes(dxl_shell *s) {
 void dxl_shell_sound(dxl_shell *s) {
     const dxl_install *in = s->run ? &s->run->session.install : NULL;
     const char *root = in && in->ok ? in->root : "";
-    if (strcmp(s->sounds_from, root) != 0) {
-        snprintf(s->sounds_from, sizeof s->sounds_from, "%s", root);
+    if (!s->sounds_from || strcmp(s->sounds_from, root) != 0) {
+        free(s->sounds_from);
+        s->sounds_from = dxl_xstrdup(root);   /* whole: a key cut would never match again */
         read_sounds(s, root);
         s->audio_given = 0;
     }
@@ -192,8 +195,9 @@ void dxl_shell_big(dxl_shell *s, int on) {
 
 void dxl_shell_theme(dxl_shell *s) {
     const char *sys = s->run && s->run->session.install.ok ? s->run->session.install.system_dir : NULL;
-    if (sys && strcmp(s->themes_from, sys) != 0) {
-        snprintf(s->themes_from, sizeof s->themes_from, "%s", sys);
+    if (sys && (!s->themes_from || strcmp(s->themes_from, sys) != 0)) {
+        free(s->themes_from);
+        s->themes_from = dxl_xstrdup(sys);
         if (!s->themes) s->themes = dxl_xmalloc(sizeof *s->themes * DXL_MENU_THEMES_MAX);
         char *u = dxl_path_resolve_ci(sys, "DeusEx.u");
         dxl_err e;

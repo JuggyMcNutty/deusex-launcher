@@ -12,7 +12,7 @@
 #include "ui/kit.h"
 
 typedef struct {
-    char         from[1024];         /* the install's folder they are of; "" for none */
+    char        *from;               /* the install's folder they are of; NULL or "" for none */
     SDL_Renderer *renderer;          /* the one they are textures of */
     SDL_Texture *wordmark;
     float        wordmark_w, wordmark_h;
