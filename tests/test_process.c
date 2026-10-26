@@ -89,8 +89,20 @@ static void test_env(void) {
     CHECK_INT(dxl_game_start_argv(&g, argv, set, NULL, log, NULL), 0);
     wait_end(&g, 5000, said, sizeof said);
     dxl_game_close(&g);
-    char *text = slurp(log, NULL);
-    CHECK_STR(text, "(unset)\nyes it is\n");
+    /* A long value whole: a pad mapping block is one. */
+    char *big = dxl_xmalloc(2100);
+    memcpy(big, "DXL_TEST_SET=", 13);
+    memset(big + 13, 'm', 2000);
+    big[2013] = '\0';
+    char *large[] = { "DXL_STUB=env", "DXL_STUB_ENV=DXL_TEST_SET", big, NULL };
+    CHECK_INT(dxl_game_start_argv(&g, argv, large, NULL, log, NULL), 0);
+    wait_end(&g, 5000, said, sizeof said);
+    dxl_game_close(&g);
+    char *text = slurp(log, NULL), *want = dxl_xmalloc(2100);
+    snprintf(want, 2100, "(unset)\nyes it is\n%s\n", big + 13);
+    CHECK_STR(text, want);
+    free(want);
+    free(big);
     free(text);
     /* This process's own are as they were. */
     CHECK_STR(getenv("DXL_TEST_GONE"), "present");
