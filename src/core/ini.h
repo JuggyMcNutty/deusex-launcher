@@ -10,7 +10,10 @@
  * The representation is therefore the *line list*, not a section->key map: a
  * loaded file that is saved without modification comes back byte-identical,
  * including comments, blank lines and whatever spacing the original had.
- * Only lines we actually change get regenerated.
+ * Only lines we actually change get regenerated. One thing is not kept: a
+ * UTF-8 byte-order mark an editor left, read past and gone at the next save
+ * (the file is marked for one), since the engine's reader takes it as text
+ * and loses the section after it.
  *
  * Lookup is ASCII case-insensitive, matching FConfigCacheIni.
  */
