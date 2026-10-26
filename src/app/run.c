@@ -735,6 +735,19 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     if (ui && ui->before_play) ui->before_play(ui->ctx, r);
     dxl_gamehook(r, log, "before");
     dxl_play_result_free(&r->played);
+    /* A stop that came during the hook (up to 10 s) starts no game: one
+     * started and stopped at once ends before its ready, unclean, and
+     * Running.ini stays for Recovery. An end with no game instead. */
+    if (stop && *stop) {
+        dxl_log("stopped before the game started");
+        dxl_gamehook(r, log, "after");
+        if (ui && ui->after_play) ui->after_play(ui->ctx, r);
+        dxl_argv_free(argv);
+        free(log);
+        r->played.clean = 1;
+        end_without_game(r);
+        return 0;
+    }
     dxl_play(&req, &r->played);
     dxl_gamehook(r, log, "after");
     if (ui && ui->after_play) ui->after_play(ui->ctx, r);
