@@ -193,6 +193,11 @@ void dxl_list_focus(dxl_ui *ui, dxl_list *l, int i) {
     ui->focus = dxl_list_row_id(l, i);
 }
 
+/* A wheel's part of a row, kept across frames for the whole-row list it was
+ * over last. */
+static uint32_t wheel_rest_list;
+static float    wheel_rest;
+
 void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int count, float row_h, int flags) {
     memset(l, 0, sizeof *l);
     l->id = dxl_ui_id(ui, id);
@@ -249,7 +254,21 @@ void dxl_list_begin(dxl_ui *ui, dxl_list *l, const char *id, dxl_rect r, int cou
     }
     int over = ui->in.px >= r.x && ui->in.px < r.x + r.w && ui->in.py >= r.y && ui->in.py < r.y + r.h;
     if (ui->in.wheel != 0 && over && dxl_ui_live(ui)) {
-        *off -= ui->in.wheel * row_h * 2;
+        if (flags & DXL_LIST_WHOLE_ROWS) {
+            /* Whole rows, the rest kept for the next frames: a touchpad's
+             * slow scroll or a free-spinning wheel moves under a row a
+             * frame. */
+            if (wheel_rest_list != l->id) {
+                wheel_rest_list = l->id;
+                wheel_rest = 0;
+            }
+            wheel_rest += ui->in.wheel * 2;
+            float rows = truncf(wheel_rest);
+            wheel_rest -= rows;
+            *off -= rows * row_h;
+        } else {
+            *off -= ui->in.wheel * row_h * 2;
+        }
         ui->in.wheel = 0;
     }
     /* Nothing scrolls under an edit: its field would go from view. */
