@@ -641,16 +641,30 @@ static void commit(dxl_run *r) {
     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
 }
 
+/* The command for the log, a server's password's characters as '*': all of
+ * them, to its word's end, a space or a quote among them included. */
+static char *shown_line(char *const *argv) {
+    size_t n = 0;
+    while (argv[n]) n++;
+    char **shown = dxl_xmalloc((n + 1) * sizeof *shown);
+    for (size_t i = 0; i < n; i++) {
+        shown[i] = dxl_xstrdup(argv[i]);
+        char *pw = strstr(shown[i], "?password=");
+        if (pw)
+            for (pw += 10; *pw; pw++) *pw = '*';
+    }
+    shown[n] = NULL;
+    char *line = dxl_argv_quoted(shown);
+    for (size_t i = 0; i < n; i++) free(shown[i]);
+    free(shown);
+    return line;
+}
+
 /* The game, and its end recorded. */
 static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     char *log = dxl_lastrun_rotate(r->session.profile.logs_dir);
     char **argv = engine_argv(r);
-    char *line = dxl_argv_quoted(argv);
-    /* A server's password not in the log: its characters as '*'. */
-    for (char *pw = strstr(line, "?password="); pw; pw = strstr(pw, "?password=")) {
-        pw += 10;
-        for (; *pw && *pw != ' ' && *pw != '\'' && *pw != '"'; pw++) *pw = '*';
-    }
+    char *line = shown_line(argv);
     dxl_log("starting the game: %s", line);
     free(line);
     dxl_play_request req = {
