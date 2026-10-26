@@ -23,15 +23,25 @@ static int number(const char *status, const char *key, int fallback) {
     return dxl_gs_value(status, key, v, sizeof v) && v[0] ? atoi(v) : fallback;
 }
 
+/* A text the packet carries, for showing: UTF-8 as it is, else the game's
+ * Latin-1 made UTF-8 (a DXEngine server sends its 8-bit text as it is), cut
+ * at a whole character. Whether the key was there. */
+static int text(const char *status, const char *key, char *out, size_t size) {
+    char raw[512];
+    int had = dxl_gs_value(status, key, raw, sizeof raw);
+    dxl_text_utf8(raw, out, size);
+    return had;
+}
+
 void dxl_server_take_status(dxl_server *s, const char *status) {
     free(s->status);
     s->status = dxl_xstrdup(status);
     s->state = DXL_SERVER_ANSWERED;
     char v[32];
-    dxl_gs_value(status, "hostname", s->name, sizeof s->name);
-    dxl_gs_value(status, "mapname", s->map, sizeof s->map);
-    dxl_gs_value(status, "maptitle", s->map_title, sizeof s->map_title);
-    dxl_gs_value(status, "gametype", s->game_type, sizeof s->game_type);
+    text(status, "hostname", s->name, sizeof s->name);
+    text(status, "mapname", s->map, sizeof s->map);
+    text(status, "maptitle", s->map_title, sizeof s->map_title);
+    text(status, "gametype", s->game_type, sizeof s->game_type);
     int port = number(status, "hostport", 0);
     if (port > 0 && port <= 65535) s->port = port;
     s->players = number(status, "numplayers", 0);
@@ -51,7 +61,7 @@ int dxl_server_player(const dxl_server *s, int i, char *name, size_t size, int *
     if (!s->status) return 0;
     char key[32];
     snprintf(key, sizeof key, "player_%d", i);
-    if (!dxl_gs_value(s->status, key, name, size)) return 0;
+    if (!text(s->status, key, name, size)) return 0;
     snprintf(key, sizeof key, "frags_%d", i);
     if (frags) *frags = number(s->status, key, 0);
     snprintf(key, sizeof key, "ping_%d", i);
@@ -81,7 +91,7 @@ int dxl_server_rule(const dxl_server *s, int i, char *key, size_t key_size, char
         if (!k[0] || not_a_rule(k)) continue;
         if (n++ == i) {
             snprintf(key, key_size, "%s", k);
-            snprintf(value, value_size, "%s", v);
+            dxl_text_utf8(v, value, value_size);
             return 1;
         }
     }
