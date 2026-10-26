@@ -54,12 +54,12 @@ gives it a scratch home, `build/linux-aarch64/fresh-home`.
 | the shared files touched | `src/app/run.c` (`DXE_DISPLAY_BACKEND=SDL2` for the engine's window, and its comment), `src/core/keys.{c,h}` (their comments name DXWidgets' SDL2 window, whose key names match SDL3's), `CMakePresets.json` (the preset), `cmake/deps.lock`, `docs/LAUNCHER.md` (its own paragraphs): a cherry-pick from linux-x86_64 may meet them |
 
 The glibc 2.28 ceiling keeps the cross-built programs off newer glibc
-symbols, so they load on a distro with glibc 2.28 or later, RHEL 8's, the
-oldest of the actively maintained mainline distributions; the window opens
-the device's own X11 or Wayland, and its ALSA, PulseAudio or PipeWire, at
-run time. The engine, cross-built, holds to the same ceiling: what it links
-is the SDK's own or buster's, whose glibc is 2.28, and at run time the
-device's.
+symbols, so they load on a distro with glibc 2.28 or later
+([why 2.28](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided));
+the window opens the device's own X11 or Wayland, and its ALSA,
+PulseAudio or PipeWire, at run time. The engine, cross-built, holds to the
+same ceiling: what it links is the SDK's own or buster's, whose glibc is
+2.28, and at run time the device's.
 
 A GPU without descriptor indexing or some texture formats takes the Vulkan
 device's other paths

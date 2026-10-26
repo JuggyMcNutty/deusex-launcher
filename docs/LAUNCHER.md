@@ -372,9 +372,9 @@ from the install at run time and never kept: its logo's "Deus Ex"
 theme and added to what is under them, as the game draws them
 (`src/ui/art.c`); ours stand in for what the install lacks. The game's
 packages are read by our own code from their format (`src/core/upkg.c`).
-Its type is in `data/fonts` (`THIRD-PARTY.md` says whose). It is laid out in dp,
-which the display's scale makes pixels, so it is as sharp at any size: for
-1280 x 720 dp, and no smaller than 960 x 600; the window opens at
+Its type is in `data/fonts` (`THIRD-PARTY.md` says whose). It is laid out
+in dp, which the display's scale makes pixels, so it is as sharp at any
+size: for 1280 x 720 dp, and no smaller than 960 x 600; the window opens at
 1280 x 720, or as it last closed.
 
 **The big screen**, for a television or a handheld
@@ -478,9 +478,8 @@ the defaults file's for `Settings.json` but its renderer (below).
 `Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
 defaults file, Software for the renderer where the probe finds no GPU
 driver; a mod's profile the mod's own ini and controls where it has them,
-as its import takes them; on Keyboard & mouse the keys too, on Controller its
-buttons. Recovery's Defaults...
-does it for a page or for all.
+as its import takes them; on Keyboard & mouse the keys too, on Controller
+its buttons. Recovery's Defaults... does it for a page or for all.
 
 **Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
 drew it: detail textures, and no multisampling or bloom), Enhanced (4x
@@ -688,9 +687,10 @@ engine's `.pk3` not found, an engine that ended before its first map, a save
 it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
-a stage or install of DXLauncher again). A run the engine drew with its software renderer,
-the one chosen not having started, ends cleanly: Home says so of the last
-run, and the page, opened by `-safe`, has the engine's line and that fix.
+a stage or install of DXLauncher again). A run the engine drew with its
+software renderer, the one chosen not having started, ends cleanly: Home
+says so of the last run, and the page, opened by `-safe`, has the engine's
+line and that fix.
 Below are the end of the log where it fits, the
 [next run's words](#settings), and Play, the fix, the log, the defaults of a
 page or of all, Home, Quit. Home, or the back button, goes to Home with the
