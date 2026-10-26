@@ -1,5 +1,6 @@
 #include "core/ini.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -188,22 +189,6 @@ char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
 }
 
 int dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err) {
-    size_t len;
-    char *text = dxl_ini_render(ini, &len);
-
-    /* Write-and-rename, so an interrupted save cannot leave a truncated
-     * config behind -- this file is the engine's only persistent state. */
-    char *tmp = dxl_xmalloc(strlen(path) + 8);
-    sprintf(tmp, "%s.tmpXXX", path);
-
-    FILE *f = fopen(tmp, "wb");
-    if (!f) { dxl_err_set(err, "cannot write %s", tmp); free(text); free(tmp); return -1; }
-    size_t wrote = len ? fwrite(text, 1, len, f) : 0;
-    int bad = (wrote != len) || fflush(f) != 0;
-    fclose(f);
-    free(text);
-
-    if (bad) { remove(tmp); dxl_err_set(err, "short write on %s", tmp); free(tmp); return -1; }
     /* The fresh file takes the ini's place: a linked ini's target, not
      * the link (which became a plain file, its target left stale), and
      * never a read-only one, a UE1 player's way of keeping settings, which
@@ -213,16 +198,56 @@ int dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err) {
     if (lstat(path, &st) == 0) {
         if (S_ISLNK(st.st_mode)) target = realpath(path, NULL);
         if (access(target ? target : path, W_OK) != 0) {
-            remove(tmp);
             dxl_err_set(err, "%s is read-only", path);
             free(target);
-            free(tmp);
             return -1;
         }
     }
-    if (rename(tmp, target ? target : path) != 0) {
+    const char *dest = target ? target : path;
+
+    /* Write-and-rename, so an interrupted save cannot leave a truncated
+     * config behind -- this file is the engine's only persistent state: on
+     * a name of its own beside it, so two launchers saving at once never
+     * write one file, its bytes on the disk before the rename, and the
+     * ini's mode kept (a new one's as fopen would make it). */
+    size_t len;
+    char *text = dxl_ini_render(ini, &len);
+    char *tmp = dxl_xmalloc(strlen(dest) + 8);
+    sprintf(tmp, "%s.XXXXXX", dest);
+    int fd = mkstemp(tmp);
+    if (fd < 0) {
+        dxl_err_set(err, "cannot write beside %s", dest);
+        free(text);
+        free(tmp);
+        free(target);
+        return -1;
+    }
+    size_t wrote = 0;
+    while (wrote < len) {
+        ssize_t w = write(fd, text + wrote, len - wrote);
+        if (w < 0 && errno == EINTR) continue;
+        if (w <= 0) break;
+        wrote += (size_t)w;
+    }
+    mode_t mask = umask(0);
+    umask(mask);
+    struct stat old;
+    mode_t mode = stat(dest, &old) == 0 ? (old.st_mode & 07777) : (0666 & ~mask);
+    /* A filesystem with no modes to keep (exFAT) refusing them is no failure */
+    int moded = fchmod(fd, mode) == 0 || errno == EPERM || errno == EOPNOTSUPP;
+    int bad = wrote != len || !moded || fsync(fd) != 0;
+    bad = close(fd) != 0 || bad;
+    free(text);
+    if (bad) {
         remove(tmp);
-        dxl_err_set(err, "cannot replace %s", target ? target : path);
+        dxl_err_set(err, "short write on %s", tmp);
+        free(tmp);
+        free(target);
+        return -1;
+    }
+    if (rename(tmp, dest) != 0) {
+        remove(tmp);
+        dxl_err_set(err, "cannot replace %s", dest);
         free(target);
         free(tmp);
         return -1;

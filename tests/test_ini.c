@@ -1,4 +1,5 @@
 #include "test.h"
+#include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include "scratch.h"
@@ -51,6 +52,48 @@ static void test_save_refuses_read_only(void) {
     CHECK(kept && strcmp(kept, "[A]\r\nx=1\r\n") == 0);
     free(kept);
     chmod(path, 0644);
+    free(path);
+    dxl_ini_free(ini);
+    scratch_remove(dir);
+}
+
+/* The entries of a folder but . and .. */
+static int entries(const char *path) {
+    DIR *d = opendir(path);
+    int n = 0;
+    for (struct dirent *e; d && (e = readdir(d));)
+        if (strcmp(e->d_name, ".") && strcmp(e->d_name, "..")) n++;
+    if (d) closedir(d);
+    return n;
+}
+
+/* A save writes a name of its own, beside the ini, and keeps its mode: a
+ * file at the one name every save took before is left as it is, and none
+ * is left behind. */
+static void test_save_keeps_the_mode(void) {
+    const char *dir = scratch_dir("ini-mode");
+    scratch_write(dir, "System/DeusEx.ini", "[A]\r\nx=1\r\n");
+    scratch_write(dir, "System/DeusEx.ini.tmpXXX", "another launcher's");
+    char *path = scratch_path(dir, "System/DeusEx.ini");
+    char *other = scratch_path(dir, "System/DeusEx.ini.tmpXXX");
+    chmod(path, 0600);
+    const char *src = "[A]\r\nx=2\r\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    dxl_err err = { 0 };
+    CHECK_INT(dxl_ini_save(ini, path, &err), 0);
+    size_t n = 0;
+    char *saved = slurp(path, &n);
+    CHECK(saved && strcmp(saved, src) == 0);
+    free(saved);
+    struct stat st;
+    CHECK(stat(path, &st) == 0 && (st.st_mode & 07777) == 0600);
+    char *kept = slurp(other, &n);
+    CHECK(kept && strcmp(kept, "another launcher's") == 0);
+    free(kept);
+    char *sys = scratch_path(dir, "System");
+    CHECK_INT(entries(sys), 2);   /* the ini and the other's file alone */
+    free(sys);
+    free(other);
     free(path);
     dxl_ini_free(ini);
     scratch_remove(dir);
@@ -269,6 +312,7 @@ static void test_append_after_unterminated_last_line(void) {
 TEST_MAIN_BEGIN
     RUN(test_roundtrip_fixtures);
     RUN(test_save_refuses_read_only);
+    RUN(test_save_keeps_the_mode);
     RUN(test_reads_values);
     RUN(test_repeated_keys);
     RUN(test_set_preserves_everything_else);
