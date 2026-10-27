@@ -37,7 +37,6 @@ int   dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err);
  * is invalidated by the next dxl_ini_set* on the same object. */
 const char *dxl_ini_get(const dxl_ini *ini, const char *section, const char *key);
 int   dxl_ini_get_int (const dxl_ini *ini, const char *section, const char *key, int fallback);
-int   dxl_ini_get_bool(const dxl_ini *ini, const char *section, const char *key, int fallback);
 
 /* All values for a repeated key, in file order. Returns the count; writes at
  * most max entries into out. Pass out=NULL to count only. */
@@ -53,17 +52,7 @@ void dxl_ini_set_bool(dxl_ini *ini, const char *section, const char *key, int va
 /* Appends without replacing, for array-style repeated keys. */
 void dxl_ini_append  (dxl_ini *ini, const char *section, const char *key, const char *value);
 
-/* Sets every key/value pair of src onto dst (first occurrence semantics, as
- * dxl_ini_set). Used to rebuild a config from Default.ini while keeping the
- * values a partial file already carried. */
-void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src);
-
-int  dxl_ini_has_section(const dxl_ini *ini, const char *section);
-/* Removes every key line in the section, keeping the header. Mirrors
- * FConfigCache::EmptySection. */
-void dxl_ini_empty_section(dxl_ini *ini, const char *section);
-
-/* True once any set/append/empty has run. */
+/* True once any set or append has run. */
 int  dxl_ini_dirty(const dxl_ini *ini);
 
 #endif

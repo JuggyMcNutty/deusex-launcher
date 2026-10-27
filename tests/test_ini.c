@@ -202,8 +202,6 @@ static void test_new_key_and_section(void) {
 
     CHECK_STR(dxl_ini_get(ini, "A", "y"), "2");
     CHECK_STR(dxl_ini_get(ini, "B", "z"), "3");
-    CHECK_INT(dxl_ini_has_section(ini, "b"), 1);
-    CHECK_INT(dxl_ini_has_section(ini, "C"), 0);
     dxl_ini_free(ini);
 }
 
@@ -215,8 +213,6 @@ static void test_bool_spelling(void) {
     dxl_ini_set_bool(ini, "Galaxy.GalaxyAudioSubsystem", "UseFilter", 1);
     CHECK_STR(dxl_ini_get(ini, "Galaxy.GalaxyAudioSubsystem", "UseReverb"), "False");
     CHECK_STR(dxl_ini_get(ini, "Galaxy.GalaxyAudioSubsystem", "UseFilter"), "True");
-    CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "UseReverb", 1), 0);
-    CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "Missing", 1), 1);
     dxl_ini_free(ini);
 }
 

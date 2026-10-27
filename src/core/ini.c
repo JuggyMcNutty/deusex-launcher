@@ -59,14 +59,6 @@ static ini_line *line_insert(dxl_ini *ini, size_t index) {
     return ini->lines + index;
 }
 
-static void line_remove(dxl_ini *ini, size_t index) {
-    if (index >= ini->count) return;
-    line_clear(ini->lines + index);
-    memmove(ini->lines + index, ini->lines + index + 1,
-            (ini->count - index - 1) * sizeof *ini->lines);
-    ini->count--;
-}
-
 dxl_ini *dxl_ini_new(void) {
     dxl_ini *ini = dxl_xmalloc(sizeof *ini);
     memset(ini, 0, sizeof *ini);
@@ -324,15 +316,6 @@ int dxl_ini_get_int(const dxl_ini *ini, const char *section, const char *key,
     return (end == v) ? fallback : (int)n;
 }
 
-int dxl_ini_get_bool(const dxl_ini *ini, const char *section, const char *key,
-                     int fallback) {
-    const char *v = dxl_ini_get(ini, section, key);
-    if (!v || !*v) return fallback;
-    if (dxl_stricmp(v, "True") == 0 || dxl_stricmp(v, "1") == 0) return 1;
-    if (dxl_stricmp(v, "False") == 0 || dxl_stricmp(v, "0") == 0) return 0;
-    return fallback;
-}
-
 /* ---- mutation ------------------------------------------------------- */
 
 /* Rewrites a line as key=value. eol may be NULL to keep whatever the line
@@ -412,27 +395,4 @@ void dxl_ini_set_bool(dxl_ini *ini, const char *section, const char *key, int va
     dxl_ini_set(ini, section, key, value ? "True" : "False");
 }
 
-int dxl_ini_has_section(const dxl_ini *ini, const char *section) {
-    return find_section(ini, section) != (size_t)-1;
-}
-
-void dxl_ini_empty_section(dxl_ini *ini, const char *section) {
-    size_t header = find_section(ini, section);
-    if (header == (size_t)-1) return;
-    size_t i = header + 1;
-    while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
-        if (ini->lines[i].kind == LINE_PAIR) { line_remove(ini, i); ini->dirty = 1; }
-        else i++;
-    }
-}
-
 int dxl_ini_dirty(const dxl_ini *ini) { return ini->dirty; }
-
-void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src) {
-    const char *section = "";
-    for (size_t i = 0; i < src->count; i++) {
-        const ini_line *l = src->lines + i;
-        if (l->kind == LINE_SECTION) section = l->name;
-        else if (l->kind == LINE_PAIR) dxl_ini_set(dst, section, l->name, l->value);
-    }
-}
