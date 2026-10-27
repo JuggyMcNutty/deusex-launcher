@@ -40,13 +40,6 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
 
     dxl_cmd_value(cmd, "exec", out->exec_file, sizeof out->exec_file);
 
-    /* Forwarding runs before any engine init and short-circuits everything
-     * else: this process becomes a messenger and exits (section 1). */
-    if (!out->skip_handoff && in->other_instance && !in->forward_tried) {
-        out->action = DXL_ACTION_FORWARD;
-        return;
-    }
-
     /* Both of these exit without ever launching (section 5, steps 6 and 7). */
     if (dxl_cmd_value(cmd, "consolecommand", out->console_command,
                       sizeof out->console_command)) {
@@ -104,7 +97,6 @@ const char *dxl_action_name(dxl_action a) {
     switch (a) {
     case DXL_ACTION_LAUNCH:      return "launch";
     case DXL_ACTION_SCREEN:      return "screen";
-    case DXL_ACTION_FORWARD:     return "forward";
     case DXL_ACTION_CONSOLE_CMD: return "console-command";
     case DXL_ACTION_TEST_RENDEV: return "test-rendev";
     }

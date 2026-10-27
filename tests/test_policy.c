@@ -112,17 +112,11 @@ static void test_changevideo_beats_recovery(void) {
 
 /* --- handoff --- */
 
-static void test_forwards_to_running_instance(void) {
-    dxl_decision d = decide("deusex://host/Map", 1100, 1, 0);
-    CHECK_INT(d.action, DXL_ACTION_FORWARD);
-}
-
-/* A caller that forwarded first and found no one to take it decides on as
- * if nothing were running for forwarding's sake -- but a surviving
- * Running.ini still belongs to the live instance, not to a crash. */
-static void test_forward_tried_decides_on(void) {
+/* A caller that forwarded first and found no one to take it decides on --
+ * a surviving Running.ini still the live instance's, not a crash's. */
+static void test_live_instance_decides_on(void) {
     dxl_policy_input in = { .cmdline = "", .first_run = 1100, .other_instance = 1,
-                            .running_ini_exists = 1, .is_client = 1, .forward_tried = 1 };
+                            .running_ini_exists = 1, .is_client = 1 };
     dxl_decision d;
     dxl_policy_decide(&in, &d);
     CHECK_INT(d.action, DXL_ACTION_LAUNCH);
@@ -140,7 +134,6 @@ static void test_bypass_tokens_skip_forwarding(void) {
     for (size_t i = 0; i < sizeof tokens / sizeof *tokens; i++) {
         dxl_decision d = decide(tokens[i], 1100, 1, 0);
         CHECK_INT(d.skip_handoff, 1);
-        CHECK(d.action != DXL_ACTION_FORWARD);
     }
     /* changevideo against a live instance opens the screen, not a handoff. */
     CHECK_INT(decide("-changevideo", 1100, 1, 0).screen, DXL_SCREEN_RENDERER_VIDEO);
@@ -160,7 +153,6 @@ static void test_raw_line_bypass_and_splash(void) {
     dxl_decision d;
     dxl_policy_decide(&in, &d);
     CHECK_INT(d.skip_handoff, 1);
-    CHECK(d.action != DXL_ACTION_FORWARD);
     CHECK_INT(d.show_splash, 1);
 
     in.raw_cmdline = "/games/TestRenDev/System/DeusEx -x";
@@ -175,7 +167,6 @@ static void test_raw_line_bypass_and_splash(void) {
     in.cmdline = "";
     dxl_policy_decide(&in, &d);
     CHECK_INT(d.skip_handoff, 0);
-    CHECK_INT(d.action, DXL_ACTION_FORWARD);
 
     /* The rest of the decision reads the line without the path. */
     in.raw_cmdline = "/games/safe/System/DeusEx";
@@ -240,10 +231,9 @@ TEST_MAIN_BEGIN
     RUN(test_safe_beats_recovery);
     RUN(test_first_run_beats_changevideo);
     RUN(test_changevideo_beats_recovery);
-    RUN(test_forwards_to_running_instance);
     RUN(test_bypass_tokens_skip_forwarding);
     RUN(test_raw_line_bypass_and_splash);
-    RUN(test_forward_tried_decides_on);
+    RUN(test_live_instance_decides_on);
     RUN(test_consolecommand_exits);
     RUN(test_testrendev_exits);
     RUN(test_splash_suppression);

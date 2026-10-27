@@ -17,7 +17,6 @@
 typedef enum {
     DXL_ACTION_LAUNCH,        /* no wizard; start the game directly */
     DXL_ACTION_SCREEN,        /* show a screen first */
-    DXL_ACTION_FORWARD,       /* hand the command line to a running instance */
     DXL_ACTION_CONSOLE_CMD,   /* -consolecommand=: run it, never launch */
     DXL_ACTION_TEST_RENDEV    /* -testrendev=: probe, write Detected.ini, exit */
 } dxl_action;
@@ -37,12 +36,10 @@ typedef struct {
      * (dx-reverse-info/cli-flags.md). NULL: cmdline. */
     const char *raw_cmdline;
     int first_run;              /* [FirstRun] FirstRun as read from config */
-    int other_instance;         /* another launcher/game is live */
-    /* The caller forwarded, or tried to, before deciding -- as the original
-     * does, first thing -- and no running instance took the command line:
-     * decide on without forwarding. other_instance still tells a live
-     * instance's Running.ini from a crash's. 0 keeps forwarding here. */
-    int forward_tried;
+    /* Another launcher or game is live: the caller forwarded, or tried to,
+     * before deciding, as the original does first thing (launch/launch.c),
+     * and this tells a live instance's Running.ini from a crash's. */
+    int other_instance;
     int running_ini_exists;     /* the crash sentinel survived */
     int is_client;              /* GIsClient: 0 under -server */
 } dxl_policy_input;

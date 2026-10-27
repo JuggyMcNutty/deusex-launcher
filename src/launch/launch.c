@@ -311,7 +311,7 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
 
     /* 1. Forwarding, before anything else: the decision as far as the
      * command line alone takes it, its bypass read on the raw line. */
-    dxl_policy_input pre = { .cmdline = r.cmd, .raw_cmdline = r.raw, .forward_tried = 1 };
+    dxl_policy_input pre = { .cmdline = r.cmd, .raw_cmdline = r.raw };
     dxl_decision first;
     dxl_policy_decide(&pre, &first);
     if (!first.skip_handoff) {
@@ -374,7 +374,6 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
         .other_instance = other,
         .running_ini_exists = dxl_sentinel_exists(&r.sentinel),
         .is_client = client,
-        .forward_tried = 1,
     };
     dxl_decision d;
     dxl_policy_decide(&in, &d);
