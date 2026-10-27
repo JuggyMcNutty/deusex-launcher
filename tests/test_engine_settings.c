@@ -97,25 +97,32 @@ static void test_corrupt_file_is_replaced(void) {
     teardown();
 }
 
-/* What the engine's reader takes, the launcher reads: a hand-edited file
- * with a comma before a close, or something after the document, is the
- * file the engine plays with, not a corrupt one to replace. */
-static void test_reads_what_the_engine_reads(void) {
-    setup("asengine");
-    put("default.json", device_default);
-    put("Settings.json", "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\",}}\nnotes of the player's");
-    dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
-    CHECK_INT(dxl_es_was_corrupt(s), 0);
-    CHECK_INT(dxl_es_was_present(s, DXL_ES_ANTIALIAS), 1);
-    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "MSAA2x");
-    dxl_err e;
-    CHECK_INT(dxl_es_save(s, &e), 0);
-    CHECK(dxl_es_kept(s) == NULL);
-    dxl_es_free(s);
-    s = dxl_es_open(in_dir("Settings.json"), NULL);
-    CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "MSAA2x");
-    dxl_es_free(s);
-    teardown();
+/* What the engine's reader refuses, the launcher refuses: a hand-edited
+ * file with a comma before a close, or something after the document, is no
+ * JSON to the engine, which plays on its defaults, so it is kept beside the
+ * new one as any file neither reads. */
+static void test_refuses_what_the_engine_refuses(void) {
+    static const char *const files[] = {
+        "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\",}}",
+        "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\"}}\nnotes of the player's",
+    };
+    for (int i = 0; i < 2; i++) {
+        setup(i ? "asengine-after" : "asengine-comma");
+        put("default.json", device_default);
+        put("Settings.json", files[i]);
+        dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+        CHECK_INT(dxl_es_was_corrupt(s), 1);
+        CHECK(strstr(dxl_es_problem(s), "JSON: ") != NULL);
+        CHECK_STR(dxl_es_choice(s, DXL_ES_ANTIALIAS), "Off");
+        dxl_err e;
+        CHECK_INT(dxl_es_save(s, &e), 0);
+        CHECK_STR(dxl_es_kept(s), in_dir("Settings.json" DXL_ES_KEPT));
+        dxl_es_free(s);
+        char *kept = slurp(in_dir("Settings.json" DXL_ES_KEPT), NULL);
+        CHECK_STR(kept, files[i]);
+        free(kept);
+        teardown();
+    }
 }
 
 /* The engine reads a missing member as empty/false/0 -- HdrScale 0 -- so a
@@ -375,7 +382,7 @@ TEST_MAIN_BEGIN
     RUN(test_antialias_taken_and_off);
     RUN(test_missing_file_seeds_from_default);
     RUN(test_corrupt_file_is_replaced);
-    RUN(test_reads_what_the_engine_reads);
+    RUN(test_refuses_what_the_engine_refuses);
     RUN(test_save_writes_every_field_and_keeps_games);
     RUN(test_setters_validate);
     RUN(test_reset_uses_packaged_default);
