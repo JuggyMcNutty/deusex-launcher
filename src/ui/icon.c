@@ -1,5 +1,4 @@
 #include "ui/icon.h"
-#include "core/paths.h"
 #include "ui/draw.h"
 
 #include <math.h>
@@ -65,16 +64,4 @@ SDL_Surface *dxl_icon(int px) {
         s = half;
     }
     return s;
-}
-
-int dxl_icon_save(const char *path, int px) {
-    char *dir = dxl_path_dirname(path);
-    int made = dxl_path_mkdirs(dir) == 0;
-    free(dir);
-    if (!made) return -1;
-    SDL_Surface *s = dxl_icon(px);
-    if (!s) return -1;
-    int ok = SDL_SavePNG(s, path);
-    SDL_DestroySurface(s);
-    return ok ? 0 : -1;
 }
