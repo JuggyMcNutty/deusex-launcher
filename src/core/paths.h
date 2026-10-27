@@ -44,10 +44,6 @@ char *dxl_path_resolve_ci(const char *dir, const char *leaf);
 /* mkdir -p. Returns 0 if the directory exists afterwards. */
 int  dxl_path_mkdirs(const char *p);
 
-/* Copies a file byte for byte, replacing to. A failed copy removes the
- * partial destination rather than leaving half a config behind. */
-int  dxl_path_copy(const char *from, const char *to, dxl_err *err);
-
 /* Full path of the running executable, for the safe-mode re-exec
  * (GModuleFilename in the original). Caller frees; NULL if undeterminable. */
 char *dxl_path_self(void);

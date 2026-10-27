@@ -131,31 +131,3 @@ int dxl_path_mkdirs(const char *p) {
     free(buf);
     return rc;
 }
-
-int dxl_path_copy(const char *from, const char *to, dxl_err *err) {
-    FILE *in = fopen(from, "rb");
-    if (!in) {
-        dxl_err_set(err, "cannot open %s", from);
-        return -1;
-    }
-    FILE *out = fopen(to, "wb");
-    if (!out) {
-        fclose(in);
-        dxl_err_set(err, "cannot write %s", to);
-        return -1;
-    }
-    char chunk[16384];
-    size_t n;
-    int ok = 1;
-    while ((n = fread(chunk, 1, sizeof chunk, in)) > 0)
-        if (fwrite(chunk, 1, n, out) != n) { ok = 0; break; }
-    ok = !ferror(in) && ok;
-    fclose(in);
-    ok = (fclose(out) == 0) && ok;
-    if (!ok) {
-        dxl_err_set(err, "copying %s to %s failed", from, to);
-        remove(to);
-        return -1;
-    }
-    return 0;
-}
