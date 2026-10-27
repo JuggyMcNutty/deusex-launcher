@@ -55,13 +55,13 @@ static void test_clean(void) {
     done(&s, &r);
 }
 
-/* exit 0 with no ready: the engine found no game, which is no clean end. */
+/* exit 1 after the engine's line that it found no game, before any ready. */
 static void test_no_game(void) {
     char *env[] = { "DXL_STUB=nogame", NULL };
     scratch_run s;
     dxl_play_result r;
     play_stub(&s, "play-nogame", env, NULL, NULL, &r);
-    CHECK_INT(r.status, 0);
+    CHECK_INT(r.status, 1);
     CHECK_INT(r.ready, 0);
     CHECK_INT(r.clean, 0);
     done(&s, &r);
