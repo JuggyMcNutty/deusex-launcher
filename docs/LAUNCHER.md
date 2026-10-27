@@ -688,7 +688,7 @@ so with the end of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
 crash, and for the errors it knows -- OpenAL not started, a package or the
-engine's `.pk3` not found, an engine that ended before its first map, a save
+engine's `.pk3` not found, a folder the engine finds no game in, a save
 it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for

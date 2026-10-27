@@ -26,8 +26,10 @@ static void test_known(void) {
 static void test_ends(void) {
     dxl_lastrun l = run(END_CRASH_STATUS, END_CRASH, 1, "");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
-    l = run(0, 0, 0, "");   /* no game found */
+    l = run(1, 0, 0, "No UE1 game found in the given folder");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
+    l = run(0, 0, 0, "");   /* ended before its first map, no error */
+    CHECK(dxl_advice_for(&l) == NULL);
     l = run(1, 0, 1, "Something else");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NONE);
     /* Started on a save that did not load: its own advice; up first, or
@@ -45,7 +47,7 @@ static void test_ends(void) {
     l = run(END_CRASH_STATUS, END_CRASH, 0, "");
     snprintf(l.start, sizeof l.start, "?loadgame=10");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
-    l = run(0, 0, 0, "");
+    l = run(1, 0, 0, "No UE1 game found in the given folder");
     snprintf(l.start, sizeof l.start, "?loadgame=10");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
     l = run(127, 0, 0, "");

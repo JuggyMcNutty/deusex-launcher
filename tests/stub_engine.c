@@ -32,7 +32,8 @@
  *               file DXL_STUB_FILE names, inherited: "handle kept" or
  *               "handle not kept"; and "line kept" when the launcher's line
  *               is its pipe
- *   nogame      "No UE1 game found in the given folder.", exit 0, no ready
+ *   nogame      "DXEngine error: No UE1 game found in the given folder",
+ *               exit 1, no ready
  */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -228,8 +229,8 @@ int main(int argc, char **argv) {
 #endif
     if (strcmp(mode, "nogame") == 0) {
         say("hello");
-        printf("No UE1 game found in the given folder.\n");
-        return 0;
+        printf("DXEngine error: No UE1 game found in the given folder\n");
+        return 1;
     }
     say("hello");
     /* Its words too, with DXL_STUB_ARGS set: what a run was started with. */
