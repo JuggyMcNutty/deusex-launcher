@@ -33,7 +33,7 @@ platform (`src/core/xdg.h`):
 | Folder | What is in it |
 |---|---|
 | `%LOCALAPPDATA%\DXLauncher\config\` | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
-| `%LOCALAPPDATA%\DXLauncher\config\profiles\<id>\` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer and how it draws), a class's own config files, the engine's log and crash reports |
+| `%LOCALAPPDATA%\DXLauncher\config\profiles\<id>\` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log and crash reports |
 | `Saved Games\DXLauncher\` | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `Saved Games\DXLauncher\profiles\<id>\` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it where Windows lets the user make one, in its developer mode; else that folder is the shots folder itself) |
 | `%LOCALAPPDATA%\DXLauncher\state\` | `launcher.log`, each start's (a start beside a running launcher appends to it); per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
@@ -106,10 +106,10 @@ writing nothing there:
 - **`DeusEx.ini`**: the game's own, else `Default.ini`; one with no
   `[Core.System] Paths`, a stub the engine cannot start from, is
   `Default.ini` with its values over it. The engine's own sections
-  (`Engine.DXEngineClient`, `DXEngineAudioDevice`, `DXEngineRenderDevice`,
-  `DXEngineWindowSystem`) come from `DXE-DeusEx.ini`, which the engine writes
-  when no launcher names an ini, for each the game's lacks; then each key
-  of them they lack is written, as the engine would take it
+  (`Engine.DXEngineClient`, `DXEngineAudioDevice` and
+  `DXEngineRenderDevice`) come from `DXE-DeusEx.ini`, which the engine
+  writes when no launcher names an ini, for each the game's lacks; then each
+  key of them they lack is written, as the engine would take it
   (`src/core/engine_sections.h`).
 - **`User.ini`**: the newer of `User.ini` and `DXE-User.ini`, else
   `DefUser.ini`. The bindings the original game saved, in
@@ -300,12 +300,12 @@ chosen -- or the game, while it plays, opens the server.
 1. **A second start** hands its command line to the launcher that runs and
    ends, unless the line holds one of the original's four bypass words
    (`Server`, `NewWindow`, `changevideo`, `TestRenDev`). One launcher for a
-    home: the lock is a mutex named after its config folder, as the
-    original's `DeusExIsRunning`, and the line a named pipe
-    (`src/platform/win32/instance.c`). One playing a dedicated server
-    (`-server`, started so or relaunched to it by the game) holds the lock
-    alone and takes no line, as the original's server, whose log window is
-    never `IsBrowser`: a second start plays beside it.
+   home: the lock is a mutex named after its config folder, as the
+   original's `DeusExIsRunning`, and the line a named pipe
+   (`src/platform/win32/instance.c`). One playing a dedicated server
+   (`-server`, started so or relaunched to it by the game) holds the lock
+   alone and takes no line, as the original's server, whose log window is
+   never `IsBrowser`: a second start plays beside it.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -322,10 +322,11 @@ chosen -- or the game, while it plays, opens the server.
    gave it, by its name), no DXEngine, or one without `userdir`.
 6. **The end**: the inis read again, as the engine left them. A clean end
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
-   runs a `RELAUNCH` the engine passed on, decided again in this process:
-   `-server` a dedicated server, `-changevideo` Graphics; with none, Home
-   again when `[Launcher] ReturnAfterPlaying` is on. One that is not clean
-   leaves `Running.ini`, and says how the run ended.
+   runs at once a `RELAUNCH` the engine passed on, as the original's
+   relaunched `DeusEx.exe` does, decided again in this process but for
+   Home: `-server` a dedicated server, `-changevideo` Graphics; with no
+   `RELAUNCH`, Home again when `[Launcher] ReturnAfterPlaying` is on. One
+   that is not clean leaves `Running.ini`, and says how the run ended.
 
 The launcher's own options start with `--` (`--game=`, `--profile=`,
 `--play`); every other word is the original's command line, the player's,
@@ -453,7 +454,7 @@ takes (`src/core/settings.c`):
 |---|---|
 | `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
-| the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, contrast, colour and gamma, vertical sync, the render scale, bloom, HDR, the textures' LOD bias; the controller's dead zone and speeds |
+| the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, contrast, colour and gamma, vertical sync, the render scale, bloom, HDR, the textures' LOD bias, screenshots with the brightness; the controller's dead zone, speeds, inverted looking and whether the game reads it |
 | `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer, its volumes; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
@@ -653,11 +654,13 @@ engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
 
 The launcher waits on the line, a second start's pipe and the engine's
 process, waking once a second besides. Stopped (the console's Ctrl+C,
-Ctrl+Break or its closing), it asks the engine to quit -- `Quit` on the
-line, and `WM_CLOSE` to its windows -- and ends one still running 5 s later
-(`TerminateProcess`, its code 0x40010004, which Recovery calls the
-launcher's): DXEngine quits at its next frame, so only a stuck one is
-ended.
+Ctrl+Break or its closing, a sign-out, a shutdown: for the last three the
+console's handler waits for the stop, as Windows ends the process when it
+returns, `src/platform/win32/startup.c`), it asks the engine to quit --
+`Quit` on the line, and `WM_CLOSE` to its windows -- and ends one still
+running 5 s later (`TerminateProcess`, its code 0x40010004, which Recovery
+calls the launcher's): DXEngine quits at its next frame, so only a stuck one
+is ended.
 
 ## Recovery
 
@@ -670,10 +673,12 @@ crash and its CD prompt. Beside it,
 code, or what ended it, an exception's code by its name (0xC0000005, an
 access violation), the engine's error line (`DXEngine error: ...`), its line
 where the renderer chosen did not start and the software one drew in its
-place, whether it was ever ready, and the save it started on. It is
+place, whether it was ever ready, whether the launcher stopped it
+(`Stopped`, and `Killed` where it took no notice and was killed), and the
+save it started on. It is
 written as the run ends, the run before's taken away as `Running.ini` is
-made: a launcher stopped while the game plays (killed, the session's end,
-a power cut) leaves none, and Recovery, Home and `dxl-cli` say how that
+made: a launcher killed while the game plays, or a power cut, leaves
+none, and Recovery, Home and `dxl-cli` say how that
 run ended is not known, never the run before's end. The window
 opens on Recovery after a run that was not clean, and at the next start that
 finds `Running.ini`; with no window (`dxl-cli`), that start says so with the
@@ -685,7 +690,10 @@ engine's `.pk3` not found, a folder the engine finds no game in, a save
 it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
-a stage or install of DXLauncher again). A run the engine drew with its
+a stage or install of DXLauncher again). A run the launcher itself
+stopped -- its window closed, a signal, a logout -- is said to be no fault
+of the game's, though its settings and last save may not have been
+written. A run the engine drew with its
 software renderer, the one chosen not having started, ends cleanly: Home
 says so of the last run, and the page, opened by `-safe`, has the engine's
 line and that fix.
@@ -701,7 +709,7 @@ Home's The engine... chooses another.
 | Mode | What it does |
 |---|---|
 | `--dry-run` | what the start would decide, make and run; nothing is written |
-| `--print-command` | the engine's command line for the profile, a shell's (Windows' launcher prints cmd.exe's); nothing is run |
+| `--print-command` | the engine's command line for the profile, as cmd.exe's lines: the folder, each variable set, the command as `CreateProcessW` is given it; nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
 | `--probe` | the Vulkan and OpenGL this machine offers, Windows having no OpenGL ES (`src/platform/win32/gpu_probe.c`: `vulkan-1.dll`, and WGL on a hidden window, on a thread a driver that hangs is left behind on); with `--ini`, as an ini, as the window reads it |
@@ -717,7 +725,9 @@ linux-x86_64 has them, then the same cross-built for Windows, under
 Proton's wine (Port Ex Machina's `scripts/wine.sh`, CMake's emulator), each
 side by side, all but the host's `test_ui_scripts` with no display. Under
 Wine run all of them but the POSIX ones, `test_xdg`, `test_finder`,
-`test_desktop`, `test_trash` and `test_ui_scripts`, and Windows' own
+`test_desktop`, `test_trash` and `test_ui_scripts`, `test_gamefiles` there
+without its two that fork a launcher (one killed mid-game, a dedicated
+server that takes no hand-over), and Windows' own
 besides: `test_folders_win32` the Known Folders and `DXL_HOME`'s;
 `test_finder_win32` the finder's Windows places, with a home given and the
 registry's, read from a key of the test's own in theirs
@@ -848,13 +858,13 @@ launcher that keeps it whatever the install. Changed:
 
 | Original | DXLauncher | Why |
 |---|---|---|
-| `System/DeusEx.exe`, in the game's folder, its settings in the game's `DeusEx.ini` and `User.ini` | An app of its own; the settings, saves and shots in a profile in the user's own folders | Nothing written to the game's folder; more than one way to play one install |
+| `System/DeusEx.exe`, in the game's folder, its settings in the game's `DeusEx.ini` and `User.ini` | An app of its own; the settings, saves and shots in a profile in the user's own folders | Nothing written to the game's folder but an ini the line names; more than one way to play one install |
 | The launcher and the engine one process, which stays for the game's run | The engine a child, started by its words, which the launcher waits on, holding its lock to the end | The engine is a program of its own; started by its words, a quoted word in the command line arrives whole |
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The desktop's screens, from a laptop's to a television's, and pads |
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
 | Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard -noddraw`, `-defaultres` and `-nojoy`, for the run Play starts next | Of the others, `-no3dsound` and the processor box (MMX, KNI, K6) name what the engine does not use; `-nohard` alone, which the engine takes (its software device), and Reset, which deletes the ini and is no flag, are not offered |
-| The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads `TextureDetail` and `SkinDetail`, each texture's mip (`TextureDetail` also leaving the detail textures out below High, as the Detail textures row does), `MinDesiredFrameRate`, the viewport sizes and the sound's (`OutputRate`, `UseReverb`, `UseSpatial`, `UseFilter`, `LowSoundQuality`); the saves are 1112fm's |
+| The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads `TextureDetail` and `SkinDetail`, each texture's mip (`TextureDetail` also leaving the detail textures out below High, as the Detail textures row does), `MinDesiredFrameRate`, the viewport sizes and the sound's (`OutputRate`, `UseReverb`, `LowSoundQuality`; `UseSpatial` and `UseFilter` read and, as the original's, inert); the saves are 1112fm's |
 | No server browser: the game's menus have one | Multiplayer: the local network's servers, the master's and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
 | A mod started by a shortcut of its own, `INI=` and `USERINI=` naming its inis; its `.int` files in the game's `System` | Mods: a profile of its own for each, its folders first in its paths by their absolute paths; its text read from its folders | A mod in a folder of its own, anywhere, with the game's folder left as it is |
 
