@@ -27,7 +27,8 @@ default ([performance](ports/trimui-smartpro/README.md#performance)).
   own pad from the first frame, with an on-screen keyboard for text.
 - **It finds the game** in spruceOS's Ports folder, `Roms/PORTS/DeusEx` on
   the SD card. The first run makes a profile from it, the game's settings
-  and keys imported. Nothing in the game's folder is ever written.
+  and keys imported. Nothing in the game's folder is written but an ini a
+  command line names (`INI=`, `USERINI=`).
 - **CPU modes**: spruceOS's Smart, Performance (all four cores at 1.8 GHz)
   or Overclock (2.0 GHz, the default) while the game runs; the menu's own
   power-save comes back as the game ends.
@@ -109,7 +110,8 @@ tailoring, each a commit of its own on top of linux-aarch64's
 an SDL3 video driver for the device's framebuffer and EGL, the spruceOS
 app, the CPU modes, the big screen alone, the game full screen alone, no
 desktop, deleting for good, a pad without stick clicks, spruceOS's Ports
-folder, the device's data, no Mesa CPU drivers.
+folder, the device's data, no Mesa CPU drivers, the launcher's renderer
+row.
 Cross-built it makes `deusex-launcher`, `dxl-cli` and `dxl-shots`; its host
 build, `ports/linux-x86_64/port.cmake` and its preset, makes them for the PC
 and runs the tests. Nothing merges into it, `main` included: a change from
