@@ -13,6 +13,10 @@ static const struct {
         "PulseAudio or PipeWire, and without either it tries ALSA, which a sound server holds. Play once "
         "without sound, or start one of them.",
         DXL_FIX_NOSOUND } },
+    { "No UE1 game found",
+      { "The engine did not take the game's folder for Deus Ex. Check the install, or show the launcher "
+        "another copy.",
+        DXL_FIX_INSTALL } },
     { "Could not find package",
       { "A package the game needs is not in its folder: the install is incomplete. Check it, or show the "
         "launcher another copy.",
@@ -42,12 +46,6 @@ static const dxl_advice crashed = {
     DXL_FIX_RENDERER,
 };
 
-static const dxl_advice no_game = {
-    "The engine did not take the game's folder for Deus Ex. Check the install, or show the launcher "
-    "another copy.",
-    DXL_FIX_INSTALL,
-};
-
 static const dxl_advice stopped = {
     "The engine stopped with an error: the end of its log says what it was doing.",
     DXL_FIX_NONE,
@@ -66,7 +64,6 @@ const dxl_advice *dxl_advice_for(const dxl_lastrun *l) {
         if (strncmp(l->error, known[i].starts, strlen(known[i].starts)) == 0) return &known[i].advice;
     if (dxl_end_crashed(l->signal)) return &crashed;
     if (l->stopped || l->killed) return &stopped_by_launcher;
-    if (l->status == 0 && !l->ready) return &no_game;
     /* Started on a save, stopped by an error the engine names before it was
      * up: the save's level is what did not load. */
     if (strstr(l->start, "loadgame") && !l->ready && l->error[0]) return &save_failed;
