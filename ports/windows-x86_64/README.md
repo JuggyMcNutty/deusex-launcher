@@ -16,7 +16,7 @@ Wine; untried on Windows itself ([verified](#verified)).
 On the build machine, with the tools linux-x86_64's build needs:
 
 ```sh
-scripts/dx.sh deps  windows-x86_64   # llvm-mingw, the window's sources, the engine's SDL3, the Wine prefix
+scripts/dx.sh deps  windows-x86_64   # llvm-mingw, the sources, SDL3, the Wine prefix
 scripts/dx.sh build windows-x86_64   # launcher, then engine
 scripts/dx.sh test  windows-x86_64   # the host build's tests, then Windows' under Wine
 scripts/dx.sh stage windows-x86_64   # build/windows-x86_64/app, and the same as a zip beside it
@@ -58,7 +58,7 @@ Under Proton-CachyOS 11.0's wine (`wine-11.0 (CachyOS)`), in the
 development container on Arch Linux, on the desktop's Xwayland (KDE Plasma
 on Wayland), AMD Radeon 780M under Mesa's RADV and radeonsi:
 
-- `scripts/dx.sh test windows-x86_64`: the 51 tests under Wine, Windows'
+- `scripts/dx.sh test windows-x86_64`: the 50 tests under Wine, Windows'
   own among them ([how it is tested](../../docs/LAUNCHER.md#how-it-is-tested)).
 - The window, driven by a UI script from a fresh home: the first run on
   `gamefiles/` to Home, and Play, the engine on Vulkan to a clean end.

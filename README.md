@@ -26,8 +26,8 @@ they are untried on Windows itself
 - **It finds the game**: the Steam and GOG releases, the CD's install,
   Heroic's GOG games, and the folders Windows' installers use on each drive;
   or it is shown the folder. The first run makes a profile from it, the
-  game's settings and keys imported. Nothing in the game's folder is ever
-  written.
+  game's settings and keys imported. Nothing in the game's folder is
+  written but an ini a command line names (`INI=`, `USERINI=`).
 - **Profiles**: one for each way of playing, with its own settings, keys,
   controller, saves and screenshots; made, copied, renamed, or deleted to
   the Recycle Bin.
