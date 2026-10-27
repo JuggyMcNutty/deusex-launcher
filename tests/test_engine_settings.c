@@ -160,6 +160,14 @@ static void test_setters_validate(void) {
     CHECK(dxl_es_number(s, DXL_ES_PAD_DEADZONE) <= 0.5);
     dxl_es_set_number(s, DXL_ES_BLOOM_AMOUNT, 255);
     CHECK(dxl_es_number(s, DXL_ES_BLOOM_AMOUNT) <= 255);
+    /* The present's: the picture as it is at 1 each, saturation to 1 at most,
+     * the LOD bias on its quarter steps from the engine's -0.5 */
+    CHECK(dxl_es_number(s, DXL_ES_CONTRAST) == 1.0);
+    CHECK(dxl_es_number(s, DXL_ES_LOD_BIAS) == -0.5);
+    dxl_es_set_number(s, DXL_ES_SATURATION, 2.0);
+    CHECK(dxl_es_number(s, DXL_ES_SATURATION) == 1.0);
+    dxl_es_set_number(s, DXL_ES_LOD_BIAS, -0.6);
+    CHECK(dxl_es_number(s, DXL_ES_LOD_BIAS) == -0.5);
 
     /* Stepping by 0.05 lands on the grid, not near it. */
     double v = 0.05;
