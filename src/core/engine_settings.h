@@ -41,6 +41,13 @@ typedef enum {
     DXL_ES_GAMMA_SCREENSHOTS,
     DXL_ES_DEBUG_LAYER,
     DXL_ES_CPU_DRIVER,          /* Mesa's CPU driver asked for (renderers.ini's CPUDriver) */
+    DXL_ES_CONTRAST,            /* the present's colour correction, 1 each the picture unchanged */
+    DXL_ES_SATURATION,
+    DXL_ES_GAMMA_OFFSET,        /* added to the present's gamma, every channel's */
+    DXL_ES_GAMMA_RED,           /* and each one's */
+    DXL_ES_GAMMA_GREEN,
+    DXL_ES_GAMMA_BLUE,
+    DXL_ES_LOD_BIAS,            /* the textures' mip bias */
     /* Gamepad -- read by DXEngine's controller support */
     DXL_ES_PAD_ENABLED,
     DXL_ES_PAD_DEADZONE,

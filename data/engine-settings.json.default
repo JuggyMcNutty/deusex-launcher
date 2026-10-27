@@ -11,7 +11,14 @@
     "HdrScale": 128,
     "Bloom": false,
     "BloomAmount": 128,
-    "UseDebugLayer": false
+    "UseDebugLayer": false,
+    "Contrast": 1,
+    "Saturation": 1,
+    "GammaOffset": 0,
+    "GammaOffsetRed": 0,
+    "GammaOffsetGreen": 0,
+    "GammaOffsetBlue": 0,
+    "LODBias": -0.5
   },
   "Gamepad": {
     "Enabled": true,

@@ -38,6 +38,13 @@ static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_GAMMA_SCREENSHOTS] = { RD, "GammaCorrectScreenshots", DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
     [DXL_ES_DEBUG_LAYER]       = { RD, "UseDebugLayer",           DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
     [DXL_ES_CPU_DRIVER]        = { RD, "CPUDriver",               DXL_ES_BOOL,   NULL, NULL, 0, 0, 1, 1 },
+    [DXL_ES_CONTRAST]          = { RD, "Contrast",                DXL_ES_NUMBER, NULL, NULL, 1, 0.5, 2, 0.05 },
+    [DXL_ES_SATURATION]        = { RD, "Saturation",              DXL_ES_NUMBER, NULL, NULL, 1, 0, 1, 0.05 },
+    [DXL_ES_GAMMA_OFFSET]      = { RD, "GammaOffset",             DXL_ES_NUMBER, NULL, NULL, 0, -0.5, 0.5, 0.05 },
+    [DXL_ES_GAMMA_RED]         = { RD, "GammaOffsetRed",          DXL_ES_NUMBER, NULL, NULL, 0, -0.5, 0.5, 0.05 },
+    [DXL_ES_GAMMA_GREEN]       = { RD, "GammaOffsetGreen",        DXL_ES_NUMBER, NULL, NULL, 0, -0.5, 0.5, 0.05 },
+    [DXL_ES_GAMMA_BLUE]        = { RD, "GammaOffsetBlue",         DXL_ES_NUMBER, NULL, NULL, 0, -0.5, 0.5, 0.05 },
+    [DXL_ES_LOD_BIAS]          = { RD, "LODBias",                 DXL_ES_NUMBER, NULL, NULL, -0.5, -2, 2, 0.25 },
 
     [DXL_ES_PAD_ENABLED]       = { GP, "Enabled",           DXL_ES_BOOL,   NULL, NULL, 1,    0, 1, 1 },
     [DXL_ES_PAD_DEADZONE]      = { GP, "DeadZone",          DXL_ES_NUMBER, NULL, NULL, 0.20, 0.05, 0.50, 0.05 },
