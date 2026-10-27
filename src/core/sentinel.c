@@ -16,8 +16,6 @@ void dxl_sentinel_free(dxl_sentinel *s) {
     s->path = NULL;
 }
 
-const char *dxl_sentinel_path(const dxl_sentinel *s) { return s->path; }
-
 int dxl_sentinel_exists(const dxl_sentinel *s) {
     if (dxl_path_exists(s->path)) return 1;
     /* The original wrote this on a case-insensitive filesystem; a copied
@@ -40,7 +38,6 @@ int dxl_sentinel_create(dxl_sentinel *s, dxl_err *err) {
      * A comment costs nothing and makes a stray copy self-explanatory. */
     fputs("; Deus Ex is running. Deleted on clean exit.\r\n", f);
     fclose(f);
-    s->created = 1;
     return 0;
 }
 
@@ -58,5 +55,4 @@ void dxl_sentinel_remove(dxl_sentinel *s) {
         free(hit);
         if (!gone) break;
     }
-    s->created = 0;
 }

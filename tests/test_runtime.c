@@ -82,7 +82,6 @@ static void test_sentinel_lifecycle(void) {
     CHECK_INT(dxl_sentinel_exists(&s), 0);
     CHECK_INT(dxl_sentinel_create(&s, NULL), 0);
     CHECK_INT(dxl_sentinel_exists(&s), 1);
-    CHECK_INT(s.created, 1);
 
     dxl_sentinel_remove(&s);
     CHECK_INT(dxl_sentinel_exists(&s), 0);
