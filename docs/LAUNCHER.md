@@ -551,8 +551,9 @@ it as `Settings.json.unreadable` and the launcher's log saying why.
 
 ## The controller
 
-The engine takes the first controller SDL has a mapping for, and reads its
-buttons by where they are, whoever made it: `User.ini`'s `Joy1` is the
+The engine takes the first controller SDL has a mapping for, in the order
+the system lists them as the game starts, on SDL3 and SDL2 alike, and reads
+its buttons by where they are, whoever made it: `User.ini`'s `Joy1` is the
 bottom face button, `Joy2` the right, `Joy3` the left, `Joy4` the top,
 `Joy5` and `Joy6` the shoulders, `Joy7` and `Joy8` the middle two, `Joy9`
 and `Joy10` the stick clicks, `Joy11` and `Joy12` the triggers,
@@ -574,7 +575,10 @@ engine takes it, through the dead zone, the curve and the look speeds
 (`src/core/padcurve.c`), so a change of those is seen before it is played.
 With several controllers, the one shown is chosen above the model, and the
 line under it says how it is joined, its battery, whose mapping SDL has for
-it -- the launcher's, Steam's, SDL's own -- and whether the game takes it.
+it -- the launcher's, Steam's, SDL's own -- and whether the game takes it:
+the first in the order the launcher met them, as the game's is, but for one
+plugged in again while the launcher is open, last here, which the system
+may give back its old place, so first for the game.
 
 On its right, the rows: Layout, a preset -- Modern, Modern with the sticks
 swapped, Original Deus Ex, the game's own -- or Custom once a button is
