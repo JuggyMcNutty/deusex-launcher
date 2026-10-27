@@ -124,8 +124,7 @@ const dxl_setting dxl_settings_table[] = {
               "the ini names a full screen size, which the display switches to its nearest mode for.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { CLIENT("StartupFullscreen", DXL_CODEC_BOOL) } },
     { .id = "display.window_size", .page = "Display", .label = "The window's size",
-      .help = "The game's window when it is not full screen, in pixels; under X11 SDL scales it by the "
-              "display's DPI.",
+      .help = "The game's window when it is not full screen, in pixels, whatever the desktop's scale.",
       .kind = DXL_SET_CHOICE, .choices = sizes, .def = "1920x1080",
       .at = { { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_ENGINE },
               { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_ENGINE },
@@ -165,7 +164,7 @@ const dxl_setting dxl_settings_table[] = {
       .kind = DXL_SET_BOOL, .def = "1", .at = { JSON(DXL_ES_VSYNC) } },
     { .id = "display.render_scale", .page = "Display", .label = "Render scale",
       .help = "The scene drawn at this share of the window's size and scaled up to it: fewer pixels, faster and "
-              "softer. Vulkan and OpenGL alike.",
+              "softer. On every renderer.",
       .kind = DXL_SET_NUMBER, .min = 0.25, .max = 1, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
       .def = "1", .at = { JSON(DXL_ES_RENDER_SCALE) } },
     { .id = "display.fov", .page = "Display", .label = "Field of view",
