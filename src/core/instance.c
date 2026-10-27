@@ -20,7 +20,7 @@ struct dxl_instance {
     char *sock_path;   /* the channel's file, removed at release */
 };
 
-/* FNV-1a over the install path, so two installs on the same card get
+/* FNV-1a over the install path, so two installs on the same machine get
  * different names. Collisions would merely make two installs share an
  * instance; the hash only needs to be stable, not cryptographic. */
 static unsigned long id_hash(const char *id) {
