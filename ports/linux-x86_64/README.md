@@ -1,9 +1,9 @@
 # Port: Linux x86_64 -- the development platform
 
 Desktop Linux (or a handheld PC running it), with glibc 2.28 or newer
-([why 2.28](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided)). The
-unit tests, the engine's Vulkan validation and the side-by-side checks of
-engine changes run here.
+([why 2.28](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided)).
+The unit tests, the engine's Vulkan validation and the side-by-side checks
+of engine changes run here.
 
 ## Status
 
@@ -42,7 +42,7 @@ emptied first: a first run from nothing. `-- --play` skips Home.
 
 The game's settings are the profile's inis, made from the game's own on the
 first run, and `Settings.json` in the profile's engine folder, the engine's
-renderer and DXEngine's own drawing settings
+renderer, DXEngine's own drawing settings and the controller's
 ([settings and environment](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#settings-and-environment)):
 the launcher's Settings keeps the three
 ([Settings](../../docs/LAUNCHER.md#settings)).
