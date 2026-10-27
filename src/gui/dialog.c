@@ -140,10 +140,6 @@ void dxl_dialog_close(dxl_dialog *d) {
     free(d);
 }
 
-void dxl_dialog_set_title(dxl_dialog *d, const char *title) {
-    if (d->win) SDL_SetWindowTitle(d->win, title ? title : "");
-}
-
 void dxl_dialog_set_icon(dxl_dialog *d, const dxl_icon *icon) {
     if (!d->win || !icon || !icon->argb) return;
     SDL_Surface *s = SDL_CreateRGBSurfaceWithFormatFrom(icon->argb, icon->w, icon->h, 32, icon->w * 4,

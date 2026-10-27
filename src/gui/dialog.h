@@ -67,7 +67,6 @@ struct dxl_dialog {
     int           count, cap;
     int           focus, hover, pressed;     /* control indices, or -1 */
     int           space;      /* the control Space pressed, clicked as it is let go; -1 */
-    int           alt;        /* Alt held: mnemonics underlined */
     int           ended, result;
     dxl_command_fn on_command;
     void         *ctx;
@@ -81,7 +80,6 @@ struct dxl_dialog {
 dxl_dialog *dxl_dialog_open(dxl_gui *g, const char *title, int w, int h, int offscreen,
                             dxl_err *err);
 void        dxl_dialog_close(dxl_dialog *d);
-void        dxl_dialog_set_title(dxl_dialog *d, const char *title);
 /* The window's icon, from dxl_pe_icon; an offscreen dialog has none. */
 void        dxl_dialog_set_icon(dxl_dialog *d, const dxl_icon *icon);
 /* Another font for all the controls: a message box's. */
