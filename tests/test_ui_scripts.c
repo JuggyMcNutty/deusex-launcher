@@ -251,8 +251,8 @@ static void test_settings_roundtrip(void) {
 }
 
 /* Settings.json edited by hand, then Settings opened and left, nothing
- * changed: one with a comma before a close, which the engine reads, read as
- * it reads it; one neither reads kept beside the new one, and said. */
+ * changed: one the engine refuses -- a comma before a close, a comma
+ * missing -- kept beside the new one, and said. */
 static void test_settings_kept(void) {
     static const char *const files[] = {
         "{\"RenderDevice\": {\"Antialias\": \"MSAA2x\",}}\n",
@@ -279,15 +279,9 @@ static void test_settings_kept(void) {
         open_files(&b);
         char *log = read_home("state/dxlauncher/launcher.log");
         char *was = slurp(kept, NULL);
-        if (i == 0) {
-            CHECK_STR(dxl_es_choice(b.es, DXL_ES_ANTIALIAS), "MSAA2x");
-            CHECK(was == NULL);
-            CHECK(strstr(log, "could not be read") == NULL);
-        } else {
-            CHECK_STR(was, files[i]);
-            CHECK(strstr(log, "could not be read (JSON: ") != NULL);
-            CHECK_INT(dxl_es_was_corrupt(b.es), 0);
-        }
+        CHECK_STR(was, files[i]);
+        CHECK(strstr(log, "could not be read (JSON: ") != NULL);
+        CHECK_INT(dxl_es_was_corrupt(b.es), 0);
         free(was);
         free(log);
         free(json);
