@@ -453,7 +453,7 @@ takes (`src/core/settings.c`):
 |---|---|
 | `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
-| the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, vertical sync, the render scale, bloom, HDR; the controller's dead zone and speeds |
+| the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, contrast, colour and gamma, vertical sync, the render scale, bloom, HDR, the textures' LOD bias; the controller's dead zone and speeds |
 | `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer, its volumes; the profile's game, the engine's extra words |
 
 **As the engine reads them.** The engine reads its own sections once
