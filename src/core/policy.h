@@ -59,7 +59,6 @@ typedef struct {
 
     char console_command[512];  /* DXL_ACTION_CONSOLE_CMD */
     char test_rendev[160];      /* DXL_ACTION_TEST_RENDEV */
-    char exec_file[256];        /* -EXEC=, run after the engine starts */
 } dxl_decision;
 
 void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out);

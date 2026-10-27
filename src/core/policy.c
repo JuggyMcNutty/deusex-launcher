@@ -38,8 +38,6 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
                        !dxl_cmd_param(raw, "server") &&
                        !dxl_cmd_find(raw, "TestRenDev");
 
-    dxl_cmd_value(cmd, "exec", out->exec_file, sizeof out->exec_file);
-
     /* Both of these exit without ever launching (section 5, steps 6 and 7). */
     if (dxl_cmd_value(cmd, "consolecommand", out->console_command,
                       sizeof out->console_command)) {

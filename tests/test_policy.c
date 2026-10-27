@@ -212,10 +212,10 @@ static void test_server_shows_no_screen(void) {
     CHECK_INT(out.screen, DXL_SCREEN_NONE);
 }
 
-static void test_exec_file_captured(void) {
-    dxl_decision d = decide("-exec=startup.txt", 1100, 0, 0);
-    CHECK_STR(d.exec_file, "startup.txt");
-    CHECK_INT(d.action, DXL_ACTION_LAUNCH);
+/* -EXEC= is the engine's, which reads it from its own command line: the run
+ * launches as without it. */
+static void test_exec_launches(void) {
+    CHECK_INT(decide("-exec=startup.txt", 1100, 0, 0).action, DXL_ACTION_LAUNCH);
 }
 
 TEST_MAIN_BEGIN
@@ -238,5 +238,5 @@ TEST_MAIN_BEGIN
     RUN(test_testrendev_exits);
     RUN(test_splash_suppression);
     RUN(test_server_shows_no_screen);
-    RUN(test_exec_file_captured);
+    RUN(test_exec_launches);
 TEST_MAIN_END
