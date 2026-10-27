@@ -57,14 +57,11 @@ static int fresh_home(void) {
  * for a window without the focus, which one on a desktop someone uses may
  * not have. */
 #define OUR_PADS "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009,0x1234/0x5678,0x1209/0xd0d1 " \
-                 "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1 " QUIET " " NOT_BIG
+                 "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1 " QUIET
 /* The window's sound to SDL's dummy output: the title music and the menu's
  * sounds played, as a player's would be, and none of it heard on the
  * desktop the runs share. */
 #define QUIET "SDL_AUDIO_DRIVER=dummy"
-/* The window as on a desktop: none of the environment's big screens
- * (core/bigscreen.h), but a script's own. */
-#define NOT_BIG "SteamTenfoot= SteamGamepadUI= SteamDeck= GAMESCOPE_WAYLAND_DISPLAY="
 
 /* The launcher on the script, the stub doing mode; its exit code. */
 static int launch_with(const char *script, const char *mode, const char *env) {

@@ -61,7 +61,6 @@ int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl
         if (strcmp(a, "--dry-run") == 0) { opt->dry = 1; continue; }
         if (strcmp(a, "--print-command") == 0) { opt->print_command = 1; continue; }
         if (strcmp(a, "--import") == 0) { opt->import_only = 1; continue; }
-        if (strcmp(a, "--big-screen") == 0) { opt->big_screen = 1; continue; }
         dxl_err_set(err, "no option %s", a);
         free(rest);
         return -1;
@@ -810,14 +809,12 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     dxl_decision first;
     dxl_policy_decide(&pre, &first);
     int busy = dxl_instance_other_running(id);
-    /* The line, and what of the launcher's own the one running takes too:
-     * a link's server first, as a URL is the original's first word; its
-     * window on the big screen last. */
-    size_t handed_size = strlen(r->words) + (r->opt.join ? strlen(r->opt.join) : 0) + 20;
+    /* The line, and the link's server the one running takes too, first, as
+     * a URL is the original's first word. */
+    size_t handed_size = strlen(r->words) + (r->opt.join ? strlen(r->opt.join) : 0) + 2;
     char *handed = dxl_xmalloc(handed_size);
-    snprintf(handed, handed_size, "%s%s%s%s%s", r->opt.join ? r->opt.join : "", r->opt.join && r->words[0] ? " " : "",
-             r->words, r->opt.big_screen && (r->words[0] || r->opt.join) ? " " : "",
-             r->opt.big_screen ? "--big-screen" : "");
+    snprintf(handed, handed_size, "%s%s%s", r->opt.join ? r->opt.join : "", r->opt.join && r->words[0] ? " " : "",
+             r->words);
     int forwarded = !r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy &&
                     dxl_instance_forward(id, handed, HANDOFF_TIMEOUT_MS, &e) == 0;
     free(handed);

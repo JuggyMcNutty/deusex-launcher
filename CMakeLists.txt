@@ -83,7 +83,6 @@ add_library(dxl_core STATIC
     src/core/engine_args.c
     src/core/lastrun.c
     src/core/vdf.c
-    src/core/bigscreen.c
     src/core/gamespy.c
     src/core/servers.c
     src/core/finder.c

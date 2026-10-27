@@ -3,7 +3,6 @@
 #include "screens/shell.h"
 #include "screens/uiscript.h"
 #include "app/browser.h"
-#include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
 #include "platform/fs.h"
@@ -167,16 +166,7 @@ static void listen_stop(dxl_window *w) {
     w->quit = NULL;
 }
 
-/* Whether word is one of the line's. */
-static int has_word(const char *line, const char *word) {
-    size_t n = strlen(word);
-    for (const char *p = line; (p = strstr(p, word)); p += n)
-        if ((p == line || p[-1] == ' ') && (p[n] == ' ' || !p[n])) return 1;
-    return 0;
-}
-
-/* A second start's command line: the window raised, on the big screen
- * when it asks for it (run.c passes --big-screen on). */
+/* A second start's command line: the window raised. */
 static void take_lines(dxl_window *w) {
     char line[DXL_HANDOFF_MAX];
     while (w->run && dxl_instance_poll(w->run->instance, line, sizeof line)) {
@@ -185,7 +175,6 @@ static void take_lines(dxl_window *w) {
          * maximized window too. */
         if (SDL_GetWindowFlags(w->window) & SDL_WINDOW_MINIMIZED) SDL_RestoreWindow(w->window);
         SDL_RaiseWindow(w->window);
-        if (has_word(line, "--big-screen")) dxl_shell_big(&w->shell, 1);
         /* A link's server, the line's first word: Multiplayer asks. */
         char first[256], link[256];
         snprintf(first, sizeof first, "%.*s", (int)strcspn(line, " "), line);
@@ -562,18 +551,6 @@ static int full_screen(dxl_window *w) {
     return (SDL_GetWindowFlags(w->window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 
-/* The big screen on or off: the window full screen, the kit's scale the
- * screen's -- as the desktop made it, not as it was asked. */
-static void set_big(dxl_shell *s, int on) {
-    dxl_window *w = s->window;
-    if (!SDL_SetWindowFullscreen(w->window, on != 0)) {
-        dxl_log("full screen %s: %s", on ? "on" : "off", SDL_GetError());
-        return;
-    }
-    w->big = s->big = full_screen(w);
-    dxl_ui_set_big(&s->ui, w->big);
-}
-
 static int open_window(dxl_window *w, dxl_run *r) {
     dxl_shell *s = &w->shell;
     if (w->window) return 0;
@@ -678,7 +655,6 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->start_probe = start_probe;
     s->start_find = start_find;
     s->start_browse = start_browse;
-    s->set_big = set_big;
     return 0;
 }
 

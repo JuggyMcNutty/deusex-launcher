@@ -727,8 +727,6 @@ writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
 `test_finder` each of the finder's places, in homes it makes up;
-`test_bigscreen` the core's test of when the big screen is wanted, which
-this branch's window, always on it, does not ask;
 `test_mods` which folders are mods, their settings and where they are
 found, and their profiles' paths, settings and saves, of mods it makes up;
 `test_gamespy` the master's and the servers' words, the challenge's answer

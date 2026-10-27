@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
             return 0;
         }
         if (strcmp(argv[i], "--help") == 0) {
-            printf("usage: deusex-launcher [--game=<dir>] [--profile=<id>] [--play] [--big-screen] "
+            printf("usage: deusex-launcher [--game=<dir>] [--profile=<id>] [--play] "
                    "[the original's command line...]\n"
                    "dxl-cli --help says more: the same start, with no window.\n");
             return 0;

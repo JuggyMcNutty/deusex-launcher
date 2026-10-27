@@ -349,9 +349,6 @@ typedef struct dxl_shell {
 
     /* The big screen: the window's now. */
     int          big;
-    /* The window's: full screen or not, s->big and the kit's with it. NULL
-     * offscreen, where the two are set alone. */
-    void       (*set_big)(struct dxl_shell *s, int on);
 
     void        *window;
 } dxl_shell;
@@ -397,7 +394,6 @@ void        dxl_shell_volumes(dxl_shell *s);
 /* The menu sound of a frame's cues (the kit's DXL_CUE_*), the most telling. */
 void        dxl_shell_cue(dxl_shell *s, int cues);
 /* The window on the big screen, or off it. */
-void        dxl_shell_big(dxl_shell *s, int on);
 /* The install chosen: on the first run the profile to be made from it, on
  * Your profile; else the profile pointed at it, and the screen done -- or,
  * asked for from a page but Recovery, that page again. */

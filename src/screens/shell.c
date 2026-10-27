@@ -180,19 +180,6 @@ void dxl_shell_cue(dxl_shell *s, int cues) {
         }
 }
 
-void dxl_shell_big(dxl_shell *s, int on) {
-    on = on != 0;
-    if (on == s->big) return;
-    if (s->set_big) {
-        s->set_big(s, on);
-    } else {
-        s->big = on;
-        dxl_ui_set_big(&s->ui, on);
-    }
-    if (s->big == on) dxl_log("the big screen: %s", on ? "on" : "off");
-    else dxl_log("the big screen: still %s, the desktop did not switch it", s->big ? "on" : "off");
-}
-
 void dxl_shell_theme(dxl_shell *s) {
     const char *sys = s->run && s->run->session.install.ok ? s->run->session.install.system_dir : NULL;
     if (sys && (!s->themes_from || strcmp(s->themes_from, sys) != 0)) {

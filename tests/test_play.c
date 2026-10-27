@@ -202,7 +202,7 @@ static void *forward_main(void *p) {
     (void)p;
     forward_rc[0] = dxl_instance_forward(forward_id, "127.0.0.1:7790 -log", 1000, NULL);
     /* A link's server, as a second start hands it on: the game's own way. */
-    forward_rc[1] = dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/ --big-screen", 1000, NULL);
+    forward_rc[1] = dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/", 1000, NULL);
     return NULL;
 }
 static void forward_on_ready(void *ctx) {
@@ -243,14 +243,13 @@ static void test_forwarded(void) {
 }
 
 /* A deusex:// link is the launcher's own, its server to join, not a word
- * of the original's command line; --big-screen too. */
+ * of the original's command line. */
 static void test_parse_link(void) {
-    char *argv[] = { "deusex-launcher", "deusex://203.0.113.9:7790/", "-nosound", "--big-screen", NULL };
+    char *argv[] = { "deusex-launcher", "deusex://203.0.113.9:7790/", "-nosound", NULL };
     dxl_run_options opt;
     char *words = NULL;
-    CHECK_INT(dxl_run_parse(4, argv, &opt, &words, NULL), 0);
+    CHECK_INT(dxl_run_parse(3, argv, &opt, &words, NULL), 0);
     CHECK_STR(opt.join, "deusex://203.0.113.9:7790/");
-    CHECK_INT(opt.big_screen, 1);
     CHECK(words && strstr(words, "deusex://") == NULL);
     CHECK(words && strstr(words, "-nosound") != NULL);
     free(words);
