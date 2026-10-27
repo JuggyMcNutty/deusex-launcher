@@ -6,9 +6,7 @@
  *                           Engine, another engine's program than the
  *                           launcher's own; [Install.<id>] Path, Version,
  *                           SHA1, each install the launcher has met
- *                           (core/install.h's id); [Window] Width, Height,
- *                           Maximized, the window as it last closed
- *                           (screens/window.h)
+ *                           (core/install.h's id)
  *
  * The launcher's own folder is where its program is (/proc/self/exe): its
  * own engine beside it (DXEngine) and its data/. DXL_ENGINE names the

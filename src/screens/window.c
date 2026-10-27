@@ -17,11 +17,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The window at first, and at its smallest, in dp. */
+/* The window as it is made, the panel's size, before full screen sizes it
+ * to the display. */
 #define FIRST_W    1280
 #define FIRST_H    720
-#define SMALLEST_W 960
-#define SMALLEST_H 600
 /* A pad there as the window opens is no news. */
 #define PADS_SETTLE_S 1.5
 #define FRAME_NS 16666666ull
@@ -449,71 +448,13 @@ static void browse_collect(dxl_window *w) {
 
 /* ---- the window ---------------------------------------------------------- */
 
-/* The window's points to a dp: the display's scale, the kit's px per dp, as
- * its pixels per point. */
-static float points_per_dp(dxl_window *w) {
-    float scale = SDL_GetWindowDisplayScale(w->window), density = SDL_GetWindowPixelDensity(w->window);
-    if (scale <= 0) scale = 1;
-    if (density <= 0) density = 1;
-    return scale / density;
-}
-
-/* Its smallest, 960 x 600 dp, within the display. */
-static void minimum(dxl_window *w, int *minw, int *minh) {
-    SDL_Rect usable;
-    if (!SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w->window), &usable))
-        usable = (SDL_Rect){ 0, 0, 1920, 1080 };
-    float k = points_per_dp(w);
-    *minw = (int)(SMALLEST_W * k);
-    *minh = (int)(SMALLEST_H * k);
-    if (*minw > usable.w) *minw = usable.w;
-    if (*minh > usable.h) *minh = usable.h;
-    SDL_SetWindowMinimumSize(w->window, *minw, *minh);
-}
-
-/* Its first size: the layout's 1280 x 720 dp, or what it had when it last
- * closed (launcher.ini's [Window]), within the display. */
-static void size_window(dxl_window *w) {
-    SDL_DisplayID d = SDL_GetDisplayForWindow(w->window);
-    float k = points_per_dp(w);
-    SDL_Rect usable;
-    if (!SDL_GetDisplayUsableBounds(d, &usable)) usable = (SDL_Rect){ 0, 0, 1920, 1080 };
-    int maxw = (int)(usable.w * 0.94f), maxh = (int)(usable.h * 0.94f);
-    int minw, minh;
-    minimum(w, &minw, &minh);
-    int ww = (int)(FIRST_W * k), wh = (int)(FIRST_H * k);
-    const dxl_ini *ini = w->run->session.ini;
-    int kw = dxl_ini_get_int(ini, "Window", "Width", 0), kh = dxl_ini_get_int(ini, "Window", "Height", 0);
-    if (kw > 0 && kh > 0) {
-        ww = kw;
-        wh = kh;
-    }
-    if (ww > maxw) ww = maxw;
-    if (wh > maxh) wh = maxh;
-    if (ww < minw) ww = minw;
-    if (wh < minh) wh = minh;
-    SDL_SetWindowSize(w->window, ww, wh);
-    SDL_SetWindowPosition(w->window, SDL_WINDOWPOS_CENTERED_DISPLAY(d), SDL_WINDOWPOS_CENTERED_DISPLAY(d));
-    if (dxl_ini_get_bool(ini, "Window", "Maximized", 0)) SDL_MaximizeWindow(w->window);
-}
-
-/* The window's size kept in launcher.ini's [Window], once there is a
- * profile: a first run left before its end writes nothing. */
+/* launcher.ini kept as the session left it -- the profile and the installs
+ * it met --, once there is a profile: a first run left before its end
+ * writes nothing. The window is full screen, its size the display's, and
+ * none of it is kept. */
 static void close_window(dxl_window *w, dxl_run *r) {
     if (!w->window) return;
     if (r && dxl_profile_exists(&r->session.profile)) {
-        dxl_ini *ini = r->session.ini;
-        /* A size full screen -- the big screen's, or the desktop's own -- is
-         * the screen's, not the window's. */
-        SDL_WindowFlags flags = SDL_GetWindowFlags(w->window);
-        int max = (flags & SDL_WINDOW_MAXIMIZED) != 0, full = w->big || (flags & SDL_WINDOW_FULLSCREEN);
-        if (!full) dxl_ini_set_bool(ini, "Window", "Maximized", max);
-        if (!max && !full) {
-            int ww = 0, wh = 0;
-            SDL_GetWindowSize(w->window, &ww, &wh);
-            dxl_ini_set_int(ini, "Window", "Width", ww);
-            dxl_ini_set_int(ini, "Window", "Height", wh);
-        }
         dxl_err e;
         if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     }
@@ -582,7 +523,6 @@ static int open_window(dxl_window *w, dxl_run *r) {
         fprintf(stderr, "DXLauncher has no window: %s\n", SDL_GetError());
         return -1;
     }
-    size_window(w);
     /* The Smart Pro's screen is the big screen alone: the panel, no desktop. */
     if (!w->big_decided) {
         w->big = 1;
