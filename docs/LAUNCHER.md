@@ -534,11 +534,11 @@ Every run is full screen, whatever the profile's `DeusEx.ini` says
 (`src/app/run.c`): the device shows a window only in its corner.
 
 **The next run's words**, `-nosound`, `-nohard` (the software renderer, full
-screen, not in the window the original's safe mode adds `-noddraw` for),
-`-defaultres` (640 x 480, which full screen here does not take: the game
-covers the screen whatever size the ini names) and `-nojoy`, are Launcher's
-advanced rows and Recovery's: added to the original's command line of the
-run Play starts next, and of no other.
+screen, not in the window the original's safe mode adds `-noddraw` for) and
+`-nojoy`, are Launcher's advanced rows and Recovery's: added to the
+original's command line of the run Play starts next, and of no other.
+`-defaultres` is not offered: its 640 x 480 is a size full screen here does
+not take, the game covering the screen whatever size the ini names.
 
 The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's volumes and reduced motion
@@ -837,7 +837,7 @@ launcher that keeps it whatever the install. Changed:
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The handheld's 1280 x 720 screen and its pad |
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
-| Safe mode's eight flags, for a relaunch | Four of them, `-nosound`, `-nohard` (without `-noddraw`'s window, which the device does not show), `-defaultres` and `-nojoy`, for the run Play starts next | Of the others, `-no3dsound` and the processor box (MMX, KNI, K6) name what the engine does not use; `-nohard -noddraw`'s window the device does not show, and Reset, which deletes the ini and is no flag, is not offered |
+| Safe mode's eight flags, for a relaunch | Three of them, `-nosound`, `-nohard` (without `-noddraw`'s window, which the device does not show) and `-nojoy`, for the run Play starts next | Of the others, `-no3dsound` and the processor box (MMX, KNI, K6) name what the engine does not use; `-nohard -noddraw`'s window the device does not show, nor does full screen take `-defaultres`'s 640 x 480, and Reset, which deletes the ini and is no flag, is not offered |
 | The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads `TextureDetail` and `SkinDetail`, each texture's mip (`TextureDetail` also leaving the detail textures out below High, as the Detail textures row does), `MinDesiredFrameRate`, the viewport sizes and the sound's (`OutputRate`, `UseReverb`, `UseSpatial`, `UseFilter`, `LowSoundQuality`); the saves are 1112fm's |
 | No server browser: the game's menus have one | Multiplayer: the local network's servers, the master's and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
 | A mod started by a shortcut of its own, `INI=` and `USERINI=` naming its inis; its `.int` files in the game's `System` | Mods: a profile of its own for each, its folders first in its paths by their absolute paths; its text read from its folders | A mod in a folder of its own, anywhere, with the game's folder left as it is |

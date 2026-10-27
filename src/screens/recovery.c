@@ -138,16 +138,15 @@ static void next_run_set(dxl_shell *s, const char *id, int on) {
     snprintf(s->next_run, sizeof s->next_run, "%s", st.next_run);
 }
 
-/* Those words as toggles, two by two, under their heading. */
+/* Those words as toggles, two to a row, under their heading. */
 static void next_run(dxl_shell *s, dxl_rect r) {
     static const struct { const char *id, *label; } rows[] = {
-        { "next.nosound", "No sound" }, { "next.software", "Software renderer" },
-        { "next.defaultres", "At 640 x 480" }, { "next.nojoy", "No pad" },
+        { "next.nosound", "No sound" }, { "next.software", "Software renderer" }, { "next.nojoy", "No pad" },
     };
     dxl_ui *ui = &s->ui;
     dxl_label(ui, dxl_cut_top(&r, 24), DXL_FONT_LABEL, "The next run alone", ui->theme.help, DXL_W_LEFT);
     float w = (r.w - 10) / 2, h = (r.h - 4) / 2;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < (int)(sizeof rows / sizeof *rows); i++) {
         dxl_rect cell = { r.x + (float)(i % 2) * (w + 10), r.y + (float)(i / 2) * (h + 4), w, h };
         int on = next_run_get(s, rows[i].id);
         if (dxl_toggle(ui, dxl_ui_id(ui, rows[i].id), cell, rows[i].label, &on, 0)) next_run_set(s, rows[i].id, on);
