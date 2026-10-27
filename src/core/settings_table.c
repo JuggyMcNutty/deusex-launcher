@@ -140,7 +140,7 @@ const dxl_setting dxl_settings_table[] = {
       .kind = DXL_SET_BOOL, .def = "1", .at = { JSON(DXL_ES_VSYNC) } },
     { .id = "display.render_scale", .page = "Display", .label = "Render scale",
       .help = "The scene drawn at this share of the window's size and scaled up to it: fewer pixels, faster and "
-              "softer. Vulkan and OpenGL alike.",
+              "softer. On every renderer.",
       .kind = DXL_SET_NUMBER, .min = 0.25, .max = 1, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,
       .def = "1", .at = { JSON(DXL_ES_RENDER_SCALE) } },
     { .id = "display.fov", .page = "Display", .label = "Field of view",
