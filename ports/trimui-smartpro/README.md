@@ -412,7 +412,11 @@ A profile stops the engine with SIGKILL; started without the launcher, it leaves
   first. Use tar over SSH: `ssh spruce@<device> 'cd <dir> && tar cf - <files>' | tar xf -`.
 - **busybox has no `timeout` and no `nohup`.** Use `setsid` with all three fds redirected, or
   SSH hangs waiting on the pipes.
-- **The screen is seen over SSH only by dumping the framebuffer** (`SHOT=<seconds>` does it
-  mid-profile): the page shown is at the pan's line (`/sys/class/graphics/fb0/pan`, `x,y`; EGL
-  flips between 0 and 720), so `dd if=/dev/fb0 bs=5120 skip=<y> count=720`, gzip it to copy,
-  and decode it as BGRA (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`).
+- **The screen is seen over SSH only by dumping the framebuffer**: the page shown is at the
+  pan's line (`/sys/class/graphics/fb0/pan`, `x,y`; EGL flips between 0 and 720), so
+  `dd if=/dev/fb0 bs=5120 skip=<y> count=720`, gzip it to copy, and decode it as BGRA
+  (`magick -size 1280x720 -depth 8 bgra:frame -alpha off`). `SHOT=<seconds>` keeps the first
+  page mid-profile: while a game runs, both pages hold whole frames a frame apart (five dumps on
+  Liberty Island apart in 0.04% to 0.05% of their pixels), and the pan flips during the
+  second's read, so the shot is the frame shown or its neighbour; a still screen's pages are
+  the same.
