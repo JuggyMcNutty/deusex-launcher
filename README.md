@@ -25,7 +25,8 @@ are untried on an aarch64 device ([the port](ports/linux-aarch64/README.md)).
 - **It finds the game**: in Steam's libraries, Heroic's and GOG's folders,
   Lutris, Bottles and Wine prefixes, on mounted drives; or it is shown the
   folder. The first run makes a profile from it, the game's settings and
-  keys imported. Nothing in the game's folder is ever written.
+  keys imported. Nothing in the game's folder is written but an ini a
+  command line names (`INI=`, `USERINI=`).
 - **Profiles**: one for each way of playing, with its own settings, keys,
   controller, saves and screenshots; made, copied, renamed, or deleted to
   the trash.
@@ -99,7 +100,7 @@ from a PC, as GitHub's CI does
 ([its quick start](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#quick-start)):
 
 ```sh
-scripts/dx.sh deps  linux-aarch64   # the SDK and the sysroot
+scripts/dx.sh deps  linux-aarch64   # the SDK, the sysroot, the sources, SDL2
 scripts/dx.sh build linux-aarch64   # the launcher, then the engine
 scripts/dx.sh test  linux-aarch64   # the unit tests, on the PC's build
 scripts/dx.sh stage linux-aarch64   # build/linux-aarch64/app: what ships
