@@ -44,7 +44,6 @@ int         dxl_config_save(dxl_config *c, dxl_err *err);
  * do -- after another process has written them. A file that is not there
  * keeps what was read before. */
 void        dxl_config_reload(dxl_config *c);
-int         dxl_config_dirty(const dxl_config *c);
 const char *dxl_config_path(const dxl_config *c);
 dxl_ini    *dxl_config_ini(dxl_config *c);
 
@@ -54,12 +53,10 @@ int         dxl_config_seeded(const dxl_config *c);
 /* User.ini. NULL only when it does not exist and there is no DefUser.ini to
  * create it from. */
 dxl_ini    *dxl_config_user_ini(dxl_config *c);
-const char *dxl_config_user_path(const dxl_config *c);
 
 int  dxl_config_first_run(const dxl_config *c);
 
 const char *dxl_config_render_device(const dxl_config *c);
 const char *dxl_config_cd_path(const dxl_config *c);
-const char *dxl_config_game_engine(const dxl_config *c);
 
 #endif

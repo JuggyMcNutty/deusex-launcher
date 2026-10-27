@@ -119,20 +119,11 @@ int dxl_config_save(dxl_config *c, dxl_err *err) {
     return 0;
 }
 
-static int file_pending(const ini_file *f) {
-    return f->ini && (dxl_ini_dirty(f->ini) || !f->existed);
-}
-
-int dxl_config_dirty(const dxl_config *c) {
-    return file_pending(&c->base) || file_pending(&c->user);
-}
-
 const char *dxl_config_path(const dxl_config *c) { return c->base.path; }
 dxl_ini *dxl_config_ini(dxl_config *c) { return c->base.ini; }
 int dxl_config_seeded(const dxl_config *c) { return c->seeded; }
 
 dxl_ini *dxl_config_user_ini(dxl_config *c) { return c->user.ini; }
-const char *dxl_config_user_path(const dxl_config *c) { return c->user.path; }
 
 int dxl_config_first_run(const dxl_config *c) {
     return dxl_ini_get_int(c->base.ini, "FirstRun", "FirstRun", 0);
@@ -144,8 +135,4 @@ const char *dxl_config_render_device(const dxl_config *c) {
 
 const char *dxl_config_cd_path(const dxl_config *c) {
     return dxl_ini_get(c->base.ini, "Engine.Engine", "CdPath");
-}
-
-const char *dxl_config_game_engine(const dxl_config *c) {
-    return dxl_ini_get(c->base.ini, "Engine.Engine", "GameEngine");
 }

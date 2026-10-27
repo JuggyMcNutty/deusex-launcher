@@ -40,7 +40,6 @@ static void test_reads_the_gates(void) {
     CHECK_INT(dxl_config_first_run(c), 0);
     CHECK_STR(dxl_config_render_device(c), "GlideDrv.GlideRenderDevice");
     CHECK_STR(dxl_config_cd_path(c), "..\\");
-    CHECK_STR(dxl_config_game_engine(c), "DeusEx.DeusExGameEngine");
 
     dxl_config_free(c);
     scrub(dir);
@@ -52,7 +51,6 @@ static void test_first_run_persists(void) {
 
     dxl_config *c = dxl_config_open(dir, "DeusEx");
     dxl_ini_set_int(dxl_config_ini(c), "FirstRun", "FirstRun", DXL_FIRSTRUN_CURRENT);
-    CHECK_INT(dxl_config_dirty(c), 1);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
@@ -74,7 +72,6 @@ static void test_untouched_config_is_byte_identical_after_save(void) {
     char *before = slurp(path, &before_len);
 
     dxl_config *c = dxl_config_open(dir, "DeusEx");
-    CHECK_INT(dxl_config_dirty(c), 0);
     dxl_config_save(c, NULL);
     dxl_config_free(c);
 
@@ -150,14 +147,12 @@ static void test_missing_ini_is_created_from_default(void) {
     dxl_config *c = dxl_config_open(dir, "DeusEx");
     CHECK_INT(dxl_config_seeded(c), 1);
     CHECK(dxl_ini_get(dxl_config_ini(c), "Core.System", "Paths") != NULL);
-    CHECK_INT(dxl_config_dirty(c), 1);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
 
     c = dxl_config_open(dir, "DeusEx");
     CHECK_INT(dxl_config_seeded(c), 0);
-    CHECK_STR(dxl_config_game_engine(c), "DeusEx.DeusExGameEngine");
     dxl_config_free(c);
     scrub_all(dir);
 }
@@ -170,7 +165,6 @@ static void test_missing_user_ini_is_created_from_defuser(void) {
 
     dxl_config *c = dxl_config_open(dir, "DeusEx");
     CHECK(dxl_config_user_ini(c) != NULL);
-    CHECK_INT(dxl_config_dirty(c), 1);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
