@@ -187,7 +187,7 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "graphics.light", .page = "Graphics", .label = "Lighting", .help = "How the light maps are blended.",
       .kind = DXL_SET_CHOICE, .choices = lighting, .def = "Normal", .at = { JSON(DXL_ES_LIGHT) } },
     { .id = "graphics.bloom", .page = "Graphics", .label = "Bloom",
-      .help = "A soft glow round bright lights, DXEngine's own.", .kind = DXL_SET_BOOL, .def = "0",
+      .help = "A soft glow round the world's bright lights, the HUD left sharp; DXEngine's own.", .kind = DXL_SET_BOOL, .def = "0",
       .at = { JSON(DXL_ES_BLOOM) } },
     { .id = "graphics.bloom_amount", .page = "Graphics", .label = "Bloom strength",
       .help = "How far the glow spreads, and how bright it is.", .kind = DXL_SET_NUMBER, .min = 0.0625, .max = 1,
@@ -215,7 +215,7 @@ const dxl_setting dxl_settings_table[] = {
       .help = "The screen's flash when you are hit or blinded; always on in a net game.", .kind = DXL_SET_BOOL,
       .def = "1", .at = { CLIENT("ScreenFlashes", DXL_CODEC_BOOL) } },
     { .id = "graphics.hdr", .page = "Graphics", .label = "HDR",
-      .help = "A scene of 16-bit colours, shown through DXEngine's HDR shader; on Vulkan on a display "
+      .help = "The picture through DXEngine's HDR shader, to the display's own range; on Vulkan on a display "
               "that takes it.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { JSON(DXL_ES_HDR) }, .flags = DXL_SET_ADVANCED },
     { .id = "graphics.hdr_scale", .page = "Graphics", .label = "HDR brightness", .help = "HDR's brightness.",
