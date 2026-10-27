@@ -7,15 +7,11 @@
 #include <time.h>
 
 static FILE *log_file;
-static int   log_echo = 1;
-static int   log_to_file = 1;
-
-void dxl_log_set_to_file(int on) { log_to_file = on; }
 
 /* "e": not inherited by a program the launcher starts. */
 static void open_mode(const char *path, const char *mode) {
     if (log_file) { fclose(log_file); log_file = NULL; }
-    if (!log_to_file || !path) return;
+    if (!path) return;
     log_file = fopen(path, mode);
 }
 
@@ -23,7 +19,7 @@ void dxl_log_open(const char *path) { open_mode(path, "abe"); }
 /* Emptied first, then written in append mode like the other: whatever a
  * child adds to the same file meanwhile is not written over. */
 void dxl_log_open_new(const char *path) {
-    if (log_to_file && path) {
+    if (path) {
         FILE *f = fopen(path, "wb");
         if (f) fclose(f);
     }
@@ -33,8 +29,6 @@ void dxl_log_open_new(const char *path) {
 void dxl_log_close(void) {
     if (log_file) { fclose(log_file); log_file = NULL; }
 }
-
-void dxl_log_set_echo(int on) { log_echo = on; }
 
 void dxl_log(const char *fmt, ...) {
     char stamp[32];
@@ -55,5 +49,5 @@ void dxl_log(const char *fmt, ...) {
         fprintf(log_file, "[%s] %s\n", stamp, msg);
         fflush(log_file);
     }
-    if (log_echo) fprintf(stderr, "[%s] %s\n", stamp, msg);
+    fprintf(stderr, "[%s] %s\n", stamp, msg);
 }

@@ -63,7 +63,7 @@ typedef struct {
 
 void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out);
 
-/* Human-readable names, for --dry-run output and logs. */
+/* Human-readable names, for the log. */
 const char *dxl_action_name(dxl_action a);
 const char *dxl_screen_name(dxl_screen s);
 
