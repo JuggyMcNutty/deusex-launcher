@@ -1,6 +1,7 @@
 #include "ui/art.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "core/sha1.h"
 #include "core/upkg_assets.h"
 #include "ui/draw.h"
 #include "ui/text.h"
@@ -13,6 +14,10 @@
 /* The logo's band of "Deus Ex", px of Help/Logo.bmp's 512 x 410: under its
  * emblem, clear of the makers' logos in its top corners. */
 static const SDL_Rect WORDMARK = { 32, 334, 448, 56 };
+/* Steam's Logo.bmp, by its SHA1, is the Game of the Year Edition's: the
+ * name higher, over the edition's banner, which the band leaves out. */
+static const char WORDMARK_STEAM_SHA1[] = "e79c3ceb291988c82f86051a9573e60b093cdfd9";
+static const SDL_Rect WORDMARK_STEAM = { 10, 279, 488, 62 };
 
 /* Pixel art scaled with its edges kept, where this SDL has the mode. */
 static void pixel_art(SDL_Texture *t) {
@@ -51,15 +56,18 @@ static void wordmark(dxl_art *a, SDL_Renderer *r, const char *root) {
     char *bmp = help ? dxl_path_resolve_ci(help, "Logo.bmp") : NULL;
     SDL_Surface *s = bmp ? SDL_LoadBMP(bmp) : NULL;
     SDL_Surface *rgba = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_RGBA32) : NULL;
-    if (rgba && rgba->w >= WORDMARK.x + WORDMARK.w && rgba->h >= WORDMARK.y + WORDMARK.h) {
-        SDL_Surface *band = SDL_CreateSurface(WORDMARK.w, WORDMARK.h, SDL_PIXELFORMAT_RGBA32);
-        if (band && SDL_BlitSurface(rgba, &WORDMARK, band, NULL)) {
+    char sha1[41];
+    const SDL_Rect *cut = &WORDMARK;
+    if (rgba && dxl_sha1_file(bmp, sha1) == 0 && !strcmp(sha1, WORDMARK_STEAM_SHA1)) cut = &WORDMARK_STEAM;
+    if (rgba && rgba->w >= cut->x + cut->w && rgba->h >= cut->y + cut->h) {
+        SDL_Surface *band = SDL_CreateSurface(cut->w, cut->h, SDL_PIXELFORMAT_RGBA32);
+        if (band && SDL_BlitSurface(rgba, cut, band, NULL)) {
             a->wordmark = SDL_CreateTextureFromSurface(r, band);
             if (a->wordmark) {
                 SDL_SetTextureScaleMode(a->wordmark, SDL_SCALEMODE_LINEAR);
                 SDL_SetTextureBlendMode(a->wordmark, SDL_BLENDMODE_ADD);
-                a->wordmark_w = (float)WORDMARK.w;
-                a->wordmark_h = (float)WORDMARK.h;
+                a->wordmark_w = (float)cut->w;
+                a->wordmark_h = (float)cut->h;
             }
         }
         SDL_DestroySurface(band);
