@@ -1,10 +1,11 @@
 /* The install's art the window wears, read at run time and never kept:
- * the logo's "Deus Ex" (Help/Logo.bmp's band of it, no maker's logo), and
- * the game's main menu buttons (DeusExUI.u's MenuMainButton* and
- * MenuMainLight_*), as textures of the window's renderer, made again when
- * the window is. The game draws them grey on black, tinted by its menu
- * theme and added to what is under them; so do these. Until there is an
- * install -- or one lacks a piece -- the kit's own drawing stands in.
+ * the logo's "Deus Ex" (Help/Logo.bmp's band of it, no maker's logo nor
+ * Steam's edition banner), and the game's main menu buttons (DeusExUI.u's
+ * MenuMainButton* and MenuMainLight_*), as textures of the window's
+ * renderer, made again when the window is. The game draws them grey on
+ * black, tinted by its menu theme and added to what is under them; so do
+ * these. Until there is an install -- or one lacks a piece -- the kit's own
+ * drawing stands in.
  */
 #ifndef DXL_UI_ART_H
 #define DXL_UI_ART_H

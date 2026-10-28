@@ -1,5 +1,6 @@
 /* SHA-1, for telling Deus Ex's builds apart by DeusEx.exe (core/gamedb.h),
- * as the engine itself does. Not for anything that needs a secure hash. */
+ * as the engine itself does, and Steam's logo by Help/Logo.bmp (ui/art.c).
+ * Not for anything that needs a secure hash. */
 #ifndef DXL_SHA1_H
 #define DXL_SHA1_H
 
