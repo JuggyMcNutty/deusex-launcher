@@ -370,7 +370,8 @@ Grey -- the install's colours of it, from `DeusEx.u`'s `ColorThemeMenu_*`
 (`src/core/theme_colors.c`), and the default theme's, the kit's own, until
 there is an install (`src/ui/theme.c`). Home wears the game's art, read
 from the install at run time and never kept: its logo's "Deus Ex"
-(`Help/Logo.bmp`, without the makers' logos) and its main menu's buttons
+(`Help/Logo.bmp`, without the makers' logos or, on Steam's, the Game of
+the Year banner under the name) and its main menu's buttons
 (`DeusExUI.u`'s `MenuMainButton*` and `MenuMainLight_*`), tinted by the
 theme and added to what is under them, as the game draws them
 (`src/ui/art.c`); ours stand in for what the install lacks. The game's
