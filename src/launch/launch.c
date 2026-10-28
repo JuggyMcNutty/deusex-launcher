@@ -188,7 +188,9 @@ static int cd_check(run *r) {
     char *game = dxl_path_dirname(r->base);
     int ok;
     while (!(ok = dxl_install_cd_ok(game, cd))) {
-        dxl_log("CD check: no %sTextures\\Palettes.utx", cd);
+        /* The probe's path, joined with the backslash CdPath may lack. */
+        const char *sep = strchr("\\/", cd[strlen(cd) - 1]) ? "" : "\\";
+        dxl_log("CD check: no %s%sTextures\\Palettes.utx", cd, sep);
         const char *title = dxl_loc_general(r->loc, "Window", "InsertCdTitle");
         const char *text = dxl_loc_general(r->loc, "Window", "InsertCdText");
         if (!r->ui->ok_cancel || !r->ui->ok_cancel(r->ui->ctx, title, text)) break;

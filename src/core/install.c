@@ -7,9 +7,9 @@
 int dxl_install_cd_ok(const char *game_dir, const char *cd_path) {
     if (!cd_path || !*cd_path) return 1;   /* nothing configured, nothing to check */
 
-    /* CdPath is a Windows path relative to System/, typically "..\" -- which
-     * on a normal install resolves right back to the game directory, which is
-     * why the shipped check never prompts. */
+    /* CdPath is a Windows path relative to System/: GOG's "..\" resolves
+     * right back to the game directory, Steam's "..\GOTY_1" to a folder
+     * beside it, which is why the shipped check never prompts. */
     char *rel = dxl_path_from_ini(cd_path);
     char *sys = dxl_path_join(game_dir, "System");
     char *base = rel[0] == '/' ? dxl_xstrdup(rel) : dxl_path_join(sys, rel);

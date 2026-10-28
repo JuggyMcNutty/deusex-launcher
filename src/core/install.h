@@ -1,9 +1,11 @@
 /* The CD check.
  *
- * The original loops on <CdPath>Textures\Palettes.utx, showing a modal box
- * until the disc appears (dx-reverse-info/launch-flow.md section 8). The
- * shipped DeusEx.ini sets CdPath=..\, so on a GOG or Steam install the check
- * passes against the game's own Textures\ directory and never prompts.
+ * The original loops on <CdPath>Textures\Palettes.utx, joined with a
+ * backslash where CdPath lacks one, showing a modal box until the disc
+ * appears (dx-reverse-info/launch-flow.md section 8). GOG's Default.ini sets
+ * CdPath=..\, the game's own Textures\ directory; Steam's ..\GOTY_1, a folder
+ * of its own holding Textures\Palettes.utx. On either the check passes and
+ * never prompts.
  *
  * Lookups are case-insensitive: the 2000-era names are mixed, and an install
  * copied from another filesystem may have any case.

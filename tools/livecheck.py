@@ -6,9 +6,13 @@
 DeusEx must be installed in <GameDir>/System with its run-game.sh and the
 engine beside it (Port Ex Machina's scripts/recreation.sh install). The
 checks run on a copy -- <out dir>/Game, the files a run writes copied, the
-rest linked -- so the install itself is not written, and on a private X
+rest linked, each of the install's folders among them (Steam's GOTY_1, which
+its CdPath names) -- so the install itself is not written, and on a private X
 display (Xvfb) where xdotool clicks, so nothing shows on the desktop and no
-real input is used. The engine's audio goes to OpenAL Soft's null driver.
+real input is used. The copy is an install the game has run on, as every
+scenario but firstrun takes it: FirstRun 1100, and DeusEx.ini and User.ini
+made from the defaults where the install has none, as the launcher makes
+them. The engine's audio goes to OpenAL Soft's null driver.
 Each scenario's screens are saved in <out dir> as the display shows them,
 with the launcher's log, and its results printed; the exit code is the
 number of checks that failed.
@@ -60,8 +64,9 @@ def make_copy():
     for d in ("Save", "Cache"):                   # empty: the player's own are not touched
         os.makedirs(GAME + "/" + d)
     shutil.copytree(SOURCE + "/Help", GAME + "/Help")
-    for d in ("Maps", "Music", "Sounds", "Textures"):
-        os.symlink(SOURCE + "/" + d, GAME + "/" + d)
+    for d in sorted(os.listdir(SOURCE)):          # the packages', and Steam's GOTY_1
+        if os.path.isdir(SOURCE + "/" + d) and d.lower() not in ("system", "save", "cache", "help"):
+            os.symlink(SOURCE + "/" + d, GAME + "/" + d)
     for f in os.listdir(SOURCE + "/System"):
         src = SOURCE + "/System/" + f
         if f.lower().endswith(WRITTEN) or f in PROGRAMS:
@@ -71,6 +76,13 @@ def make_copy():
     for f in ("Running.ini", "Detected.ini", "Detected.log"):
         if os.path.exists(SYS + "/" + f):
             os.remove(SYS + "/" + f)
+    # An install the game has run on: Steam ships its DeusEx.ini as its
+    # Default.ini, FirstRun 0, and a GOG install never run has none.
+    for f, default in (("DeusEx.ini", "Default.ini"), ("User.ini", "DefUser.ini")):
+        if not os.path.exists(SYS + "/" + f):
+            shutil.copy2(SYS + "/" + default, SYS + "/" + f)
+    if int(ini("FirstRun") or 0) < 1100:
+        set_ini("FirstRun", "1100")
 
 
 def free_display():

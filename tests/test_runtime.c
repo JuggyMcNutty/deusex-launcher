@@ -56,9 +56,9 @@ static void teardown(void) {
 
 /* --- the CD check ------------------------------------------------------- */
 
-/* The shipped CdPath is "..\" -- relative to System/, so it resolves back to
- * the game directory and the check passes. That is why nobody ever saw the
- * insert-CD prompt on a GOG install. */
+/* GOG's shipped CdPath is "..\" -- relative to System/, so it resolves back
+ * to the game directory and the check passes. That is why nobody ever saw
+ * the insert-CD prompt on a GOG install. */
 static void test_cd_check_with_shipped_path(void) {
     CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 1);
     CHECK_INT(dxl_install_cd_ok(g_root, ""), 1);      /* unset: nothing to check */
@@ -68,6 +68,22 @@ static void test_cd_check_with_shipped_path(void) {
     touch("Textures/Palettes.utx", "");
     CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 0);
     touch("Textures/Palettes.utx", "palette");
+}
+
+/* Steam's is "..\GOTY_1", with no backslash at its end: a folder of its own
+ * beside System/ holding Textures\Palettes.utx, joined with the backslash
+ * CdPath lacks (dx-reverse-info/launch-flow.md section 8). */
+static void test_cd_check_with_steams_path(void) {
+    CHECK_INT(dxl_install_cd_ok(g_root, "..\\GOTY_1"), 0);   /* no such folder */
+    mkdirs("GOTY_1");
+    mkdirs("GOTY_1/Textures");
+    touch("GOTY_1/Textures/Palettes.utx", "palette");
+    CHECK_INT(dxl_install_cd_ok(g_root, "..\\GOTY_1"), 1);
+    CHECK_INT(dxl_install_cd_ok(g_root, "..\\GOTY_1\\"), 1);
+    unlink_rel("GOTY_1/Textures/Palettes.utx");
+    char p[768];
+    snprintf(p, sizeof p, "%s/GOTY_1/Textures", g_root); rmdir(p);
+    snprintf(p, sizeof p, "%s/GOTY_1", g_root);          rmdir(p);
 }
 
 /* --- the crash sentinel ------------------------------------------------ */
@@ -204,6 +220,7 @@ static void test_sentinel_removes_another_case(void) {
 TEST_MAIN_BEGIN
     build_install();
     RUN(test_cd_check_with_shipped_path);
+    RUN(test_cd_check_with_steams_path);
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);
     RUN(test_sentinel_removes_another_case);

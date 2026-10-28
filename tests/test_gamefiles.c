@@ -1,6 +1,8 @@
 #include "test.h"
 #include "core/ini.h"
+#include "core/install.h"
 #include "core/localize.h"
+#include "core/paths.h"
 #include "core/renderdev.h"
 #include "core/peicon.h"
 
@@ -22,8 +24,8 @@ static char *game_file(const char *name) {
     return p;
 }
 
-/* DeusEx.ini and User.ini only exist once the game has run; the defaults it
- * builds them from always do. */
+/* DeusEx.ini and User.ini exist once the game has run, or as Steam ships
+ * them, copies of the defaults; the defaults always do. */
 static void test_roundtrip(void) {
     const char *names[] = { "Default.ini", "DefUser.ini", "DeusEx.ini", "User.ini" };
     for (size_t i = 0; i < sizeof names / sizeof *names; i++) {
@@ -56,8 +58,14 @@ static void test_default_ini_matches_the_spec(void) {
     /* dx-reverse-info/wizard.md: a pristine install ships FirstRun=0, so the
      * first-time flow always runs. */
     CHECK_INT(dxl_ini_get_int(ini, "FirstRun", "FirstRun", -1), 0);
-    /* dx-reverse-info/launch-flow.md section 8: CdPath=..\ makes the CD check pass. */
-    CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "CdPath"), "..\\");
+    /* dx-reverse-info/launch-flow.md section 8: the CdPath an edition ships
+     * makes the CD check pass -- GOG's ..\, the game's own Textures\;
+     * Steam's ..\GOTY_1, a folder of its own with a Textures\Palettes.utx. */
+    const char *cd = dxl_ini_get(ini, "Engine.Engine", "CdPath");
+    CHECK(cd && (!strcmp(cd, "..\\") || !strcmp(cd, "..\\GOTY_1")));
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    CHECK_INT(dxl_install_cd_ok(root, cd), 1);
+    free(root);
     CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "GameEngine"), "DeusEx.DeusExGameEngine");
     CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "GameRenderDevice"),
               "GlideDrv.GlideRenderDevice");
