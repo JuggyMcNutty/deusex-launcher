@@ -432,6 +432,18 @@ static void test_play_refused(void) {
     char *glibc = home_file("engines/glibc/DXEngine");
     char *running = home_file("state/dxlauncher/profiles/default/Running.ini");
     CHECK_INT(sh("mkdir -p \"$(dirname '%s')\" && : >'%s'", running, running), 0);
+    /* A crash's Running.ini comes after a run, which raised FirstRun to 1100
+     * (run.c's commit): the import's is the install's, 0 where the game has
+     * never run -- Steam ships its DeusEx.ini as Default.ini -- and below
+     * 400 the first-time branch would come before Recovery. */
+    profile_files f;
+    open_files(&f);
+    CHECK(f.sys != NULL);
+    if (f.sys) {
+        dxl_ini_set(f.sys, "FirstRun", "FirstRun", "1100");
+        CHECK_INT(dxl_ini_save(f.sys, f.p.system_ini, NULL), 0);
+    }
+    close_files(&f);
     char env[700];
     snprintf(env, sizeof env, "DXL_ENGINE='%s'", glibc);
     CHECK_INT(launch_with("recovery_engine.script", "ready", env), 0);
