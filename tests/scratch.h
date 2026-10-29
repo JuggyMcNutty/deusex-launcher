@@ -67,7 +67,11 @@ static int scratch_by_name(const void *a, const void *b) {
 }
 
 /* Every file and folder under dir, its size and time, a line each in name
- * order: to compare after. Caller frees. */
+ * order: to compare after. A link to a folder is listed, not gone into: one
+ * to a folder above it (the import's test of a save folder holding a link
+ * to itself) would be walked till the system gives up on its links, which it
+ * does at no one depth, two walks differing though nothing changed. Caller
+ * frees. */
 static inline void scratch_list_into(const char *dir, const char *rel, char ***lines, size_t *n, size_t *cap) {
     char *path = rel[0] ? dxl_path_join(dir, rel) : dxl_xstrdup(dir);
     DIR *d = opendir(path);
@@ -82,7 +86,7 @@ static inline void scratch_list_into(const char *dir, const char *rel, char ***l
             size_t len = strlen(child) + 48;
             (*lines)[*n] = malloc(len);
             snprintf((*lines)[(*n)++], len, "%s %lld %lld\n", child, (long long)st.st_size, (long long)st.st_mtime);
-            if (S_ISDIR(st.st_mode)) scratch_list_into(dir, child, lines, n, cap);
+            if (S_ISDIR(st.st_mode) && !dxl_fs_is_link(full)) scratch_list_into(dir, child, lines, n, cap);
         }
         free(full);
         free(child);
