@@ -169,9 +169,10 @@ original's log window drops one before its main loop runs.
 
 `run-game.sh` starts the engine from `System/` with the launcher's package's
 ini (`DeusEx.ini`, or a mod's the launcher is renamed to, `DXL_PACKAGE`) and
-`User.ini`, its log streamed into the game's (`--verbose`, so a critical error
-opens the engine's own window, as the original's box), and the command line as
-one string, `--cmdline=`
+`User.ini`, the files the launcher opened, in whatever case the install has
+them (`DXL_INI`, `DXL_USERINI`), its log streamed into the game's
+(`--verbose`, so a critical error opens the engine's own window, as the
+original's box), and the command line as one string, `--cmdline=`
 ([what the engine reads of it](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-command-line));
 `DXL_ENGINE_ARGS` adds engine options of its own, for a scripted run. Asked to
 stop (SIGINT, SIGTERM, SIGHUP), the launcher sends the game SIGTERM, and

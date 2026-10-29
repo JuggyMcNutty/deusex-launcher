@@ -205,8 +205,12 @@ static int cd_check(run *r) {
  * and exits. */
 static int play(run *r, volatile int *stop) {
     char *script = dxl_path_join(r->base, GAME_SCRIPT);
-    /* The package's ini is the engine's too (run-game.sh). */
+    /* The package's ini is the engine's too (run-game.sh), and User.ini,
+     * the files the launcher opened, in whatever case the install has them,
+     * which the engine opens by that very name. */
     setenv("DXL_PACKAGE", r->package, 1);
+    setenv("DXL_INI", dxl_config_path(r->cfg), 1);
+    setenv("DXL_USERINI", dxl_config_user_path(r->cfg), 1);
     dxl_err e;
     dxl_game g;
     dxl_log("starting the game: %s %s", script, r->cmd);

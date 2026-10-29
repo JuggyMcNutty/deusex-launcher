@@ -53,6 +53,9 @@ int         dxl_config_seeded(const dxl_config *c);
 /* User.ini. NULL only when it does not exist and there is no DefUser.ini to
  * create it from. */
 dxl_ini    *dxl_config_user_ini(dxl_config *c);
+/* Its path, as it was opened: the file on disk in whatever case, else the
+ * one a save makes. */
+const char *dxl_config_user_path(const dxl_config *c);
 
 int  dxl_config_first_run(const dxl_config *c);
 

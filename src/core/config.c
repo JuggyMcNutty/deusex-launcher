@@ -124,6 +124,7 @@ dxl_ini *dxl_config_ini(dxl_config *c) { return c->base.ini; }
 int dxl_config_seeded(const dxl_config *c) { return c->seeded; }
 
 dxl_ini *dxl_config_user_ini(dxl_config *c) { return c->user.ini; }
+const char *dxl_config_user_path(const dxl_config *c) { return c->user.path; }
 
 int dxl_config_first_run(const dxl_config *c) {
     return dxl_ini_get_int(c->base.ini, "FirstRun", "FirstRun", 0);

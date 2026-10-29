@@ -527,6 +527,46 @@ static void test_run_game_script(void) {
     scratch_remove(root);
 }
 
+/* The real run-game.sh on an install whose inis are spelled in lower case:
+ * the engine is given the files the launcher opened, deusex.ini and
+ * user.ini, not names of another case that are not there. */
+static void test_run_game_inis_in_any_case(void) {
+    install("l-script-case", NULL);
+    char *was = scratch_path(root, "System/DeusEx.ini"), *now = scratch_path(root, "System/deusex.ini");
+    CHECK_INT(rename(was, now), 0);
+    free(was);
+    free(now);
+    scratch_write(root, "System/user.ini", "[Engine.Input]\r\nF1=Help\r\n");
+    size_t n = 0;
+    char *script = slurp(DXL_RUN_GAME, &n);
+    CHECK(script != NULL);
+    if (!script) return;
+    scratch_write(root, "System/run-game.sh", script);
+    free(script);
+    scratch_write(root, "System/DXEngine",
+                  "#!/bin/sh\n"
+                  "for a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$(dirname \"$0\")/engine-args.txt\"\n");
+    char *p = scratch_path(root, "System/run-game.sh");
+    chmod(p, 0755);
+    free(p);
+    p = scratch_path(root, "System/DXEngine");
+    chmod(p, 0755);
+    free(p);
+    unsetenv("DXL_ENGINE_ARGS");
+    dxl_launch_result r;
+    launch((const char *[]){ "-log", NULL }, &r);
+    CHECK_STR(r.ended, "the game ran");
+    char *args = read_file("System/engine-args.txt");
+    char want[1100];
+    snprintf(want, sizeof want, "\n--ini=%s/deusex.ini\n", sys);
+    CHECK(strstr(args, want) != NULL);
+    snprintf(want, sizeof want, "\n--userini=%s/user.ini\n", sys);
+    CHECK(strstr(args, want) != NULL);
+    free(args);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
 /* The real run-game.sh with no engine beside it: its exit of 127 is a
  * start that failed, said in the critical box, Running.ini kept. */
 static void test_run_game_without_an_engine(void) {
@@ -579,6 +619,7 @@ TEST_MAIN_BEGIN
     scratch_runtime_dir();
     RUN(test_quoted_ini);
     RUN(test_run_game_script);
+    RUN(test_run_game_inis_in_any_case);
     RUN(test_run_game_without_an_engine);
     RUN(test_relaunch_line);
     RUN(test_other_inis);
