@@ -242,6 +242,46 @@ static void test_forwarded(void) {
     free(dir);
 }
 
+/* The kill's time is the clock's: a second start's lines coming in while
+ * the game stops, each waking the wait, bring it no sooner. */
+static void *forward_many(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 40; i++) {
+        dxl_instance_forward(forward_id, "-nosound", 1000, NULL);
+        dxl_os_sleep_ms(10);
+    }
+    return NULL;
+}
+static void stop_and_forward(void *ctx) {
+    (void)ctx;
+    stop_now = 1;
+    pthread_create(&forwarder, NULL, forward_many, NULL);
+}
+static void test_kill_in_time(void) {
+    snprintf(forward_id, sizeof forward_id, "dxl-test-play-kill-%ld", dxl_os_pid());
+    dxl_instance *inst = dxl_instance_acquire(forward_id);
+    CHECK(inst != NULL);
+    char *env[] = { "DXL_STUB=stubborn", NULL };
+    stop_now = 0;
+    scratch_run s = { dxl_xstrdup(scratch_dir("play-stubborn-woken")), NULL };
+    s.log = scratch_path(s.dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    dxl_play_request req = {
+        .argv = argv, .env = env, .workdir = s.dir, .log_path = s.log, .instance = inst,
+        .stop = &stop_now, .on_ready = stop_and_forward,
+    };
+    dxl_play_result r;
+    long long t0 = dxl_os_ms();
+    dxl_play(&req, &r);
+    long long took = dxl_os_ms() - t0;
+    pthread_join(forwarder, NULL);
+    CHECK_INT(r.killed, 1);
+    CHECK(took >= DXL_PLAY_KILL_AFTER_MS);
+    stop_now = 0;
+    dxl_instance_release(inst);
+    done(&s, &r);
+}
+
 /* A deusex:// link is the launcher's own, its server to join, not a word
  * of the original's command line. */
 static void test_parse_link(void) {
@@ -282,5 +322,6 @@ TEST_MAIN_BEGIN
     RUN(test_line_outlived);
 #endif
     RUN(test_forwarded);
+    RUN(test_kill_in_time);
     RUN(test_cannot_start);
 TEST_MAIN_END
