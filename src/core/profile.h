@@ -61,7 +61,7 @@ int  dxl_profile_make_dirs(dxl_profile *p, dxl_err *err);
 /* What makes the link: dxl_fs_link_dir, a test's own to make it fail. */
 extern int (*dxl_profile_link)(const char *target, const char *link);
 
-/* Its saves: the save folder's SaveNNNN folders and QuickSave. */
+/* Its saves: as many as the Saves page lists (core/saves.h). */
 int  dxl_profile_count_saves(const dxl_profile *p);
 
 /* Its four folders, each the profile's alone: <config>/profiles/<id>,
@@ -98,7 +98,7 @@ typedef struct {
     char user_from[512];     /* User.ini's */
     char engine_from[512];   /* where the engine's own sections came from; "" for none */
     char saves_from[512];    /* the game's save folder */
-    int  saves;              /* save folders (SaveNNNN, QuickSave) to copy, or copied */
+    int  saves;              /* its saves, as the Saves page lists them (core/saves.h), to copy or copied */
     int  shots;              /* System/Shot*.bmp */
     int  master_replaced;    /* GameSpy's dead master server given 333networks' */
     int  bindings_folded;    /* [Extension.InputExt]'s keys, the original's, put in [Engine.Input] */
