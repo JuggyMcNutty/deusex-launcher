@@ -233,6 +233,7 @@ int dxl_hints(dxl_ui *ui, dxl_rect r, const dxl_hint_item *items, int n) {
         char name[32];
         snprintf(name, sizeof name, "hint %d", (int)items[i].hint);
         dxl_rect area = { x - 8, r.y, widths[i] + 16, r.h };
+        if (items[i].hint == DXL_HINT_BACK) ui->back_hint = area;
         int hits = dxl_ui_clickable(ui, dxl_ui_id(ui, name), area);
         float gw = dxl_glyph(ui, items[i].hint, x, cy, gs, 1);
         dxl_rect label = { x + gw + gap, r.y, widths[i] - gw - gap + 1, r.h };
