@@ -342,8 +342,9 @@ chosen -- or the game, while it plays, opens the server.
 The launcher's own options start with `--` (`--game=`, `--profile=`,
 `--play`); every other word is the original's command line, the player's,
 which reaches the engine whole in `--cmdline`. Exit codes: the game's own
-status, or 2 for an option it does not know, 3 for a screen that is due
-with no window (`dxl-cli`'s), 4 for no install or engine to play.
+status, or 1 for a stop at a screen, 2 for an option it does not know, 3
+for a screen that is due with no window (`dxl-cli`'s, or a window that
+does not open), 4 for no install or engine to play.
 
 ## The window
 
@@ -681,7 +682,10 @@ own back.
 folder: made before the game, the folder with it where it is gone, taken
 away at a clean end and at one with no game -- a quit on a screen,
 `-consolecommand=`, `-testrendev=` -- as the original's at every end but a
-crash and its CD prompt. Beside it,
+crash and its CD prompt. A screen no one answered is no quit: one whose
+window does not open, or that a signal closes, leaves it, and a stop
+after a run that was not clean opens no Recovery, the next start's to
+open. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`DXEngine error: ...`),
 its line where the renderer chosen did not start and the software one drew
@@ -775,7 +779,8 @@ and the Recovery that follows, a launcher killed while it plays, a
 dedicated server, started so or relaunched to, that takes no second
 start's line, and ends with no game after a crash, Recovery quit,
 `-consolecommand=` and `-testrendev=`, which take `Running.ini` away, and
-checks that nothing in the game's folder changed.
+with Recovery not answered, which leaves it, and checks that nothing in
+the game's folder changed.
 
 The window's kit is tested on SDL's software renderer and a surface:
 focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the

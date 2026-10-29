@@ -399,6 +399,18 @@ static const char *view_name(dxl_view v) {
     return "?";
 }
 
+/* A screen no one answered (DXL_VIEW_UNANSWERED): 1 for a signal's stop,
+ * as a game the launcher stopped ends; DXL_RUN_EXIT_SCREEN for a screen due
+ * with no window. */
+static int unanswered(dxl_run *r, volatile int *stop, dxl_view v) {
+    if (stop && *stop) {
+        dxl_log("%s: stopped before it was answered", view_name(v));
+        return 1;
+    }
+    stop_with(r, "%s is due and there is no window for it", view_name(v));
+    return DXL_RUN_EXIT_SCREEN;
+}
+
 static void dry_run(dxl_run *r) {
     dxl_session *s = &r->session;
     dxl_profile *p = &s->profile;
@@ -505,9 +517,11 @@ static void open_log(dxl_run *r, int beside) {
  * install is the first one offered; with no window, from --game's install.
  * 0 to go on; -1 when the player quit there; else the exit code to stop
  * with. */
-static int first_run(dxl_run *r, const dxl_run_ui *ui) {
+static int first_run(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     if (ui && ui->view && !r->opt.import_only) {
-        if (!ui->view(ui->ctx, r, DXL_VIEW_FIRST_RUN)) return -1;
+        int v = ui->view(ui->ctx, r, DXL_VIEW_FIRST_RUN);
+        if (v == DXL_VIEW_UNANSWERED) return unanswered(r, stop, DXL_VIEW_FIRST_RUN);
+        if (!v) return -1;
         if (dxl_profile_exists(&r->session.profile)) return 0;
         stop_with(r, "the first run made no profile");
         return DXL_RUN_EXIT_NOGAME;
@@ -838,7 +852,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     if (!dxl_profile_exists(&r->session.profile)) {
         if (r->opt.dry || r->opt.print_command) {
             if (r->opt.game) dxl_install_check(r->opt.game, &r->session.install);
-        } else if ((rc = first_run(r, ui)) != 0) {
+        } else if ((rc = first_run(r, ui, stop)) != 0) {
             if (rc < 0) rc = 0;   /* the player quit */
             goto done;
         }
@@ -860,7 +874,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         if (ui && ui->view && !r->opt.print_command) {
             dxl_log("profile %s: its install is not there to play (%s)", r->session.profile.id,
                     r->session.install.problem);
-            if (!ui->view(ui->ctx, r, DXL_VIEW_INSTALL)) goto done;
+            int v = ui->view(ui->ctx, r, DXL_VIEW_INSTALL);
+            if (v == DXL_VIEW_UNANSWERED) rc = unanswered(r, stop, DXL_VIEW_INSTALL);
+            if (v <= 0) goto done;
         }
         if (dxl_session_check_install(&r->session) != 0) {
             const dxl_install *in = &r->session.install;
@@ -910,9 +926,11 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
         }
         if (r->view != DXL_VIEW_NONE) {
             if (ui && ui->view) {
-                if (!ui->view(ui->ctx, r, r->view)) {
+                int v = ui->view(ui->ctx, r, r->view);
+                if (v <= 0) {
                     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
-                    end_without_game(r);
+                    if (v == DXL_VIEW_UNANSWERED) rc = unanswered(r, stop, r->view);
+                    else end_without_game(r);
                     goto done;
                 }
             } else if (r->view != DXL_VIEW_HOME) {
@@ -976,13 +994,15 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             char line[600];
             dxl_lastrun_describe(&r->last, line, sizeof line);
             fprintf(stderr, "The game did not end cleanly: %s.\n", line);
-            if (ui && ui->view) {
+            /* Stopped: no Recovery now, its Running.ini the next start's. */
+            if (ui && ui->view && !(stop && *stop)) {
                 r->view = DXL_VIEW_RECOVERY;
-                if (ui->view(ui->ctx, r, DXL_VIEW_RECOVERY)) {
+                int answer = ui->view(ui->ctx, r, DXL_VIEW_RECOVERY);
+                if (answer > 0) {
                     answered = 1;
                     continue;
                 }
-                end_without_game(r);
+                if (answer == 0) end_without_game(r);
             } else {
                 char *log = dxl_path_join(r->session.profile.logs_dir, DXL_LASTRUN_LOG);
                 fprintf(stderr, "Its log: %s\n", log);
