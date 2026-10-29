@@ -16,7 +16,6 @@
  * there (DXEngine's ENGINE.md, gameplay: the audio and render devices). */
 static const char *const engine_sections[] = {
     "Engine.DXEngineClient", "Engine.DXEngineAudioDevice", "Engine.DXEngineRenderDevice",
-    "Engine.DXEngineWindowSystem",
 };
 
 /* The game's master server for its Join screen is GameSpy's, which closed;
