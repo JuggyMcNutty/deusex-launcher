@@ -1,5 +1,5 @@
 /* SDL's game controller mappings, as text: "<GUID>,<name>,<control>:<source>,
- * ...,platform:Linux,". A control is SDL's name for it (a for the south
+ * ...,platform:<system>,". A control is SDL's name for it (a for the south
  * button, b east, x west, y north, back, guide, start, the sticks' clicks,
  * the shoulders, the d-pad's four, the sticks' axes, the triggers); a
  * source the joystick's button (b3), hat (h0.4: hat 0, down -- 1 up, 2
@@ -50,8 +50,10 @@ typedef struct {
 /* A source as SDL's text has it: "b3", "h0.4", "+a2", "a1~"; "" for none. */
 void dxl_padsrc_format(const dxl_padsrc *s, char *out, size_t size);
 /* The mapping as SDL takes it: each control that has a source, then
- * platform:Linux. A comma in the name is left out. */
-void dxl_padmap_format(const dxl_padmap *m, char *out, size_t size);
+ * platform:<platform>, SDL's name for the system it is made on
+ * (SDL_GetPlatform()): a file of them gives SDL only the lines of its own
+ * system's. A comma in the name is left out. */
+void dxl_padmap_format(const dxl_padmap *m, const char *platform, char *out, size_t size);
 /* How many controls it maps. */
 int  dxl_padmap_controls(const dxl_padmap *m);
 /* Whether the two map every control alike, whatever their GUIDs and names. */

@@ -23,7 +23,7 @@ void dxl_padsrc_format(const dxl_padsrc *s, char *out, size_t size) {
     }
 }
 
-void dxl_padmap_format(const dxl_padmap *m, char *out, size_t size) {
+void dxl_padmap_format(const dxl_padmap *m, const char *platform, char *out, size_t size) {
     char name[sizeof m->name];
     size_t n = 0;
     for (const char *c = m->name; *c && n + 1 < sizeof name; c++)
@@ -38,7 +38,7 @@ void dxl_padmap_format(const dxl_padmap *m, char *out, size_t size) {
         dxl_padsrc_format(&m->src[i], s, sizeof s);
         dxl_buf_printf(&b, "%s:%s,", dxl_padctl_names[i], s);
     }
-    dxl_buf_puts(&b, "platform:Linux,");
+    dxl_buf_printf(&b, "platform:%s,", platform);
     snprintf(out, size, "%s", b.data);
     dxl_buf_free(&b);
 }
