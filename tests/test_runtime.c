@@ -3,8 +3,11 @@
 #include "core/sentinel.h"
 #include "core/install.h"
 #include "core/instance.h"
+#include "core/log.h"
 #include "core/paths.h"
 
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -224,6 +227,32 @@ static void test_lock_without_channel(void) {
 
 /* A Running.ini in another case, a copied install's, goes with the run's
  * own: left, it opened RecoveryMode at every launch. */
+/* The log emptied by the launcher that holds it alone: one opened afresh
+ * while another launcher holds it, started at the same moment, adds to it,
+ * as the original's second writer leaves the first's log alone. */
+static void test_log_held(void) {
+    char path[768];
+    snprintf(path, sizeof path, "%s/System/DeusEx.log", g_root);
+    touch("System/DeusEx.log", "the first's\n");
+    int first = open(path, O_RDWR);
+    CHECK_INT(flock(first, LOCK_EX | LOCK_NB), 0);
+    dxl_log_open_new(path);
+    dxl_log("the second's");
+    dxl_log_close();
+    char *text = slurp(path, NULL);
+    CHECK(text && strstr(text, "the first's\n") && strstr(text, "the second's"));
+    free(text);
+    close(first);
+    /* Held by none: afresh. */
+    dxl_log_open_new(path);
+    dxl_log("the third's");
+    dxl_log_close();
+    text = slurp(path, NULL);
+    CHECK(text && !strstr(text, "the first's") && strstr(text, "the third's"));
+    free(text);
+    unlink_rel("System/DeusEx.log");
+}
+
 static void test_sentinel_removes_another_case(void) {
     char sysdir[768], other[900];
     snprintf(sysdir, sizeof sysdir, "%s/System", g_root);
@@ -254,5 +283,6 @@ TEST_MAIN_BEGIN
     RUN(test_lock_is_the_users);
     RUN(test_handoff_delivers_the_command_line);
     RUN(test_lock_without_channel);
+    RUN(test_log_held);
     teardown();
 TEST_MAIN_END

@@ -364,8 +364,11 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     }
 
     /* 4 and 5.3. The lock, and for a client the line a second launch
-     * forwards to (the original's IsBrowser window). */
+     * forwards to (the original's IsBrowser window). Not had: another
+     * instance holds it, though none did when the log was opened, as the
+     * original's CreateMutex finds its mutex there already. */
     r.inst = client ? dxl_instance_acquire() : dxl_instance_acquire_lock();
+    if (!r.inst) other = 1;
 
     /* 5. InitEngine. */
     dxl_policy_input in = {

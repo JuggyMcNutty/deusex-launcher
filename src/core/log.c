@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <time.h>
+#include <unistd.h>
 
 static FILE *log_file;
 
@@ -16,14 +18,14 @@ static void open_mode(const char *path, const char *mode) {
 }
 
 void dxl_log_open(const char *path) { open_mode(path, "abe"); }
-/* Emptied first, then written in append mode like the other: whatever a
- * child adds to the same file meanwhile is not written over. */
+/* Emptied first by the launcher that holds it, then written in append mode
+ * like the other: whatever a child adds to the same file meanwhile is not
+ * written over. Held: an exclusive lock on it, kept while it is open, as
+ * the original's first writer holds its log, a launch started at the same
+ * moment then adding to it, never emptying it. */
 void dxl_log_open_new(const char *path) {
-    if (path) {
-        FILE *f = fopen(path, "wb");
-        if (f) fclose(f);
-    }
     open_mode(path, "abe");
+    if (log_file && flock(fileno(log_file), LOCK_EX | LOCK_NB) == 0 && ftruncate(fileno(log_file), 0) != 0) {}
 }
 
 void dxl_log_close(void) {

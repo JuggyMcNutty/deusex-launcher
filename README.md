@@ -127,9 +127,10 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   here `-log` only keeps the splash away, and the log is the file,
   `<Package>.log`, as the original's is too.
 - **A launch beside a running one appends to the log** (a bypass word's,
-  one beside `-server`'s): the original's second writer fails to open the
-  file, which the first holds with read sharing alone, and that launch runs
-  without a log.
+  one beside `-server`'s, one started at the same moment, the first holding
+  it locked): the original's second writer fails to open the file, which
+  the first holds with read sharing alone, and that launch runs without a
+  log.
 - **The window frames are the desktop's.** The wizard's carries the game's
   icon from the install's `DeusEx.exe` ([`peicon.h`](src/core/peicon.h));
   the message boxes and the splash have none, as in the original.
