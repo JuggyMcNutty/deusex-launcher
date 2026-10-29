@@ -1022,6 +1022,11 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             free(r->words);
             r->words = dxl_xstrdup(r->played.relaunch);
             r->relaunched = 1;
+            /* The inis its words name, the profile's with no INI= in them,
+             * as the engine started on them reads: the original's
+             * relaunched DeusEx.exe takes the rest of the line alone. */
+            dxl_config_free(r->config);
+            r->config = open_config(r);
             if (r->instance) hold_instance(r);
             continue;
         }

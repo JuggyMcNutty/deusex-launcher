@@ -443,6 +443,61 @@ static void test_first_run_refused(void) {
     free(home);
 }
 
+/* A window that plays from Home and quits at Graphics, noting the ini its
+ * run's config is then. */
+static char graphics_ini[1024];
+static int play_then_graphics(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    if (which == DXL_VIEW_HOME) return 1;
+    if (which == DXL_VIEW_GRAPHICS && r->config)
+        snprintf(graphics_ini, sizeof graphics_ini, "%s", dxl_config_path(r->config));
+    return 0;
+}
+
+/* A game played on a line's INI= relaunched to -changevideo: the relaunch's
+ * words name no ini, so its Graphics edits the profile's DeusEx.ini, the
+ * one the relaunched engine reads, as the original's relaunched DeusEx.exe
+ * takes the rest of the line alone. */
+static void test_relaunch_drops_ini(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-relaunch"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *mod_ini = scratch_path(home, "Mod.ini");
+    size_t len = 0;
+    char *text = slurp(p.system_ini, &len);
+    scratch_write(home, "Mod.ini", text ? text : "");
+    free(text);
+    char word[1100];
+    snprintf(word, sizeof word, "INI=%s", mod_ini);
+    dxl_env_set("DXL_STUB", "relaunch");
+    dxl_env_set("DXL_STUB_LINE", "-changevideo");
+    dxl_run_ui ui = { .view = play_then_graphics };
+    char *argv[] = { "deusex-launcher", word, NULL };
+    static volatile int stop;
+    graphics_ini[0] = '\0';
+    CHECK_INT(dxl_run_main(2, argv, &ui, &stop), 0);
+    CHECK_STR(graphics_ini, p.system_ini);
+    dxl_env_set("DXL_STUB_LINE", NULL);
+    free(mod_ini);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window that answers nothing, as one that does not open or that a
  * signal closes, but for Play at Recovery while play is set. */
 static int unanswered_views, play_at_recovery;
@@ -700,5 +755,6 @@ TEST_MAIN_BEGIN
     RUN(test_ends_without_a_game);
     RUN(test_unanswered);
     RUN(test_first_run_refused);
+    RUN(test_relaunch_drops_ini);
     RUN(test_back_home);
 TEST_MAIN_END
