@@ -132,6 +132,9 @@ int dxl_session_make_profile(dxl_session *s, const dxl_install *in, const dxl_mo
     if (mod) dxl_profile_set(&s->profile, "Mod", mod->dir);
     if (dxl_profile_save(&s->profile, err) != 0) return -1;
     dxl_ini_set(s->ini, LAUNCHER, "Profile", s->profile.id);
+    /* launcher.ini with it at once, the install the profile names in it,
+     * whatever stops the run after (an engine refused). */
+    if (dxl_session_save(s, err) != 0) return -1;
     dxl_log("profile %s made from %s%s%s (DeusEx.ini from %s, User.ini from %s, %d saves, %d shots)",
             s->profile.id, in->root, mod ? " and the mod " : "", mod ? mod->dir : "", report->system_from,
             report->user_from, report->saves, report->shots);
