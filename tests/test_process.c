@@ -7,6 +7,7 @@
 #include "platform/process.h"
 #include "platform/os.h"
 #include "platform/fs.h"
+#include "platform/startup.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -201,6 +202,29 @@ static void test_crash(void) {
     scratch_remove(dir);
     free(dir);
 }
+
+#ifndef _WIN32
+/* Started by a parent that ignores SIGCHLD, which an exec passes on: the
+ * start takes it back, so the game's end is seen, not waited for ever. */
+static void test_child_ignored(void) {
+    signal(SIGCHLD, SIG_IGN);
+    static volatile int stop;
+    dxl_startup(&stop, NULL);
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    char *env[] = { "DXL_STUB=crash", NULL };
+    char *dir = dxl_xstrdup(scratch_dir("process-sigchld"));
+    char *log = scratch_path(dir, "run.log");
+    dxl_game g;
+    CHECK_INT(dxl_game_start_argv(&g, argv, env, NULL, log, NULL), 0);
+    char said[64];
+    CHECK_INT(wait_end(&g, 5000, said, sizeof said), 1);
+    CHECK_INT(g.status, END_CRASH_STATUS);
+    dxl_game_close(&g);
+    free(log);
+    scratch_remove(dir);
+    free(dir);
+}
+#endif
 
 static void test_cannot_run(void) {
     char *argv[] = { "/nonexistent/DXEngine", NULL };
@@ -470,4 +494,7 @@ TEST_MAIN_BEGIN
 #endif
     RUN(test_engine_check);
     RUN(test_engine_chosen);
+#ifndef _WIN32
+    RUN(test_child_ignored);
+#endif
 TEST_MAIN_END
