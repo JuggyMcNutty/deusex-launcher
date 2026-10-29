@@ -224,7 +224,8 @@ static void test_browse(void) {
     CHECK(strstr(w.status[1], "\\hostname\\Fake Two\\") != NULL);
 }
 
-/* A master's error, said; no master there, said. */
+/* A master's error, said; no master there, said at once, the connect's
+ * refusal, not a wait for an answer (Windows 10 1903 and 1909's WSAPoll). */
 static void test_master_errors(void) {
     seen w;
     int rc;
@@ -239,8 +240,11 @@ static void test_master_errors(void) {
     char at[64];
     snprintf(at, sizeof at, "127.0.0.1:%d", port);
     dxl_browse_fns fns = { on_listed, on_answered };
+    long long t0 = dxl_os_ms();
     CHECK_INT(dxl_browse(at, NULL, NULL, &fns, &w, NULL, &e), -1);
+    CHECK(dxl_os_ms() - t0 < 2500);
     CHECK(e.msg[0] != '\0');
+    CHECK(strstr(e.msg, "no answer") == NULL);
     CHECK_INT(dxl_browse("host:0", NULL, NULL, &fns, &w, NULL, &e), -1);
 }
 

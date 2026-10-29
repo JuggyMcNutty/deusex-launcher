@@ -129,6 +129,22 @@ static int wait_for(SOCKET s, short what, int timeout_ms) {
     return rc < 0 ? -1 : rc > 0;
 }
 
+/* Waits for a connect's end: 1 connected, 0 timed out, -1 failed. By
+ * select, whose exceptions have a failed connect on every Windows: WSAPoll
+ * tells one only from Windows 10 2004 (build 19041), and on the port's 1903
+ * and 1909 a refused connect would wait out its time. */
+static int connect_wait(SOCKET s, int timeout_ms) {
+    fd_set wr, ex;
+    FD_ZERO(&wr);
+    FD_ZERO(&ex);
+    FD_SET(s, &wr);
+    FD_SET(s, &ex);
+    struct timeval tv = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
+    int rc = select(0, NULL, &wr, &ex, timeout_ms < 0 ? NULL : &tv);
+    if (rc < 0 || FD_ISSET(s, &ex)) return -1;
+    return rc > 0;
+}
+
 /* A socket of type, not inherited by the programs the launcher starts, not
  * blocking. */
 static SOCKET open_socket(int type, int protocol, dxl_err *err) {
@@ -159,9 +175,10 @@ dxl_socket dxl_tcp_connect(const char *address, int port, int timeout_ms, dxl_er
         closesocket(s);
         return DXL_SOCKET_NONE;
     }
-    int ready = wait_for(s, POLLWRNORM, timeout_ms);
+    int ready = connect_wait(s, timeout_ms);
     int so = 0, len = sizeof so;
-    if (ready <= 0 || getsockopt(s, SOL_SOCKET, SO_ERROR, (char *)&so, &len) != 0 || so != 0) {
+    if (ready != 0 && getsockopt(s, SOL_SOCKET, SO_ERROR, (char *)&so, &len) != 0) so = WSAGetLastError();
+    if (ready <= 0 || so != 0) {
         if (ready == 0) dxl_err_set(err, "%s:%d: no answer", address, port);
         else dxl_err_set(err, "%s:%d: error %d", address, port, so ? so : WSAGetLastError());
         closesocket(s);
