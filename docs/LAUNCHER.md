@@ -306,7 +306,8 @@ chosen -- or the game, while it plays, opens the server.
    (`src/platform/win32/instance.c`). One playing a dedicated server
    (`-server`, started so or relaunched to it by the game) holds the lock
    alone and takes no line, as the original's server, whose log window is
-   never `IsBrowser`: a second start plays beside it.
+   never `IsBrowser`: a second start, finding no pipe, plays beside it at
+   once.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after

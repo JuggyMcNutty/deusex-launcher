@@ -126,6 +126,12 @@ int dxl_instance_other_running(const char *id) {
     return 1;
 }
 
+/* How long a pipe that is not there is waited for: a launcher makes its
+ * pipe straight after its mutex, so one still starting has it by then; one
+ * that holds the lock alone (-server's, or one whose pipe failed) never
+ * does, and a start beside it goes on at once, as POSIX's does. */
+#define NO_PIPE_MS 250
+
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dxl_err *err) {
     wchar_t mname[64], pname[64];
     names(id, mname, pname, 64);
@@ -134,7 +140,7 @@ int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dx
      * lets a program in the background do only when the foreground one
      * allows it. */
     AllowSetForegroundWindow(ASFW_ANY);
-    ULONGLONG deadline = GetTickCount64() + (ULONGLONG)(timeout_ms > 0 ? timeout_ms : 0);
+    ULONGLONG start = GetTickCount64(), deadline = start + (ULONGLONG)(timeout_ms > 0 ? timeout_ms : 0);
     HANDLE h;
     char why[256];
     for (;;) {
@@ -142,7 +148,8 @@ int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dx
         if (h != INVALID_HANDLE_VALUE) break;
         DWORD e = GetLastError();
         ULONGLONG now = GetTickCount64();
-        if ((e != ERROR_PIPE_BUSY && e != ERROR_FILE_NOT_FOUND) || now >= deadline) {
+        if ((e != ERROR_PIPE_BUSY && e != ERROR_FILE_NOT_FOUND) || now >= deadline ||
+            (e == ERROR_FILE_NOT_FOUND && now - start >= NO_PIPE_MS)) {
             dxl_err_set(err, "handoff failed: %s", dxl_win_error(e, why, sizeof why));
             return -1;
         }
