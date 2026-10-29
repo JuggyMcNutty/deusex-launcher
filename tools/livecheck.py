@@ -24,8 +24,9 @@ Needs Xvfb, xdotool and ImageMagick's import. The scenarios, in order:
   changevideo  the Renderer page, captioned, with the game's icon, and its
                Cancel
   firstrun     -firstrun: detection, the pages, Run!; the game up, EXEC=
-               run, a second launch forwarded to it and travelled, its clean
-               end; Running.ini gone, FirstRun 1100
+               run, a second launch forwarded to it and travelled, and one
+               of another install too; its clean end; Running.ini gone,
+               FirstRun 1100
   safe         -safe: SafeMode, its options, Run! -- the launcher again
                with the flags alone; the engine silent, in a 640x480
                window, with no pad
@@ -46,6 +47,7 @@ SOURCE, OUT = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 ONLY = sys.argv[3:]
 GAME = OUT + "/Game"
 SYS = GAME + "/System"
+OTHER = OUT + "/Other"                          # a second install, beside the copy
 results = []
 
 # ---- the copy and the display -----------------------------------------------
@@ -83,6 +85,23 @@ def make_copy():
             shutil.copy2(SYS + "/" + default, SYS + "/" + f)
     if int(ini("FirstRun") or 0) < 1100:
         set_ini("FirstRun", "1100")
+
+
+def other_install():
+    """A second install beside the copy, as a mod's folder or another copy
+    is: its own programs and the files a run writes, the copy's linked."""
+    shutil.rmtree(OTHER, ignore_errors=True)
+    os.makedirs(OTHER + "/System")
+    for d in os.listdir(GAME):
+        if d != "System":
+            os.symlink(GAME + "/" + d, OTHER + "/" + d)
+    for f in os.listdir(SYS):
+        if f in ("Running.ini", "DeusEx.log", "Detected.ini", "Detected.log"):
+            continue
+        if f.lower().endswith(WRITTEN) or f in PROGRAMS:
+            shutil.copy2(SYS + "/" + f, OTHER + "/System")
+        else:
+            os.symlink(SYS + "/" + f, OTHER + "/System/" + f)
 
 
 def free_display():
@@ -278,7 +297,7 @@ def scenario_firstrun():
     remove("Running.ini")
     execfile = OUT + "/exec.txt"
     open(execfile, "w").write("livecheckline\n")
-    p = launch(["-firstrun", "EXEC=" + execfile], timeline("firstrun", "start 30 exit\n"))
+    p = launch(["-firstrun", "EXEC=" + execfile], timeline("firstrun", "start 45 exit\n"))
     w = find_window("Deus Ex First-Time Configuration")
     check("firstrun: the wizard, captioned", w is not None)
     if not w:
@@ -290,7 +309,13 @@ def scenario_firstrun():
     for i in (2, 3):
         click(w, *NEXT)
         shot("firstrun-%d" % i)
-    click(w, *NEXT)                                # Run!
+    click(w, *NEXT)                                # Run!, or the page before it:
+    # with Direct3D the renderer chosen, its driver page comes between
+    # (src/wizard/wizard.c, next), a page more
+    time.sleep(2)
+    if find_window("Deus Ex First-Time Configuration", 1):
+        shot("firstrun-4")
+        click(w, *NEXT)                            # Run!
     check("firstrun: the engine says it is up", wait_log(r"the engine is up", 60))
     check("firstrun: Running.ini while the game runs", os.path.exists(SYS + "/Running.ini"))
     q = launch(["01_NYC_UNATCOHQ.dx"], fresh_log=False)
@@ -298,6 +323,19 @@ def scenario_firstrun():
     check("firstrun: a second launch is forwarded", rc == 0, "exit %s" % rc)
     check("firstrun: the game opens the forwarded map",
           wait_log(r"Launcher: open 01_NYC_UNATCOHQ\.dx", 20) and "WM_COPYDATA: 01_NYC_UNATCOHQ.dx" in log())
+    # Another install's launch finds the game too: the original's mutex and
+    # IsBrowser window are named for no install.
+    other_install()
+    q = subprocess.Popen([OTHER + "/System/DeusEx", "01_NYC_UNATCOIsland.dx"], env=env(), cwd=OTHER,
+                         stdout=open(OUT + "/launcher-output.txt", "a"), stderr=subprocess.STDOUT)
+    try:
+        rc = q.wait(30)
+    except subprocess.TimeoutExpired:          # not forwarded: a launch of its own
+        q.kill()
+        rc = None
+    check("firstrun: another install's launch is forwarded", rc == 0, "exit %s" % rc)
+    check("firstrun: the game opens its map",
+          wait_log(r"Launcher: open 01_NYC_UNATCOIsland\.dx", 20) and "WM_COPYDATA: 01_NYC_UNATCOIsland.dx" in log())
     rc = p.wait(90)
     keep_log("firstrun")
     L = log()
@@ -429,11 +467,12 @@ try:
         except Exception as e:
             check(name + ": ran", False, repr(e))
 finally:
-    # Whatever a failed scenario left running: programs of the copy's.
+    # Whatever a failed scenario left running: programs of the copy's, or of
+    # the other install's.
     for pid in os.listdir("/proc"):
         try:
             argv0 = open("/proc/%s/cmdline" % pid, "rb").read().split(b"\0")[0].decode()
-            if argv0.startswith(SYS + "/"):
+            if argv0.startswith((SYS + "/", OTHER + "/")):
                 os.kill(int(pid), signal.SIGKILL)
         except (OSError, ValueError):
             pass
