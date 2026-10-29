@@ -23,6 +23,9 @@ void dxl_startup(volatile int *stop, void (*wake)(void)) {
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGHUP, &sa, NULL);
     signal(SIGPIPE, SIG_IGN);
+    /* A parent that ignores SIGCHLD passes that on across exec, and the
+     * system then reaps the game itself: its end would never be seen. */
+    signal(SIGCHLD, SIG_DFL);
 }
 
 void dxl_startup_ended(void) {}
