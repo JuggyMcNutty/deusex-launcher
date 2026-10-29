@@ -355,6 +355,11 @@ static void test_profiles(void) {
     CHECK(scratch_exists(b.engine_dir, "HXMod.ini"));
     CHECK(!scratch_exists(b.engine_dir, "DXE-Log-LastRun.txt"));
     CHECK_INT(dxl_profile_count_saves(&a), 2);
+    /* What the Saves page does not list, nor the count: a file of a save's
+     * name, a folder of a name the engine does not give. */
+    scratch_write(a.save_dir, "Save0001.bak", "x");
+    scratch_write(a.save_dir, "Save010/SaveInfo.dxs", "x");
+    CHECK_INT(dxl_profile_count_saves(&a), 2);
     CHECK_INT(dxl_profile_count_saves(&b), 0);
     /* Made already: not again. */
     CHECK_INT(dxl_profile_copy(&a, &b, NULL), -1);

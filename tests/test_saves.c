@@ -75,6 +75,8 @@ static void test_list(void) {
     dxl_err e;
     CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
     CHECK_INT(s.count, listed);
+    /* A profile's count of them is the list's. */
+    CHECK_INT(dxl_saves_count(dir), listed);
     if (s.count == listed) {
         CHECK_STR(s.items[0].folder, "QuickSave");
         CHECK_INT(s.items[0].slot, DXL_SAVE_QUICK);

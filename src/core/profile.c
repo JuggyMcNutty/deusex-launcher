@@ -2,6 +2,7 @@
 #include "core/profile.h"
 #include "core/engine_sections.h"
 #include "core/paths.h"
+#include "core/saves.h"
 #include "platform/fs.h"
 
 #include <ctype.h>
@@ -131,18 +132,7 @@ int dxl_profile_make_dirs(dxl_profile *p, dxl_err *err) {
     return rc;
 }
 
-int dxl_profile_count_saves(const dxl_profile *p) {
-    DIR *d = p->save_dir ? opendir(p->save_dir) : NULL;
-    if (!d) return 0;
-    int n = 0;
-    struct dirent *e;
-    while ((e = readdir(d))) {
-        if (dxl_strnicmp(e->d_name, "Save", 4) == 0 && e->d_name[4] >= '0' && e->d_name[4] <= '9') n++;
-        else if (dxl_stricmp(e->d_name, "QuickSave") == 0) n++;
-    }
-    closedir(d);
-    return n;
-}
+int dxl_profile_count_saves(const dxl_profile *p) { return dxl_saves_count(p->save_dir); }
 
 void dxl_profile_folders(const dxl_profile *p, char *out[4]) {
     out[0] = dxl_xstrdup(p->dir);
@@ -493,7 +483,7 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
      * game's shots are not its. */
     saves = mod ? mod_save_dir(game_system_dir, mod, mod->ini ? sys : NULL) : game_save_dir(game_system_dir, sys);
     copy_str(r->saves_from, sizeof r->saves_from, saves);
-    r->saves = saves ? each_save(saves, NULL, NULL) : 0;
+    r->saves = dxl_saves_count(saves);
     r->shots = mod ? 0 : each_shot(game_system_dir, NULL, NULL);
     if (mod) dxl_mod_set_paths(sys, game_system_dir, mod);
     const char *master = dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");

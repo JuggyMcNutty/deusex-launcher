@@ -84,6 +84,22 @@ int dxl_saves_list(const char *dir, dxl_saves *out, dxl_err *err) {
     return 0;
 }
 
+int dxl_saves_count(const char *dir) {
+    DIR *d = dir ? opendir(dir) : NULL;
+    if (!d) return 0;
+    int n = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        int slot;
+        if (!dxl_save_slot_of(e->d_name, &slot)) continue;
+        char *folder = dxl_path_join(dir, e->d_name);
+        n += dxl_path_is_dir(folder);
+        free(folder);
+    }
+    closedir(d);
+    return n;
+}
+
 void dxl_saves_free(dxl_saves *s) {
     for (int i = 0; i < s->count; i++) dxl_saveinfo_free(&s->items[i].info);
     free(s->items);
