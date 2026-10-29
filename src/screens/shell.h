@@ -555,6 +555,11 @@ void dxl_shell_pick_with(dxl_shell *s, uint32_t id, const char *title, const cha
  * again may have changed under it (the renderers, as the probe answers).
  * NULL for no answer. */
 const char *dxl_shell_picked(const dxl_shell *s, int answer);
+/* The answer's place in labels, the list as it is now: its own where its
+ * label is there still, two of a list's labels alike (two controllers of
+ * one model), else the first of its label; -1 for no answer, or none of
+ * its label left. */
+int         dxl_shell_picked_at(const dxl_shell *s, int answer, const char *const *labels, int n);
 void dxl_shell_osk(dxl_shell *s, uint32_t id, const char *title, char *buf, size_t size);
 void dxl_shell_confirm(dxl_shell *s, uint32_t id, const char *title, const char *text, const char *yes,
                        const char *no);
