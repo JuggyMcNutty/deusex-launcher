@@ -120,6 +120,8 @@ long dxl_os_pid(void) { return (long)GetCurrentProcessId(); }
 
 void dxl_os_sleep_ms(int ms) { Sleep(ms > 0 ? (DWORD)ms : 0); }
 
+long long dxl_os_ms(void) { return (long long)GetTickCount64(); }
+
 /* ---- how a program ended ---------------------------------------------- */
 
 /* A program the launcher ended at once, by TerminateProcess: the debugger's
