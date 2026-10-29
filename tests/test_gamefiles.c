@@ -442,6 +442,72 @@ static void test_ends_without_a_game(void) {
     free(home);
 }
 
+/* A window that answers nothing, as one that does not open or that a
+ * signal closes, but for Play at Recovery while play is set. */
+static int unanswered_views, play_at_recovery;
+static int not_answered(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    (void)r;
+    unanswered_views++;
+    return which == DXL_VIEW_RECOVERY && play_at_recovery ? 1 : DXL_VIEW_UNANSWERED;
+}
+
+/* A screen no one answered is no quit: after a crash, Recovery with no
+ * window, or stopped while it is up, leaves Running.ini, as does a game the
+ * launcher stopped, after which no Recovery opens. */
+static void test_unanswered(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-unanswered"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+    dxl_env_set("DXL_STUB", "crash");
+    CHECK_INT(run_launcher(root, NULL), END_CRASH_STATUS);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    dxl_env_set("DXL_STUB", "ready");
+
+    dxl_run_ui ui = { .view = not_answered };
+    char *argv[] = { "deusex-launcher", NULL };
+    static volatile int stop;
+    unanswered_views = play_at_recovery = 0;
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), DXL_RUN_EXIT_SCREEN);
+    CHECK_INT(unanswered_views, 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    stop = 1;
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    /* Play at Recovery, the launcher stopped as the game starts: the game,
+     * which does not end cleanly, stopped, and no Recovery after it. */
+    unanswered_views = 0;
+    play_at_recovery = 1;
+    dxl_env_set("DXL_STUB", "crash");
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), END_CRASH_STATUS);
+    CHECK_INT(unanswered_views, 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    dxl_lastrun last;
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), 0);
+    CHECK_INT(last.stopped, 1);
+    stop = 0;
+
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window that plays from its first Home and quits at the next, looking
  * at the inis then. */
 static int views, saw_rewrite;
@@ -636,5 +702,6 @@ TEST_MAIN_BEGIN
     RUN(test_server_takes_no_handover);
 #endif
     RUN(test_ends_without_a_game);
+    RUN(test_unanswered);
     RUN(test_back_home);
 TEST_MAIN_END
