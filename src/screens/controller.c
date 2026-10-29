@@ -284,12 +284,12 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
         for (int i = 0; i < count; i++) names[i] = pads[i].name;
         /* Its list on the row's activation, as Settings' rows open theirs. */
         uint32_t which_id = dxl_ui_id(ui, "pad which");
-        const char *picked = dxl_shell_picked(s, dxl_shell_answer(s, which_id));
-        for (int i = 0; picked && i < count; i++)
-            if (!strcmp(names[i], picked)) index = i;
+        /* By its place: two pads of one model have one name. */
+        int picked = dxl_shell_picked_at(s, dxl_shell_answer(s, which_id), names, count);
+        if (picked >= 0) index = picked;
         int r1 = dxl_spinner(ui, which_id, top, "Controller", &index, names, count, DXL_W_MAY_CUT);
         if (r1 == DXL_SPIN_LIST) dxl_shell_pick(s, which_id, "Controller", names, count, index);
-        if (r1 == DXL_SPIN_CHANGED || (picked && index != shown)) {
+        if (r1 == DXL_SPIN_CHANGED || (picked >= 0 && index != shown)) {
             /* The rest of the panel the one chosen now; the rows follow
              * on the next frame. */
             s->pad_id = pads[index].id;
