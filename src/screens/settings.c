@@ -538,10 +538,10 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
     int conflict = dxl_shell_answer(s, dxl_ui_id(ui, "keys conflict"));
     if (conflict > 0) bind(s, s->bind_action, s->bind_slot, s->bind_key, conflict == 2);
 
-    /* From -changevideo, as from the original's renderer page: on to the
+    /* As -changevideo opened it, as the original's renderer page: on to the
      * game; not with an engine --version refuses, which it says beside
-     * Play, as Home does. */
-    int graphics = s->view == DXL_VIEW_GRAPHICS;
+     * Play, as Home does. Opened again from Home, Done. */
+    int graphics = s->settings_plays;
     if (graphics) dxl_shell_ask_engine(s);
     int refused = graphics && !s->engine_ok;
     int reset = dxl_button(ui, "settings reset", dxl_cut_left(&buttons, 230), "Back to the defaults", 0);

@@ -1,0 +1,18 @@
+# -changevideo's Graphics left by Esc for Home, then Settings opened from
+# Home: its Done, not Play, which -changevideo's Graphics alone has, and
+# Home again. test_ui_scripts.c finds no game started.
+wait 1.5
+expect settings Graphics
+key Escape
+wait 0.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+find Done
+key Return
+wait 0.5
+expect home
+find Quit
+key Return
