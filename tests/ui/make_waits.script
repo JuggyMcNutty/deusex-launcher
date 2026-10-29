@@ -1,0 +1,29 @@
+# Make the profile pressed while the GPU probe has not answered (its
+# dxl-cli made slow), then Back: Your profile again once the probe has
+# answered, and nothing made until Make is pressed again;
+# test_ui_scripts.c reads the profile it made.
+wait 2
+expect welcome
+key Return
+wait 1
+expect find
+key Return
+wait 0.5
+expect import
+find Make the profile
+key Return
+wait 0.3
+expect import
+key Escape
+wait 0.5
+expect find
+wait 4
+key Return
+wait 1
+expect import
+find Make the profile
+key Return
+wait 1.5
+expect home
+find Quit
+key Return

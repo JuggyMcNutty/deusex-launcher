@@ -304,6 +304,7 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->repoint = v == DXL_VIEW_INSTALL;
     s->repoint_back = 0;
     s->making = 0;
+    s->make_waits = 0;
     if (v == DXL_VIEW_FIRST_RUN) snprintf(s->begin_name, sizeof s->begin_name, "Deus Ex");
     dxl_shell_theme(s);
     dxl_page p = DXL_PAGE_HOME;
@@ -339,6 +340,9 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
         s->focus[s->page] = s->ui.focus;
         s->from = s->page;
         if (s->page == DXL_PAGE_SETTINGS) dxl_settings_keep(s);
+        /* A press of Make the profile waiting on the probe goes with its
+         * page. */
+        s->make_waits = 0;
     }
     s->page = p;
     s->page_since = -1;   /* from the next frame's start */
