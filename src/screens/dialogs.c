@@ -295,6 +295,15 @@ const char *dxl_shell_picked(const dxl_shell *s, int answer) {
     return answer >= 0 && answer < s->pick_count ? s->pick_text[answer] : NULL;
 }
 
+int dxl_shell_picked_at(const dxl_shell *s, int answer, const char *const *labels, int n) {
+    const char *picked = dxl_shell_picked(s, answer);
+    if (!picked) return -1;
+    if (answer < n && labels[answer] && !strcmp(labels[answer], picked)) return answer;
+    for (int i = 0; i < n; i++)
+        if (labels[i] && !strcmp(labels[i], picked)) return i;
+    return -1;
+}
+
 void dxl_shell_osk(dxl_shell *s, uint32_t id, const char *title, char *buf, size_t size) {
     ask(s, DXL_DIALOG_OSK, id);
     snprintf(s->ask_title, sizeof s->ask_title, "%s", title);
