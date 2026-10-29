@@ -1,9 +1,12 @@
 /* SDL's mapping strings (core/padmap.h): made and read back, compared, a
- * GUID's CRC taken off and named, gamecontrollerdb.txt kept by GUID, Steam's
- * mappings of ours left out, and the engine's SDL_GAMECONTROLLERCONFIG. */
+ * GUID's CRC taken off and named, gamecontrollerdb.txt kept by GUID and
+ * read by SDL on the system it was made on, Steam's mappings of ours left
+ * out, and the engine's SDL_GAMECONTROLLERCONFIG. */
 #include "test.h"
 #include "scratch.h"
 #include "core/padmap.h"
+
+#include <SDL3/SDL.h>
 
 #define GUID "03008fe55e0400008e02000014010000"
 
@@ -17,7 +20,7 @@ static void test_format_and_parse(void) {
     m.src[DXL_PADCTL_LEFTY] = (dxl_padsrc){ DXL_PADSRC_AXIS, 1, 0, 0, 1 };
     m.src[DXL_PADCTL_LEFTTRIGGER] = (dxl_padsrc){ DXL_PADSRC_AXIS, 2, 0, 1, 0 };
     char text[512];
-    dxl_padmap_format(&m, text, sizeof text);
+    dxl_padmap_format(&m, "Linux", text, sizeof text);
     CHECK_STR(text, GUID ",A pad of ours,a:b0,dpup:h0.1,lefty:a1~,lefttrigger:+a2,platform:Linux,");
     dxl_padmap back;
     CHECK_INT(dxl_padmap_parse(text, &back), 0);
@@ -107,8 +110,38 @@ static void test_db_and_engine(void) {
     scratch_remove(dir);
 }
 
+/* A mapping the wizard made, kept in the file: SDL reads it back from there
+ * at the window's next start, on this system as on the one it was made on. */
+static void test_db_read_by_sdl(void) {
+    const char *dir = scratch_dir("padmap-sdl");
+    char *path = scratch_path(dir, "gamecontrollerdb.txt");
+    remove(path);
+    dxl_padmap m;
+    memset(&m, 0, sizeof m);
+    snprintf(m.guid, sizeof m.guid, "03000000341200007856000011010000");
+    snprintf(m.name, sizeof m.name, "A pad of ours");
+    m.src[DXL_PADCTL_A] = (dxl_padsrc){ DXL_PADSRC_BUTTON, 0, 0, 0, 0 };
+    char text[512];
+    dxl_padmap_format(&m, SDL_GetPlatform(), text, sizeof text);
+    dxl_err e;
+    CHECK_INT(dxl_padmap_db_put(path, text, &e), 0);
+    CHECK_INT(SDL_AddGamepadMappingsFromFile(path), 1);
+    char *mapping = SDL_GetGamepadMappingForGUID(SDL_StringToGUID(m.guid));
+    CHECK(mapping != NULL);
+    SDL_free(mapping);
+    free(path);
+    scratch_remove(dir);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_format_and_parse);
     RUN(test_guid_crc);
     RUN(test_db_and_engine);
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
+    if (!SDL_Init(SDL_INIT_GAMEPAD)) {
+        fprintf(stderr, "SDL: %s\n", SDL_GetError());
+        return 1;
+    }
+    RUN(test_db_read_by_sdl);
+    SDL_Quit();
 TEST_MAIN_END

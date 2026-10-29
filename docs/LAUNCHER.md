@@ -602,7 +602,9 @@ of, at rest as SDL first read it, or as it has then been still a second;
 while it is up, the controller moves nothing of the window. Its mapping,
 SDL's text for it (`src/core/padmap.c`), is given to SDL at once and kept
 in `gamecontrollerdb.txt`, a line a controller, by its GUID, which the
-window loads as it opens its pads; with nothing mapped, nothing is kept.
+window loads as it opens its pads, each line naming the system it was
+made on, SDL's name for it, as SDL reads a file's lines of its own system
+alone; with nothing mapped, nothing is kept.
 The value of `SDL_GAMECONTROLLERCONFIG` the launcher was started with, as
 Steam sets it, is SDL's but for its lines of a controller the launcher
 maps, which SDL would take over the launcher's. The engine is given that,
@@ -743,8 +745,8 @@ generations of the system ini, the sizes, the next run's words,
 new profile's defaults; `test_keys` the
 key names, bindings and their reset; `test_bindings` the controller's
 layouts, labels and actions; `test_padcurve` its sticks and triggers as the
-engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`
-and what the engine is given; `test_engine_sections` the keys written;
+engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`,
+read back by SDL, and what the engine is given; `test_engine_sections` the keys written;
 `test_advice` the advice; `test_upkg` the game's packages, on packages it
 writes itself and the same broken a thousand ways; `test_saves` a profile's
 saves and shots, the saves' infos written as the game writes them
