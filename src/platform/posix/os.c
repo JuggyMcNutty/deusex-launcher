@@ -19,6 +19,12 @@ void dxl_os_sleep_ms(int ms) {
     while (nanosleep(&t, &t) != 0 && errno == EINTR) {}
 }
 
+long long dxl_os_ms(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+
 const char *dxl_end_name(int end, char *buf, size_t size) {
     static const struct { int sig; const char *name; } names[] = {
         { SIGHUP, "SIGHUP" }, { SIGINT, "SIGINT" }, { SIGQUIT, "SIGQUIT" }, { SIGILL, "SIGILL" },

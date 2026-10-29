@@ -17,6 +17,10 @@ long dxl_os_pid(void);
 /* Sleeps ms milliseconds. */
 void dxl_os_sleep_ms(int ms);
 
+/* Milliseconds by a clock no one sets, from some start of its own: what
+ * time a wait took. */
+long long dxl_os_ms(void);
+
 /* What ended a program that did not exit by itself (dxl_game's signal,
  * LastRun.ini's Signal) -- a signal here: its name, "SIGSEGV", or "signal
  * <n>" for one without a name here. */

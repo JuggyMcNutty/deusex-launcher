@@ -2,6 +2,7 @@
 #include "app/play.h"
 #include "core/servers.h"
 #include "core/log.h"
+#include "platform/os.h"
 #include "platform/process.h"
 
 #include <ctype.h>
@@ -12,7 +13,8 @@
 /* The wait wakes on the line, on the instance's channel, and on a signal (a
  * stop), which ends it at once; besides, once a second, in case the
  * engine's end of the line outlives it in a child of its own, and four
- * times a second to count down to the kill once the game is stopped. */
+ * times a second once the game is stopped, to kill it when its time is up
+ * by the clock, however often the wait woke. */
 #define WAKE_MS      1000
 #define STOPPING_MS  250
 
@@ -60,7 +62,7 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
     out->started = 1;
     dxl_log("the game started: pid %ld", g.pid);
 
-    int since_term = 0;
+    long long stopped_at = 0;
     for (;;) {
         char *line = NULL;
         int ev = dxl_game_wait(&g, req->instance, out->stopped ? STOPPING_MS : WAKE_MS, &line);
@@ -87,12 +89,11 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
             dxl_log("stopping the game");
             dxl_game_stop(&g);
             out->stopped = 1;
-        } else if (out->stopped && !out->killed && !(ev & DXL_GAME_LINE)) {
-            if ((since_term += STOPPING_MS) >= DXL_PLAY_KILL_AFTER_MS) {
-                dxl_log("the game did not stop: killing it");
-                dxl_game_kill(&g);
-                out->killed = 1;
-            }
+            stopped_at = dxl_os_ms();
+        } else if (out->stopped && !out->killed && dxl_os_ms() - stopped_at >= DXL_PLAY_KILL_AFTER_MS) {
+            dxl_log("the game did not stop: killing it");
+            dxl_game_kill(&g);
+            out->killed = 1;
         }
     }
     out->status = g.status;
