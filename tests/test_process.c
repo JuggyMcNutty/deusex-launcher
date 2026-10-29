@@ -226,6 +226,34 @@ static void test_child_ignored(void) {
 }
 #endif
 
+#ifdef _WIN32
+/* The console's code page as the launcher found it, after it ends: its
+ * UTF-8 is its own while it runs. dxl-cli started on this console, as from
+ * a cmd.exe; one is made where there is none. */
+static void test_console_code_page(void) {
+    if (!GetConsoleOutputCP() && !AllocConsole()) {
+        printf("  no console to be had: its code page not checked\n");
+        return;
+    }
+    UINT was = GetConsoleOutputCP();
+    CHECK(SetConsoleOutputCP(437));
+    wchar_t line[1024];
+    swprintf(line, sizeof line / sizeof *line, L"\"%hs\" --version", DXL_CLI);
+    STARTUPINFOW si;
+    memset(&si, 0, sizeof si);
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi;
+    CHECK(CreateProcessW(NULL, line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi));
+    if (pi.hProcess) {
+        CHECK_INT((int)WaitForSingleObject(pi.hProcess, 10000), (int)WAIT_OBJECT_0);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+    CHECK_INT((int)GetConsoleOutputCP(), 437);
+    SetConsoleOutputCP(was);
+}
+#endif
+
 static void test_cannot_run(void) {
     char *argv[] = { "/nonexistent/DXEngine", NULL };
     dxl_game g;
@@ -486,5 +514,7 @@ TEST_MAIN_BEGIN
     RUN(test_engine_chosen);
 #ifndef _WIN32
     RUN(test_child_ignored);
+#else
+    RUN(test_console_code_page);
 #endif
 TEST_MAIN_END

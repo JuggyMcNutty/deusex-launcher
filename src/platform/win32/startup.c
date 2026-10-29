@@ -67,8 +67,15 @@ void dxl_startup_ended(void) {
     if (ended) SetEvent(ended);
 }
 
-/* Before main: a GUI program started from a console writes to it; the
- * error mode for this program and those it starts. */
+/* The console's code page as the program found it, 0 for no console: its
+ * UTF-8 is the program's while it runs, and the console, a cmd.exe's it
+ * was started from, has its own again as the program ends. */
+static UINT console_cp;
+
+static void console_cp_back(void) { SetConsoleOutputCP(console_cp); }
+
+/* Before main: a GUI program started from a console writes to it, in
+ * UTF-8; the error mode for this program and those it starts. */
 __attribute__((constructor)) static void startup_early(void) {
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -76,5 +83,6 @@ __attribute__((constructor)) static void startup_early(void) {
         if (!freopen("CONOUT$", "w", stdout)) {}
         if (!freopen("CONOUT$", "w", stderr)) {}
     }
-    SetConsoleOutputCP(CP_UTF8);
+    console_cp = GetConsoleOutputCP();
+    if (console_cp && console_cp != CP_UTF8 && SetConsoleOutputCP(CP_UTF8)) atexit(console_cp_back);
 }

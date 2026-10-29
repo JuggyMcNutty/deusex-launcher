@@ -88,6 +88,9 @@ foreach(name test_process test_play)
     target_compile_definitions(${name} PRIVATE DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
     add_dependencies(${name} stub_engine)
 endforeach()
+# The console's code page after dxl-cli has run on it.
+target_compile_definitions(test_process PRIVATE DXL_CLI="$<TARGET_FILE:dxl-cli>")
+add_dependencies(test_process dxl-cli)
 
 # The same checks against the real game files, which this repository does not
 # carry: skipped unless gamefiles/ holds an install.
