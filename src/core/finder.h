@@ -8,8 +8,9 @@
  *   Heroic's GOG games (gog_store/installed.json, natively and as a
  *     Flatpak), and each folder in ~/Games/Heroic
  *   each folder in ~/GOG Games and in ~/Games
- *   Lutris' games: what each of its games/<game>.yml runs, and its Wine
- *     prefix
+ *   Lutris' games: what each of its games/<game>.yml runs, a relative
+ *     program in the folder Lutris' pga.db installed the game in, and its
+ *     Wine prefix
  *   Bottles' bottles, and the other Wine prefixes: $WINEPREFIX, ~/.wine,
  *     winetricks', those in ~/Games and Heroic's
  *   the drives mounted in /run/media, /media and /mnt

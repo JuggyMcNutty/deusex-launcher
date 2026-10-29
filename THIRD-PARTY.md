@@ -24,6 +24,10 @@ the FreeType License: portions of this software are copyright © 2026 The FreeTy
 SDL3 carries a video driver of this port's own, `ports/trimui-smartpro/sdl3/SDL_fbvideo.c`,
 under the zlib licence as SDL is.
 
+The finder reads Lutris' games database with [SQLite](https://sqlite.org), which its authors
+have dedicated to the public domain, built into the programs from the amalgamation
+`cmake/deps.lock` pins.
+
 libxmp-lite's notice:
 
 > Extended Module Player Lite
