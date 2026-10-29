@@ -30,6 +30,7 @@ include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
 set(DXL_PORT_DEPS "${DXL_PORT_DEPS_DEFAULT}" CACHE STRING
     "Where SDL3, SDL3_ttf and libxmp come from: auto, system or vendored (cmake/deps.cmake)")
 include("${DXL_ROOT}/cmake/deps.cmake")
+include("${DXL_ROOT}/cmake/sqlite.cmake")
 
 function(dxl_check_abi target)
     if(DXL_PORT_GLIBC_MAX)
@@ -107,7 +108,8 @@ add_library(dxl_core STATIC
     src/platform/posix/os.c
 )
 target_include_directories(dxl_core PUBLIC src)
-target_link_libraries(dxl_core PUBLIC m)
+# SQLite for Lutris' games database (cmake/sqlite.cmake).
+target_link_libraries(dxl_core PUBLIC m dxl_sqlite)
 
 # What is the platform's: what ends a start from outside
 # (platform/startup.h), the processes the launcher starts, the game among

@@ -24,6 +24,10 @@ the FreeType License: portions of this software are copyright © 2026 The FreeTy
 [SDL2](https://libsdl.org), under the zlib licence: built on the device, the system's;
 cross-built, built into it from the source `cmake/deps.lock` pins.
 
+The finder reads Lutris' games database with [SQLite](https://sqlite.org), which its authors
+have dedicated to the public domain, built into the programs from the amalgamation
+`cmake/deps.lock` pins.
+
 libxmp-lite's notice:
 
 > Extended Module Player Lite

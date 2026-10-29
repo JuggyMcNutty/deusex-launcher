@@ -1,9 +1,10 @@
 # The sources of the libraries the launcher's window is built with when the
-# system has none to give (cmake/deps.cmake, DXL_PORT_DEPS vendored), and
-# SDL2, the engine's cross-built (ports/linux-aarch64/port.sh): each
-# pinned by version and SHA256. Port Ex Machina's scripts/lib/common.sh
-# dx_fetch_src downloads them into deps/cache/src; the build reads them there
-# and needs no network.
+# system has none to give (cmake/deps.cmake, DXL_PORT_DEPS vendored),
+# SDL2, the engine's cross-built (ports/linux-aarch64/port.sh), and SQLite,
+# which the finder reads Lutris' games with, always built here
+# (cmake/sqlite.cmake): each pinned by version and SHA256. Port Ex
+# Machina's scripts/lib/common.sh dx_fetch_src downloads them into
+# deps/cache/src; the build reads them there and needs no network.
 #
 # name      version  file                     sha256                                                            url
 sdl3        3.4.18   SDL3-3.4.18.tar.gz       9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3  https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz
@@ -11,3 +12,4 @@ freetype    2.14.3   freetype-2.14.3.tar.xz   36bc4f1cc413335368ee656c42afca65c5
 sdl3_ttf    3.2.2    SDL3_ttf-3.2.2.tar.gz    63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d  https://github.com/libsdl-org/SDL_ttf/releases/download/release-3.2.2/SDL3_ttf-3.2.2.tar.gz
 xmp_lite    4.7.3    libxmp-lite-4.7.3.tar.gz e199da3f7552f5ac688a091b8d28ea3c9ffd2beb845d15aac17d4d264f851d71  https://github.com/libxmp/libxmp/releases/download/libxmp-4.7.3/libxmp-lite-4.7.3.tar.gz
 sdl2        2.32.10  SDL2-2.32.10.tar.gz      5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165  https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz
+sqlite      3.54.1   sqlite-amalgamation-3540100.zip 0a9c8e34352dad46006aa82836d5383bff9dc6bc9ce5a60553c05aa30e6ad1f9  https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip

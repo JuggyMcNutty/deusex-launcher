@@ -19,10 +19,11 @@ port_deps() {
             say "native build: no SDL3 and SDL3_ttf 3.2 and libxmp 4.4 or newer from the distro: their sources, built with the launcher"
             dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite
         fi
+        dx_fetch_src "$SRC/cmake/deps.lock" sqlite
         return 0
     fi
     dx_fetch_buildroot "$A64_SDK" "$A64_SDK_URL" "$A64_SDK_SHA256" 2.28
-    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite sdl2
+    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite sdl2 sqlite
     a64_sysroot
     a64_sdl2
 }

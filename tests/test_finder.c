@@ -3,6 +3,7 @@
 #include "core/finder.h"
 #include "core/paths.h"
 
+#include <sqlite3.h>
 #include <unistd.h>
 
 /* An install's files under base/rel: a DeusEx.exe the engine does not know,
@@ -181,8 +182,36 @@ static void test_heroic(void) {
     free(home);
 }
 
+/* Lutris' pga.db at path, its games table as Lutris makes it, a row for
+ * each configpath and directory given (pairs, a NULL after them). */
+static void lutris_db(const char *path, const char *const *rows) {
+    sqlite3 *db = NULL;
+    CHECK_INT(sqlite3_open(path, &db), SQLITE_OK);
+    CHECK_INT(sqlite3_exec(db,
+                           "CREATE TABLE games (id INTEGER PRIMARY KEY, name TEXT, sortname TEXT, slug TEXT, "
+                           "installer_slug TEXT, parent_slug TEXT, platform TEXT, runner TEXT, executable TEXT, "
+                           "directory TEXT, updated DATETIME, lastplayed INTEGER, installed INTEGER, "
+                           "installed_at INTEGER, year INTEGER, configpath TEXT, has_custom_banner INTEGER, "
+                           "has_custom_icon INTEGER, has_custom_coverart_big INTEGER, playtime REAL, service TEXT, "
+                           "service_id TEXT, discord_id TEXT)",
+                           NULL, NULL, NULL),
+              SQLITE_OK);
+    for (int i = 0; rows[i]; i += 2) {
+        sqlite3_stmt *st = NULL;
+        sqlite3_prepare_v2(db, "INSERT INTO games (name, slug, runner, installed, configpath, directory) "
+                               "VALUES ('Deus Ex', 'deus-ex', 'wine', 1, ?1, ?2)", -1, &st, NULL);
+        sqlite3_bind_text(st, 1, rows[i], -1, SQLITE_STATIC);
+        sqlite3_bind_text(st, 2, rows[i + 1], -1, SQLITE_STATIC);
+        CHECK_INT(sqlite3_step(st), SQLITE_DONE);
+        sqlite3_finalize(st);
+    }
+    sqlite3_close(db);
+}
+
 /* Lutris' games: the game a game's exe is in, or beside it, and the game in
- * its prefix; an exe of another section, or a relative one, is not read. */
+ * its prefix; a relative exe in the folder Lutris' pga.db has the game in,
+ * its ~ the home, none for a game with no row; an exe of another section is
+ * not read. */
 static void test_lutris(void) {
     char *home = dxl_xstrdup(scratch_dir("finder-lutris"));
     char text[2048];
@@ -200,21 +229,34 @@ static void test_lutris(void) {
              "  prefix: \"%s/pr\\xE9\\\n    fixe\"\nsystem: {}\n", home, home);
     scratch_write(home, ".local/share/lutris/games/deus-ex-3.yml", text);
     scratch_write(home, ".local/share/lutris/games/notes.txt", "game:\n  exe: /nowhere\n");
+    scratch_write(home, ".local/share/lutris/games/deus-ex-4.yml", "game:\n  exe: System/DeusEx.exe\n");
+    scratch_write(home, ".local/share/lutris/games/deus-ex-5.yml", "game:\n  exe: drive_c/DeusEx/System/DeusEx.exe\n");
+    scratch_write(home, ".local/share/lutris/games/deus-ex-6.yml", "game:\n  exe: System/DeusEx.exe\n");
+    char *db = scratch_path(home, ".local/share/lutris/pga.db");
+    char relative[700];
+    snprintf(relative, sizeof relative, "%s/relative/Deus Ex", home);
+    const char *rows[] = { "deus-ex-4", relative, "deus-ex-5", "~/tilde", NULL };
+    lutris_db(db, rows);
+    free(db);
     install_at(home, "lutris games/Deus Ex's");
     install_at(home, "pfx/drive_c/GOG Games/Deus Ex GOTY");
     install_at(home, "not");
     install_at(home, "beside");
     install_at(home, "a folder whose name is long enough that PyYAML folds it/Deus Ex");
     install_at(home, "pr\xc3\xa9" "fixe/drive_c/DeusEx");
+    install_at(home, "relative/Deus Ex");
+    install_at(home, "tilde/drive_c/DeusEx");
 
     dxl_found_list l;
     find_in(&l, home);
-    CHECK_INT(l.count, 5);
+    CHECK_INT(l.count, 7);
     check_item(&l, 0, "in Lutris' games", "lutris games/Deus Ex's");
     check_item(&l, 1, "in Lutris' games", "pfx/drive_c/GOG Games/Deus Ex GOTY");
     check_item(&l, 2, "in Lutris' games", "/beside");
     check_item(&l, 3, "in Lutris' games", "PyYAML folds it/Deus Ex");
     check_item(&l, 4, "in Lutris' games", "/pr\xc3\xa9" "fixe/drive_c/DeusEx");
+    check_item(&l, 5, "in Lutris' games", "/relative/Deus Ex");
+    check_item(&l, 6, "in Lutris' games", "/tilde/drive_c/DeusEx");
     dxl_found_list_free(&l);
     scratch_remove(home);
     free(home);

@@ -93,7 +93,9 @@ the game where its `appmanifest_6910.acf` puts it, as Steam's distro
 package, its Flatpak and its Snap keep them; Heroic's GOG games, the
 `installed.json` of its `gog_store`, and each folder in `~/Games/Heroic`;
 each folder in `~/GOG Games` and `~/Games`; what each of Lutris' games runs,
-and its Wine prefix; Bottles' bottles and the other Wine prefixes,
+a program named from its folder in the folder Lutris' `pga.db` has the
+game in (read with SQLite, opened read only), and its Wine prefix;
+Bottles' bottles and the other Wine prefixes,
 `$WINEPREFIX`, `~/.wine`, winetricks', those in `~/Games` and Heroic's;
 the drives `/proc/self/mountinfo` has mounted in `/run/media`, `/media`
 and `/mnt`, however deep, each once, at its top and two folders down. In
@@ -886,6 +888,4 @@ launcher that keeps it whatever the install. Changed:
 
 ## Known defects
 
-- **The finder reads no database**: a Lutris game whose program is named
-  from its folder, which only Lutris' `pga.db` holds, is found by the
-  folder browser, the system's dialog or `--game=<dir>`.
+None.
