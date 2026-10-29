@@ -184,9 +184,8 @@ static int wizard(run *r, const dxl_decision *d, dxl_launch_result *out) {
 static int cd_check(run *r) {
     const char *cd = dxl_config_cd_path(r->cfg);
     if (!cd || !*cd) return 1;
-    char *game = dxl_path_dirname(r->base);
     int ok;
-    while (!(ok = dxl_install_cd_ok(game, cd))) {
+    while (!(ok = dxl_install_cd_ok(r->base, cd))) {
         /* The probe's path, joined with the backslash CdPath may lack. */
         const char *sep = strchr("\\/", cd[strlen(cd) - 1]) ? "" : "\\";
         dxl_log("CD check: no %s%sTextures\\Palettes.utx", cd, sep);
@@ -195,7 +194,6 @@ static int cd_check(run *r) {
         if (!r->ui->ok_cancel || !r->ui->ok_cancel(r->ui->ctx, title, text)) break;
         cd = dxl_config_cd_path(r->cfg);
     }
-    free(game);
     return ok;
 }
 

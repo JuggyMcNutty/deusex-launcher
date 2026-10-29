@@ -17,7 +17,8 @@
 
 /* Returns 1 if the path is empty (nothing to check) or the palette file is
  * there and not empty -- the original wants it larger than 0 bytes
- * (dx-reverse-info/launch-flow.md section 8). */
-int dxl_install_cd_ok(const char *game_dir, const char *cd_path);
+ * (dx-reverse-info/launch-flow.md section 8). system_dir is the launcher's
+ * own folder, which CdPath is relative to. */
+int dxl_install_cd_ok(const char *system_dir, const char *cd_path);
 
 #endif

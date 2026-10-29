@@ -63,9 +63,7 @@ static void test_default_ini_matches_the_spec(void) {
      * Steam's ..\GOTY_1, a folder of its own with a Textures\Palettes.utx. */
     const char *cd = dxl_ini_get(ini, "Engine.Engine", "CdPath");
     CHECK(cd && (!strcmp(cd, "..\\") || !strcmp(cd, "..\\GOTY_1")));
-    char *root = dxl_path_dirname(DXL_GAMEFILES);
-    CHECK_INT(dxl_install_cd_ok(root, cd), 1);
-    free(root);
+    CHECK_INT(dxl_install_cd_ok(DXL_GAMEFILES, cd), 1);
     CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "GameEngine"), "DeusEx.DeusExGameEngine");
     CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "GameRenderDevice"),
               "GlideDrv.GlideRenderDevice");

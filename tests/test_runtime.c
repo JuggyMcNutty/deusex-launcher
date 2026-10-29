@@ -10,6 +10,10 @@
 
 static char g_root[512];
 
+/* The install's System folder, as it is spelled. */
+static char g_system[768];
+static const char *sys_dir(void) { return g_system; }
+
 static void mkdirs(const char *rel) {
     char p[768];
     snprintf(p, sizeof p, "%s/%s", g_root, rel);
@@ -34,6 +38,7 @@ static void build_install(void) {
     snprintf(g_root, sizeof g_root, "/tmp/dxl-rt-%d", (int)getpid());
     mkdir(g_root, 0755);
     mkdirs("System");
+    snprintf(g_system, sizeof g_system, "%s/System", g_root);
     mkdirs("Textures");
     mkdirs("Maps");
     touch("System/DeusEx.u", "package");
@@ -61,13 +66,13 @@ static void teardown(void) {
  * to the game directory and the check passes. That is why nobody ever saw
  * the insert-CD prompt on a GOG install. */
 static void test_cd_check_with_shipped_path(void) {
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 1);
-    CHECK_INT(dxl_install_cd_ok(g_root, ""), 1);      /* unset: nothing to check */
-    CHECK_INT(dxl_install_cd_ok(g_root, NULL), 1);
-    CHECK_INT(dxl_install_cd_ok(g_root, "Z:\\nope\\"), 0);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\"), 1);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), ""), 1);      /* unset: nothing to check */
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), NULL), 1);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "Z:\\nope\\"), 0);
     /* An empty palette file is no disc: the original wants more than 0 bytes. */
     touch("Textures/Palettes.utx", "");
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\"), 0);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\"), 0);
     touch("Textures/Palettes.utx", "palette");
 }
 
@@ -75,16 +80,38 @@ static void test_cd_check_with_shipped_path(void) {
  * beside System/ holding Textures\Palettes.utx, joined with the backslash
  * CdPath lacks (dx-reverse-info/launch-flow.md section 8). */
 static void test_cd_check_with_steams_path(void) {
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\GOTY_1"), 0);   /* no such folder */
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\GOTY_1"), 0);   /* no such folder */
     mkdirs("GOTY_1");
     mkdirs("GOTY_1/Textures");
     touch("GOTY_1/Textures/Palettes.utx", "palette");
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\GOTY_1"), 1);
-    CHECK_INT(dxl_install_cd_ok(g_root, "..\\GOTY_1\\"), 1);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\GOTY_1"), 1);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\GOTY_1\\"), 1);
     unlink_rel("GOTY_1/Textures/Palettes.utx");
     char p[768];
     snprintf(p, sizeof p, "%s/GOTY_1/Textures", g_root); rmdir(p);
     snprintf(p, sizeof p, "%s/GOTY_1", g_root);          rmdir(p);
+}
+
+/* An install whose folders a copy recased, its System spelled system (an
+ * innoextract --lowercase GOG install): the shipped CdPath passes, from the
+ * launcher's own folder, and Steam's GOTY_1 in another case too, as
+ * Windows takes its names. */
+static void test_cd_check_recased(void) {
+    char was[768];
+    snprintf(was, sizeof was, "%s/System", g_root);
+    snprintf(g_system, sizeof g_system, "%s/system", g_root);
+    CHECK_INT(rename(was, g_system), 0);
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\"), 1);
+    mkdirs("goty_1");
+    mkdirs("goty_1/textures");
+    touch("goty_1/textures/palettes.utx", "palette");
+    CHECK_INT(dxl_install_cd_ok(sys_dir(), "..\\GOTY_1"), 1);
+    unlink_rel("goty_1/textures/palettes.utx");
+    char p[768];
+    snprintf(p, sizeof p, "%s/goty_1/textures", g_root); rmdir(p);
+    snprintf(p, sizeof p, "%s/goty_1", g_root);          rmdir(p);
+    CHECK_INT(rename(g_system, was), 0);
+    snprintf(g_system, sizeof g_system, "%s", was);
 }
 
 /* --- the crash sentinel ------------------------------------------------ */
@@ -219,6 +246,7 @@ TEST_MAIN_BEGIN
     build_install();
     RUN(test_cd_check_with_shipped_path);
     RUN(test_cd_check_with_steams_path);
+    RUN(test_cd_check_recased);
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);
     RUN(test_sentinel_removes_another_case);
