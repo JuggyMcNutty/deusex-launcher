@@ -827,6 +827,18 @@ static void first_run(const char *script, char *looks, char *layout) {
     close_files(&b);
 }
 
+/* Make the profile pressed before the GPU probe has answered, then Back:
+ * the press goes with the page, so Your profile, shown again once the
+ * probe has answered, makes nothing until Make is pressed again. The
+ * probe's dxl-cli made 3 s slow for it. */
+static void test_make_waits(void) {
+    CHECK_INT(sh("mv '%s/dxl-cli' '%s/dxl-cli.real' && printf '#!/bin/sh\\nsleep 3\\nexec \"%s/dxl-cli.real\" \"$@\"\\n' "
+                 ">'%s/dxl-cli' && chmod +x '%s/dxl-cli'", app, app, app, app, app), 0);
+    char looks[32], layout[32];
+    first_run("make_waits.script", looks, layout);
+    sh("mv '%s/dxl-cli.real' '%s/dxl-cli'", app, app);
+}
+
 /* Your profile's quick setup: as chosen; and as it comes, the engine's own
  * graphics -- a preset of none of ours -- and Modern over the game's three
  * buttons. */
@@ -880,6 +892,7 @@ int main(void) {
     RUN(test_saves_page);
     RUN(test_shots_page);
     RUN(test_first_run);
+    RUN(test_make_waits);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);
     if (dxl_test_failures) {

@@ -212,7 +212,14 @@ static void start_probe(dxl_shell *s) {
     w->cli = dxl_path_join(w->run->session.app_dir, "dxl-cli" DXL_EXE_SUFFIX);
     SDL_SetAtomicInt(&w->probe_done, 0);
     w->probe_thread = SDL_CreateThread(probe_main, "dxl-probe", w);
-    if (!w->probe_thread) dxl_log("no probe thread: %s", SDL_GetError());
+    if (!w->probe_thread) {
+        /* An answer all the same, as a probe that gave none: nothing waits
+         * on it for ever. */
+        dxl_log("no probe thread: %s", SDL_GetError());
+        memset(&w->probe_result, 0, sizeof w->probe_result);
+        snprintf(w->probe_result.note, sizeof w->probe_result.note, "no probe thread: %s", SDL_GetError());
+        dxl_shell_probed(s, &w->probe_result);
+    }
 }
 
 /* The probe's answer, once it is in. */

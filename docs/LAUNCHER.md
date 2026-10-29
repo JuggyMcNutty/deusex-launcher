@@ -840,7 +840,9 @@ left half typed by a Tab, which joins nothing, then typed and joined,
 `multiplayer_password` a server that asks for a password, the engine's and
 not the log's, each finding it in the engine's `--url`; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
-with Your profile's choices made and as they come. SDL takes in each
+with Your profile's choices made and as they come, and `make_waits` with
+Make the profile pressed before the GPU's probe answered, then Back, which
+leaves the press behind. SDL takes in each
 only controllers of the virtual ones' makes and models
 (`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT`): a pad of another plugged in
 moves nothing of a run, though a real one of those models would. It is
