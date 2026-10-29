@@ -263,6 +263,7 @@ typedef struct dxl_shell {
     /* Settings, while the page is up: its stores, open, and the text rows'
      * values as they are edited. */
     int          settings_tab;
+    int          settings_plays;   /* Settings as -changevideo's Graphics opened it: its Done plays */
     int          settings_open;
     dxl_stores   stores;
     dxl_engine_settings *engine_settings;

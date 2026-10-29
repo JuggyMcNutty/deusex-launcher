@@ -315,6 +315,7 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     case DXL_VIEW_GRAPHICS: p = DXL_PAGE_SETTINGS; s->settings_tab = 1; break;
     default: break;
     }
+    s->settings_plays = v == DXL_VIEW_GRAPHICS;
     s->page = p;
     s->focus[p] = 0;
     dxl_shell_go(s, p);
@@ -341,8 +342,9 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
         s->from = s->page;
         if (s->page == DXL_PAGE_SETTINGS) dxl_settings_keep(s);
         /* A press of Make the profile waiting on the probe goes with its
-         * page. */
+         * page, and Settings' Play with -changevideo's Graphics. */
         s->make_waits = 0;
+        s->settings_plays = 0;
     }
     s->page = p;
     s->page_since = -1;   /* from the next frame's start */

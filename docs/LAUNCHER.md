@@ -361,7 +361,8 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 Graphics (`-changevideo`, and an engine's `RELAUNCH` with it) opens
 Settings on its Graphics tab, whose Done is Play: off, the reason beside
-it, with an engine whose `--version` refuses it.
+it, with an engine whose `--version` refuses it. Left for Home, the next
+Settings is Home's, its Done back to Home.
 
 It is our own drawing on SDL3's renderer (`src/ui/`), wearing the game's:
 steel panels with cut corners and lit edges, title bars in the theme's
