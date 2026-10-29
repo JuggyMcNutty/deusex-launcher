@@ -434,6 +434,31 @@ static void test_ends_without_a_game(void) {
     free(home);
 }
 
+/* A first run with no window whose engine is refused: the profile is made,
+ * launcher.ini holding the install it names, so the next start, with no
+ * --game, plays it. */
+static void test_first_run_refused(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-refused"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    dxl_env_set("DXL_STUB_FEATURES", "loadgame-url");
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_NOGAME);
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
+    char *argv[] = { "deusex-launcher", NULL };
+    static volatile int stop;
+    CHECK_INT(dxl_run_main(1, argv, NULL, &stop), 0);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window that answers nothing, as one that does not open or that a
  * signal closes, but for Play at Recovery while play is set. */
 static int unanswered_views, play_at_recovery;
@@ -691,5 +716,6 @@ TEST_MAIN_BEGIN
     RUN(test_server_takes_no_handover);
     RUN(test_ends_without_a_game);
     RUN(test_unanswered);
+    RUN(test_first_run_refused);
     RUN(test_back_home);
 TEST_MAIN_END

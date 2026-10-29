@@ -557,7 +557,8 @@ static int first_run(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
 }
 
 /* --game on a profile that has one: the profile's install is that one now
- * (the game moved, or another copy of it). */
+ * (the game moved, or another copy of it), kept at once, whatever stops
+ * the run after. */
 static int repoint(dxl_run *r) {
     dxl_install in;
     if (dxl_install_check(r->opt.game, &in) != 0) {
@@ -573,6 +574,8 @@ static int repoint(dxl_run *r) {
         dxl_log("profile %s: install %s (%s)", r->session.profile.id, id, in.root);
     }
     dxl_install_free(&in);
+    dxl_err e;
+    if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     return 0;
 }
 
