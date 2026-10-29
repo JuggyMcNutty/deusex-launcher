@@ -22,6 +22,10 @@ from the sources `cmake/deps.lock` pins, and with them [FreeType](https://freety
 the FreeType License: portions of this software are copyright © 2026 The FreeType Project
 (www.freetype.org). All rights reserved.
 
+The finder reads Lutris' games database with [SQLite](https://sqlite.org), which its authors
+have dedicated to the public domain, built into the programs from the amalgamation
+`cmake/deps.lock` pins.
+
 libxmp-lite's notice:
 
 > Extended Module Player Lite

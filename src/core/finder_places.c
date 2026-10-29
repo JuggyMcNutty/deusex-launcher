@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
+#include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,9 @@
 #define FOUND_BOTTLES  "in Bottles"
 #define FOUND_PREFIX   "in a Wine prefix"
 #define FOUND_DRIVE    "on a mounted drive"
+
+/* A folder under the home, for the places' walk. */
+static char *in_home(const finder *f, const char *rel) { return dxl_path_join(f->home, rel); }
 
 /* ---- Lutris ---------------------------------------------------------- */
 
@@ -101,11 +105,40 @@ static void yml_scalar(const char *in, char *out, size_t size) {
     out[n] = '\0';
 }
 
+/* A path as Lutris takes it, its ~ the home's: NULL for a relative one. */
+static char *lutris_path(const finder *f, const char *p) {
+    if (p[0] == '~' && (p[1] == '/' || !p[1])) return in_home(f, p[1] ? p + 2 : "");
+    return p[0] == '/' ? dxl_xstrdup(p) : NULL;
+}
+
+/* Lutris' database, pga.db: the folder the game of the file id.yml is
+ * installed in (its games row's directory, as Lutris' game_path takes it),
+ * which a relative exe is in; NULL for none. Opened read only, a moment's
+ * wait for Lutris writing it; one that does not open, or reads otherwise,
+ * gives none. */
+static char *lutris_directory(const finder *f, const char *db_path, const char *id) {
+    sqlite3 *db = NULL;
+    char *dir = NULL;
+    if (db_path && sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READONLY, NULL) == SQLITE_OK) {
+        sqlite3_busy_timeout(db, 250);
+        sqlite3_stmt *st = NULL;
+        if (sqlite3_prepare_v2(db, "SELECT directory FROM games WHERE configpath = ?1", -1, &st, NULL) == SQLITE_OK &&
+            sqlite3_bind_text(st, 1, id, -1, SQLITE_STATIC) == SQLITE_OK && sqlite3_step(st) == SQLITE_ROW) {
+            const unsigned char *d = sqlite3_column_text(st, 0);
+            if (d && *d) dir = lutris_path(f, (const char *)d);
+        }
+        sqlite3_finalize(st);
+    }
+    sqlite3_close(db);
+    return dir;
+}
+
 /* One game's file: the game: section's exe -- the game's own folder if it
- * is the game's System/DeusEx.exe, or beside it -- and its Wine prefix. A
- * value PyYAML folded goes on, a space between, on the lines indented
- * under it; in double quotes, a line's end escaped joins with none. */
-static void lutris_game(finder *f, const char *path) {
+ * is the game's System/DeusEx.exe, or beside it; a relative one in the
+ * folder pga.db (db_path) gives the game -- and its Wine prefix. A value
+ * PyYAML folded goes on, a space between, on the lines indented under it;
+ * in double quotes, a line's end escaped joins with none. */
+static void lutris_game(finder *f, const char *path, const char *db_path) {
     char *text = dxl_finder_read_small(path, YML_MAX);
     if (!text) return;
     char exe[PATH_MAX] = "", pfx[PATH_MAX] = "";
@@ -140,8 +173,19 @@ static void lutris_game(finder *f, const char *path) {
         dxl_buf_free(&v);
     }
     free(text);
-    if (exe[0] == '/') {
-        char *dir = dxl_path_dirname(exe);
+    char *program = exe[0] ? lutris_path(f, exe) : NULL;
+    if (exe[0] && !program) {
+        /* The game's file is <id>.yml, its row's configpath. */
+        char id[256];
+        snprintf(id, sizeof id, "%s", dxl_path_basename(path));
+        size_t n = strlen(id);
+        if (n > 4 && !strcmp(id + n - 4, ".yml")) id[n - 4] = '\0';
+        char *game_dir = lutris_directory(f, db_path, id);
+        if (game_dir) program = dxl_path_join(game_dir, exe);
+        free(game_dir);
+    }
+    if (program) {
+        char *dir = dxl_path_dirname(program);
         if (!dxl_stricmp(dxl_path_basename(dir), "System")) {
             char *root = dxl_path_dirname(dir);
             dxl_finder_add(f, FOUND_LUTRIS, root, 0);
@@ -150,12 +194,16 @@ static void lutris_game(finder *f, const char *path) {
             dxl_finder_add(f, FOUND_LUTRIS, dir, 0);
         }
         free(dir);
+        free(program);
     }
-    if (pfx[0] == '/') dxl_finder_prefix(f, FOUND_LUTRIS, pfx);
+    char *prefix = pfx[0] ? lutris_path(f, pfx) : NULL;
+    if (prefix) dxl_finder_prefix(f, FOUND_LUTRIS, prefix);
+    free(prefix);
 }
 
-/* Each game's file in its games folder, in name order. */
-static void lutris(finder *f, const char *games) {
+/* Each game's file in its games folder, in name order; db_path its
+ * pga.db. */
+static void lutris(finder *f, const char *games, const char *db_path) {
     DIR *d = opendir(games);
     if (!d) return;
     char *names[CHILDREN_MAX];
@@ -175,7 +223,7 @@ static void lutris(finder *f, const char *games) {
     for (int i = 0; i < n; i++) {
         if (!dxl_finder_stopped(f)) {
             char *path = dxl_path_join(games, names[i]);
-            lutris_game(f, path);
+            lutris_game(f, path, db_path);
             free(path);
         }
         free(names[i]);
@@ -295,9 +343,6 @@ void dxl_finder_setup(finder *f, const dxl_finder_where *w) {
     f->mounts = w->mounts;
 }
 
-/* A folder under the home, for the places' walk. */
-static char *in_home(const finder *f, const char *rel) { return dxl_path_join(f->home, rel); }
-
 /* The places under the home: Steam's, Heroic's, the games folders,
  * Lutris', Bottles', the Wine prefixes there. */
 static void home_places(finder *f) {
@@ -335,17 +380,24 @@ static void home_places(finder *f) {
     free(p);
 
     /* Lutris: its config folder's games, else its data folder's; the same
-     * as a Flatpak. */
-    char *lutris_dirs[4] = {
-        f->config ? dxl_path_join(f->config, "lutris/games") : NULL,
-        f->data ? dxl_path_join(f->data, "lutris/games") : NULL,
-        in_home(f, ".var/app/net.lutris.Lutris/config/lutris/games"),
-        in_home(f, ".var/app/net.lutris.Lutris/data/lutris/games"),
+     * as a Flatpak; its pga.db in its data folder. */
+    char *native_db = f->data ? dxl_path_join(f->data, "lutris/pga.db") : NULL;
+    char *flatpak_db = in_home(f, ".var/app/net.lutris.Lutris/data/lutris/pga.db");
+    struct {
+        char *games;
+        const char *db;
+    } lutris_dirs[4] = {
+        { f->config ? dxl_path_join(f->config, "lutris/games") : NULL, native_db },
+        { f->data ? dxl_path_join(f->data, "lutris/games") : NULL, native_db },
+        { in_home(f, ".var/app/net.lutris.Lutris/config/lutris/games"), flatpak_db },
+        { in_home(f, ".var/app/net.lutris.Lutris/data/lutris/games"), flatpak_db },
     };
     for (int i = 0; i < 4; i++) {
-        if (lutris_dirs[i] && !dxl_finder_stopped(f)) lutris(f, lutris_dirs[i]);
-        free(lutris_dirs[i]);
+        if (lutris_dirs[i].games && !dxl_finder_stopped(f)) lutris(f, lutris_dirs[i].games, lutris_dirs[i].db);
+        free(lutris_dirs[i].games);
     }
+    free(native_db);
+    free(flatpak_db);
 
     /* Bottles' bottles, natively and as a Flatpak. */
     if (f->data) {
