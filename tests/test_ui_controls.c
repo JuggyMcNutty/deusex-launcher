@@ -1,6 +1,7 @@
 #include "test.h"
 #include "ui_offscreen.h"
 #include "ui/controls.h"
+#include "ui/glyphs.h"
 #include "ui/osk.h"
 #include "ui/text.h"
 #include "ui/widgets.h"
@@ -523,6 +524,33 @@ static void test_key_slot(void) {
     r = dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0);
     end();
     CHECK_INT(r, DXL_SLOT_CLEARED);
+    /* While it captures, the foot's Cancel hint clicked is Esc: cancelled;
+     * the left button anywhere else is captured. */
+    static const dxl_hint_item foot[] = { { DXL_HINT_BACK, "Cancel" } };
+    const dxl_rect bar = { 0, 600, 1280, 60 };
+    for (int on_hint = 1; on_hint >= 0; on_hint--) {
+        key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+        begin();
+        dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0);
+        dxl_hints(&ui, bar, foot, 1);
+        end();
+        CHECK_INT(ui.capture_id, id);
+        float x = on_hint ? 1270 : 640, y = on_hint ? 630 : 300;
+        mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, x, y, 1);
+        begin();
+        r = dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0);
+        CHECK_INT(r, on_hint ? DXL_SLOT_CANCELLED : DXL_SLOT_CAPTURED);
+        if (!on_hint) CHECK_INT(ui.in.captured_code, SDL_BUTTON_LEFT);
+        dxl_hints(&ui, bar, foot, 1);
+        end();
+        CHECK_INT(ui.capture_id, 0);
+        mouse(SDL_EVENT_MOUSE_BUTTON_UP, x, y, 1);
+        begin();
+        dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0);
+        dxl_hints(&ui, bar, foot, 1);
+        end();
+        CHECK_INT(ui.capture_id, 0);
+    }
 }
 
 /* Ctrl+Tab and the shoulders step through tabs, round. */

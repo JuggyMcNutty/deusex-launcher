@@ -458,7 +458,11 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         ui->in.px = e->button.x * density / ui->scale;
         ui->in.py = e->button.y * density / ui->scale;
         if (ui->capture_id) {
-            if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN && !ui->in.captured) {
+            const dxl_rect b = ui->back_hint;
+            int on_back = ui->in.px >= b.x && ui->in.px < b.x + b.w && ui->in.py >= b.y && ui->in.py < b.y + b.h;
+            if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN && e->button.button == SDL_BUTTON_LEFT && on_back) {
+                ui->in.back++;
+            } else if (e->type == SDL_EVENT_MOUSE_BUTTON_DOWN && !ui->in.captured) {
                 ui->in.captured = DXL_CAPTURED_MOUSE;
                 ui->in.captured_code = e->button.button;
             }
@@ -566,6 +570,7 @@ void dxl_ui_begin(dxl_ui *ui, double now) {
     if (ui->in.activate || ui->in.back || ui->in.pressed || ui->in.start) ui->typed_until = now;
     ui->diag_count = 0;
     ui->focus_moved = 0;
+    ui->back_hint = (dxl_rect){ 0, 0, 0, 0 };
     ui->id_seed = 0;
     ui->scope = 0;
     ui->frame++;

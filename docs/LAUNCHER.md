@@ -527,7 +527,8 @@ file made from the defaults file when there is none (`src/app/run.c`).
 the game's defaults bind besides (the pause menu, the belt's slots, the
 augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A
 slot takes the next key, mouse button or wheel notch; Esc puts it back,
-Delete takes the key away. A key bound to another action asks: that action
+as its Cancel hint clicked does, Delete takes the key away. A key bound to
+another action asks: that action
 instead, or both (`a|b`), the key then each one's. Keys are named as the
 engine's window gives them, as the original does (`src/core/keys.c`): a
 shift, control or alt as `Shift`, `Ctrl` or `Alt`, the name of both sides,
