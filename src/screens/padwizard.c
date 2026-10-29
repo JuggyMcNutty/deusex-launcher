@@ -219,7 +219,7 @@ static void finish(dxl_shell *s) {
     const char *name = SDL_GetJoystickNameForID(w->id);
     snprintf(w->map.name, sizeof w->map.name, "%s", name && *name ? name : "A controller");
     char text[2048];
-    dxl_padmap_format(&w->map, text, sizeof text);
+    dxl_padmap_format(&w->map, SDL_GetPlatform(), text, sizeof text);
     dxl_log("pad mapping: %s", text);
     char *db = dxl_run_pad_db(s->run);
     dxl_err e;
