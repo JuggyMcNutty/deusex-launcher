@@ -41,13 +41,13 @@ static void load(dxl_shell *s) {
     FILE *f = fopen(path, "rb");
     free(path);
     if (!f) return;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f), from = size > READ_MAX ? size - READ_MAX : 0;
-    fseek(f, from, SEEK_SET);
-    s->log_text = malloc((size_t)(size - from) + 1);
-    size_t n = s->log_text ? fread(s->log_text, 1, (size_t)(size - from), f) : 0;
+    long size = fseek(f, 0, SEEK_END) == 0 ? ftell(f) : -1;
+    if (size < 0) { fclose(f); return; }   /* unseekable, or past what a long holds */
+    long from = size > READ_MAX ? size - READ_MAX : 0;
+    if (fseek(f, from, SEEK_SET) != 0) { fclose(f); return; }
+    s->log_text = dxl_xmalloc((size_t)(size - from) + 1);
+    size_t n = fread(s->log_text, 1, (size_t)(size - from), f);
     fclose(f);
-    if (!s->log_text) return;
     s->log_text[n] = '\0';
     /* A cut start begins at the next whole line. */
     char *text = s->log_text;
@@ -56,11 +56,11 @@ static void load(dxl_shell *s) {
         if (nl) text = nl + 1;
     }
     int cap = 1024;
-    s->log_starts = malloc(sizeof *s->log_starts * (size_t)cap);
+    s->log_starts = dxl_xmalloc(sizeof *s->log_starts * (size_t)cap);
     for (char *p = text; *p;) {
         if (s->log_lines == cap) {
             cap *= 2;
-            s->log_starts = realloc(s->log_starts, sizeof *s->log_starts * (size_t)cap);
+            s->log_starts = dxl_xrealloc(s->log_starts, sizeof *s->log_starts * (size_t)cap);
         }
         s->log_starts[s->log_lines++] = p - s->log_text;
         char *nl = strchr(p, '\n');
