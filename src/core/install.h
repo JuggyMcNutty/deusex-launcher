@@ -1,8 +1,8 @@
 /* A Deus Ex install: whether a folder is one, which build, and what is
  * missing from it.
  *
- * A folder is an install when System/DeusEx.exe is there by that exact
- * name, which is how the engine finds it; the engine plays it only when
+ * A folder is an install when System/DeusEx.exe is there, its System
+ * folder in any case, as the engine finds it; the engine plays it only when
  * that file's SHA1 is a build it knows (core/gamedb.h). Beside it: the
  * packages the engine cannot start without, the defaults a profile is made
  * from, and the menu's map -- System's Core.u, Engine.u, Extension.u,
