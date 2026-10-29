@@ -468,6 +468,30 @@ static void test_play_refused(void) {
     free(glibc);
 }
 
+/* -changevideo's Graphics left for Home, Settings opened from there: its
+ * Done goes Home, the game not started. */
+static void test_graphics_then_home(void) {
+    CHECK_INT(fresh_home(), 0);
+    /* FirstRun as a run leaves it: below 400 -changevideo is the first
+     * time's branch, Home. */
+    profile_files f;
+    open_files(&f);
+    CHECK(f.sys != NULL);
+    if (f.sys) {
+        dxl_ini_set(f.sys, "FirstRun", "FirstRun", "1100");
+        CHECK_INT(dxl_ini_save(f.sys, f.p.system_ini, NULL), 0);
+    }
+    close_files(&f);
+    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/graphics_then_home.script' "
+                 "'%s/deusex-launcher' -changevideo >>'%s/out.txt' 2>&1",
+                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, app, home),
+              0);
+    script_ok();
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+}
+
 /* The Profiles page: a profile made, named after its name, used; a copy
  * renamed and deleted, its four folders in the trash; the first in use
  * again. */
@@ -952,6 +976,7 @@ int main(void) {
     RUN(test_pad_test);
     RUN(test_engine_and_game);
     RUN(test_play_refused);
+    RUN(test_graphics_then_home);
     RUN(test_profiles);
     RUN(test_mods);
     RUN(test_big_screen);
