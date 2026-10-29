@@ -325,7 +325,9 @@ chosen -- or the game, while it plays, opens the server.
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
    runs at once a `RELAUNCH` the engine passed on, as the original's
    relaunched `DeusEx.exe` does, decided again in this process but for
-   Home: `-server` a dedicated server, `-changevideo` Graphics; with no
+   Home, on its words alone, an `INI=` or `USERINI=` of the line before
+   gone with them and the profile's inis read and written:
+   `-server` a dedicated server, `-changevideo` Graphics; with no
    `RELAUNCH`, Home again when `[Launcher] ReturnAfterPlaying` is on. One
    that is not clean leaves `Running.ini`, and says how the run ended.
 
