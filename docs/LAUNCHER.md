@@ -66,8 +66,9 @@ one over both.
 
 ## An install
 
-A folder is an install when `System/DeusEx.exe` is there by that name, and
-the engine plays it only when that file's SHA1 is one it knows
+A folder is an install when `System/DeusEx.exe` is there, `System` in any case as the
+engine finds it, and the engine plays it only when that file's SHA1 is one
+it knows
 (`src/core/gamedb.c`, the engine's own list, which Port Ex Machina's
 `scripts/dx.sh check` holds them to): 1112fm, GOG's and Steam's; 1002f, the
 first release, runs with a warning. Beside it the files the engine cannot
