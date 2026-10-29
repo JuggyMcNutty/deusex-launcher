@@ -105,12 +105,13 @@ writing nothing there:
 
 - **`DeusEx.ini`**: the game's own, else `Default.ini`; one with no
   `[Core.System] Paths`, a stub the engine cannot start from, is
-  `Default.ini` with its values over it. The engine's own sections
-  (`Engine.DXEngineClient`, `DXEngineAudioDevice` and
-  `DXEngineRenderDevice`) come from `DXE-DeusEx.ini`, which the engine
-  writes when no launcher names an ini, for each the game's lacks; then each
-  key of them they lack is written, as the engine would take it
-  (`src/core/engine_sections.h`).
+  `Default.ini` with its values over it, a key it gives, once or line by
+  line (`ServerActors`), in place of all `Default.ini`'s lines of that
+  key. The engine's own sections (`Engine.DXEngineClient`,
+  `DXEngineAudioDevice` and `DXEngineRenderDevice`) come from
+  `DXE-DeusEx.ini`, which the engine writes when no launcher names an
+  ini, for each the game's lacks; then each key of them they lack is
+  written, as the engine would take it (`src/core/engine_sections.h`).
 - **`User.ini`**: the newer of `User.ini` and `DXE-User.ini`, else
   `DefUser.ini`. The bindings the original game saved, in
   `[Extension.InputExt]`, put in `[Engine.Input]`, the one section of them
