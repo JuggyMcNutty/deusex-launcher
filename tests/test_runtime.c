@@ -1,4 +1,5 @@
 #include "test.h"
+#include "scratch.h"
 #include "core/sentinel.h"
 #include "core/install.h"
 #include "core/instance.h"
@@ -128,43 +129,39 @@ static void test_sentinel_survives_to_next_launch(void) {
 /* --- single instance and handoff --------------------------------------- */
 
 static void test_lock_is_exclusive(void) {
-    CHECK_INT(dxl_instance_other_running(g_root), 0);
+    CHECK_INT(dxl_instance_other_running(), 0);
 
-    dxl_instance *first = dxl_instance_acquire(g_root);
+    dxl_instance *first = dxl_instance_acquire();
     CHECK(first != NULL);
-    CHECK_INT(dxl_instance_other_running(g_root), 1);
+    CHECK_INT(dxl_instance_other_running(), 1);
 
-    dxl_instance *second = dxl_instance_acquire(g_root);
+    dxl_instance *second = dxl_instance_acquire();
     CHECK(second == NULL);
 
     dxl_instance_release(first);
-    CHECK_INT(dxl_instance_other_running(g_root), 0);
+    CHECK_INT(dxl_instance_other_running(), 0);
 }
 
-/* Two installs on the same card must not lock each other out. */
-static void test_lock_is_per_install(void) {
-    char other[600];
-    snprintf(other, sizeof other, "%s-other", g_root);
-
-    dxl_instance *a = dxl_instance_acquire(g_root);
-    dxl_instance *b = dxl_instance_acquire(other);
+/* One instance whatever the install, as the original's mutex is: a second
+ * install's launch finds the first's game live. */
+static void test_lock_is_the_users(void) {
+    dxl_instance *a = dxl_instance_acquire();
     CHECK(a != NULL);
-    CHECK(b != NULL);
+    CHECK(dxl_instance_acquire() == NULL);
     dxl_instance_release(a);
-    dxl_instance_release(b);
 }
 
 /* The handoff protocol is unchanged from WM_COPYDATA: one message carrying
  * the command line. Only the transport differs. */
 static void test_handoff_delivers_the_command_line(void) {
-    dxl_instance *primary = dxl_instance_acquire(g_root);
+    dxl_instance *primary = dxl_instance_acquire();
     CHECK(primary != NULL);
 
     char buf[DXL_HANDOFF_MAX + 1];
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 0);   /* nothing yet */
 
     dxl_err e;
-    CHECK_INT(dxl_instance_forward(g_root, "deusex://host/Map?NewWindow", 1000, &e), 0);
+    CHECK_INT(dxl_instance_forward("deusex://host/Map?NewWindow", 1000, &e), 0);
 
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 1);
     CHECK_STR(buf, "deusex://host/Map?NewWindow");
@@ -173,7 +170,7 @@ static void test_handoff_delivers_the_command_line(void) {
     char *line = dxl_xmalloc(DXL_HANDOFF_MAX + 1);
     memset(line, 'x', DXL_HANDOFF_MAX);
     line[DXL_HANDOFF_MAX] = '\0';
-    CHECK_INT(dxl_instance_forward(g_root, line, 1000, &e), 0);
+    CHECK_INT(dxl_instance_forward(line, 1000, &e), 0);
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 1);
     CHECK_INT((int)strlen(buf), DXL_HANDOFF_MAX);
     free(line);
@@ -186,14 +183,14 @@ static void test_handoff_delivers_the_command_line(void) {
 /* The lock alone: live for the Running.ini question, but nothing to forward
  * to -- a forward finds no one and fails. */
 static void test_lock_without_channel(void) {
-    dxl_instance *server = dxl_instance_acquire_lock(g_root);
+    dxl_instance *server = dxl_instance_acquire_lock();
     CHECK(server != NULL);
     CHECK_INT(dxl_instance_fd(server), -1);
-    CHECK_INT(dxl_instance_other_running(g_root), 1);
+    CHECK_INT(dxl_instance_other_running(), 1);
     dxl_err e;
-    CHECK(dxl_instance_forward(g_root, "map", 1000, &e) != 0);
+    CHECK(dxl_instance_forward("map", 1000, &e) != 0);
     dxl_instance_release(server);
-    dxl_instance *client = dxl_instance_acquire(g_root);
+    dxl_instance *client = dxl_instance_acquire();
     CHECK(dxl_instance_fd(client) >= 0);
     dxl_instance_release(client);
 }
@@ -218,6 +215,7 @@ static void test_sentinel_removes_another_case(void) {
 }
 
 TEST_MAIN_BEGIN
+    scratch_runtime_dir();
     build_install();
     RUN(test_cd_check_with_shipped_path);
     RUN(test_cd_check_with_steams_path);
@@ -225,7 +223,7 @@ TEST_MAIN_BEGIN
     RUN(test_sentinel_survives_to_next_launch);
     RUN(test_sentinel_removes_another_case);
     RUN(test_lock_is_exclusive);
-    RUN(test_lock_is_per_install);
+    RUN(test_lock_is_the_users);
     RUN(test_handoff_delivers_the_command_line);
     RUN(test_lock_without_channel);
     teardown();

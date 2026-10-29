@@ -20,18 +20,6 @@ struct dxl_instance {
     char *sock_path;   /* the channel's file, removed at release */
 };
 
-/* FNV-1a over the install path, so two installs on the same machine get
- * different names. Collisions would merely make two installs share an
- * instance; the hash only needs to be stable, not cryptographic. */
-static unsigned long id_hash(const char *id) {
-    unsigned long h = 2166136261UL;
-    for (const unsigned char *p = (const unsigned char *)(id ? id : ""); *p; p++) {
-        h ^= *p;
-        h *= 16777619UL;
-    }
-    return h;
-}
-
 /* The folder of the lock and the channel: $XDG_RUNTIME_DIR, the user's own
  * (0700 by the system), else /tmp/deusex-launcher-<uid>, made 0700 and
  * checked to be the user's own folder, no link, for a channel's permissions
@@ -54,28 +42,28 @@ static char *runtime_dir(void) {
  * owner can send a line, where an abstract name took anyone's (the
  * original's WM_COPYDATA stays within the player's desktop). 0 where there
  * is no folder, or the name would not fit. */
-static socklen_t socket_addr(struct sockaddr_un *sa, const char *id) {
+static socklen_t socket_addr(struct sockaddr_un *sa) {
     memset(sa, 0, sizeof *sa);
     sa->sun_family = AF_UNIX;
     char *dir = runtime_dir();
     if (!dir) return 0;
-    int n = snprintf(sa->sun_path, sizeof sa->sun_path, "%s/deusex-launcher.%08lx.sock", dir, id_hash(id));
+    int n = snprintf(sa->sun_path, sizeof sa->sun_path, "%s/deusex-launcher.sock", dir);
     free(dir);
     if (n < 0 || (size_t)n >= sizeof sa->sun_path) return 0;
     return (socklen_t)(offsetof(struct sockaddr_un, sun_path) + (size_t)n + 1);
 }
 
-static char *lock_path_for(const char *id) {
+static char *lock_path(void) {
     char *dir = runtime_dir();
-    size_t n = (dir ? strlen(dir) : 4) + 48;
+    size_t n = (dir ? strlen(dir) : 4) + 32;
     char *p = dxl_xmalloc(n);
-    snprintf(p, n, "%s/deusex-launcher.%08lx.lock", dir ? dir : "/tmp", id_hash(id));
+    snprintf(p, n, "%s/deusex-launcher.lock", dir ? dir : "/tmp");
     free(dir);
     return p;
 }
 
-static dxl_instance *acquire(const char *id, int listen) {
-    char *path = lock_path_for(id);
+static dxl_instance *acquire(int listen) {
+    char *path = lock_path();
     int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
     if (fd < 0) { free(path); return NULL; }
 
@@ -103,7 +91,7 @@ static dxl_instance *acquire(const char *id, int listen) {
     int s = listen ? socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0) : -1;
     if (s >= 0) {
         struct sockaddr_un sa;
-        socklen_t len = socket_addr(&sa, id);
+        socklen_t len = socket_addr(&sa);
         /* A file an earlier instance left (the lock is ours: no one listens
          * on it) would refuse the bind. */
         if (len) unlink(sa.sun_path);
@@ -117,8 +105,8 @@ static dxl_instance *acquire(const char *id, int listen) {
     return inst;
 }
 
-dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
-dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
+dxl_instance *dxl_instance_acquire(void) { return acquire(1); }
+dxl_instance *dxl_instance_acquire_lock(void) { return acquire(0); }
 
 int dxl_instance_fd(const dxl_instance *inst) { return inst ? inst->sock_fd : -1; }
 
@@ -140,8 +128,8 @@ void dxl_instance_release(dxl_instance *inst) {
     free(inst);
 }
 
-int dxl_instance_other_running(const char *id) {
-    char *path = lock_path_for(id);
+int dxl_instance_other_running(void) {
+    char *path = lock_path();
     int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
     free(path);
     if (fd < 0) return 0;
@@ -152,7 +140,7 @@ int dxl_instance_other_running(const char *id) {
     return busy;
 }
 
-int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
+int dxl_instance_forward(const char *message, int timeout_ms,
                          dxl_err *err) {
     int s = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if (s < 0) { dxl_err_set(err, "socket: %s", strerror(errno)); return -1; }
@@ -161,7 +149,7 @@ int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
     setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
 
     struct sockaddr_un sa;
-    socklen_t len = socket_addr(&sa, id);
+    socklen_t len = socket_addr(&sa);
     if (!len) {
         close(s);
         dxl_err_set(err, "handoff failed: no runtime folder of this user's");

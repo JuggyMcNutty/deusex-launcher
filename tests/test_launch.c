@@ -13,7 +13,7 @@
  * arguments, one a line, talks on the launcher's line when told to, and
  * exits as told. */
 
-static char root[256], sys[300], exe[320], id[PATH_MAX];
+static char root[256], sys[300], exe[320];
 
 /* ---- the stand-in screens ----------------------------------------------- */
 
@@ -74,7 +74,7 @@ static void s_pump(void *c) {
     if (S.stop_after_ready && S.splash_hides > 0) S.stop = 1;
     if (S.forward_after_ready && !S.forwarded && S.splash_hides > 0) {
         dxl_err e;
-        S.forwarded = dxl_instance_forward(id, S.forward_line, 1000, &e) == 0;
+        S.forwarded = dxl_instance_forward(S.forward_line, 1000, &e) == 0;
     }
 }
 
@@ -118,7 +118,6 @@ static void install(const char *tag, const char *ini) {
     free(p);
     scratch_write(root, "Textures/Palettes.utx", "palette");
     scratch_write(root, "Help/Logo.bmp", "BM");
-    if (!realpath(sys, id)) snprintf(id, sizeof id, "%s", sys);
 }
 
 static char *read_file(const char *rel) {
@@ -304,7 +303,7 @@ static void test_the_two_exits_that_never_launch(void) {
  * token the launch goes on instead. */
 static void test_forwarding(void) {
     install("l-fwd", NULL);
-    dxl_instance *primary = dxl_instance_acquire(id);
+    dxl_instance *primary = dxl_instance_acquire();
     dxl_launch_result r;
     launch((const char *[]){ "DXMP_Cathedral", NULL }, &r);
     CHECK_STR(r.ended, "forwarded");
@@ -328,7 +327,7 @@ static void test_forwarding(void) {
  * folder holds a token is never forwarded, as the original's is not. */
 static void test_forwarding_bypassed_by_the_path(void) {
     install("l-fwd-NewWindow", NULL);
-    dxl_instance *primary = dxl_instance_acquire(id);
+    dxl_instance *primary = dxl_instance_acquire();
     scratch_write(root, "System/Running.ini", "");
     dxl_launch_result r;
     launch((const char *[]){ "DXMP_Cathedral", NULL }, &r);
@@ -564,6 +563,7 @@ static void test_relaunch_line(void) {
 }
 
 TEST_MAIN_BEGIN
+    scratch_runtime_dir();
     RUN(test_quoted_ini);
     RUN(test_run_game_script);
     RUN(test_run_game_without_an_engine);

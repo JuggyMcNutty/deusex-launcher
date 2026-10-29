@@ -33,7 +33,6 @@ typedef struct {
     char        *exe;
     char        *base;         /* appBaseDir: the game's System/ */
     char        *package;      /* appPackage */
-    char        *id;           /* the install, for the single-instance lock */
     char        *log_path;
     dxl_config  *cfg;
     dxl_loc     *loc;
@@ -307,8 +306,6 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     r.package = package_of(exe_path);
     r.raw = raw_cmdline(argc, argv, exe_path);
     r.cmd = dxl_cmdline_join(argc, argv);
-    char *real = realpath(r.base, NULL);
-    r.id = real ? real : dxl_xstrdup(r.base);
     dxl_sentinel_init(&r.sentinel, r.base);
 
     /* 1. Forwarding, before anything else: the decision as far as the
@@ -318,7 +315,7 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     dxl_policy_decide(&pre, &first);
     if (!first.skip_handoff) {
         dxl_err e;
-        if (dxl_instance_forward(r.id, r.cmd, HANDOFF_TIMEOUT_MS, &e) == 0) {
+        if (dxl_instance_forward(r.cmd, HANDOFF_TIMEOUT_MS, &e) == 0) {
             out->exit_code = 0;
             out->ended = "forwarded";
             goto done;
@@ -332,7 +329,7 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
      * file, which the first holds with read sharing alone, and that launch
      * runs without a log. */
     r.log_path = log_path_of(&r);
-    int other = dxl_instance_other_running(r.id);
+    int other = dxl_instance_other_running();
     if (other) dxl_log_open(r.log_path);
     else dxl_log_open_new(r.log_path);
     dxl_log("Init: command line: %s", r.cmd);
@@ -366,7 +363,7 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
 
     /* 4 and 5.3. The lock, and for a client the line a second launch
      * forwards to (the original's IsBrowser window). */
-    r.inst = client ? dxl_instance_acquire(r.id) : dxl_instance_acquire_lock(r.id);
+    r.inst = client ? dxl_instance_acquire() : dxl_instance_acquire_lock();
 
     /* 5. InitEngine. */
     dxl_policy_input in = {
@@ -438,7 +435,7 @@ done:
     dxl_config_free(r.cfg);
     dxl_sentinel_free(&r.sentinel);
     free(r.raw); free(r.cmd); free(r.exe); free(r.base); free(r.package);
-    free(r.id); free(r.log_path); free(r.relaunch);
+    free(r.log_path); free(r.relaunch);
 }
 
 void dxl_launch_result_free(dxl_launch_result *r) {

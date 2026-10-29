@@ -18,6 +18,16 @@ static inline const char *scratch_dir(const char *tag) {
     return dir;
 }
 
+/* XDG_RUNTIME_DIR set to a 0700 folder of this run's own: the single-instance
+ * lock and channel are named for the user alone, so a test's would otherwise
+ * meet a game the user has running. */
+static inline void scratch_runtime_dir(void) {
+    static char dir[256];
+    snprintf(dir, sizeof dir, "/tmp/dxl-xdg-%d", (int)getpid());
+    mkdir(dir, 0700);
+    setenv("XDG_RUNTIME_DIR", dir, 1);
+}
+
 /* <dir>/<rel>, creating the folders on the way. */
 static inline char *scratch_path(const char *dir, const char *rel) {
     size_t n = strlen(dir) + strlen(rel) + 2;

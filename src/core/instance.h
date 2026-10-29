@@ -19,6 +19,10 @@
  * the original's WM_COPYDATA stays within the player's desktop; removed at
  * release, a stale one at the next bind.
  *
+ * Both are named for the user alone, never the install, as the original's
+ * mutex and IsBrowser window are: a launch of another install, a copy or a
+ * mod's folder, forwards to the game running and finds it live.
+ *
  * The protocol is unchanged: one message, the command line.
  */
 #ifndef DXL_INSTANCE_H
@@ -32,24 +36,23 @@
 
 typedef struct dxl_instance dxl_instance;
 
-/* Becomes the primary instance for this install. NULL if another already is.
- * id should identify the install (the game directory); different installs must
- * not lock each other out. */
-dxl_instance *dxl_instance_acquire(const char *id);
+/* Becomes the primary instance, whatever the install. NULL if another
+ * already is. */
+dxl_instance *dxl_instance_acquire(void);
 /* The lock alone, with no channel to forward to: an instance nothing should
  * hand a command line to -- the original's -server, whose log window is
  * never marked IsBrowser. */
-dxl_instance *dxl_instance_acquire_lock(const char *id);
+dxl_instance *dxl_instance_acquire_lock(void);
 void          dxl_instance_release(dxl_instance *inst);
 
 /* Is another instance live? Answers without taking the lock, for the
  * Running.ini question. */
-int dxl_instance_other_running(const char *id);
+int dxl_instance_other_running(void);
 
 /* Sends message to the primary instance. Returns 0 on success. The original
  * allows 30s; nothing here should ever take that long, but the timeout exists
  * so a wedged primary cannot hang the messenger forever. */
-int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
+int dxl_instance_forward(const char *message, int timeout_ms,
                          dxl_err *err);
 
 /* Non-blocking. Returns 1 and NUL-terminates buf when a handoff arrived. */
