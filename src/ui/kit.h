@@ -165,6 +165,9 @@ typedef struct dxl_ui {
     uint32_t        text_lost;   /* a field whose edit ended as it was not drawn: kept */
     int             swallow_space;    /* Space chose a field: the text it types is not typed */
     uint32_t        capture_id;
+    /* Where this frame drew the hint of Esc (dxl_hints), empty where it drew
+     * none: clicked while a slot captures, it is Esc, not a click taken. */
+    dxl_rect        back_hint;
     /* The pads' buttons and sticks drive nothing (a controller being mapped). */
     int             pads_off;
 
@@ -254,7 +257,8 @@ void dxl_ui_text_end(dxl_ui *ui);
  * they do. Space chooses it as ever. */
 void dxl_ui_text_ready(dxl_ui *ui, uint32_t id, dxl_rect area);
 /* The next key, mouse button, wheel notch or pad button for id, as it is
- * (dxl_input's captured), none of it navigation; Esc is back. */
+ * (dxl_input's captured), none of it navigation; Esc is back, and so is a
+ * click on its hint, which a hint clicked is. */
 void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id);
 void dxl_ui_capture_end(dxl_ui *ui);
 
