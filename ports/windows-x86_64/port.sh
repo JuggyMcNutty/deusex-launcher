@@ -102,6 +102,10 @@ port_test() {
     server="$(dirname "$(dx_wine)")/wineserver"
     env WINEPREFIX="$(dx_wine_prefix)" "$server" -p 60 || [ $? = 2 ]
     dx_wine_run cmd /c exit
+    # A test that crashes fails, its output with it: Wine's crash dialog,
+    # which would hold it on the desktop until someone closed it, off in
+    # the tests' prefix; and none runs past ten minutes.
+    dx_wine_run reg add 'HKCU\Software\Wine\WineDbg' /v ShowCrashDialog /t REG_DWORD /d 0 /f >/dev/null
     # The trash and the prefix the tests run in (DX_WINEPREFIX, which the
     # emulator takes over the path CMake was configured from) by one path: a
     # disk mounted twice, as a container's /home and /run/host/var/home, is
@@ -109,7 +113,7 @@ port_test() {
     # whether to delete the folder outright, which no test answers.
     mkdir -p "$BUILD/wine-xdg"
     (cd "$SRC" && DX_WINEPREFIX="$(dx_wine_prefix)" XDG_DATA_HOME="$BUILD/wine-xdg" \
-        ctest --preset windows-x86_64) || rc=$?
+        ctest --preset windows-x86_64 --timeout 600) || rc=$?
     # Then taken down: the server and its services hold the output they
     # were started with, and a pipe from the tests (CI's log) would wait for
     # them for ever.
