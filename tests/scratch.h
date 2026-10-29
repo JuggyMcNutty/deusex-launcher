@@ -18,16 +18,6 @@ static inline const char *scratch_dir(const char *tag) {
     return dir;
 }
 
-/* XDG_RUNTIME_DIR set to a 0700 folder of this run's own: the single-instance
- * lock and channel are named for the user alone, so a test's would otherwise
- * meet a game the user has running. */
-static inline void scratch_runtime_dir(void) {
-    static char dir[256];
-    snprintf(dir, sizeof dir, "/tmp/dxl-xdg-%d", (int)getpid());
-    mkdir(dir, 0700);
-    setenv("XDG_RUNTIME_DIR", dir, 1);
-}
-
 /* <dir>/<rel>, creating the folders on the way. */
 static inline char *scratch_path(const char *dir, const char *rel) {
     size_t n = strlen(dir) + strlen(rel) + 2;
@@ -57,6 +47,22 @@ static inline void scratch_remove(const char *dir) {
     char cmd[512];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", dir);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", dir);
+}
+
+static inline void scratch_runtime_remove(void) {
+    const char *dir = getenv("XDG_RUNTIME_DIR");
+    if (dir && strncmp(dir, "/tmp/dxl-xdg-", 13) == 0) scratch_remove(dir);
+}
+
+/* XDG_RUNTIME_DIR set to a 0700 folder of this run's own, removed at exit:
+ * the single-instance lock and channel are named for the user alone, so a
+ * test's would otherwise meet a game the user has running. */
+static inline void scratch_runtime_dir(void) {
+    static char dir[256];
+    snprintf(dir, sizeof dir, "/tmp/dxl-xdg-%d", (int)getpid());
+    mkdir(dir, 0700);
+    setenv("XDG_RUNTIME_DIR", dir, 1);
+    atexit(scratch_runtime_remove);
 }
 
 #endif
