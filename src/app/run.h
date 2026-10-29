@@ -90,9 +90,14 @@ typedef struct {
     dxl_gpu_probe   gpu;
 } dxl_run;
 
+/* A screen no one answered: no window opened for it, or a signal stopped
+ * it. Not the player's quit: the run ends as it is, Running.ini left for
+ * the next start. */
+#define DXL_VIEW_UNANSWERED (-1)
+
 typedef struct {
     void *ctx;
-    /* A screen: 1 to play, 0 to quit. */
+    /* A screen: 1 to play, 0 to quit, or DXL_VIEW_UNANSWERED. */
     int  (*view)(void *ctx, dxl_run *r, dxl_view which);
     /* The window down before the game, and back after it. */
     void (*before_play)(void *ctx, dxl_run *r);

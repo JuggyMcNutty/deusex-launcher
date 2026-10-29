@@ -857,7 +857,7 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
     dxl_window *w = ctx;
     dxl_shell *s = &w->shell;
     w->run = r;
-    if (open_window(w, r) != 0) return 0;
+    if (open_window(w, r) != 0) return DXL_VIEW_UNANSWERED;
     dxl_shell_enter(s, r, which);
     probe_collect(w);
     listen_start(w);
@@ -915,11 +915,13 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
         dxl_log("this run's words: %s", s->next_run);
         s->next_run[0] = '\0';
     }
-    dxl_log("%s: %s", view_name(which), s->result ? "play" : "quit");
+    /* A signal's stop is no quit of the player's. */
+    int stopped = !s->result && w->stop && *w->stop;
+    dxl_log("%s: %s", view_name(which), s->result ? "play" : stopped ? "stopped" : "quit");
     /* A quit is the run's end: the window goes now, while the run is. */
     if (!s->result) close_window(w, r);
     w->run = NULL;
-    return s->result;
+    return stopped ? DXL_VIEW_UNANSWERED : s->result;
 }
 
 static void before_play(void *ctx, dxl_run *r) {
