@@ -102,8 +102,14 @@ port_test() {
     server="$(dirname "$(dx_wine)")/wineserver"
     env WINEPREFIX="$(dx_wine_prefix)" "$server" -p 60 || [ $? = 2 ]
     dx_wine_run cmd /c exit
+    # The trash and the prefix the tests run in (DX_WINEPREFIX, which the
+    # emulator takes over the path CMake was configured from) by one path: a
+    # disk mounted twice, as a container's /home and /run/host/var/home, is
+    # two places Wine cannot move a folder between, and its shell then asks
+    # whether to delete the folder outright, which no test answers.
     mkdir -p "$BUILD/wine-xdg"
-    (cd "$SRC" && XDG_DATA_HOME="$BUILD/wine-xdg" ctest --preset windows-x86_64) || rc=$?
+    (cd "$SRC" && DX_WINEPREFIX="$(dx_wine_prefix)" XDG_DATA_HOME="$BUILD/wine-xdg" \
+        ctest --preset windows-x86_64) || rc=$?
     # Then taken down: the server and its services hold the output they
     # were started with, and a pipe from the tests (CI's log) would wait for
     # them for ever.

@@ -90,7 +90,12 @@ GOG's or installer's registry keys.
   made by `dx_wine_ready` with no Mono or Gecko and vkd3d's libraries copied
   in, which Proton's wined3d needs and a bare prefix lacks.
 - **Wine's Recycle Bin is the desktop's trash**: the tests' goes to a
-  scratch one (`XDG_DATA_HOME`, `port.sh`'s `port_test`).
+  scratch one (`XDG_DATA_HOME`, `port.sh`'s `port_test`), named by the same
+  path as the prefix (`DX_WINEPREFIX`). Wine moves a folder into the trash
+  by a rename, which fails between two mounts of one disk (a container's
+  `/home` and `/run/host/var/home`); its shell then asks whether to delete
+  the folder outright, and `test_trash_win32` waits for ever on that
+  question.
 - **Several Wine programs started at once** can race to start Wine's server
   and the prefix's services, and a test then waits for ever: `port_test`
   starts them first, and keeps the server up.
