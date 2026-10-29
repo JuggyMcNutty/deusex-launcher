@@ -113,9 +113,5 @@ int dxl_engine_sections_seed(dxl_ini *system) {
         dxl_ini_set(system, keys[i].section, keys[i].key, v);
         added++;
     }
-    if (!dxl_ini_get(system, "Engine.DXEngineWindowSystem", "WindowSystem")) {
-        dxl_ini_set(system, "Engine.DXEngineWindowSystem", "WindowSystem", "SDL2");
-        added++;
-    }
     return added;
 }
