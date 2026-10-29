@@ -33,6 +33,9 @@ typedef struct {
  * dir that is there and cannot be read. */
 int  dxl_saves_list(const char *dir, dxl_saves *out, dxl_err *err);
 void dxl_saves_free(dxl_saves *s);
+/* How many dxl_saves_list gives for dir, no info read: what a profile's
+ * save count and the import's say. */
+int  dxl_saves_count(const char *dir);
 
 /* The newest one that reads: what Continue loads. NULL for none. */
 const dxl_save *dxl_saves_latest(const dxl_saves *s);
