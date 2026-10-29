@@ -24,7 +24,6 @@
 #define FRAME_H    253
 
 #define DETECT_MS  30000   /* how long the Renderer page waits for Detected.ini */
-#define DETECT_FLAGS "testrendev=D3DDrv.D3DRenderDevice log=Detected.log"
 #define MAX_SHOWN  32
 
 typedef struct {
@@ -302,7 +301,7 @@ void dxl_wizard_first_paint(dxl_wizard *w, int detect) {
         char *detected = dxl_path_join(w->req->system_dir, "Detected.ini");
         remove(detected);
         pid_t pid = 0;
-        int running = dxl_child_start(w->req->exe_path, DETECT_FLAGS, w->req->system_dir, &pid,
+        int running = dxl_child_start(w->req->exe_path, DXL_DETECT_LINE, w->req->system_dir, &pid,
                                       &e) == 0;
         /* Up to 30 seconds for Detected.ini, in steps of 100 ms, as the
          * original waits. Input waits too, as it does there; the window

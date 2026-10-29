@@ -2,6 +2,7 @@
 #include "scratch.h"
 #include "launch/launch.h"
 #include "core/instance.h"
+#include "core/renderdev.h"
 #include "platform/launch.h"
 
 #include <limits.h>
@@ -285,17 +286,29 @@ static void test_the_two_exits_that_never_launch(void) {
     CHECK_INT(S.wizards, 0);
     dxl_launch_result_free(&r);
 
-    memset(&S, 0, sizeof S);
-    launch((const char *[]){ "testrendev=D3DDrv.D3DRenderDevice", "log=Detected.log", NULL }, &r);
-    CHECK_STR(r.ended, "-testrendev");
-    CHECK_INT(S.splash_shows, 0);     /* TestRenDev keeps the splash off */
-    CHECK_INT(scratch_exists(root, "System/Detected.ini"), 1);
-    CHECK_INT(scratch_exists(root, "System/Detected.log"), 1);   /* log= names the log */
-    char *ini = read_file("System/DeusEx.ini");
-    CHECK(strstr(ini, "[D3DDrv.D3DRenderDevice]\r\nDescFlags=2") != NULL);
-    free(ini);
-    CHECK_INT(scratch_exists(root, "System/game-args.txt"), 0);
-    dxl_launch_result_free(&r);
+    /* Typed as two words, and as the Renderer page starts it, its line as
+     * one: the device marked in its own section, the log Detected.log. */
+    for (int as_line = 0; as_line < 2; as_line++) {
+        memset(&S, 0, sizeof S);
+        if (as_line) launch((const char *[]){ DXL_DETECT_LINE, NULL }, &r);
+        else launch((const char *[]){ "testrendev=D3DDrv.D3DRenderDevice", "log=Detected.log", NULL }, &r);
+        CHECK_STR(r.ended, "-testrendev");
+        CHECK_INT(S.splash_shows, 0);     /* TestRenDev keeps the splash off */
+        CHECK_INT(scratch_exists(root, "System/Detected.ini"), 1);
+        CHECK_INT(scratch_exists(root, "System/Detected.log"), 1);   /* log= names the log */
+        char *ini = read_file("System/DeusEx.ini");
+        CHECK(strstr(ini, "[D3DDrv.D3DRenderDevice]\r\nDescFlags=2") != NULL);
+        CHECK(strstr(ini, "log=Detected.log]") == NULL);
+        free(ini);
+        CHECK_INT(scratch_exists(root, "System/game-args.txt"), 0);
+        dxl_launch_result_free(&r);
+        char *detected = scratch_path(root, "System/Detected.ini");
+        remove(detected);
+        free(detected);
+        detected = scratch_path(root, "System/Detected.log");
+        remove(detected);
+        free(detected);
+    }
     scratch_remove(root);
 }
 

@@ -32,6 +32,12 @@
 #define DXL_SOFTWARE_DEVICE "SoftDrv.SoftwareRenderDevice"
 #define DXL_D3D_DEVICE      "D3DDrv.D3DRenderDevice"
 
+/* The line the Renderer page's detection run is started with, the
+ * original's (wizard.md, the Renderer page): begun with a blank, as safe
+ * mode's flags are, so the run takes it back whole as its line, two words
+ * (core/cmdline.c), not one to quote. */
+#define DXL_DETECT_LINE " testrendev=" DXL_D3D_DEVICE " log=Detected.log"
+
 typedef struct {
     char *path;         /* Package.Class */
     char *caption;      /* <Package>.int [<Class>] ClassCaption */
