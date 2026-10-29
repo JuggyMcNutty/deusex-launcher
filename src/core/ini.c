@@ -509,11 +509,62 @@ void dxl_ini_remove(dxl_ini *ini, const char *section, const char *key) {
 int dxl_ini_dirty(const dxl_ini *ini) { return ini->dirty; }
 void dxl_ini_clean(dxl_ini *ini) { ini->dirty = 0; }
 
+/* The index of the key's first line in the section's blocks, or
+ * (size_t)-1. */
+static size_t first_pair(const dxl_ini *ini, const char *section, const char *key) {
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h)) {
+        size_t end = section_end(ini, h);
+        for (size_t i = h + 1; i < end; i++)
+            if (ini->lines[i].kind == LINE_PAIR && dxl_stricmp(ini->lines[i].name, key) == 0) return i;
+    }
+    return (size_t)-1;
+}
+
+/* The key's lines in the section made the n values, in their order: in the
+ * place of its first line, its others removed, or appended to the
+ * section's last block where it has none. */
+static void set_all(dxl_ini *ini, const char *section, const char *key, const char **values, size_t n) {
+    size_t have = dxl_ini_get_all(ini, section, key, NULL, 0);
+    if (have == n) {
+        const char **now = dxl_xmalloc(n * sizeof *now);
+        dxl_ini_get_all(ini, section, key, now, n);
+        size_t same = 0;
+        while (same < n && strcmp(now[same], values[same]) == 0) same++;
+        free(now);
+        if (same == n) return;
+    }
+    size_t first = first_pair(ini, section, key);
+    if (first == (size_t)-1) {
+        for (size_t k = 0; k < n; k++) dxl_ini_append(ini, section, key, values[k]);
+        return;
+    }
+    /* The first is the file's earliest of them: every other comes after. */
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h)) {
+        size_t i = h + 1;
+        while (i < ini->count && ini->lines[i].kind != LINE_SECTION) {
+            if (i != first && ini->lines[i].kind == LINE_PAIR && dxl_stricmp(ini->lines[i].name, key) == 0)
+                line_remove(ini, i);
+            else
+                i++;
+        }
+    }
+    pair_write(ini->lines + first, key, values[0], ini->eol);
+    for (size_t k = 1; k < n; k++) pair_write(line_insert(ini, first + k), key, values[k], ini->eol);
+    ini->dirty = 1;
+}
+
 void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src) {
-    const char *section = "";
+    const char *section = NULL;
     for (size_t i = 0; i < src->count; i++) {
         const ini_line *l = src->lines + i;
         if (l->kind == LINE_SECTION) section = l->name;
-        else if (l->kind == LINE_PAIR) dxl_ini_set(dst, section, l->name, l->value);
+        /* Each key once, at its first line; none above the first header,
+         * which the engine reads in no section. */
+        if (l->kind != LINE_PAIR || !section || first_pair(src, section, l->name) != i) continue;
+        size_t n = dxl_ini_get_all(src, section, l->name, NULL, 0);
+        const char **values = dxl_xmalloc(n * sizeof *values);
+        dxl_ini_get_all(src, section, l->name, values, n);
+        set_all(dst, section, l->name, values, n);
+        free(values);
     }
 }

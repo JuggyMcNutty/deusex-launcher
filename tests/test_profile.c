@@ -263,8 +263,12 @@ static void test_import_from_defaults(void) {
     scratch_write(game, "System/DeusEx.exe", "x");
     scratch_write(game, "System/Default.ini",
                   "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n\r\n"
-                  "[Engine.Engine]\r\nGameRenderDevice=GlideDrv.GlideRenderDevice\r\n");
-    scratch_write(game, "System/DeusEx.ini", "[Engine.Engine]\r\nGameRenderDevice=D3DDrv.D3DRenderDevice\r\n");
+                  "[Engine.Engine]\r\nGameRenderDevice=GlideDrv.GlideRenderDevice\r\n\r\n"
+                  "[DeusEx.DeusExGameEngine]\r\nServerActors=IpDrv.UdpBeacon\r\n"
+                  "ServerActors=IpServer.UdpServerQuery\r\nServerActors=IpServer.UdpServerUplink\r\n");
+    /* Its own list of the server's actors, given line by line. */
+    scratch_write(game, "System/DeusEx.ini", "[Engine.Engine]\r\nGameRenderDevice=D3DDrv.D3DRenderDevice\r\n\r\n"
+                  "[DeusEx.DeusExGameEngine]\r\nServerActors=IpDrv.UdpBeacon\r\nServerActors=Mod.Announcer\r\n");
     scratch_write(game, "System/DefUser.ini", "[Engine.Input]\r\nF1=Default\r\n");
     char *home = dxl_xstrdup(scratch_dir("profile-stub-home"));
     dxl_env_set("DXL_HOME", home);
@@ -283,6 +287,11 @@ static void test_import_from_defaults(void) {
     if (sys) {
         CHECK_STR(first_path(sys), "..\\System\\*.u");
         CHECK_STR(dxl_ini_get(sys, "Engine.Engine", "GameRenderDevice"), "D3DDrv.D3DRenderDevice");
+        /* The stub's list, all of it and nothing of Default.ini's. */
+        const char *actors[4];
+        CHECK_INT(dxl_ini_get_all(sys, "DeusEx.DeusExGameEngine", "ServerActors", actors, 4), 2);
+        CHECK_STR(actors[0], "IpDrv.UdpBeacon");
+        CHECK_STR(actors[1], "Mod.Announcer");
         dxl_ini_free(sys);
     }
     dxl_ini *usr = dxl_ini_load(p.user_ini, NULL);
