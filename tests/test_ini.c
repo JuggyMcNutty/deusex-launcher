@@ -235,6 +235,28 @@ static void test_last_given_wins(void) {
     dxl_ini_free(ini);
 }
 
+/* A key a partial file gives, once or as a list given line by line, stands
+ * in for all of the base's lines of it, in the place of the first; a key
+ * above the file's first header is in no section, and goes nowhere. */
+static void test_overlay(void) {
+    const char *base_src = "[S]\nK=1\nK=2\n; kept\nK=3\nL=x\n[T]\nM=0\n[S]\nK=4\n";
+    const char *over_src = "top=above\n[S]\nK=a\nK=b\nL=x\n[U]\nN=new\nN=newer\n[S]\nK=c\n";
+    dxl_ini *base = dxl_ini_parse(base_src, strlen(base_src));
+    dxl_ini *over = dxl_ini_parse(over_src, strlen(over_src));
+    dxl_ini_overlay(base, over);
+    size_t len = 0;
+    char *out = dxl_ini_render(base, &len);
+    CHECK_STR(out, "[S]\nK=a\nK=b\nK=c\n; kept\nL=x\n[T]\nM=0\n[S]\n\n[U]\nN=new\nN=newer\n");
+    free(out);
+    CHECK(dxl_ini_get(base, "", "top") == NULL);
+    /* Put over it again: the same lines, nothing changed. */
+    dxl_ini_clean(base);
+    dxl_ini_overlay(base, over);
+    CHECK_INT(dxl_ini_dirty(base), 0);
+    dxl_ini_free(over);
+    dxl_ini_free(base);
+}
+
 /* Notepad's "Unicode" ini, UTF-16 by its byte-order mark, reads as the
  * game's 8-bit text and is written so; a NUL in a line is written back. */
 static void test_utf16_and_nul(void) {
@@ -424,6 +446,7 @@ TEST_MAIN_BEGIN
     RUN(test_comments_and_oddities);
     RUN(test_unterminated_last_line);
     RUN(test_last_given_wins);
+    RUN(test_overlay);
     RUN(test_utf16_and_nul);
     RUN(test_bom_is_read_past);
     RUN(test_unterminated_last_line_key);
