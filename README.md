@@ -12,14 +12,14 @@ controller. It is linux-x86_64's launcher, on Windows' own calls.
        alt="Home: the game's logo and buttons, the profile, its latest save">
 </p>
 
-**You need your own copy of Deus Ex, version 1112fm.** None of the game's
-files are included. DXLauncher is part of
+**You need your own copy of Deus Ex, version 1112fm** (1002f, the first
+release, runs with a warning). None of the game's files are included. DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
 
-**Status**: the launcher and the engine play the game under Proton's wine;
-they are untried on Windows itself
-([verified](ports/windows-x86_64/README.md#verified)).
+**Status**: the launcher and the engine run the game under Proton's wine, not
+fully playable ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)); they are
+untried on Windows itself ([verified](ports/windows-x86_64/README.md#verified)).
 
 ## Features
 

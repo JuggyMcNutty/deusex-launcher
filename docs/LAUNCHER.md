@@ -759,6 +759,22 @@ registry's, read from a key of the test's own in theirs
 their icon in a folder of its own (`DXL_START_MENU`) and `deusex://`, each
 gone again; `test_trash_win32` the Recycle Bin, several at once all or
 none.
+`test_ini` loads and saves an ini in the game's format byte for byte (CR LF,
+blank lines, repeated keys), and `test_json` `Settings.json`, the members it
+does not know kept in their order; `test_cmdline` the original's three
+parsers, which differ, and `test_argv` and `test_engine_args` the game's
+words and the engine's, a quoted word whole; `test_policy` the original's
+entry matrix, its first match winning ([`wizard.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md));
+`test_config` the system ini as the launcher keeps it, FirstRun only
+raised; `test_engine_settings` the engine's `Settings.json`, a file it
+cannot read replaced; `test_gamedb` SHA1 by FIPS 180's examples and the
+engine's builds; `test_install` what makes an install, in the odd cases a
+copy leaves; `test_lastrun` a run's end, written and read back;
+`test_runtime` the crash sentinel and the state folder; `test_renderers`
+the renderers the probe and the engine's build offer, and the PowerVR's
+anti-aliasing lock; `test_desktop` the app menu's entry, its
+`Exec` quoted as the spec has it, and `deusex://`; `test_xdg` the XDG
+folders, the spec's defaults where none is set.
 `test_settings` takes the settings table's rows through each codec, both
 generations of the system ini, the sizes, the next run's words,
 `Settings.json` and the renderer where it names none, the presets and a
