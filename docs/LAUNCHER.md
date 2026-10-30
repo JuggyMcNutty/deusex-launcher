@@ -740,8 +740,11 @@ Home's The engine... chooses another.
 ## How it is tested
 
 `scripts/dx.sh test windows-x86_64` runs the host build's tests, as
-linux-x86_64 has them, then the same cross-built for Windows, under
-Proton's wine (Port Ex Machina's `scripts/wine.sh`, CMake's emulator), each
+linux-x86_64 has them but for what is desktop Linux's alone (Lutris'
+database in the finder, the GPU probe of Mesa's CPU drivers and its
+`test_gpu_probe`, which no Windows build has), then the same cross-built
+for Windows, under Proton's wine (Port Ex Machina's `scripts/wine.sh`,
+CMake's emulator), each
 side by side, all but the host's `test_ui_scripts` with no display. Under
 Wine run all of them but the POSIX ones, `test_xdg`, `test_finder`,
 `test_desktop`, `test_trash` and `test_ui_scripts`, `test_gamefiles` there
