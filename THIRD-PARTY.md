@@ -17,8 +17,9 @@ has them, in its `ofl` folder:
 The window is drawn with [SDL3](https://libsdl.org) and
 [SDL3_ttf](https://github.com/libsdl-org/SDL_ttf), both under the zlib licence, and its title
 music played with [libxmp-lite](https://github.com/libxmp/libxmp), under the MIT licence below.
-Where the system has them they are its own; where it has not they are built into the programs
-from the sources `cmake/deps.lock` pins, and with them [FreeType](https://freetype.org), under
+The port's build, the one shipped, has them built into the programs from the sources
+`cmake/deps.lock` pins (a build with the machine's own compiler takes the distro's where it
+has all three), and with them [FreeType](https://freetype.org), under
 the FreeType License: portions of this software are copyright © 2026 The FreeType Project
 (www.freetype.org). All rights reserved.
 

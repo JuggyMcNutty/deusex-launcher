@@ -12,10 +12,15 @@ controller.
        alt="Home: the game's logo and buttons, the profile, its latest save">
 </p>
 
-**You need your own copy of Deus Ex, version 1112fm.** None of the game's
-files are included. DXLauncher is part of
+**You need your own copy of Deus Ex, version 1112fm** (1002f, the first
+release, runs with a warning). None of the game's files are included.
+DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
+
+**Status**: the launcher is complete; the engine runs the game, not fully
+playable ([where it differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)), on the
+development platform ([the port](ports/linux-x86_64/README.md)).
 
 ## Features
 
