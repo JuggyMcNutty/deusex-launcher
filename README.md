@@ -12,14 +12,15 @@ wears the game's look and sound.
        alt="Home: the game's logo and buttons, the profile, its latest save">
 </p>
 
-**You need your own copy of Deus Ex, version 1112fm.** None of the game's
-files are included. DXLauncher is part of
+**You need your own copy of Deus Ex, version 1112fm** (1002f, the first
+release, runs with a warning). None of the game's files are included. DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
 
-**Status**: the launcher and the engine run on the device, and the game
-plays on Vulkan or OpenGL ES, or on the CPU with Software, at 853 × 480 by
-default ([performance](ports/trimui-smartpro/README.md#performance)).
+**Status**: the launcher and the engine run on the device, and the game runs
+on Vulkan or OpenGL ES, or on the CPU with Software, at 853 × 480 by default
+([performance](ports/trimui-smartpro/README.md#performance)), not fully
+playable ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
 
 ## Features
 
