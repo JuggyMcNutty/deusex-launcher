@@ -21,7 +21,7 @@ are included.
 
 | Branch | What it is |
 |---|---|
-| `main` | the original, recreated almost 1:1 -- no additions, no ports; the reference the port branches start from |
+| `main` | the original, recreated almost 1:1 -- no additions but [its adaptations to Linux](#where-it-differs-from-the-original), no ports; the reference the port branches start from |
 | `linux-x86_64` | desktop Linux, where the project is developed: DXLauncher, the desktop's own launcher, begun from this one ([its `LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-x86_64/docs/LAUNCHER.md)), with the desktop's port around it |
 | `linux-aarch64` | aarch64 Linux with an ordinary distro: DXLauncher, as linux-x86_64 has it ([its `LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/linux-aarch64/docs/LAUNCHER.md)), cross-built or native, with the port around it |
 | `windows-x86_64` | Windows 10 (1903) or newer on x86_64: DXLauncher, as linux-x86_64 has it, on Windows' own calls ([its `LAUNCHER.md`](https://github.com/JuggyMcNutty/deusex-launcher/blob/windows-x86_64/docs/LAUNCHER.md)), cross-built by llvm-mingw, with the port around it |
@@ -103,6 +103,11 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 
 ## Where it differs from the original
 
+Each adapts the original to desktop Linux, by the owner's choice, but the two
+Port Ex Machina's
+[bugs list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md)
+names, which are to go the original's way:
+
 - **The game is a program of its own**, started and waited for
   ([below](#the-game-and-the-launcher)); the original's process becomes the
   game.
@@ -116,7 +121,8 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   ([which device draws](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)).
 - **Safe mode's eight boxes are all wired**; in the original three do nothing
   and one does four boxes' work
-  ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead)).
+  ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead);
+  bugs.md MAIN.6).
 - **Safe mode and the game's `RELAUNCH` relaunch after the run has ended**,
   this process becoming the launcher again; the original starts a second
   process while it is still ending.
@@ -130,7 +136,7 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   one beside `-server`'s, one started at the same moment, the first holding
   it locked): the original's second writer fails to open the file, which
   the first holds with read sharing alone, and that launch runs without a
-  log.
+  log (bugs.md MAIN.7).
 - **The window frames are the desktop's.** The wizard's carries the game's
   icon from the install's `DeusEx.exe` ([`peicon.h`](src/core/peicon.h));
   the message boxes and the splash have none, as in the original.
@@ -144,6 +150,10 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
   flag's name still counts. The `?` is for a URL's options: the game's
   dedicated-server `RELAUNCH` puts `-server` among them.
   `tests/test_cmdline.c` asserts the launcher's way.
+- **Its environment**: `DXL_FONT`, `DXL_FONT_URL` and `DXL_FONT_MSG` name the
+  fonts on a machine without wine's ([the look](#the-look)), and
+  `DXL_ENGINE_ARGS` adds the engine's own options, for a scripted run
+  ([the game and the launcher](#the-game-and-the-launcher)).
 
 ## The game and the launcher
 
