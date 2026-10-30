@@ -685,7 +685,8 @@ folder: made before the game, the folder with it where it is gone, taken
 away at a clean end and at one with no game -- a quit on a screen,
 `-consolecommand=`, `-testrendev=` -- as the original's at every end but a
 crash and its CD prompt. A screen no one answered is no quit: one whose
-window does not open, or that a signal closes, leaves it, and a stop
+window does not open, or that a stop closes (the console's Ctrl+C or
+closing, a sign-out, a shutdown), leaves it, and a stop
 after a run that was not clean opens no Recovery, the next start's to
 open. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
@@ -710,7 +711,8 @@ it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
 a stage or install of DXLauncher again). A run the launcher itself
-stopped -- its window closed, a signal, a logout -- is said to be no fault
+stopped -- its window closed, the console's Ctrl+C or closing, a sign-out --
+is said to be no fault
 of the game's, though its settings and last save may not have been
 written. A run the engine drew with its
 software renderer, the one chosen not having started, ends cleanly: Home

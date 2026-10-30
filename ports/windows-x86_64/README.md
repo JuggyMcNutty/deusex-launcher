@@ -58,7 +58,7 @@ Under Proton-CachyOS 11.0's wine (`wine-11.0 (CachyOS)`), in the
 development container on Arch Linux, on the desktop's Xwayland (KDE Plasma
 on Wayland), AMD Radeon 780M under Mesa's RADV and radeonsi:
 
-- `scripts/dx.sh test windows-x86_64`: the 50 tests under Wine, Windows'
+- `scripts/dx.sh test windows-x86_64`: the 51 tests under Wine, Windows'
   own among them ([how it is tested](../../docs/LAUNCHER.md#how-it-is-tested)).
 - The window, driven by a UI script from a fresh home: the first run on
   `gamefiles/` to Home, and Play, the engine on Vulkan to a clean end.
@@ -81,7 +81,10 @@ the engine asks for (`timeBeginPeriod`), sharing violations on a rename,
 SmartScreen and Defender on unsigned programs, a restore from the Recycle
 Bin, DPI scaling, paths past `MAX_PATH`, a second start bringing the window
 or the game to the front past Windows' foreground lock, and a real Steam's,
-GOG's or installer's registry keys.
+GOG's or installer's registry keys; a refused connect on Windows 10 1903
+and 1909, the port's floor, before WSAPoll's fix in 2004 (the tests' Wine
+answers either way); and the console's code page put back, which needs the
+console a cmd.exe gives, where under Wine the tests have none.
 
 ## Gotchas
 
@@ -98,7 +101,13 @@ GOG's or installer's registry keys.
   question.
 - **Several Wine programs started at once** can race to start Wine's server
   and the prefix's services, and a test then waits for ever: `port_test`
-  starts them first, and keeps the server up.
+  starts them first, keeps the server up through the tests and takes it down
+  after (`wineserver -k`), as a pipe from the tests, CI's log among them,
+  would wait for them for ever.
+- **Wine's crash dialog** holds a program that crashed until someone closes
+  it: the tests' prefix has it off (`WineDbg`'s `ShowCrashDialog` 0), so a
+  test that crashes fails with its output, and ctest gives none more than ten
+  minutes.
 - **`wine` leaves a program it started running when killed**
   ([`start.exe`](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/DEVELOPMENT.md#a-windows-build)):
   kill the program itself.
