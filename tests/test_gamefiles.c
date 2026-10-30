@@ -539,17 +539,18 @@ static void test_unanswered(void) {
     stop = 1;
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 1);
     CHECK_INT(dxl_path_exists(sentinel), 1);
-    /* Play at Recovery, the launcher stopped as the game starts: the game,
-     * which does not end cleanly, stopped, and no Recovery after it. */
+    /* Play at Recovery, the launcher stopped as the game would start: on the
+     * device a stop before the game starts none (run.c, after the game
+     * hook), an end with no game: Running.ini taken away and no LastRun,
+     * so no Recovery after it. */
     unanswered_views = 0;
     play_at_recovery = 1;
     dxl_env_set("DXL_STUB", "crash");
-    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), END_CRASH_STATUS);
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
     CHECK_INT(unanswered_views, 1);
-    CHECK_INT(dxl_path_exists(sentinel), 1);
+    CHECK_INT(dxl_path_exists(sentinel), 0);
     dxl_lastrun last;
-    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), 0);
-    CHECK_INT(last.stopped, 1);
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), -1);
     stop = 0;
 
     free(sentinel);
