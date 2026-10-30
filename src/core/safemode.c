@@ -19,9 +19,12 @@ char *dxl_safe_flags(const dxl_safe_options *o) {
     dxl_buf_add(&b, "", 0);
     if (o->no_sound)     dxl_buf_puts(&b, " -nosound");
     if (o->no_3d_sound)  dxl_buf_puts(&b, " -no3dsound");
-    if (o->no_3d_video)  dxl_buf_puts(&b, " -nohard");
-    if (o->window)       dxl_buf_puts(&b, " -nohard -noddraw");
-    if (o->res)          dxl_buf_puts(&b, " -defaultres");
+    /* Boxes 3, 4 and 5 read box 2's tick, as the shipped binary's
+     * (0x10911C00 sends BM_GETCHECK to box 2's handle for each of them):
+     * their own are never read. */
+    if (o->no_3d_sound)  dxl_buf_puts(&b, " -nohard");
+    if (o->no_3d_sound)  dxl_buf_puts(&b, " -nohard -noddraw");
+    if (o->no_3d_sound)  dxl_buf_puts(&b, " -defaultres");
     if (o->no_processor) dxl_buf_puts(&b, " -nommx -nokni -nok6");
     if (o->no_joy)       dxl_buf_puts(&b, " -nojoy");
     return b.data;

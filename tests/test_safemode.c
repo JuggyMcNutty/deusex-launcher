@@ -3,9 +3,9 @@
 #include "core/safemode.h"
 
 /* The SafeOptions page: dx-reverse-info/wizard.md "SafeOptions". Each box
- * gives its own flags -- the original's strings -- and nothing else: in the
- * shipped binary boxes 3, 4 and 5 read box 2 (seen live), which these tests
- * keep from coming back. */
+ * gives the original's strings as the shipped binary reads the boxes: boxes
+ * 3, 4 and 5 read box 2 (its shipped bug, seen live), their own ticks never
+ * read. */
 
 static char *flags(dxl_safe_options o) { return dxl_safe_flags(&o); }
 
@@ -25,10 +25,10 @@ static void test_the_page_opens_with_all_but_reset(void) {
 static void test_each_box_alone(void) {
     struct { dxl_safe_options o; const char *want; } cases[] = {
         { { .no_sound = 1 },     " -nosound" },
-        { { .no_3d_sound = 1 },  " -no3dsound" },
-        { { .no_3d_video = 1 },  " -nohard" },
-        { { .window = 1 },       " -nohard -noddraw" },
-        { { .res = 1 },          " -defaultres" },
+        { { .no_3d_sound = 1 },  " -no3dsound -nohard -nohard -noddraw -defaultres" },
+        { { .no_3d_video = 1 },  "" },
+        { { .window = 1 },       "" },
+        { { .res = 1 },          "" },
         { { .reset_config = 1 }, "" },
         { { .no_processor = 1 }, " -nommx -nokni -nok6" },
         { { .no_joy = 1 },       " -nojoy" },
@@ -42,16 +42,13 @@ static void test_each_box_alone(void) {
 }
 
 /* The live run's case (dx-reverse-info/wizard.md, "Observed under wine"): box 2 cleared,
- * boxes 3 to 5 ticked. The original gave none of their flags. */
-static void test_boxes_three_to_five_are_their_own(void) {
+ * boxes 3 to 5 ticked. The original gives none of their flags: its relaunch
+ * runs as DeusEx.exe -nosound -nommx -nokni -nok6 -nojoy. */
+static void test_boxes_three_to_five_read_box_two(void) {
     dxl_safe_options o = dxl_safe_defaults();
     o.no_3d_sound = 0;
     char *f = flags(o);
-    CHECK_STR(f, " -nosound -nohard -nohard -noddraw -defaultres -nommx -nokni -nok6 -nojoy");
-    free(f);
-    /* And the converse: box 2 alone does not bring the others along. */
-    f = flags((dxl_safe_options){ .no_3d_sound = 1 });
-    CHECK(strstr(f, "-nohard") == NULL && strstr(f, "-defaultres") == NULL);
+    CHECK_STR(f, " -nosound -nommx -nokni -nok6 -nojoy");
     free(f);
 }
 
@@ -69,6 +66,6 @@ static void test_reset_deletes_the_ini(void) {
 TEST_MAIN_BEGIN
     RUN(test_the_page_opens_with_all_but_reset);
     RUN(test_each_box_alone);
-    RUN(test_boxes_three_to_five_are_their_own);
+    RUN(test_boxes_three_to_five_read_box_two);
     RUN(test_reset_deletes_the_ini);
 TEST_MAIN_END

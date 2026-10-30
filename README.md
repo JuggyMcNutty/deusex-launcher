@@ -103,10 +103,7 @@ wine's `user32.dll` `IDI_HAND`, read from the same install
 
 ## Where it differs from the original
 
-Each adapts the original to desktop Linux, by the owner's choice, but the two
-Port Ex Machina's
-[bugs list](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md)
-names, which are to go the original's way:
+Each adapts the original to desktop Linux, by the owner's choice:
 
 - **The game is a program of its own**, started and waited for
   ([below](#the-game-and-the-launcher)); the original's process becomes the
@@ -119,10 +116,6 @@ names, which are to go the original's way:
   with its Vulkan device, on the CPU again where that does not start, unless
   its own `Settings.json` names a device
   ([which device draws](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)).
-- **Safe mode's eight boxes are all wired**; in the original three do nothing
-  and one does four boxes' work
-  ([the shipped bug](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#-shipped-bug-three-safe-mode-checkboxes-are-dead);
-  bugs.md MAIN.6).
 - **Safe mode and the game's `RELAUNCH` relaunch after the run has ended**,
   this process becoming the launcher again; the original starts a second
   process while it is still ending.
@@ -132,11 +125,6 @@ names, which are to go the original's way:
 - **No log window.** The original opens one every run, shown with `-log`;
   here `-log` only keeps the splash away, and the log is the file,
   `<Package>.log`, as the original's is too.
-- **A launch beside a running one appends to the log** (a bypass word's,
-  one beside `-server`'s, one started at the same moment, the first holding
-  it locked): the original's second writer fails to open the file, which
-  the first holds with read sharing alone, and that launch runs without a
-  log (bugs.md MAIN.7).
 - **The window frames are the desktop's.** The wizard's carries the game's
   icon from the install's `DeusEx.exe` ([`peicon.h`](src/core/peicon.h));
   the message boxes and the splash have none, as in the original.

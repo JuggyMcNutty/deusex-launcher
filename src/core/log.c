@@ -17,15 +17,21 @@ static void open_mode(const char *path, const char *mode) {
     log_file = fopen(path, mode);
 }
 
-void dxl_log_open(const char *path) { open_mode(path, "abe"); }
-/* Emptied first by the launcher that holds it, then written in append mode
- * like the other: whatever a child adds to the same file meanwhile is not
- * written over. Held: an exclusive lock on it, kept while it is open, as
- * the original's first writer holds its log, a launch started at the same
- * moment then adding to it, never emptying it. */
+/* Emptied first by the launcher that holds it, then written in append mode:
+ * whatever a child adds to the same file meanwhile is not written over.
+ * Held: an exclusive lock on it, kept while it is open, as the original's
+ * first writer holds its log with read sharing alone, so that a second
+ * launch, a bypass word's, one beside -server's or one at the same moment,
+ * fails to open it and runs without a log, its lines on stderr alone. */
 void dxl_log_open_new(const char *path) {
     open_mode(path, "abe");
-    if (log_file && flock(fileno(log_file), LOCK_EX | LOCK_NB) == 0 && ftruncate(fileno(log_file), 0) != 0) {}
+    if (!log_file) return;
+    if (flock(fileno(log_file), LOCK_EX | LOCK_NB) != 0) {
+        fclose(log_file);
+        log_file = NULL;
+        return;
+    }
+    if (ftruncate(fileno(log_file), 0) != 0) {}
 }
 
 void dxl_log_close(void) {

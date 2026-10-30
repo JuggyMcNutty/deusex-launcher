@@ -227,9 +227,10 @@ static void test_lock_without_channel(void) {
 
 /* A Running.ini in another case, a copied install's, goes with the run's
  * own: left, it opened RecoveryMode at every launch. */
-/* The log emptied by the launcher that holds it alone: one opened afresh
- * while another launcher holds it, started at the same moment, adds to it,
- * as the original's second writer leaves the first's log alone. */
+/* The log emptied by the launcher that holds it alone: one opened while
+ * another launcher holds it, started at the same moment, has none, as the
+ * original's second writer fails to open the first's log and runs without
+ * one, the first's left as it was. */
 static void test_log_held(void) {
     char path[768];
     snprintf(path, sizeof path, "%s/System/DeusEx.log", g_root);
@@ -240,7 +241,7 @@ static void test_log_held(void) {
     dxl_log("the second's");
     dxl_log_close();
     char *text = slurp(path, NULL);
-    CHECK(text && strstr(text, "the first's\n") && strstr(text, "the second's"));
+    CHECK(text && strstr(text, "the first's\n") && !strstr(text, "the second's"));
     free(text);
     close(first);
     /* Held by none: afresh. */

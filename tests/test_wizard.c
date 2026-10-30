@@ -273,8 +273,8 @@ static void test_cancel(void) {
 }
 
 /* Safe mode: no Next; Safe mode leads to the options, all ticked but
- * Reset; Run! leaves the flags of the boxes ticked -- each its own -- and
- * ends with 0. */
+ * Reset; Run! leaves the flags of the boxes as the shipped binary reads
+ * them, boxes 3 to 5 by box 2's tick, and ends with 0. */
 static void test_safe_options(void) {
     fixture_t f;
     open_wizard(&f, DXL_PAGE_SAFEMODE);
@@ -291,7 +291,9 @@ static void test_safe_options(void) {
     dxl_dialog_click(f.d, 1004);
     CHECK(f.d->ended);
     CHECK_INT(f.d->result, 0);
-    CHECK_STR(f.req.relaunch_flags, " -nosound -nohard -defaultres -nommx -nokni -nok6 -nojoy");
+    /* Box 2 cleared: no 3D video, window or resolution either, whatever
+     * their own ticks. */
+    CHECK_STR(f.req.relaunch_flags, " -nosound -nommx -nokni -nok6 -nojoy");
     CHECK(scratch_exists(scratch_dir("wizard"), "System/DeusEx.ini"));
     close_wizard(&f);
 }

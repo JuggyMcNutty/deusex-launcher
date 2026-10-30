@@ -11,10 +11,9 @@
 
 #include "core/common.h"
 
-/* path may be NULL for stderr only. Appends, keeping the file across runs. */
-void dxl_log_open(const char *path);
-/* The same, starting the file afresh -- as the original's own log is, each
- * run -- unless another launcher holds it open so, which it is added to. */
+/* path may be NULL for stderr only. The file afresh, as the original's own
+ * log is each run, held while it is open; held by another launcher, none:
+ * the original's second writer fails to open it and runs without a log. */
 void dxl_log_open_new(const char *path);
 void dxl_log_close(void);
 /* To the file and to stderr. */

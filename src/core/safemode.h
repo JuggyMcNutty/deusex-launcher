@@ -7,10 +7,11 @@
  * strings, each with the space before it that the original's has; what the
  * engine does with each: dx-reverse-info/cli-flags.md.
  *
- * All eight boxes are wired. In the shipped binary boxes 3, 4 and 5 read box 2,
- * so "Disable 3D sound hardware" also gave -nohard, -noddraw and -defaultres,
- * and those three boxes did nothing (seen live too); that is a bug, and is not
- * reproduced here.
+ * The boxes are read as the shipped binary reads them: boxes 3, 4 and 5 read
+ * box 2, so "Disable 3D sound hardware" also gives -nohard, -noddraw and
+ * -defaultres, and those three boxes do nothing (dx-reverse-info/wizard.md,
+ * the shipped bug; seen live too). As the page opens, all ticked but Reset,
+ * the flags come out as intended.
  */
 #ifndef DXL_SAFEMODE_H
 #define DXL_SAFEMODE_H
