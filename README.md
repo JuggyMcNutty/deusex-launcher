@@ -19,6 +19,7 @@ AI assistance.
 
 **Status**: the launcher and the engine build, cross-built from a PC; they
 are untried on an aarch64 device ([the port](ports/linux-aarch64/README.md)).
+Reports from a device are wanted: [where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Features
 
@@ -89,7 +90,9 @@ The shots are of linux-x86_64's build, the same launcher.
 Take `DX-linux-aarch64.tar.gz` from
 [Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
 DXLauncher with DXEngine. Unpack it anywhere and run `deusex-launcher` in
-its `DXLauncher` folder. It needs glibc 2.28 or newer, Mesa and a desktop.
+its `DXLauncher` folder. It needs glibc 2.28 or newer, Mesa,
+OpenAL Soft (`libopenal.so.1`: Debian's and Ubuntu's `libopenal1`, Fedora's
+`openal-soft`, Arch's `openal`), PipeWire or PulseAudio, and a desktop.
 This repository's releases tagged `linux-aarch64-<date>-<commit>` have the
 launcher alone.
 
