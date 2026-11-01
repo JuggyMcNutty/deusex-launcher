@@ -15,7 +15,10 @@ almost 1:1 for desktop Linux. Made with AI assistance.
 </p>
 
 You need your own copy of Deus Ex (version 1112fm); none of the game's files
-are included.
+are included. To play, take DXLauncher with DXEngine for your platform from
+[Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases);
+this branch is built from source ([Building](#building)). A bug:
+[where to report it](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Branches
 
