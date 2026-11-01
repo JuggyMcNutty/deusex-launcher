@@ -303,8 +303,11 @@ static int normalise(const dxl_setting *s, const char *in, char *out, size_t siz
         /* The renderers', and a size's, are the page's to offer. */
         if (!s->choices || (s->flags & DXL_SET_RENDERER) || s->at[0].codec == DXL_CODEC_WIDTH) {
             if (s->at[0].codec == DXL_CODEC_WIDTH) {
-                int w, h;
-                if (sscanf(in, "%dx%d", &w, &h) != 2 || w < 320 || h < 240) return 0;
+                /* One of the row's own (full screen's 0x0, the desktop's),
+                 * else a size the game can take. */
+                int w, h, listed = 0;
+                for (int i = 0; s->choices && s->choices[i].value; i++) listed |= !dxl_stricmp(s->choices[i].value, in);
+                if (!listed && (sscanf(in, "%dx%d", &w, &h) != 2 || w < 320 || h < 240)) return 0;
             }
             snprintf(out, size, "%s", in);
             return 1;

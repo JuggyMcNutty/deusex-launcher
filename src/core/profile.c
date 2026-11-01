@@ -27,7 +27,8 @@ static const char *const engine_sections[] = {
 /* Full screen at the desktop's size: an ini's full screen size, the
  * original's 640x480 or what a player set there, would switch the display to
  * its nearest mode as the game starts (DXEngine's NATIVES.md, the menus'
- * settings). A size chosen in the game's Screen Resolution is kept. */
+ * settings). A size chosen after, in the game's Screen Resolution or
+ * Settings' Full screen size, is kept. */
 static void desktop_fullscreen(dxl_ini *system) {
     dxl_ini_set(system, "Engine.DXEngineClient", "FullscreenViewportX", "0");
     dxl_ini_set(system, "Engine.DXEngineClient", "FullscreenViewportY", "0");
