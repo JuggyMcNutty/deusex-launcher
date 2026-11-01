@@ -35,6 +35,17 @@ static const dxl_set_choice sizes[] = {
     { NULL, NULL, NULL },
 };
 
+/* Full screen's: the desktop's (FullscreenViewportX and Y 0), then the
+ * sizes, each taken as the display's nearest mode. */
+static const dxl_set_choice full_screen_sizes[] = {
+    { "0x0", "The desktop's", "A window without borders at the desktop's resolution: the display's mode is left "
+                              "as it is." },
+    { "1024x768", "1024 x 768", NULL }, { "1280x720", "1280 x 720", NULL }, { "1280x800", "1280 x 800", NULL },
+    { "1366x768", "1366 x 768", NULL }, { "1600x900", "1600 x 900", NULL }, { "1920x1080", "1920 x 1080", NULL },
+    { "1920x1200", "1920 x 1200", NULL }, { "2560x1440", "2560 x 1440", NULL }, { "3840x2160", "3840 x 2160", NULL },
+    { NULL, NULL, NULL },
+};
+
 static const dxl_set_choice gammas[] = {
     { "D3D9", "Direct3D 9", "Brightness is a gamma power on red, green and blue apart, as the game's Direct3D "
                            "renderer had it." },
@@ -120,11 +131,20 @@ static const dxl_set_choice render_drivers[] = {
 const dxl_setting dxl_settings_table[] = {
     /* ---- Display ---------------------------------------------------------- */
     { .id = "display.fullscreen", .page = "Display", .label = "Full screen",
-      .help = "The game on the whole display: at the desktop's resolution, as a window without borders, unless "
-              "the ini names a full screen size, which the display switches to its nearest mode for.",
+      .help = "The game on the whole display, at Full screen size: the desktop's resolution, as a window without "
+              "borders, or a size the display switches to its nearest mode for.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { CLIENT("StartupFullscreen", DXL_CODEC_BOOL) } },
+    { .id = "display.fullscreen_size", .page = "Display", .label = "Full screen size",
+      .help = "The game's size when it is full screen: the desktop's, or a size the display switches to its nearest "
+              "mode for as the game starts. The game's own Screen Resolution sets it too.",
+      .kind = DXL_SET_CHOICE, .choices = full_screen_sizes, .def = "0x0",
+      .at = { { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "FullscreenViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_ENGINE },
+              { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "FullscreenViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_ENGINE },
+              { DXL_STORE_SYSTEM, "WinDrv.WindowsClient", "FullscreenViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_RETAIL },
+              { DXL_STORE_SYSTEM, "WinDrv.WindowsClient", "FullscreenViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_RETAIL } } },
     { .id = "display.window_size", .page = "Display", .label = "The window's size",
-      .help = "The game's window when it is not full screen, in pixels, whatever the desktop's scale.",
+      .help = "The game's window when it is not full screen, in pixels, whatever the desktop's scale; full screen "
+              "takes Full screen size.",
       .kind = DXL_SET_CHOICE, .choices = sizes, .def = "1920x1080",
       .at = { { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportX", DXL_CODEC_WIDTH, 0, 0, DXL_GEN_ENGINE },
               { DXL_STORE_SYSTEM, "Engine.DXEngineClient", "WindowedViewportY", DXL_CODEC_HEIGHT, 0, 0, DXL_GEN_ENGINE },

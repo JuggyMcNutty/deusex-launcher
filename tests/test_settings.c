@@ -173,7 +173,25 @@ static void test_sizes_and_numbers(void) {
     CHECK_STR(get(&st, "display.window_size"), "1600x900");
     CHECK_INT(set(&st, "display.window_size", "100x100"), -1);
     CHECK_INT(set(&st, "display.window_size", "wide"), -1);
+    CHECK_INT(set(&st, "display.window_size", "0x0"), -1);      /* a window has no desktop's size */
     CHECK_STR(get(&st, "display.window_size"), "1600x900");
+
+    /* Full screen's size: the desktop's, 0x0, a new profile's; a size, the
+     * display's nearest mode as the game starts, in both generations. */
+    CHECK_STR(get(&st, "display.fullscreen_size"), "0x0");
+    CHECK_INT(set(&st, "display.fullscreen_size", "1920x1080"), 0);
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "FullscreenViewportX"), "1920");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "FullscreenViewportY"), "1080");
+    CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "FullscreenViewportX"), "1920");
+    CHECK_STR(dxl_ini_get(st.system, "WinDrv.WindowsClient", "FullscreenViewportY"), "1080");
+    CHECK_STR(get(&st, "display.fullscreen_size"), "1920x1080");
+    CHECK_INT(set(&st, "display.fullscreen_size", "1680x1050"), 0);   /* none of the list, as Screen Resolution sets */
+    CHECK_STR(get(&st, "display.fullscreen_size"), "1680x1050");
+    CHECK_INT(set(&st, "display.fullscreen_size", "0x0"), 0);
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "FullscreenViewportX"), "0");
+    CHECK_STR(dxl_ini_get(st.system, "Engine.DXEngineClient", "FullscreenViewportY"), "0");
+    CHECK_STR(get(&st, "display.fullscreen_size"), "0x0");
+    CHECK_INT(set(&st, "display.fullscreen_size", "640x0"), -1);
 
     CHECK_INT(set(&st, "display.fov", "200"), 0);
     CHECK_STR(dxl_ini_get(st.user, "Engine.PlayerPawn", "DefaultFOV"), "120.000000");
