@@ -128,8 +128,8 @@ writing nothing there:
   (`[DeusEx.MenuScreenJoinGame] MasterServerAddress=master0.gamespy.com`)
   given 333networks', `master.333networks.com`; full screen at the
   desktop's size (`FullscreenViewportX` and `Y` 0), where the install's
-  size would switch the display's mode; one chosen in the game's Screen
-  Resolution is kept.
+  size would switch the display's mode; one chosen after, in the game's
+  Screen Resolution or Settings' Full screen size, is kept.
 - **The saves** (every folder of the game's save folder but `Current`) and
   the shots (`System/Shot*.bmp`) copied. `main`'s launcher's files in
   `System` (its `DeusEx`, `run-game.sh`, `Running.ini`) are not read.
@@ -463,7 +463,7 @@ takes (`src/core/settings.c`):
 
 | Kept in | What |
 |---|---|
-| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen, the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
+| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: full screen and its size (the desktop's, `0x0`, or the display's nearest mode to one), the window's size, brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, contrast, colour and gamma, vertical sync, the render scale, bloom, HDR, the textures' LOD bias, screenshots with the brightness; the controller's dead zone, speeds, inverted looking and whether the game reads it |
 | `launcher.ini`, `profile.ini` | the launcher's own: the engine, its size, the big screen, reduced motion, Home after playing, its renderer, its volumes; the profile's game, the engine's extra words |
