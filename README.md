@@ -21,6 +21,7 @@ AI assistance.
 on Vulkan or OpenGL ES, or on the CPU with Software, at 853 × 480 by default
 ([performance](ports/trimui-smartpro/README.md#performance)), not fully
 playable ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
+An alpha: [where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Features
 
@@ -80,11 +81,15 @@ The shots are of this branch's PC build, at the Smart Pro's 1280 × 720.
 
 Take `DX-trimui-smartpro.zip` from
 [Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
-DXLauncher with DXEngine, as a spruceOS app. On the SD card:
+DXLauncher with DXEngine, as a [spruceOS](https://github.com/spruceUI/spruceOS)
+app. On the SD card, `/mnt/SDCARD` on the device and the card's own top
+folder in a PC's card reader:
 
 1. Unzip it into `/mnt/SDCARD/App/`, which makes the app's folder,
    `/mnt/SDCARD/App/DeusEx`.
-2. Copy the game's files into `/mnt/SDCARD/Roms/PORTS/DeusEx`.
+2. Copy what the game's folder holds, a GOG or Steam install's `System`,
+   `Maps`, `Textures` and the rest, into `/mnt/SDCARD/Roms/PORTS/DeusEx`, so
+   that `/mnt/SDCARD/Roms/PORTS/DeusEx/System/DeusEx.exe` is there.
 3. Start Deus Ex from spruceOS's apps.
 
 This repository's releases tagged `trimui-smartpro-<date>-<commit>` have the
