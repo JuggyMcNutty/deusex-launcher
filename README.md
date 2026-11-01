@@ -20,7 +20,8 @@ AI assistance.
 
 **Status**: the launcher is complete; the engine runs the game, not fully
 playable ([where it differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)), on the
-development platform ([the port](ports/linux-x86_64/README.md)).
+development platform ([the port](ports/linux-x86_64/README.md)). An alpha:
+[where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Features
 
@@ -90,7 +91,9 @@ Take `DX-linux-x86_64.tar.gz` from
 [Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
 DXLauncher with DXEngine. Unpack it anywhere and run `deusex-launcher` in
 its `DXLauncher` folder; its About page adds it to the app menu. It runs on
-x86_64 Linux with glibc 2.28 or newer. This repository's releases tagged
+x86_64 Linux with glibc 2.28 or newer, OpenAL Soft (`libopenal.so.1`:
+Debian's and Ubuntu's `libopenal1`, Fedora's `openal-soft`, Arch's `openal`)
+and PipeWire or PulseAudio. This repository's releases tagged
 `linux-x86_64-<date>-<commit>` have the launcher alone.
 
 ## Building

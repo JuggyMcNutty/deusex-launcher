@@ -29,6 +29,3 @@ jobs:
     uses: JuggyMcNutty/port-ex-machina/.github/workflows/ports.yml@main
     with:
       ports: ${{ github.base_ref || github.ref_name }}
-    # RELEASES_TOKEN, this repository's secret: it reads the other private
-    # repositories.
-    secrets: inherit
