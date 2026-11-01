@@ -20,6 +20,7 @@ AI assistance.
 **Status**: the launcher and the engine run the game under Proton's wine, not
 fully playable ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)); they are
 untried on Windows itself ([verified](ports/windows-x86_64/README.md#verified)).
+Reports from Windows itself are wanted: [where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Features
 
@@ -91,6 +92,8 @@ Take `DX-windows-x86_64.zip` from
 [Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
 DXLauncher with DXEngine. Unzip it anywhere and run
 `DXLauncher\deusex-launcher.exe`; its About page adds it to the Start menu.
+The programs are not signed: should SmartScreen stop the first start, choose
+More info, then Run anyway.
 This repository's releases tagged `windows-x86_64-<date>-<commit>` have the
 launcher alone.
 
