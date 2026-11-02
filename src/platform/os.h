@@ -21,6 +21,12 @@ void dxl_os_sleep_ms(int ms);
  * time a wait took. */
 long long dxl_os_ms(void);
 
+/* Whether the system's devices belong to an owner this process cannot
+ * name, the host's root unmapped as in a rootless container (podman's, so
+ * distrobox's and toolbox's): /dev/input owned by the kernel's overflow uid.
+ * There every udev message comes from that uid, which libudev drops. */
+int dxl_os_host_root_unmapped(void);
+
 /* What ended a program that did not exit by itself (dxl_game's signal,
  * LastRun.ini's Signal) -- a signal here: its name, "SIGSEGV", or "signal
  * <n>" for one without a name here. */

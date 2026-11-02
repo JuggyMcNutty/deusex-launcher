@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -23,6 +24,18 @@ long long dxl_os_ms(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+
+int dxl_os_host_root_unmapped(void) {
+    struct stat st;
+    if (stat("/dev/input", &st) != 0) return 0;
+    unsigned long overflow = 65534;
+    FILE *f = fopen("/proc/sys/kernel/overflowuid", "r");
+    if (f) {
+        if (fscanf(f, "%lu", &overflow) != 1) overflow = 65534;
+        fclose(f);
+    }
+    return (unsigned long)st.st_uid == overflow;
 }
 
 const char *dxl_end_name(int end, char *buf, size_t size) {

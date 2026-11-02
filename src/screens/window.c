@@ -8,6 +8,7 @@
 #include "core/paths.h"
 #include "platform/desktop.h"
 #include "platform/fs.h"
+#include "platform/os.h"
 #include "platform/process.h"
 #include "platform/wait.h"
 #include "ui/icon.h"
@@ -701,6 +702,10 @@ static int open_window(dxl_window *w, dxl_run *r) {
          * signals are the launcher's own (dxl_window_wake). */
         SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
         SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
+        /* In a rootless container SDL's udev enumeration never hears of a
+         * pad plugged in later: it watches /dev/input itself, as it does
+         * in a Flatpak or a Snap. */
+        if (dxl_os_host_root_unmapped()) SDL_SetHint("SDL_JOYSTICK_DISABLE_UDEV", "1");
         if (!SDL_Init(SDL_INIT_VIDEO)) {
             fprintf(stderr, "DXLauncher has no window: %s\n", SDL_GetError());
             dxl_log("no window: %s", SDL_GetError());
