@@ -450,7 +450,10 @@ Idle, it costs next to nothing: it waits on its events and draws only
 while something moves or a picture is being read, VSync-paced; the title
 music, while it plays, is mixed on SDL's audio thread. A second start while
 it is up hands it its command line and raises it; a pad connected or lost is
-a note in its corner.
+a note in its corner. In a rootless container (podman's: distrobox, toolbox),
+where the host's root is unmapped and libudev drops every udev message, SDL
+watches `/dev/input` itself (`SDL_JOYSTICK_DISABLE_UDEV`), so a pad plugged in
+there is seen too.
 
 ## Settings
 
