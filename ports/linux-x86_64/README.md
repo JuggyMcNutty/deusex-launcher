@@ -21,8 +21,9 @@ Built with a Buildroot SDK, Godot's `godot-2023.08.x-4` (GCC 13.2 on glibc
 which `scripts/check-abi.sh` holds them to after each build. Needs CMake
 3.21+, pkg-config, curl, xz, bzip2 and binutils' `ar`; `scripts/dx.sh deps
 linux-x86_64` fetches the rest: the SDK, pinned by its SHA256, Debian's
-packages for its sysroot, the window's sources and the engine's SDL3, which
-it builds ([what it is made of](#what-it-is-made-of)).
+packages for its sysroot, checked against no hash (bugs.md LPORT.6), the
+window's sources and the engine's SDL3, which it builds ([what it is made
+of](#what-it-is-made-of)).
 
 ```sh
 scripts/dx.sh fetch                  # once: the engine, the launcher's branches, the RE

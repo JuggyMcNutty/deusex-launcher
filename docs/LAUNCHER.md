@@ -47,11 +47,12 @@ writes them back. The engine never touches `~/.config/DXEngine`,
 which the harness's runs read: an engine whose `--version` lacks
 `userdir` is refused.
 
-A file is written whole or not at all: to a new file beside it, synced,
-then renamed over it (`dxl_path_write_atomic`); a link is written
-through, its target replaced and the link kept. It keeps the mode the old
-one had, set only where the new one's differs; a filesystem with no
-permissions to keep (exFAT, FAT) refusing that is no failure.
+A file is written whole or not at all, but the icon's PNGs, written in place
+(bugs.md LUI.8): to a new file beside it, synced, then renamed over it
+(`dxl_path_write_atomic`); a link is written through, its target replaced
+and the link kept. It keeps the mode the old one had, set only where the new
+one's differs; a filesystem with no permissions to keep (exFAT, FAT)
+refusing that is no failure.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md` with the notices it names
@@ -114,12 +115,12 @@ writing nothing there:
 - **`DeusEx.ini`**: the game's own, else `Default.ini`; one with no
   `[Core.System] Paths`, a stub the engine cannot start from, is
   `Default.ini` with its values over it, a key it gives, once or line by
-  line (`ServerActors`), in place of all `Default.ini`'s lines of that
-  key. The engine's own sections (`Engine.DXEngineClient`,
-  `DXEngineAudioDevice` and `DXEngineRenderDevice`) come from
-  `DXE-DeusEx.ini`, which the engine writes when no launcher names an
-  ini, for each the game's lacks; then each key of them they lack is
-  written, as the engine would take it (`src/core/engine_sections.h`).
+  line (`ServerActors`), in place of all `Default.ini`'s lines of that key.
+  The engine's own sections (`Engine.DXEngineClient`, `DXEngineAudioDevice`
+  and `DXEngineRenderDevice`) come from `DXE-DeusEx.ini`, which the engine
+  writes when no launcher names an ini, for each the game's lacks; then each
+  key of them they lack is written, as the engine would take it, but
+  `UsePrecache` (`src/core/engine_sections.h`; bugs.md LCORE.11).
 - **`User.ini`**: the newer of `User.ini` and `DXE-User.ini`, else
   `DefUser.ini`. The bindings the original game saved, in
   `[Extension.InputExt]`, put in `[Engine.Input]`, the one section of them
@@ -298,8 +299,9 @@ A `deusex://host:port` link, of which the app menu's entry is the handler,
 opens Multiplayer asking whether to join its server; with `--play`, with no
 window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
-is half done there -- a dialog, the game's folder or a profile being
-chosen -- or the game, while it plays, opens the server.
+is half done there -- a dialog, the game's folder or a profile being chosen;
+a text being edited is dropped (bugs.md LUI.8) -- or the game, while it
+plays, opens the server.
 
 ## One start
 
@@ -311,7 +313,9 @@ chosen -- or the game, while it plays, opens the server.
    home: the lock is its config folder's. One playing a dedicated server
    (`-server`, started so or relaunched to it by the game) holds the lock
    alone and takes no line, as the original's server, whose log window is
-   never `IsBrowser`: a second start plays beside it.
+   never `IsBrowser`: a second start plays beside it, and takes no line
+   itself, where the original's client does, so a third start plays a game
+   of its own (bugs.md MAIN.13).
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -319,9 +323,10 @@ chosen -- or the game, while it plays, opens the server.
    `-changevideo`; else Home. The original's first-time renderer page has no
    screen of its own here: the first run is the launcher's. `--play` and
    `DXL_NO_HOME=1` skip Home, not the others.
-4. **Before the game**, after the screens, as the original does it: the
-   inis saved, `FirstRun` raised to 1100, `Running.ini` made; and any key
-   of the engine's sections they lack written.
+4. **Before the game**, after the screens, as the original does it: the inis
+   saved, `FirstRun` raised to 1100 (one above it kept, where the original's
+   `-firstrun` writes 1100: bugs.md D.43, for the owner), `Running.ini`
+   made; and any key of the engine's sections they lack written.
 5. **The engine** asked what it can do (`--version`), and started: or
    refused, saying why -- not there, one this system cannot start (a glibc
    newer than its own, a library it lacks: the loader's words, which the
@@ -405,21 +410,21 @@ window, Home and Welcome offer it once, as a pad is first pressed there,
 the press the question's; switched to, it is Always. Its size is the
 screen's, not kept as the window's.
 
-**Controls.** The keyboard: the arrows or WASD move, Enter or Space
-chooses, Esc or Backspace goes back, Tab and Shift-Tab step through, Page
-Up and Page Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs,
-F5 plays, F11 switches the big screen. The mouse: the pointer focuses
-what it moves onto (not what the window, coming up or changing size, puts
-under it), a click chooses, the wheel scrolls a list and a list's
-scroll bar drags by its thumb or pages by its track, the back button goes
-back. A pad: the d-pad or the left stick moves (held, again 350 ms after
-the frame that took it and then every 90), its confirm button chooses and
-its back button goes back -- south and
-east, or on a Nintendo pad, whose A is east, east and south -- its
-shoulders change tabs, and Start plays. The foot of each page shows what to
-press on the device last used, keycaps or the pad's own buttons as SDL
-names them, drawn as shapes of our own, no maker's logo; a hint clicked
-does what its key does. The pointer hides while a pad is used.
+**Controls.** The keyboard: the arrows or WASD move, Enter or Space chooses,
+Esc or Backspace goes back, Tab and Shift-Tab step through, Page Up and Page
+Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs, F5 plays, F11
+switches the big screen. The mouse: the pointer focuses what it moves onto
+(not what the window, coming up or changing size, puts under it), a click
+chooses, the wheel scrolls a list and a list's scroll bar drags by its thumb
+or pages by its track, the back button goes back. A pad: the d-pad or the
+left stick moves (held, again 350 ms after the frame that took it and then
+every 90), its confirm button chooses and its back button goes back -- south
+and east, or on a Nintendo pad, whose A is east, east and south -- its
+shoulders change tabs, and Start plays; neither F5 nor Start does on
+`-changevideo`'s Graphics (bugs.md LUI.8). The foot of each page shows what
+to press on the device last used, keycaps or the pad's own buttons as SDL
+names them, drawn as shapes of our own, no maker's logo; a hint clicked does
+what its key does. The pointer hides while a pad is used.
 
 **Text** (a text row, a profile's name) is edited in place as a desktop's
 fields are (`src/ui/controls.c`): a click puts the caret where it is, a
@@ -478,23 +483,25 @@ device's), taking its built-in default for a key missing there; a row reads
 the same way, and is written to both, so the two agree. The engine takes its
 built-in default for a value its converters cannot read (`maybe` for a bool,
 a rate without `Hz`), stopping nothing: to a row such text is no value
-either, so it shows that default. A value is written as the
-engine writes it (`True`, `0.600000`, `153`, `44100Hz`), and only as the
-player changes it: one outside a slider's range, as the game's console or
-a hand sets it, shows at the slider's end and stays as it is until the
-slider is moved. Before the page opens and before each run, each key of
-the engine's sections that is missing is written, from the retail value
-where there is one, else the engine's default (`src/core/engine_sections.c`),
-so the engine reads what the page shows. A row's default is what is taken
-with no value kept: the engine's own, the class's for `User.ini`'s keys,
-the defaults file's for `Settings.json` but its renderer (below).
+either, so it shows that default. A value is written as the engine writes it
+(`True`, `0.600000`, `153`, `44100Hz`), and only as the player changes it:
+one outside a slider's range, as the game's console or a hand sets it, shows
+at the slider's end and stays as it is until the slider is moved. Before the
+page opens and before each run, each key of the engine's sections that is
+missing is written (but `UsePrecache`: bugs.md LCORE.11), from the retail
+value where there is one, else the engine's default
+(`src/core/engine_sections.c`), so the engine reads what the page shows. A
+row's default is what is taken with no value kept: the engine's own, the
+class's for `User.ini`'s keys, the defaults file's for `Settings.json` but
+its renderer (below).
 
 **Back to the defaults** gives a page what a new profile has: the install's
 `Default.ini` as the import makes it, its `DefUser.ini`, `Settings.json`'s
-defaults file, Software for the renderer where the probe finds no GPU
-driver; a mod's profile the mod's own ini and controls where it has them,
-as its import takes them; on Keyboard & mouse the keys too, on Controller
-its buttons. Recovery's Defaults... does it for a page or for all.
+defaults file, Software for the renderer where the probe has answered and
+found no GPU driver (bugs.md LUI.8); a mod's profile the mod's own ini and
+controls where it has them, as its import takes them; on Keyboard & mouse
+the keys too, on Controller its buttons. Recovery's Defaults... does it for
+a page or for all.
 
 **Graphics** has the presets: As in 2000 (the game as its Direct3D renderer
 drew it: detail textures, and no multisampling or bloom), Enhanced (4x
@@ -529,20 +536,22 @@ by the engine's own 4x (a first run's engine defaults), the launcher asks
 `dxl-cli --probe`, once a run, and on such a GPU writes Off there, the
 file made from the defaults file when there is none (`src/app/run.c`).
 
-**Keyboard & mouse** has the game's key menu's actions, and the commands
-the game's defaults bind besides (the pause menu, the belt's slots, the
+**Keyboard & mouse** has the game's key menu's actions, and the commands the
+game's defaults bind besides (the pause menu, the belt's slots, the
 augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A
-slot takes the next key, mouse button or wheel notch; Esc puts it back,
-as its Cancel hint clicked does, Delete takes the key away. A key bound to
-another action asks: that action
-instead, or both (`a|b`), the key then each one's. Keys are named as the
-engine's window gives them, as the original does (`src/core/keys.c`): a
-shift, control or alt as `Shift`, `Ctrl` or `Alt`, the name of both sides,
-which the engine follows with its side's own (`LShift`); a binding on a name
-that window never gives is marked. The game's own
-key menu refuses Escape, F1 to F18, the digits, Tilde, PrintScrn and Pause,
-whose bindings it does not show; this page shows them, and takes all but
-Escape.
+slot takes the next key, mouse button or wheel notch; Esc puts it back, as
+its Cancel hint clicked does, Delete takes the key away. A key bound to
+another action asks: that action instead, or both (`a|b`), the key then each
+one's. Keys are named by their place on a US keyboard (`src/core/keys.c`),
+where the engine's window names them by the layout and Num Lock, as the
+original does: on AZERTY the key marked Z is written `W`, which the engine
+fires on the key marked W, a keypad key bound with Num Lock off never fires,
+and the ISO key cannot be bound (bugs.md LCORE.6); a shift, control or alt
+as `Shift`, `Ctrl` or `Alt`, the name of both sides, which the engine
+follows with its side's own (`LShift`); a binding on a name that window
+never gives is marked. The game's own key menu refuses Escape, F1 to F18,
+the digits, Tilde, PrintScrn and Pause, whose bindings it does not show;
+this page shows them, and takes all but Escape.
 
 **Launcher** begins with the engine and the game's folder. The engine:
 its version, or what is wrong with it, and as its choices the launcher's
@@ -623,21 +632,22 @@ one it maps wrongly: each of SDL's controls asked for in turn -- the face
 buttons, the shoulders, the triggers, the middle buttons and the maker's,
 the stick clicks, the d-pad, each stick's two ways -- and pressed or moved,
 the model showing which; Skip for one the controller lacks, Back for a step
-again (`src/screens/padwizard.c`). It begins once the controller is let go
-of, at rest as SDL first read it, or as it has then been still a second;
-while it is up, the controller moves nothing of the window. Its mapping,
-SDL's text for it (`src/core/padmap.c`), is given to SDL at once and kept
-in `gamecontrollerdb.txt`, a line a controller, by its GUID, which the
-window loads as it opens its pads, each line naming the system it was
-made on, SDL's name for it, as SDL reads a file's lines of its own system
-alone; with nothing mapped, nothing is kept.
-The value of `SDL_GAMECONTROLLERCONFIG` the launcher was started with, as
-Steam sets it, is SDL's but for its lines of a controller the launcher
-maps, which SDL would take over the launcher's. The engine is given that,
-then the file (`src/app/run.c`): each mapping, and a copy of it for an
-SDL2 before 2.26, whose GUIDs have no CRC of the pad's name: its GUID
-without the CRC, a `crc:` field naming it, which a newer SDL reads, so that
-the copy maps the pad of that name alone.
+again, by the keyboard or the mouse alone: the controller presses neither,
+nor Cancel (`src/screens/padwizard.c`; bugs.md LUI.6). It begins once the
+controller is let go of, at rest as SDL first read it, or as it has then
+been still a second; while it is up, the controller moves nothing of the
+window. Its mapping, SDL's text for it (`src/core/padmap.c`), is given to
+SDL at once and kept in `gamecontrollerdb.txt`, a line a controller, by its
+GUID, which the window loads as it opens its pads, each line naming the
+system it was made on, SDL's name for it, as SDL reads a file's lines of its
+own system alone; with nothing mapped, nothing is kept. The value of
+`SDL_GAMECONTROLLERCONFIG` the launcher was started with, as Steam sets it,
+is SDL's but for its lines of a controller the launcher maps, which SDL
+would take over the launcher's. The engine is given that, then the file
+(`src/app/run.c`): each mapping, and a copy of it for an SDL2 before 2.26,
+whose GUIDs have no CRC of the pad's name: its GUID without the CRC, a
+`crc:` field naming it, which a newer SDL reads, so that the copy maps the
+pad of that name alone.
 
 ## The app menu
 
@@ -748,122 +758,117 @@ Home's The engine... chooses another.
 ## How it is tested
 
 `scripts/dx.sh test` runs the host tests side by side, all but
-`test_ui_scripts` with no display.
-`test_ini` loads and saves an ini in the game's format byte for byte (CR LF,
-blank lines, repeated keys), and `test_json` `Settings.json`, the members it
-does not know kept in their order; `test_cmdline` the original's three
-parsers, which differ, and `test_argv` and `test_engine_args` the game's
-words and the engine's, a quoted word whole; `test_policy` the original's
-entry matrix, its first match winning ([`wizard.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md));
-`test_config` the system ini as the launcher keeps it, FirstRun only
-raised; `test_engine_settings` the engine's `Settings.json`, a file it
-cannot read replaced; `test_gamedb` SHA1 by FIPS 180's examples and the
-engine's builds; `test_install` what makes an install, in the odd cases a
-copy leaves; `test_lastrun` a run's end, written and read back;
-`test_runtime` the crash sentinel and the state folder; `test_renderers`
-the renderers the probe and the engine's build offer, and the PowerVR's
-anti-aliasing lock; `test_desktop` the app menu's entry, its
-`Exec` quoted as the spec has it, and `deusex://`; `test_xdg` the XDG
-folders, the spec's defaults where none is set.
-`test_settings` takes the registry's rows through each codec, both
-generations of the system ini, the sizes, the next run's words,
-`Settings.json` and the renderer where it names none, the presets and a
-new profile's defaults; `test_keys` the
-key names, bindings and their reset; `test_bindings` the controller's
-layouts, labels and actions; `test_padcurve` its sticks and triggers as the
-engine takes them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`,
-read back by SDL, and what the engine is given; `test_shell_pick` a list's
-choice found again in it, two of its labels alike; `test_engine_sections`
-the keys written; `test_advice` the advice; `test_upkg` the game's packages, on packages it
+`test_ui_scripts` with no display. `test_ini` loads and saves an ini in the
+game's 8-bit format byte for byte (CR LF, blank lines, repeated keys; a
+UTF-16 one is narrowed: bugs.md LCORE.8), and `test_json` `Settings.json`,
+the members it does not know kept in their order; `test_cmdline` the
+original's three parsers, which differ, and `test_argv` and
+`test_engine_args` the game's words and the engine's, a quoted word whole;
+`test_policy` the original's entry matrix, its first match winning
+([`wizard.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md));
+`test_config` the system ini as the launcher keeps it, FirstRun only raised;
+`test_engine_settings` the engine's `Settings.json`, a file it cannot read
+replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
+`test_install` what makes an install, in the odd cases a copy leaves;
+`test_lastrun` a run's end, written and read back; `test_runtime` the crash
+sentinel and the state folder; `test_renderers` the renderers the probe and
+the engine's build offer, and the PowerVR's anti-aliasing lock;
+`test_desktop` the app menu's entry and its `Exec` quoted as the spec has
+it, not `deusex://` (bugs.md LAPP.9); `test_xdg` the XDG folders, the spec's
+defaults where none is set. `test_settings` takes the registry's rows
+through each codec, both generations of the system ini, the sizes, the next
+run's words, `Settings.json` and the renderer where it names none, the
+presets and a new profile's defaults; `test_keys` the key names, bindings
+and their reset; `test_bindings` the controller's layouts, labels and
+actions; `test_padcurve` its sticks and triggers as the engine takes them;
+`test_padmap` SDL's mappings, `gamecontrollerdb.txt`, read back by SDL, and
+what the engine is given; `test_shell_pick` a list's choice found again in
+it, two of its labels alike; `test_engine_sections` the keys written;
+`test_advice` the advice; `test_upkg` the game's packages, on packages it
 writes itself and the same broken a thousand ways; `test_saves` a profile's
-saves and shots, the saves' infos written as the game writes them
-(`tests/upkg_writer.h`); `test_vdf` Steam's KeyValues files, and
-`test_finder` each of the finder's places, in homes it makes up;
+saves and shots, the saves' infos written as the game writes them but for
+their strings' size codes, the snapshot's check unable to fail
+(`tests/upkg_writer.h`; bugs.md LAPP.9); `test_vdf` Steam's KeyValues files,
+and `test_finder` each of the finder's places, in homes it makes up;
 `test_bigscreen` when the big screen is wanted, by the setting, the
-environment and `--big-screen`;
-`test_mods` which folders are mods, their settings and where they are
-found, and their profiles' paths, settings and saves, of mods it makes up;
-`test_gamespy` the master's and the servers' words, the challenge's answer
-against the original's own; `test_servers` a server's answer, the sort,
-the filters (on this network among them), the join URL and the
-favourites; `test_browser` a look at a master and servers of its own on
-this machine, one of them silent, one losing a packet of its first answer,
-and at beacons of its own (`DXL_LAN`): the game's, its server asked and
-handed over as LAN, another game's passed over, a second given them, their
-answers read past a master slower than that, none asked with `none`. The
-stand-in engine `tests/stub_engine.c` answers `--version` -- or fails it as
-a loader that cannot start it does -- and talks on the line as
-the engine does, or crashes, fails, relaunches, prints its words or never
-ends (`test_process`, which has the engine's refusals and its choice too,
-`test_play`). `test_profile` imports from a fake
-install made read-only, which it leaves as it was, and makes, lists and
-copies profiles; `test_trash` puts folders in a scratch trash;
-`test_gpu_probe` probes this machine's GPU, then with Mesa's versions
-lowered below OpenGL 4.2 and ES 3.2, which it then does not offer
-(skipped with no GPU of Mesa's);
-`test_gamefiles`, on a
-real install in `gamefiles/`, reads every asset the window takes from it --
-the menu themes, the art, the menu sounds, the title music, and the
-infos and snapshots of any saves it has -- plays the stub from a scratch
-home through a first run, a crash with the profile's state folder gone
-and the Recovery that follows, a launcher killed while it plays, a
-dedicated server, started so or relaunched to, that takes no second
+environment and `--big-screen`; `test_mods` which folders are mods, their
+settings and where they are found, and their profiles' paths, settings and
+saves, of mods it makes up; `test_gamespy` the master's and the servers'
+words, the challenge's answer against the original's own; `test_servers` a
+server's answer, the sort, the filters (on this network among them), the
+join URL and the favourites; `test_browser` a look at a master and servers
+of its own on this machine, one of them silent, one losing a packet of its
+first answer, and at beacons of its own (`DXL_LAN`): the game's, its server
+asked and handed over as LAN, another game's passed over, a second given
+them, their answers read past a master slower than that, none asked with
+`none`. The stand-in engine `tests/stub_engine.c` answers `--version` -- or
+fails it as a loader that cannot start it does -- and talks on the line as
+the engine does, taking a lower-case `quit` too (bugs.md LAPP.9), or
+crashes, fails, relaunches, prints its words or never ends (`test_process`,
+which has the engine's refusals and its choice too, `test_play`).
+`test_profile` imports from a fake install made read-only, which it leaves
+as it was, and makes, lists and copies profiles; `test_trash` puts folders
+in a scratch trash; `test_gpu_probe` probes this machine's GPU, then with
+Mesa's versions lowered below OpenGL 4.2 and ES 3.2, which it then does not
+offer (skipped with no GPU of Mesa's, and when the probe fails: bugs.md
+LAPP.9); `test_gamefiles`, on a real install in `gamefiles/`, reads every
+asset the window takes from it -- the menu themes, the art, the menu sounds,
+the title music, and the infos and snapshots of any saves it has -- plays
+the stub from a scratch home through a first run, a crash with the profile's
+state folder gone and the Recovery that follows, a launcher killed while it
+plays, a dedicated server, started so or relaunched to, that takes no second
 start's line, and ends with no game after a crash, Recovery quit,
 `-consolecommand=` and `-testrendev=`, which take `Running.ini` away, and
-with Recovery not answered, which leaves it, and checks that nothing in
-the game's folder changed.
+with Recovery not answered, which leaves it, and checks that nothing in the
+game's folder changed over its first run, the runs after it unchecked
+(bugs.md LAPP.9).
 
-The window's kit is tested on SDL's software renderer and a surface:
-focus and navigation (`test_ui_focus`), text (`test_ui_text`), and the
-keyboard, the mouse and virtual pads with an Xbox's, a DualSense's and a
-Switch Pro's ids (`test_ui_input`), the controls and the on-screen
-keyboard (`test_ui_controls`), the sound on SDL's dummy output
-(`test_ui_audio`) and the thumbnails (`test_ui_thumbs`). `dxl-shots`
-(`tools/shots.c`) draws every
+The window's kit is tested on SDL's software renderer and a surface: focus
+and navigation (`test_ui_focus`), text (`test_ui_text`), and the keyboard,
+the mouse and virtual pads with an Xbox's, a DualSense's and a Switch Pro's
+ids (`test_ui_input`), the controls and the on-screen keyboard
+(`test_ui_controls`), the sound on SDL's dummy output (`test_ui_audio`) and
+the thumbnails (`test_ui_thumbs`). `dxl-shots` (`tools/shots.c`) draws every
 page and dialog, each settings page too, from states it makes up in a
-scratch home, at
-1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160 at 2 and
-960x600, and on the big screen at 1920x1080 and 1280x800, with the keyboard,
-the mouse and four virtual pads, and fails on
-any diagnostic of the kit's: a label cut short, focusables on one another
-or off the window (`test_ui_shots_*`); with `--out=<dir>` it writes them as
-PNGs for review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the
-window a script of keys, text, controls found by their labels, virtual
-controllers, page checks and shots, through its own event queue
-(`src/screens/uiscript.h`): a first
-run from a fresh home to the game and its clean end, a crash into Recovery,
-and a second start handed over are run that way. `test_ui_scripts` runs
-`tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home,
-with the stub for the engine and no beacon asked (`DXL_LAN=none`), and
-reads what they changed:
+scratch home, at 1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160
+at 2 and 960x600, and on the big screen at 1920x1080 and 1280x800, with the
+keyboard, the mouse and four virtual pads, and fails on any diagnostic of
+the kit's: a label cut short, focusables on one another or off the window
+(`test_ui_shots_*`); with `--out=<dir>` it writes them as PNGs for review.
+On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the window a script
+of keys, text, controls found by their labels, virtual controllers, page
+checks and shots, through its own event queue (`src/screens/uiscript.h`): a
+first run from a fresh home to the game and its clean end, a crash into
+Recovery, and a second start handed over are run that way. `test_ui_scripts`
+runs `tests/ui/`'s, on a profile made from `gamefiles/` in a scratch home,
+with the stub for the engine and no beacon asked (`DXL_LAN=none`), and reads
+what they changed, a script that stops early passing (bugs.md LAPP.9):
 `settings_roundtrip` changes a row of each kind on each page and finds each
-in its file as its reader takes it, a value outside its slider's range as
-it was, no renderer named where none was chosen, and the next run's words
-on that run; `settings_kept` leaves Settings on a `Settings.json` edited
-by hand that neither reads -- a comma before a close, a comma missing --
-and finds it kept beside the new one, and said;
-`recovery` goes from a crash to Recovery's log, the next run in a window
-and another renderer, and finds those on the next run alone; `remap_pad`
-binds three buttons of a virtual Xbox pad, two found by pressing or pulling
-them, maps that pad with the wizard its own confirm opened, and a
-controller SDL has no mapping for, its trigger resting at the top and first
-read before it was, and finds the bindings in `User.ini`, the mappings in
-`gamecontrollerdb.txt` and in the engine's environment; `pad_test` tries
-a virtual pad, whose buttons move nothing of the window until its back is
-held; `engine_and_game` starts with an engine this system cannot start,
-puts another in its place from Home, and the game's folder from Settings;
-`recovery_engine` and `graphics_engine` start with one at Recovery, after
-a run's `Running.ini`, and at `-changevideo`'s Graphics, whose play key
-and Play start nothing;
-`profiles` makes a profile, duplicates one, renames and deletes the copy to
-the trash, and uses the first again; `mods` makes a made-up mod's profile
-from Mods, and finds its paths, its settings and its save in it; `continue`
-starts the game on the
-latest save from Home, `saves_load` on a save from Saves, `saves_delete`
-deletes one, and `shots` shows a shot whole and deletes it, each finding
-the save's URL on the engine's command line or what was deleted in the
-trash; `big_screen` is offered the big screen on a pad's first press, an
-A that does not play, and stays as it is, switches it by F11, then has it
+in its file as its reader takes it, a value outside its slider's range as it
+was, no renderer named where none was chosen, and the next run's words on
+that run; `settings_kept` leaves Settings on a `Settings.json` edited by
+hand that neither reads -- a comma before a close, a comma missing -- and
+finds it kept beside the new one, and said; `recovery` goes from a crash to
+Recovery's log, the next run in a window and another renderer, and finds
+those on the next run alone; `remap_pad` binds three buttons of a virtual
+Xbox pad, two found by pressing or pulling them, maps that pad with the
+wizard its own confirm opened, and a controller SDL has no mapping for, its
+trigger resting at the top and first read before it was, and finds the
+bindings in `User.ini`, the mappings in `gamecontrollerdb.txt` and in the
+engine's environment; `pad_test` tries a virtual pad, whose buttons move
+nothing of the window until its back is held; `engine_and_game` starts with
+an engine this system cannot start, puts another in its place from Home, and
+the game's folder from Settings; `recovery_engine` and `graphics_engine`
+start with one at Recovery, after a run's `Running.ini`, and at
+`-changevideo`'s Graphics, whose play key and Play start nothing; `profiles`
+makes a profile, duplicates one, renames and deletes the copy to the trash,
+and uses the first again; `mods` makes a made-up mod's profile from Mods,
+and finds its paths, its settings and its save in it; `continue` starts the
+game on the latest save from Home, `saves_load` on a save from Saves,
+`saves_delete` deletes one, and `shots` shows a shot whole and deletes it,
+each finding the save's URL on the engine's command line or what was deleted
+in the trash; `big_screen` is offered the big screen on a pad's first press,
+an A that does not play, and stays as it is, switches it by F11, then has it
 Always on Settings' Launcher page, and finds the two in `launcher.ini`;
 `big_screen_switch` is offered it and switches to it, and
 `big_screen_handover` is put on it by a second start; `multiplayer` joins
@@ -876,22 +881,23 @@ not the log's, each finding it in the engine's `--url`; `first_run` and
 `first_run_defaults` make a profile from nothing, a controller connected,
 with Your profile's choices made and as they come, and `make_waits` with
 Make the profile pressed before the GPU's probe answered, then Back, which
-leaves the press behind. SDL takes in each
-only controllers of the virtual ones' makes and models
-(`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT`): a pad of another plugged in
-moves nothing of a run, though a real one of those models would. It is
-skipped with no display or no install.
+leaves the press behind. SDL takes in each only controllers of the virtual
+ones' makes and models (`SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT`): a pad
+of another plugged in moves nothing of a run, though a real one of those
+models would. It is skipped with no display or no install.
 
 ## What it changes from the original
 
 The original's behaviour is recorded in
 [`launcher.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launcher.md).
-Kept as the original does it: the decision's order (`-safe`, the
-`FirstRun` gates, `-changevideo`, `Running.ini`), `Running.ini` made after
-the screens and taken away at a clean end or one with no game, `FirstRun`
-raised to 1100, the three command-line parsers (`ParseParam` stricter, as
-`main`'s), and the second start's hand-over, though its line goes to a
-launcher that keeps it whatever the install. Changed:
+Kept as the original does it: the decision's order (`-safe`, the `FirstRun`
+gates, `-changevideo`, `Running.ini`), `Running.ini` made after the screens
+and taken away at a clean end or one with no game, `FirstRun` raised to 1100
+(but under `-firstrun`: bugs.md D.43), the three command-line parsers
+(`ParseParam` stricter, as `main`'s; `Parse` cutting a value at white space
+alone, not at a comma too: bugs.md ENG.19), and the second start's
+hand-over, though its line goes to a launcher that keeps it whatever the
+install. Changed:
 
 | Original | DXLauncher | Why |
 |---|---|---|
@@ -907,4 +913,49 @@ launcher that keeps it whatever the install. Changed:
 
 ## Known defects
 
-None.
+Each open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
+
+- **LAPP.7**: a forwarded command line of 4,096 bytes loses its last byte.
+- **LAPP.8**: xdg-open and the helpers run for their output start with
+  SIGPIPE ignored, the file manager or browser opened inheriting it.
+- **LAPP.9**: tests that prove less than they say: `test_gamefiles` checks
+  the game's folder over its first run alone, a UI script that stops early
+  passes, a failed `test_gpu_probe` is a skip.
+- **LAPP.10**: a first run's name change makes the sentinel again without
+  freeing it; a stop waits up to 10 s for the probe.
+- **LCORE.6**: keys bound by their US place, where the engine names them by
+  the layout and Num Lock: AZERTY's and QWERTZ's letters bound to other
+  keys, a keypad key bound with Num Lock off never fires, the ISO key
+  unbindable.
+- **LCORE.7**: the profile's paths written into the inis as UTF-8, which the
+  engine reads as Latin-1: under a non-ASCII home the saves go elsewhere or
+  fail.
+- **LCORE.8**: a UTF-16 ini narrowed to 8 bits, each character past U+00FF a
+  `?`, and written back so before every run.
+- **LCORE.9**: `INI=` and `USERINI=` resolved in any case in their last part
+  alone, so a mod's ini in a folder of another case is seeded empty.
+- **LCORE.10**: a read-only ini replaced at the next save, where `main` and
+  the original refuse it.
+- **LCORE.11**: the engine sections' seed lacks `UsePrecache`; an exit 0
+  before the first map still called no game found; dead code.
+- **LUI.6**: the controller-mapping wizard cannot be skipped, stepped back
+  or cancelled from a pad, so with a pad that lacks a control and no
+  keyboard or mouse it never ends.
+- **LUI.7**: the Controller page crashes choosing a button's action with no
+  `User.ini` and no `DefUser.ini`.
+- **LUI.8**: small UI defects: the Log page's buttons off the d-pad, a
+  `deusex://` hand-over dropping an edit, F5 and Start dead on
+  `-changevideo`'s Graphics, Back to the defaults before the probe, the
+  icon's PNGs written in place, Recovery's foot with no Back hint.
+- **LPORT.6**: the sysroot's packages fetched against no hash.
+- **ENG.19**: an unquoted `X=` value cut at white space alone, where the
+  original's `Parse` cuts it at a comma too.
+- **MAIN.13**: a client started beside a running `-server` takes no line, so
+  a third start plays a game of its own.
+- **X.11**: `scripts/check-abi.sh` stops without a word at a file with no
+  GLIBC references, the files after it unchecked.
+- For the owner, **D.43**: under `-firstrun` a stored FirstRun above 1100
+  kept, where the original writes 1100.
+- For the owner, **D.45**: the engine built with no warning flags of its
+  own.
