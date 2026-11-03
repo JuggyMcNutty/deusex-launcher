@@ -66,7 +66,9 @@ with unit tests for each and a live check of every road a player can take
 </table>
 
 Each is the recreation's own drawing, the same to the pixel as the
-original's under Wine ([the look](#the-look)).
+original's under Wine on an install without `Help/LogoSmall.bmp`; the logo
+band both draw where it is there is not yet compared (bugs.md MAIN.12; [the
+look](#the-look)).
 
 ## Installing
 
@@ -88,12 +90,14 @@ Proton: it takes that file for its `DeusEx` package and stops
 ## The look
 
 The screens are the original's, drawn with SDL2: each control where
-`Window.dll`'s and `DeusEx.exe`'s dialog templates put it
-([page layouts](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#page-layouts)),
+`Window.dll`'s and `DeusEx.exe`'s dialog templates put it ([page
+layouts](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#page-layouts)),
 in the colours, fonts and details the original shows under wine.
-`tools/pageshots.c` draws each screen with no display. Beside captures of the
-original, 14 of the 15 match to the pixel; the splash differs only in its
-picture, which wine shows colour-reduced.
+`tools/pageshots.c` draws each screen with no display. Beside captures of
+the original, 14 of the 15 match to the pixel, all made without
+`Help/LogoSmall.bmp`, whose band every wizard page shows where the install
+has it, as GOG's and Steam's both do, not yet compared (bugs.md MAIN.12);
+the splash differs only in its picture, which wine shows colour-reduced.
 
 Fonts come from a wine or Proton install: MS Sans Serif (`sserife.fon`) for
 the pages, Arial at 12 pixels for the Driver page's link, Tahoma 8 pt for
@@ -146,6 +150,32 @@ Each adapts the original to desktop Linux, by the owner's choice:
   `DXL_ENGINE_ARGS` adds the engine's own options, for a scripted run
   ([the game and the launcher](#the-game-and-the-launcher)).
 
+## Known defects
+
+Each open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
+
+- **MAIN.9**: a UTF-16 ini read as bytes: FirstRun not found, and the
+  wizard's Run! writes DeusEx.ini back as each line's first character.
+- **MAIN.10**: the first of a key or a section given twice read and written,
+  where the original reads the last and merges the sections.
+- **MAIN.11**: the engine's line cut at 1,023 bytes, so a `RELAUNCH` past
+  1,014 characters relaunches cut.
+- **MAIN.12**: the wizard's logo band never compared with the original's;
+  the 14 of 15 pixel matches and the screenshots made without
+  `Help/LogoSmall.bmp`.
+- **MAIN.13**: a client beside a running `-server` takes no channel; a
+  static's text never clipped to its control; the device list stops at 8; F5
+  to F7, overlong and surrogate leads taken as UTF-8.
+- **ENG.19**: an unquoted `X=` value cut at white space alone, where the
+  original's `Parse` cuts it at a comma too.
+- For the owner, **D.44**: a second start's line forwarded without the
+  program's path, where the original sends the raw line cut at its first
+  space; recommended: keep, by choice.
+- For the owner, **D.46**: on a CPU without MMX (any not x86) the Detail
+  page's low sound settings, 11025 Hz among them, as the original's on such
+  a machine; recommended: keep.
+
 ## The game and the launcher
 
 The original's process becomes the game, so its launcher code stays for the
@@ -164,7 +194,7 @@ descriptor the engine finds in `DXL_LAUNCHER_FD`, one text line per message:
 | the engine | `ready` | it is up, its first map in: the splash closes, as the original's does when the engine exists |
 | the launcher | `TakeFocus` | a second launch forwarded its command line: the game's window to the front |
 | the launcher | `Open <url>` | then the command line's first word, unless it starts with `-`: travel there |
-| the engine | `relaunch <line>` | the game's `RELAUNCH`: once the game has ended cleanly, the launcher starts again with that command line alone, as the original's starts `DeusEx.exe` with it ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)); after a crash, not |
+| the engine | `relaunch <line>` | the game's `RELAUNCH`: once the game has ended cleanly, the launcher starts again with that command line alone, as the original's starts `DeusEx.exe` with it ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)); after a crash, not; cut past 1,014 characters (bugs.md MAIN.11) |
 
 A forwarded command line that arrives before `ready` is dropped, as the
 original's log window drops one before its main loop runs.
