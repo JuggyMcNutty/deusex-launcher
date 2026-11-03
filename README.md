@@ -17,11 +17,11 @@ release, runs with a warning). None of the game's files are included. DXLauncher
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
 
-**Status**: the launcher and the engine run on the device, and the game runs
+**Status**: the launcher and the engine run on the device, and the game plays
 on Vulkan or OpenGL ES, or on the CPU with Software, at 853 × 480 by default
-([performance](ports/trimui-smartpro/README.md#performance)), not fully
-playable ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
-An alpha: [where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
+([performance](ports/trimui-smartpro/README.md#performance)), not yet played
+through end to end ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
+[Where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Features
 
