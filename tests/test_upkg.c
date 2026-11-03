@@ -203,6 +203,34 @@ static void test_assets(void) {
     free(b.d);
 }
 
+/* A string of 16-bit characters, its count negative: one past 0xFF in it,
+ * as the original's and DXEngine's saves write it. Its text as UTF-8, a
+ * surrogate pair as one code point, and what follows read from past it; a
+ * short buffer cut at a character. */
+static void test_wide_string(void) {
+    static const uint8_t d[] = {
+        0x86,                                           /* -6: five characters and the NUL */
+        0xa9, 0x03, 0x22, 0x21, 0xe9, 0x00,             /* Omega, TM, e acute */
+        0x3d, 0xd8, 0x00, 0xde,                         /* U+1F600 */
+        0x00, 0x00,
+        0x2a, 0x00, 0x00, 0x00,                         /* an int after it */
+        0x03, 'a', 'b', 0x00,                           /* and an 8-bit one */
+    };
+    dxl_ureader r = { d, sizeof d, 0, 0 };
+    char out[32];
+    dxl_ur_string(&r, out, sizeof out);
+    CHECK_STR(out, "\xce\xa9\xe2\x84\xa2\xc3\xa9\xf0\x9f\x98\x80");
+    CHECK_INT(dxl_ur_i32(&r), 42);
+    dxl_ur_string(&r, out, sizeof out);
+    CHECK_STR(out, "ab");
+    CHECK_INT(r.bad, 0);
+    dxl_ureader cut = { d, sizeof d, 0, 0 };
+    char small[5];
+    dxl_ur_string(&cut, small, sizeof small);
+    CHECK_STR(small, "\xce\xa9");
+    CHECK_INT(dxl_ur_i32(&cut), 42);
+}
+
 /* Broken a thousand ways -- bytes changed, cut short -- every reader
  * refuses it or reads within it (ASan's builds see to the second). */
 static void test_broken(void) {
@@ -253,5 +281,6 @@ static void test_broken(void) {
 TEST_MAIN_BEGIN
     RUN(test_tables);
     RUN(test_assets);
+    RUN(test_wide_string);
     RUN(test_broken);
 TEST_MAIN_END
