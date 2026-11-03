@@ -18,10 +18,10 @@ DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
 
-**Status**: the launcher is complete; the engine runs the game, not fully
-playable ([where it differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)), on the
-development platform ([the port](ports/linux-x86_64/README.md)). An alpha:
-[where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
+**Status**: the launcher is complete; the engine plays the game on the
+development platform ([the port](ports/linux-x86_64/README.md)), not yet played
+through end to end ([where it differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
+[Where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
 ## Features
 

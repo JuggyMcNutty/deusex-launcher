@@ -11,8 +11,8 @@ The launcher is DXLauncher, the desktop's own
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)): a window with Home, the first
 run, Settings, Profiles, Mods, Saves, Screenshots, Multiplayer, Recovery,
 the log and About, which makes profiles from the game's files, keeps their
-settings and plays them. The engine runs the game, not fully playable
-([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
+settings and plays them. The engine plays the game, not yet played through end
+to end ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)).
 
 ## Build and run
 
