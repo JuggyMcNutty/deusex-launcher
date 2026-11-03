@@ -118,7 +118,8 @@ typedef struct {
 int  dxl_ur_prop(dxl_ureader *r, const dxl_upkg *p, dxl_uprop *out);
 
 /* A property's value as its type reads: a byte's, an int's, a float's; a
- * name's or an object reference's index; a Str's text (Latin-1). */
+ * name's or an object reference's index; a Str's text, as dxl_ur_string
+ * gives it (Latin-1, or UTF-8 when 16-bit). */
 int32_t dxl_uprop_int(const dxl_uprop *pr);
 float   dxl_uprop_float(const dxl_uprop *pr);
 int32_t dxl_uprop_index(const dxl_uprop *pr);
