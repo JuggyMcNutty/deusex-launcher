@@ -17,8 +17,8 @@ release, runs with a warning). None of the game's files are included. DXLauncher
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
 
-**Status**: the launcher and the engine run the game under Proton's wine, not
-fully playable ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)); they are
+**Status**: the launcher and the engine play the game under Proton's wine, not
+yet played through end to end ([where the engine differs](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md)); they are
 untried on Windows itself ([verified](ports/windows-x86_64/README.md#verified)).
 Reports from Windows itself are wanted: [where to report a bug](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/README.md#reporting-bugs).
 
