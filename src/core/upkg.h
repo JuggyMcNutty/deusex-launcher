@@ -90,7 +90,9 @@ int32_t     dxl_ur_index(dxl_ureader *r);
 /* n bytes, or NULL (and bad) when there are not n left. */
 const uint8_t *dxl_ur_bytes(dxl_ureader *r, size_t n);
 /* A string as the format keeps one: a compact length with its NUL, then
- * the bytes; into out (Latin-1 as it is), "" when it is none. */
+ * the bytes, into out as Latin-1 as it is; or a negative length, 16-bit
+ * characters (one past 0xFF in it: the original's and DXEngine's saves), into
+ * out as UTF-8, cut at a character; "" when it is none. */
 void        dxl_ur_string(dxl_ureader *r, char *out, size_t size);
 /* Past export e's state frame, when it has one: to its properties. */
 void        dxl_ur_skip_stack(dxl_ureader *r, const dxl_upkg *p, int32_t e);

@@ -75,10 +75,44 @@ int32_t dxl_ur_index(dxl_ureader *r) {
     return neg ? -(int32_t)v : (int32_t)v;
 }
 
+/* A wide string's 16-bit characters to its end or its NUL, as UTF-8 (a
+ * surrogate pair as its code point, a lone one as itself), cut at a
+ * character to fit. */
+static void wide_string(dxl_ureader *r, int32_t count, char *out, size_t size) {
+    const uint8_t *b = dxl_ur_bytes(r, (size_t)count * 2);
+    if (!b || !size) return;
+    size_t len = 0;
+    for (int32_t i = 0; i < count; i++) {
+        uint32_t c = (uint32_t)b[2 * i] | (uint32_t)b[2 * i + 1] << 8;
+        if (c == 0) break;
+        if (c >= 0xd800 && c < 0xdc00 && i + 1 < count) {
+            uint32_t lo = (uint32_t)b[2 * i + 2] | (uint32_t)b[2 * i + 3] << 8;
+            if (lo >= 0xdc00 && lo < 0xe000) {
+                c = 0x10000 + ((c - 0xd800) << 10) + (lo - 0xdc00);
+                i++;
+            }
+        }
+        char u[4];
+        size_t k;
+        if (c < 0x80) { u[0] = (char)c; k = 1; }
+        else if (c < 0x800) { u[0] = (char)(0xc0 | c >> 6); u[1] = (char)(0x80 | (c & 0x3f)); k = 2; }
+        else if (c < 0x10000) { u[0] = (char)(0xe0 | c >> 12); u[1] = (char)(0x80 | (c >> 6 & 0x3f)); u[2] = (char)(0x80 | (c & 0x3f)); k = 3; }
+        else { u[0] = (char)(0xf0 | c >> 18); u[1] = (char)(0x80 | (c >> 12 & 0x3f)); u[2] = (char)(0x80 | (c >> 6 & 0x3f)); u[3] = (char)(0x80 | (c & 0x3f)); k = 4; }
+        if (len + k >= size) break;
+        memcpy(out + len, u, k);
+        len += k;
+    }
+    out[len] = '\0';
+}
+
 void dxl_ur_string(dxl_ureader *r, char *out, size_t size) {
     if (size) out[0] = '\0';
     int32_t n = dxl_ur_index(r);
-    if (n <= 0) return;
+    if (n < 0) {
+        wide_string(r, -n, out, size);
+        return;
+    }
+    if (n == 0) return;
     const uint8_t *b = dxl_ur_bytes(r, (size_t)n);
     if (!b || !size) return;
     size_t len = (size_t)n - 1;
