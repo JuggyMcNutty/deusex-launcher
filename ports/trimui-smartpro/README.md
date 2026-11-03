@@ -105,11 +105,11 @@ reference above 2.28: the launcher's build runs it because `port.cmake` sets
 `DXL_PORT_GLIBC_MAX`, and `scripts/engine.sh build` runs it on the engine.
 
 [`fetch-sysroot.sh`](fetch-sysroot.sh) (run by `deps`) copies the device's own libraries into
-`deps/sysroots/trimui-smartpro/lib` -- SDL2, OpenAL, EGL, GLESv2, the Vulkan loader, ALSA,
-zlib, libstdc++ -- and fetches the headers to build against, pinned (SDL 2.30.8; Vulkan,
-EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's two EGL extension headers).
-Vulkan is not linked: DXGPU loads the loader through volk, and the launcher's GPU probe
-`dlopen`s it and EGL.
+`deps/sysroots/trimui-smartpro/lib` -- SDL2, OpenAL, EGL, GLESv2, the Vulkan loader, ALSA, zlib,
+libstdc++ -- and fetches the headers to build against, of fixed versions but checked against no
+hash (SDL 2.30.8; Vulkan, EGL/GLES/KHR and OpenAL from exact Arch Linux packages; Mesa's two EGL
+extension headers: bugs.md LPORT.6). Vulkan is not linked: DXGPU loads the loader through volk,
+and the launcher's GPU probe `dlopen`s it and EGL.
 
 Where the device cannot be reached -- GitHub's CI
 ([CI](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/DEVELOPMENT.md#ci)) --
@@ -117,8 +117,8 @@ Where the device cannot be reached -- GitHub's CI
 release `20231018`, pinned: its SDL2, EGL, GLESv2, ALSA and zlib under the device's names and
 sonames, every symbol the programs link among them (SDL2's at its 2.26.1, where the device has
 2.30.8; the headers are 2.30.8's either way), and OpenAL Soft, which the SDK lacks, Debian
-buster's. Linked by soname, the programs take the device's own at run time. The libstdc++ and
-Vulkan loader only the probes link are left out.
+buster's, checked against no hash (bugs.md LPORT.6). Linked by soname, the programs take the
+device's own at run time. The libstdc++ and Vulkan loader only the probes link are left out.
 
 ### The video driver
 
