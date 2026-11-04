@@ -10,13 +10,19 @@
  * The representation is therefore the *line list*, not a section->key map: a
  * loaded file that is saved without modification comes back byte-identical,
  * including comments, blank lines and whatever spacing the original had.
- * Only lines we actually change get regenerated. Two things an editor leaves
- * are not kept, the file marked for a save that drops them: a UTF-8
- * byte-order mark, which the engine's reader takes as text, losing the
- * section after it, and UTF-16 (Notepad's "Unicode", by its byte-order
- * mark), read as the original reads it, into the game's 8-bit text, a
- * character past Latin-1 a '?'. A NUL in a line ends what is read of it,
- * not what is written.
+ * Only lines we actually change get regenerated. A UTF-8 byte-order mark (an
+ * editor's), which the engine's reader takes as text, losing the section
+ * after it, is not kept, the file marked for a save that drops it. A NUL in
+ * a line ends what is read of it, not what is written.
+ *
+ * Text is UTF-8 in memory. A game ini (dxl_ini_load, _parse, _new) is read
+ * as the original's Core and DXEngine read one (appLoadFileToString
+ * 0x101488c0, Package/IniFile.cpp): a file of even size beginning FF FE or
+ * FE FF is UTF-16, little- or big-endian, any other a byte a character,
+ * Latin-1; and written as they write one (appSaveStringToFile 0x10148c40),
+ * by its characters: a byte a character when each is below U+0100, else
+ * UTF-16 little-endian after FF FE. The launcher's own inis (the _utf8
+ * calls) are UTF-8 as they are.
  *
  * Lookup is ASCII case-insensitive, matching FConfigCacheIni. A key given
  * twice reads at its last value and is set there, and a section written
@@ -36,9 +42,15 @@ dxl_ini *dxl_ini_load(const char *path, dxl_err *err);
 /* Parses an in-memory image. Used by the tests and by anything that already
  * has the bytes. */
 dxl_ini *dxl_ini_parse(const char *text, size_t len);
+/* The same for the launcher's own inis (launcher.ini, profile.ini,
+ * LastRun.ini, renderers.ini, the probe's answer): UTF-8 as they are. */
+dxl_ini *dxl_ini_new_utf8(void);
+dxl_ini *dxl_ini_load_utf8(const char *path, dxl_err *err);
+dxl_ini *dxl_ini_parse_utf8(const char *text, size_t len);
 void     dxl_ini_free(dxl_ini *ini);
 
-/* Serialises to a freshly allocated buffer; caller frees. Never fails. */
+/* The file's bytes as dxl_ini_save writes them (a game ini's UTF-16 holds
+ * NULs: take out_len), freshly allocated; caller frees. Never fails. */
 char *dxl_ini_render(const dxl_ini *ini, size_t *out_len);
 /* Whole or not at all (dxl_path_write_atomic). */
 int   dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err);
@@ -100,5 +112,11 @@ void dxl_ini_remove(dxl_ini *ini, const char *section, const char *key);
 int  dxl_ini_dirty(const dxl_ini *ini);
 /* The ini as its file now is (saved): not dirty until the next change. */
 void dxl_ini_clean(dxl_ini *ini);
+
+/* Each value of key in a game ini's section that is UTF-8 past ASCII read a
+ * byte a character -- what an earlier launcher wrote, another folder to the
+ * engine (bugs.md LCORE.7) -- made that UTF-8's text, to be written as the
+ * engine reads it. Returns how many were. */
+size_t dxl_ini_undo_utf8(dxl_ini *ini, const char *section, const char *key);
 
 #endif

@@ -770,8 +770,9 @@ registry's, read from a key of the test's own in theirs (`DXL_FINDER_KEYS`);
 `test_desktop_win32` the Start menu's shortcuts and their icon in a folder
 of its own (`DXL_START_MENU`) and `deusex://`, each gone again;
 `test_trash_win32` the Recycle Bin, several at once all or none. `test_ini`
-loads and saves an ini in the game's 8-bit format byte for byte (CR LF,
-blank lines, repeated keys; a UTF-16 one is narrowed: bugs.md LCORE.8), and
+loads and saves an ini in the game's format byte for byte (CR LF, blank
+lines, repeated keys; 8-bit text Latin-1 and UTF-16 kept, as the engine
+reads and writes them, and a path past Latin-1 written UTF-16), and
 `test_json` `Settings.json`, the members it does not know kept in their
 order; `test_cmdline` the original's three parsers, which differ, and
 `test_argv` and `test_engine_args` the game's words and the engine's, a
@@ -937,11 +938,6 @@ Each open in Port Ex Machina's
   the layout and Num Lock: AZERTY's and QWERTZ's letters bound to other
   keys, a keypad key bound with Num Lock off never fires, the ISO key
   unbindable.
-- **LCORE.7**: the profile's paths written into the inis as UTF-8, which the
-  engine reads as Latin-1: under a non-ASCII user folder (`C:\Users\Jürgen`)
-  the saves go elsewhere or fail.
-- **LCORE.8**: a UTF-16 ini narrowed to 8 bits, each character past U+00FF a
-  `?`, and written back so before every run.
 - **LCORE.11**: the engine sections' seed lacks `UsePrecache`; an exit 0
   before the first map still called no game found; dead code.
 - **LUI.6**: the controller-mapping wizard cannot be skipped, stepped back
