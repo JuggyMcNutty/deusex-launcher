@@ -26,6 +26,7 @@ struct dxl_ini {
     size_t    count, cap;
     char     *eol;   /* what new lines get; inferred from the file */
     int       dirty;
+    int       game;  /* the game's: read and written as the engine does; else the launcher's own UTF-8 */
 };
 
 static void lines_reserve(dxl_ini *ini, size_t need) {
@@ -60,12 +61,16 @@ static void line_remove(dxl_ini *ini, size_t index) {
     ini->count--;
 }
 
-dxl_ini *dxl_ini_new(void) {
+static dxl_ini *ini_new(int game) {
     dxl_ini *ini = dxl_xmalloc(sizeof *ini);
     memset(ini, 0, sizeof *ini);
     ini->eol = dxl_xstrdup("\r\n");   /* the engine's own convention */
+    ini->game = game;
     return ini;
 }
+
+dxl_ini *dxl_ini_new(void) { return ini_new(1); }
+dxl_ini *dxl_ini_new_utf8(void) { return ini_new(0); }
 
 void dxl_ini_free(dxl_ini *ini) {
     if (!ini) return;
@@ -118,49 +123,144 @@ static void classify(ini_line *l, const char *text, size_t len) {
     free(scan);
 }
 
-/* The game's 8-bit text of UTF-16 bytes that begin with their byte-order
- * mark: a unit below 256 is its byte, any other character a '?' (one for a
- * surrogate pair), an odd last byte dropped. */
-static char *from_utf16(const char *text, size_t len, size_t *out_len) {
-    const unsigned char *u = (const unsigned char *)text;
-    int big = u[0] == 0xfe;
-    char *out = dxl_xmalloc(len / 2 + 1);
-    size_t n = 0;
-    for (size_t i = 2; i + 1 < len; i += 2) {
-        unsigned unit = big ? (unsigned)((u[i] << 8) | u[i + 1]) : (unsigned)((u[i + 1] << 8) | u[i]);
-        if (unit >= 0xd800 && unit < 0xdc00 && i + 3 < len) i += 2;   /* the pair's second unit */
-        out[n++] = unit < 0x100 ? (char)unit : '?';
+/* ---- the file's text ------------------------------------------------ */
+
+/* A character onto b as UTF-8; a surrogate without its pair as three bytes
+ * of its own, as DXEngine's ScriptToUTF8 gives one, so it goes back as it
+ * came. */
+static void put_utf8(dxl_buf *b, unsigned c) {
+    char s[4];
+    size_t n = 1;
+    if (c < 0x80) {
+        s[0] = (char)c;
+    } else if (c < 0x800) {
+        s[0] = (char)(0xc0 | c >> 6);
+        s[1] = (char)(0x80 | (c & 0x3f));
+        n = 2;
+    } else if (c < 0x10000) {
+        s[0] = (char)(0xe0 | c >> 12);
+        s[1] = (char)(0x80 | (c >> 6 & 0x3f));
+        s[2] = (char)(0x80 | (c & 0x3f));
+        n = 3;
+    } else {
+        s[0] = (char)(0xf0 | c >> 18);
+        s[1] = (char)(0x80 | (c >> 12 & 0x3f));
+        s[2] = (char)(0x80 | (c >> 6 & 0x3f));
+        s[3] = (char)(0x80 | (c & 0x3f));
+        n = 4;
     }
-    out[n] = '\0';
-    *out_len = n;
-    return out;
+    dxl_buf_add(b, s, n);
 }
 
-dxl_ini *dxl_ini_parse(const char *text, size_t len) {
-    dxl_ini *ini = dxl_ini_new();
+/* The character of UTF-8 text at *i, *i moved past it, as DXEngine's
+ * UTF8ToScript takes one: a byte that begins no whole sequence is its
+ * Latin-1 character. */
+static unsigned next_char(const unsigned char *s, size_t len, size_t *i) {
+    unsigned c = s[*i];
+    int extra = c < 0x80 ? 0 : (c & 0xe0) == 0xc0 ? 1 : (c & 0xf0) == 0xe0 ? 2 : (c & 0xf8) == 0xf0 ? 3 : -1;
+    int whole = extra > 0 && *i + (size_t)extra < len;
+    unsigned cp = whole ? c & (0x3fu >> extra) : c;
+    for (int k = 1; whole && k <= extra; k++) {
+        unsigned next = s[*i + (size_t)k];
+        whole = (next & 0xc0) == 0x80;
+        cp = cp << 6 | (next & 0x3f);
+    }
+    if (!whole) {
+        (*i)++;
+        return c;
+    }
+    *i += (size_t)extra + 1;
+    return cp;
+}
+
+/* A file's bytes as UTF-8 text; *how 2 for UTF-16, 1 after a UTF-8 mark,
+ * else 0. UTF-16 by its mark, the file of even size -- little-endian after
+ * FF FE, big-endian after FE FF, the mark dropped, a surrogate pair one
+ * character -- as the original's appLoadFileToString (Core.dll 0x101488c0)
+ * and DXEngine's IniFile read it. Any other file a byte a character,
+ * Latin-1, as they read it, the game's (game); the launcher's own as it is,
+ * UTF-8. A UTF-8 mark (an editor's) is passed over, the text after it read
+ * the same way. */
+static char *text_of(const unsigned char *u, size_t len, int game, int *how, size_t *out_len) {
+    dxl_buf b;
+    dxl_buf_init(&b);
+    *how = 0;
+    if (len >= 2 && len % 2 == 0 && ((u[0] == 0xff && u[1] == 0xfe) || (u[0] == 0xfe && u[1] == 0xff))) {
+        int big = u[0] == 0xfe;
+        *how = 2;
+        for (size_t i = 2; i + 1 < len; i += 2) {
+            unsigned c = big ? (unsigned)(u[i] << 8 | u[i + 1]) : (unsigned)(u[i + 1] << 8 | u[i]);
+            if (c >= 0xd800 && c < 0xdc00 && i + 3 < len) {
+                unsigned low = big ? (unsigned)(u[i + 2] << 8 | u[i + 3]) : (unsigned)(u[i + 3] << 8 | u[i + 2]);
+                if (low >= 0xdc00 && low < 0xe000) {
+                    c = 0x10000 + ((c - 0xd800) << 10) + (low - 0xdc00);
+                    i += 2;
+                }
+            }
+            put_utf8(&b, c);
+        }
+    } else {
+        size_t from = 0;
+        if (len >= 3 && u[0] == 0xef && u[1] == 0xbb && u[2] == 0xbf) {
+            *how = 1;
+            from = 3;
+        }
+        if (game)
+            for (size_t i = from; i < len; i++) put_utf8(&b, u[i]);
+        else
+            dxl_buf_add(&b, (const char *)u + from, len - from);
+    }
+    if (!b.data) dxl_buf_add(&b, "", 0);
+    *out_len = b.len;
+    return b.data;
+}
+
+static void put_unit(dxl_buf *b, unsigned c) {
+    char s[2] = { (char)(c & 0xff), (char)(c >> 8 & 0xff) };
+    dxl_buf_add(b, s, 2);
+}
+
+/* UTF-8 text as the game's file, by its characters whatever it was read
+ * as: a byte a character when every one is below U+0100, else UTF-16
+ * little-endian after FF FE -- the original's appSaveStringToFile
+ * (Core.dll 0x10148c40) and DXEngine's IniFile. */
+static char *game_bytes(const char *text, size_t len, size_t *out_len) {
+    const unsigned char *s = (const unsigned char *)text;
+    int wide = 0;
+    for (size_t i = 0; i < len && !wide;) wide = next_char(s, len, &i) > 0xff;
+    dxl_buf b;
+    dxl_buf_init(&b);
+    if (wide) dxl_buf_add(&b, "\xff\xfe", 2);
+    for (size_t i = 0; i < len;) {
+        unsigned c = next_char(s, len, &i);
+        if (!wide) {
+            char byte = (char)c;
+            dxl_buf_add(&b, &byte, 1);
+        } else if (c >= 0x10000) {
+            put_unit(&b, 0xd800 + ((c - 0x10000) >> 10));
+            put_unit(&b, 0xdc00 + ((c - 0x10000) & 0x3ff));
+        } else {
+            put_unit(&b, c);
+        }
+    }
+    if (!b.data) dxl_buf_add(&b, "", 0);
+    *out_len = b.len;
+    return b.data;
+}
+
+static dxl_ini *parse(const char *bytes, size_t len, int game) {
+    dxl_ini *ini = ini_new(game);
     int saw_crlf = 0, saw_lf = 0;
 
-    /* Notepad's "Unicode" (UTF-16 by its byte-order mark) is read as the
-     * original reads it (Core's appLoadFileToString takes either byte
-     * order), its text made the game's 8-bit one, and written so at the
-     * next save, which the file is marked for. */
-    char *narrow = NULL;
-    const unsigned char *u = (const unsigned char *)text;
-    if (len >= 2 && ((u[0] == 0xff && u[1] == 0xfe) || (u[0] == 0xfe && u[1] == 0xff))) {
-        narrow = from_utf16(text, len, &len);
-        text = narrow;
-        ini->dirty = 1;
-    }
-
-    /* A UTF-8 byte-order mark (an editor's) is passed over, and gone at the
-     * next save, which the file is marked for: the engine's reader takes
-     * none, the section after it lost to it. */
-    if (len >= 3 && (unsigned char)text[0] == 0xef && (unsigned char)text[1] == 0xbb &&
-        (unsigned char)text[2] == 0xbf) {
-        text += 3;
-        len -= 3;
-        ini->dirty = 1;
-    }
+    /* UTF-8 in memory. A game ini's UTF-16 is kept, the engine reading it,
+     * written as the engine writes one (bugs.md LCORE.8); the launcher's
+     * own is written UTF-8 at the next save, which the file is marked for.
+     * A UTF-8 byte-order mark (an editor's) is gone at the next save, which
+     * the file is marked for: the engine's reader takes it as text, the
+     * section after it lost to it. */
+    int how;
+    char *text = text_of((const unsigned char *)bytes, len, game, &how, &len);
+    if (how == 1 || (how == 2 && !game)) ini->dirty = 1;
 
     size_t i = 0;
     while (i < len) {
@@ -189,11 +289,14 @@ dxl_ini *dxl_ini_parse(const char *text, size_t len) {
     /* New lines follow whatever the file predominantly uses. */
     free(ini->eol);
     ini->eol = dxl_xstrdup((saw_lf && !saw_crlf) ? "\n" : "\r\n");
-    free(narrow);
+    free(text);
     return ini;
 }
 
-dxl_ini *dxl_ini_load(const char *path, dxl_err *err) {
+dxl_ini *dxl_ini_parse(const char *bytes, size_t len) { return parse(bytes, len, 1); }
+dxl_ini *dxl_ini_parse_utf8(const char *text, size_t len) { return parse(text, len, 0); }
+
+static dxl_ini *load(const char *path, int game, dxl_err *err) {
     FILE *f = fopen(path, "rb");
     if (!f) { dxl_err_set(err, "cannot open %s", path); return NULL; }
 
@@ -206,10 +309,13 @@ dxl_ini *dxl_ini_load(const char *path, dxl_err *err) {
     fclose(f);
     if (bad) { dxl_buf_free(&b); dxl_err_set(err, "read error on %s", path); return NULL; }
 
-    dxl_ini *ini = dxl_ini_parse(b.data ? b.data : "", b.len);
+    dxl_ini *ini = parse(b.data ? b.data : "", b.len, game);
     dxl_buf_free(&b);
     return ini;
 }
+
+dxl_ini *dxl_ini_load(const char *path, dxl_err *err) { return load(path, 1, err); }
+dxl_ini *dxl_ini_load_utf8(const char *path, dxl_err *err) { return load(path, 0, err); }
 
 char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
     dxl_buf b;
@@ -219,6 +325,13 @@ char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
         dxl_buf_puts(&b, ini->lines[i].eol);
     }
     if (!b.data) dxl_buf_add(&b, "", 0);
+    if (ini->game) {
+        size_t n;
+        char *bytes = game_bytes(b.data, b.len, &n);
+        dxl_buf_free(&b);
+        if (out_len) *out_len = n;
+        return bytes;
+    }
     if (out_len) *out_len = b.len;
     return b.data;   /* ownership passes to the caller */
 }
@@ -551,6 +664,53 @@ static void set_all(dxl_ini *ini, const char *section, const char *key, const ch
     pair_write(ini->lines + first, key, values[0], ini->eol);
     for (size_t k = 1; k < n; k++) pair_write(line_insert(ini, first + k), key, values[k], ini->eol);
     ini->dirty = 1;
+}
+
+/* A value's characters as bytes, when each is below U+0100 and they make
+ * UTF-8 past ASCII: the UTF-8 an earlier launcher wrote, which the engine
+ * reads a byte a character. Else NULL. */
+static char *utf8_read_as_latin1(const char *v) {
+    const unsigned char *s = (const unsigned char *)v;
+    size_t len = strlen(v), n = 0;
+    char *bytes = dxl_xmalloc(len + 1);
+    int past_ascii = 0;
+    for (size_t i = 0; i < len;) {
+        unsigned c = next_char(s, len, &i);
+        if (c > 0xff) {
+            free(bytes);
+            return NULL;
+        }
+        past_ascii |= c >= 0x80;
+        bytes[n++] = (char)c;
+    }
+    bytes[n] = '\0';
+    for (size_t i = 0; past_ascii && i < n;) {
+        size_t k = dxl_utf8_char(bytes + i);
+        if (!k) past_ascii = 0;
+        i += k;
+    }
+    if (past_ascii) return bytes;
+    free(bytes);
+    return NULL;
+}
+
+size_t dxl_ini_undo_utf8(dxl_ini *ini, const char *section, const char *key) {
+    size_t done = 0;
+    if (!ini->game) return 0;
+    for (size_t h = find_section(ini, section); h != (size_t)-1; h = next_block_after(ini, section, h)) {
+        size_t end = section_end(ini, h);
+        for (size_t i = h + 1; i < end; i++) {
+            ini_line *l = ini->lines + i;
+            if (l->kind != LINE_PAIR || dxl_stricmp(l->name, key) != 0) continue;
+            char *was = utf8_read_as_latin1(l->value);
+            if (!was) continue;
+            pair_write(l, l->name, was, ini->eol);   /* copies both first */
+            free(was);
+            done++;
+        }
+    }
+    if (done) ini->dirty = 1;
+    return done;
 }
 
 void dxl_ini_overlay(dxl_ini *dst, const dxl_ini *src) {
