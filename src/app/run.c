@@ -709,7 +709,7 @@ static void commit(dxl_run *r) {
     if (dxl_sentinel_create(&r->sentinel, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     if (dxl_lastrun_clear(r->session.profile.state_dir) != 0)
         dxl_log("warning: the run before's LastRun.ini could not be taken away");
-    dxl_config_clamp_first_run(r->config);
+    dxl_config_clamp_first_run(r->config, r->decision.effective_first_run);
     if (dxl_config_save(r->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
 }
