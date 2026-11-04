@@ -56,7 +56,8 @@ and the MinGW-w64 runtime and its threads library, winpthreads, whose notices ar
 
 `DXEngine.exe` and `DXEngine.pk3` are [DXEngine](https://github.com/JuggyMcNutty/DXEngine)'s,
 under the zlib licence, with the third-party code it carries: the notices of each are in
-`DXEngine-LICENSE.md` beside them. `OpenAL32.dll` is [OpenAL Soft](https://openal-soft.org)
+`DXEngine-LICENSE.md` beside them. Its window is drawn with SDL3 too, built into it from the
+source `cmake/deps.lock` pins. `OpenAL32.dll` is [OpenAL Soft](https://openal-soft.org)
 1.23.1, built unchanged from the copy DXEngine carries (its `Thirdparty/openal-soft`, at the
 commit the engine was built from), under the GNU Library General Public License, version 2 or
 later, `licenses/OpenAL-Soft-COPYING.txt`: a library of its own, which another build of it may

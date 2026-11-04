@@ -46,7 +46,11 @@ engine resolves them against the game's `System` folder. A mod's profile
 names the mod's folders before them, by their absolute paths
 ([Mods](#mods)). `SavePath` and
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
-writes them back. The engine never touches its own folder,
+writes them back, their text as the engine reads it: a byte a character,
+Latin-1, a UTF-16 file kept UTF-16, and one holding a character past
+Latin-1, a path under such a home, written UTF-16; the launcher's own inis
+are UTF-8. A `SavePath`, `CachePath` or `Paths` an earlier launcher wrote
+as UTF-8 is read as that UTF-8 at the next run. The engine never touches its own folder,
 `%LOCALAPPDATA%\DXEngine`: an engine whose `--version` lacks `userdir` is
 refused.
 
@@ -785,7 +789,9 @@ order; `test_cmdline` the original's three parsers, which differ, and
 quoted word whole; `test_policy` the original's entry matrix, its first
 match winning
 ([`wizard.md`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md));
-`test_config` the system ini as the launcher keeps it, FirstRun only raised;
+`test_config` the system ini as the launcher keeps it, FirstRun only raised
+but under `-firstrun`, which writes 1100 over a higher one, and an empty
+`User.ini` where there is no `DefUser.ini`;
 `test_engine_settings` the engine's `Settings.json`, a file it cannot read
 replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
 `test_install` what makes an install, in the odd cases a copy leaves;
