@@ -13,7 +13,8 @@ controller. It is linux-x86_64's launcher, built for aarch64.
 </p>
 
 **You need your own copy of Deus Ex, version 1112fm** (1002f, the first
-release, runs with a warning). None of the game's files are included. DXLauncher is part of
+release, runs with a warning). None of the game's files are included.
+DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
 
