@@ -137,8 +137,8 @@ static void test_repeated_keys(void) {
     const char *vals[8];
     size_t got = dxl_ini_get_all(ini, "Core.System", "Paths", vals, 8);
     CHECK_INT(got, 5);
-    /* get() yields the first, in file order. */
-    CHECK_STR(dxl_ini_get(ini, "Core.System", "Paths"), vals[0]);
+    /* get() yields the last, the value the original reads (MAIN.10). */
+    CHECK_STR(dxl_ini_get(ini, "Core.System", "Paths"), vals[4]);
 
     dxl_ini_free(ini);
 }
@@ -304,6 +304,89 @@ static void test_append_after_unterminated_last_line(void) {
     dxl_ini_free(ini);
 }
 
+/* A key given twice reads and is set at its last value, a section written
+ * twice is one section, a new key joining its last block: the original's
+ * reading (bugs.md MAIN.10). */
+static void test_last_given_wins(void) {
+    const char *src = "[FirstRun]\r\nFirstRun=0\r\n[Engine.Engine]\r\nGameRenderDevice=GlideDrv.GlideRenderDevice\r\n"
+                      "[FirstRun]\r\nFirstRun=1100\r\n[Engine.Engine]\r\nGameRenderDevice=D3DDrv.D3DRenderDevice\r\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_INT(dxl_ini_get_int(ini, "FirstRun", "FirstRun", -1), 1100);
+    CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "GameRenderDevice"), "D3DDrv.D3DRenderDevice");
+    CHECK_INT((int)dxl_ini_get_all(ini, "Engine.Engine", "GameRenderDevice", NULL, 0), 2);
+    dxl_ini_set(ini, "Engine.Engine", "GameRenderDevice", "OpenGLDrv.OpenGLRenderDevice");
+    dxl_ini_set(ini, "Engine.Engine", "CdPath", "..\\");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[FirstRun]\r\nFirstRun=0\r\n[Engine.Engine]\r\nGameRenderDevice=GlideDrv.GlideRenderDevice\r\n"
+                   "[FirstRun]\r\nFirstRun=1100\r\n[Engine.Engine]\r\nGameRenderDevice=OpenGLDrv.OpenGLRenderDevice\r\n"
+                   "CdPath=..\\\r\n");
+    free(out);
+    dxl_ini_free(ini);
+}
+
+/* UTF-16 read as the original reads it, written back as it came while a
+ * character needs it, a byte a character once none does; big-endian read,
+ * written little-endian; an odd size Latin-1; a NUL written back (bugs.md
+ * MAIN.9). */
+static void test_utf16(void) {
+    static const char le[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0\xe9\0 \0\xa9\x03\r\0\n\0";
+    dxl_ini *ini = dxl_ini_parse(le, sizeof le - 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "\xc3\xa9 \xce\xa9");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK(len == sizeof le - 1 && memcmp(out, le, len) == 0);
+    free(out);
+    dxl_ini_set(ini, "A", "x", "\xc3\xa9");
+    out = dxl_ini_render(ini, &len);
+    CHECK(len == 10 && memcmp(out, "[A]\r\nx=\xe9\r\n", 10) == 0);
+    free(out);
+    dxl_ini_free(ini);
+
+    static const char be[] = "\xfe\xff\0[\0A\0]\0\r\0\n\0x\0=\x03\xa9\0\r\0\n";
+    ini = dxl_ini_parse(be, sizeof be - 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "\xce\xa9");
+    dxl_ini_set(ini, "A", "y", "1");
+    static const char want[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0\xa9\x03\r\0\n\0y\0=\0" "1\0\r\0\n\0";
+    out = dxl_ini_render(ini, &len);
+    CHECK(len == sizeof want - 1 && memcmp(out, want, len) == 0);
+    free(out);
+    dxl_ini_free(ini);
+
+    static const char odd[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0" "1\0\n";
+    ini = dxl_ini_parse(odd, sizeof odd - 1);
+    CHECK(dxl_ini_get(ini, "A", "x") == NULL);
+    dxl_ini_free(ini);
+
+    static const char nul[] = "[A]\r\nx=1\r\nju\0nk\r\n";
+    ini = dxl_ini_parse(nul, sizeof nul - 1);
+    out = dxl_ini_render(ini, &len);
+    CHECK(len == sizeof nul - 1 && memcmp(out, nul, len) == 0);
+    free(out);
+    dxl_ini_free(ini);
+}
+
+/* 8-bit is Latin-1, UTF-8 in memory, written back as it was; a character
+ * past U+00FF makes the file UTF-16, as the original's writer does. */
+static void test_latin1(void) {
+    const char *src = "[Engine.Engine]\r\nCdPath=D:\\Spiele\\J\xfcrgen\\\r\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_STR(dxl_ini_get(ini, "Engine.Engine", "CdPath"), "D:\\Spiele\\J\xc3\xbcrgen\\");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK(len == strlen(src) && memcmp(out, src, len) == 0);
+    free(out);
+    dxl_ini_set(ini, "Engine.Engine", "Language", "\xce\xa9");
+    out = dxl_ini_render(ini, &len);
+    CHECK(len > 2 && (unsigned char)out[0] == 0xff && (unsigned char)out[1] == 0xfe);
+    dxl_ini *back = dxl_ini_parse(out, len);
+    CHECK_STR(dxl_ini_get(back, "Engine.Engine", "CdPath"), "D:\\Spiele\\J\xc3\xbcrgen\\");
+    CHECK_STR(dxl_ini_get(back, "Engine.Engine", "Language"), "\xce\xa9");
+    dxl_ini_free(back);
+    free(out);
+    dxl_ini_free(ini);
+}
 
 TEST_MAIN_BEGIN
     RUN(test_roundtrip_fixtures);
@@ -320,4 +403,7 @@ TEST_MAIN_BEGIN
     RUN(test_lf_file_stays_lf);
     RUN(test_rewrite_normalises_line_ending);
     RUN(test_append_after_unterminated_last_line);
+    RUN(test_last_given_wins);
+    RUN(test_utf16);
+    RUN(test_latin1);
 TEST_MAIN_END

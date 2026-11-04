@@ -63,11 +63,28 @@ static void test_line_format(void) {
     free(s);
 }
 
+/* An .int in UTF-16 reads as the original reads it, an 8-bit one as
+ * Latin-1: UTF-8 either way, as the pages draw it (bugs.md MAIN.9). */
+static void test_utf16_and_latin1(void) {
+    static const char wide[] = "\xff\xfe[\0G\0e\0n\0e\0r\0a\0l\0]\0\r\0\n\0R\0u\0n\0=\0\xa9\x03!\0\r\0\n\0";
+    char *p = scratch_path(scratch_dir("loc"), "System/Wide.int");
+    FILE *f = fopen(p, "wb");   /* scratch_write's fputs stops at a NUL */
+    CHECK(f != NULL);
+    if (f) { fwrite(wide, 1, sizeof wide - 1, f); fclose(f); }
+    free(p);
+    scratch_write(scratch_dir("loc"), "System/Startup.det", "[General]\r\nRun=Los geht\xb4s! \xc4\xd6\xdc\r\n");
+    dxl_loc *l = dxl_loc_open(sys, "det");
+    CHECK_STR(dxl_loc_general(l, "Wide", "Run"), "\xce\xa9!");
+    CHECK_STR(dxl_loc_general(l, "Startup", "Run"), "Los geht\xc2\xb4s! \xc3\x84\xc3\x96\xc3\x9c");
+    dxl_loc_free(l);
+}
+
 TEST_MAIN_BEGIN
     setup();
     RUN(test_values_and_quotes);
     RUN(test_missing_strings);
     RUN(test_language_falls_back_to_int);
     RUN(test_line_format);
+    RUN(test_utf16_and_latin1);
     scratch_remove(scratch_dir("loc"));
 TEST_MAIN_END

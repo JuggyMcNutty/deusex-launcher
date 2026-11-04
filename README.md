@@ -164,10 +164,6 @@ Each adapts the original to desktop Linux, by the owner's choice:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **MAIN.9**: a UTF-16 ini read as bytes: FirstRun not found, and the
-  wizard's Run! writes DeusEx.ini back as each line's first character.
-- **MAIN.10**: the first of a key or a section given twice read and written,
-  where the original reads the last and merges the sections.
 - **MAIN.11**: the engine's line cut at 1,023 bytes, so a `RELAUNCH` past
   1,014 characters relaunches cut.
 - **MAIN.12**: the wizard's logo band never compared with the original's;
