@@ -167,3 +167,11 @@ int dxl_end_crashed(int end) {
         if (ends[i].code == (unsigned)end) return ends[i].crash;
     return (unsigned)end >= 0xC0000000u;
 }
+
+/* The virtual-key code Windows' layout gives a key by its scancode, as
+ * DXEngine's SDL3 window names a typing key here (MapVirtualKeyEx,
+ * MAPVK_VSC_TO_VK_EX, the thread's layout): 0 for none, and past 0xFE. */
+int dxl_os_key_vk(int raw) {
+    UINT vk = raw > 0 ? MapVirtualKeyExW((UINT)raw, MAPVK_VSC_TO_VK_EX, GetKeyboardLayout(0)) : 0;
+    return vk < 0xff ? (int)vk : 0;
+}
