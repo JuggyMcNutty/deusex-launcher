@@ -145,6 +145,15 @@ Each adapts the original to desktop Linux, by the owner's choice:
   flag's name still counts. The `?` is for a URL's options: the game's
   dedicated-server `RELAUNCH` puts `-server` among them.
   `tests/test_cmdline.c` asserts the launcher's way.
+- **A second start forwards its line without the program's path**
+  ([`launch.c`](src/launch/launch.c)): the original sends the raw line cut
+  at its first space, so a path with one (Steam's `Deus Ex`, GOG's
+  `GOG Games`) is cut inside itself and the running game opens a piece of it
+  ([the forward](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md#1-single-instance-forwarding-0x10908a300x10908cd1)).
+- **A CPU that is not x86 has no MMX** to the Detail page
+  ([`machine.c`](src/platform/posix/machine.c)), which takes its low sound
+  settings then, 11025 Hz among them, as the original's does on a CPU
+  without it.
 - **Its environment**: `DXL_FONT`, `DXL_FONT_URL` and `DXL_FONT_MSG` name the
   fonts on a machine without wine's ([the look](#the-look)), and
   `DXL_ENGINE_ARGS` adds the engine's own options, for a scripted run
@@ -169,12 +178,6 @@ Each open in Port Ex Machina's
   to F7, overlong and surrogate leads taken as UTF-8.
 - **ENG.19**: an unquoted `X=` value cut at white space alone, where the
   original's `Parse` cuts it at a comma too.
-- For the owner, **D.44**: a second start's line forwarded without the
-  program's path, where the original sends the raw line cut at its first
-  space; recommended: keep, by choice.
-- For the owner, **D.46**: on a CPU without MMX (any not x86) the Detail
-  page's low sound settings, 11025 Hz among them, as the original's on such
-  a machine; recommended: keep.
 
 ## The game and the launcher
 
