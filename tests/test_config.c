@@ -48,13 +48,15 @@ static void test_reads_the_gates(void) {
     scrub(dir);
 }
 
-/* The clamp only raises FirstRun: an install newer than this build keeps its
- * value and is not dragged backwards into the first-run wizard. */
+/* The clamp only raises the value the launch held: an install newer than
+ * this build keeps its value and is not dragged backwards into the
+ * first-run wizard. Under -firstrun, which holds 0, 1100 is written over a
+ * higher value, as the original writes it (bugs.md D.43). */
 static void test_first_run_clamps_up_only(void) {
     char *dir = scratch_install("clamp");
     dxl_config *c = dxl_config_open(dir, "DeusEx");
 
-    dxl_config_clamp_first_run(c);
+    dxl_config_clamp_first_run(c, dxl_config_first_run(c));
     CHECK_INT(dxl_config_first_run(c), DXL_FIRSTRUN_CURRENT);
     CHECK_INT(dxl_config_first_run(c), 1100);
     dxl_config_free(c);
@@ -62,8 +64,17 @@ static void test_first_run_clamps_up_only(void) {
     /* Already at or above the ceiling: untouched, and not even dirtied. */
     c = dxl_config_open(dir, "DeusEx");
     dxl_ini_set_int(dxl_config_ini(c), "FirstRun", "FirstRun", 2000);
-    dxl_config_clamp_first_run(c);
+    dxl_ini_clean(dxl_config_ini(c));
+    dxl_config_clamp_first_run(c, dxl_config_first_run(c));
     CHECK_INT(dxl_config_first_run(c), 2000);
+    CHECK_INT(dxl_ini_dirty(dxl_config_ini(c)), 0);
+    dxl_config_free(c);
+
+    /* -firstrun's 0 held: 1100 over the 2000. */
+    c = dxl_config_open(dir, "DeusEx");
+    dxl_ini_set_int(dxl_config_ini(c), "FirstRun", "FirstRun", 2000);
+    dxl_config_clamp_first_run(c, 0);
+    CHECK_INT(dxl_config_first_run(c), 1100);
     dxl_config_free(c);
 
     scrub(dir);
@@ -75,7 +86,7 @@ static void test_first_run_clamp_persists(void) {
     char *dir = scratch_install("persist");
 
     dxl_config *c = dxl_config_open(dir, "DeusEx");
-    dxl_config_clamp_first_run(c);
+    dxl_config_clamp_first_run(c, dxl_config_first_run(c));
     CHECK_INT(dxl_config_dirty(c), 1);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
@@ -121,7 +132,7 @@ static void test_missing_ini_is_not_fatal(void) {
     dxl_config *c = dxl_config_open(dir, "DeusEx");
     CHECK(c != NULL);
     CHECK_INT(dxl_config_first_run(c), 0);         /* absent reads as 0 */
-    dxl_config_clamp_first_run(c);
+    dxl_config_clamp_first_run(c, dxl_config_first_run(c));
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);

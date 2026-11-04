@@ -321,9 +321,9 @@ plays, opens the server.
    screen of its own here: the first run is the launcher's. `--play` and
    `DXL_NO_HOME=1` skip Home, not the others.
 4. **Before the game**, after the screens, as the original does it: the inis
-   saved, `FirstRun` raised to 1100 (one above it kept, where the original's
-   `-firstrun` writes 1100: bugs.md D.43, for the owner), `Running.ini`
-   made; and any key of the engine's sections they lack written.
+   saved, `FirstRun` raised to 1100 (one above it kept, but under
+   `-firstrun`, which writes 1100), `Running.ini` made; and any key of the
+   engine's sections they lack written.
 5. **The engine** asked what it can do (`--version`), and started: or
    refused, saying why -- not there, one this system cannot start (a DLL it
    needs not found, one built for another machine: the end Windows' loader
@@ -904,7 +904,7 @@ The original's behaviour is recorded in
 Kept as the original does it: the decision's order (`-safe`, the `FirstRun`
 gates, `-changevideo`, `Running.ini`), `Running.ini` made after the screens
 and taken away at a clean end or one with no game, `FirstRun` raised to 1100
-(but under `-firstrun`: bugs.md D.43), the three command-line parsers
+(one above it kept, but under `-firstrun`), the three command-line parsers
 (`ParseParam` stricter, as `main`'s; `Parse` cutting a value at white space
 alone, not at a comma too: bugs.md ENG.19), and the second start's
 hand-over, though its line goes to a launcher that keeps it whatever the
@@ -964,9 +964,7 @@ Each open in Port Ex Machina's
   a third start plays a game of its own.
 - **X.11**: `scripts/check-abi.sh` stops without a word at a file with no
   GLIBC references, the files after it unchecked.
-- For the owner, **D.43**: under `-firstrun` a stored FirstRun above 1100
-  kept, where the original writes 1100.
-- For the owner, **D.45**: the engine built with no warning flags of its
+- **D.45**, ruled to change: the engine built with no warning flags of its
   own.
 
 What is untried on Windows itself is the port's
