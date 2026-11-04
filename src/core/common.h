@@ -52,6 +52,9 @@ void  dxl_text_utf8(const char *in, char *out, size_t size);
  * byte without all its continuation bytes), before dxl_text_utf8 judges the
  * text; Latin-1 text loses at most that one character. */
 void  dxl_text_drop_cut(char *s);
+/* The bytes of the whole UTF-8 character s begins with (1 for ASCII; not
+ * overlong, no surrogate, at most U+10FFFF), 0 when none does. */
+size_t dxl_utf8_char(const char *s);
 
 /* Growable string, used for building flag strings and file contents. */
 typedef struct {

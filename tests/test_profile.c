@@ -393,10 +393,71 @@ static void test_profiles(void) {
     free(game);
 }
 
+/* Whether len bytes at hay hold n bytes of needle. */
+static int has_bytes(const char *hay, size_t len, const char *needle, size_t n) {
+    for (size_t i = 0; i + n <= len; i++)
+        if (!memcmp(hay + i, needle, n)) return 1;
+    return 0;
+}
+
+/* A home past ASCII: the profile's DeusEx.ini names its folders as the
+ * engine reads them, a byte a character, or UTF-16 for a character past
+ * U+00FF, so the saves go where the launcher looks (bugs.md LCORE.7); the
+ * launcher's own profile.ini keeps its UTF-8. */
+static void test_home_past_ascii(void) {
+    const char *tags[] = { "profile-home-h\xc3\xa9", "profile-home-\xd0\xae" };
+    char *game = make_install();
+    char *system_dir = scratch_path(game, "System");
+    for (int k = 0; k < 2; k++) {
+        char *home = dxl_xstrdup(scratch_dir(tags[k]));
+        dxl_env_set("DXL_HOME", home);
+        dxl_xdg x;
+        dxl_xdg_open(&x, NULL);
+        dxl_profile p;
+        dxl_profile_open(&p, &x, "default", NULL);
+        dxl_import r;
+        dxl_err e;
+        CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, &e), 0);
+        size_t len = 0;
+        char *text = slurp(p.system_ini, &len);
+        CHECK(text != NULL);
+        if (text && k == 0) {
+            CHECK(has_bytes(text, len, "home-h\xe9-", 8));
+            CHECK(!has_bytes(text, len, "home-h\xc3\xa9", 8));
+        }
+        if (text && k == 1) CHECK(len > 2 && (unsigned char)text[0] == 0xff && (unsigned char)text[1] == 0xfe);
+        free(text);
+        dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
+        CHECK_STR(sys ? dxl_ini_get(sys, "Core.System", "SavePath") : NULL, p.save_dir);
+        CHECK_STR(sys ? dxl_ini_get(sys, "Core.System", "CachePath") : NULL, p.cache_dir);
+        dxl_ini_free(sys);
+
+        dxl_profile_set(&p, "Name", "\xc3\x89t\xc3\xa9");
+        CHECK_INT(dxl_profile_save(&p, NULL), 0);
+        text = slurp(p.ini_path, &len);
+        CHECK(text && has_bytes(text, len, "\xc3\x89t\xc3\xa9", 5));
+        free(text);
+        dxl_profile q;
+        dxl_profile_open(&q, &x, "default", NULL);
+        CHECK_STR(dxl_profile_get(&q, "Name"), "\xc3\x89t\xc3\xa9");
+        dxl_profile_free(&q);
+
+        dxl_profile_free(&p);
+        dxl_xdg_free(&x);
+        dxl_env_set("DXL_HOME", NULL);
+        scratch_remove(home);
+        free(home);
+    }
+    free(system_dir);
+    scratch_remove(game);
+    free(game);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
     RUN(test_no_links);
     RUN(test_import_from_defaults);
     RUN(test_profiles);
+    RUN(test_home_past_ascii);
 TEST_MAIN_END

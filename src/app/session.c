@@ -24,9 +24,9 @@ int dxl_session_open(dxl_session *s, const char *profile_id, dxl_err *err) {
     s->data_dir = dxl_path_join(s->app_dir, "data");
 
     s->ini_path = dxl_path_join(s->xdg.config, "launcher.ini");
-    s->ini = dxl_ini_load(s->ini_path, NULL);
+    s->ini = dxl_ini_load_utf8(s->ini_path, NULL);
     if (!s->ini) {
-        s->ini = dxl_ini_new();
+        s->ini = dxl_ini_new_utf8();
         dxl_ini_set_eol(s->ini, "\n");
     }
     /* DXL_ENGINE's, launcher.ini's, or the launcher's own. */

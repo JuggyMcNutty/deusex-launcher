@@ -47,9 +47,9 @@ int dxl_profile_open(dxl_profile *p, const dxl_xdg *x, const char *id, dxl_err *
     p->id = dxl_xstrdup(id);
     p->dir = join3(x->config, "profiles", id);
     p->ini_path = dxl_path_join(p->dir, "profile.ini");
-    p->ini = dxl_ini_load(p->ini_path, NULL);
+    p->ini = dxl_ini_load_utf8(p->ini_path, NULL);
     if (!p->ini) {
-        p->ini = dxl_ini_new();
+        p->ini = dxl_ini_new_utf8();
         dxl_ini_set_eol(p->ini, "\n");
     }
     p->system_ini = dxl_path_join(p->dir, "DeusEx.ini");
@@ -227,7 +227,7 @@ int dxl_profile_copy(const dxl_profile *from, dxl_profile *to, dxl_err *err) {
     }
     if (d) closedir(d);
     /* profile.ini last: what makes it a profile. */
-    dxl_ini *meta = dxl_ini_load(from->ini_path, err);
+    dxl_ini *meta = dxl_ini_load_utf8(from->ini_path, err);
     if (!meta) goto out;
     rc = dxl_ini_save(meta, to->ini_path, err);
     dxl_ini_free(meta);
