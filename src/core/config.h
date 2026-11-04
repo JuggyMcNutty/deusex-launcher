@@ -56,11 +56,12 @@ dxl_ini    *dxl_config_user_ini(dxl_config *c);
 const char *dxl_config_user_path(const dxl_config *c);
 
 int  dxl_config_first_run(const dxl_config *c);
-/* Clamps up to DXL_FIRSTRUN_CURRENT, never down. The original clamps the
- * value it holds (0x1090B997), which -firstrun has set to 0 -- so under
- * -firstrun it writes 1100 back even over a higher stored value; this keeps
- * the higher. */
-void dxl_config_clamp_first_run(dxl_config *c);
+/* FirstRun set to held, the value the launch went by (dxl_decision's
+ * effective_first_run), raised to DXL_FIRSTRUN_CURRENT, as the original
+ * clamps the value it holds (0x1090B997): -firstrun holds 0, so 1100 is
+ * written even over a higher stored value, and one above 1100 is kept
+ * otherwise. */
+void dxl_config_clamp_first_run(dxl_config *c, int held);
 
 const char *dxl_config_render_device(const dxl_config *c);
 const char *dxl_config_cd_path(const dxl_config *c);
