@@ -854,7 +854,9 @@ nothing of the window until its back is held; `engine_and_game` starts with
 an engine this system cannot start, puts another in its place from Home, and
 the game's folder from Settings; `recovery_engine` and `graphics_engine`
 start with one at Recovery, after a run's `Running.ini`, and at
-`-changevideo`'s Graphics, whose play key and Play start nothing; `profiles`
+`-changevideo`'s Graphics, whose play key and Play start nothing;
+`graphics_then_home` leaves that Graphics by Esc for Home and opens Settings
+from there, its Done, not Play, which that Graphics alone has; `profiles`
 makes a profile, duplicates one, renames and deletes the copy, and uses the
 first again; `mods` makes a made-up mod's profile from Mods, and finds its
 paths, its settings and its save in it; `continue` starts the game on the
