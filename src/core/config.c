@@ -141,9 +141,10 @@ int dxl_config_first_run(const dxl_config *c) {
     return dxl_ini_get_int(c->base.ini, "FirstRun", "FirstRun", 0);
 }
 
-void dxl_config_clamp_first_run(dxl_config *c) {
-    if (dxl_config_first_run(c) < DXL_FIRSTRUN_CURRENT)
-        dxl_ini_set_int(c->base.ini, "FirstRun", "FirstRun", DXL_FIRSTRUN_CURRENT);
+void dxl_config_clamp_first_run(dxl_config *c, int held) {
+    int first_run = held < DXL_FIRSTRUN_CURRENT ? DXL_FIRSTRUN_CURRENT : held;
+    if (dxl_config_first_run(c) != first_run)
+        dxl_ini_set_int(c->base.ini, "FirstRun", "FirstRun", first_run);
 }
 
 const char *dxl_config_render_device(const dxl_config *c) {
