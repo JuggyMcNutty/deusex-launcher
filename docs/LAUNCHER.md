@@ -930,8 +930,6 @@ Each open in Port Ex Machina's
 - **LUI.6**: the controller-mapping wizard cannot be skipped, stepped back
   or cancelled from a pad: on the Smart Pro only killing the launcher ends
   it.
-- **LUI.7**: the Controller page crashes choosing a button's action with no
-  `User.ini` and no `DefUser.ini`.
 - **LUI.8**: small UI defects: the Log page's buttons off the d-pad, a
   `deusex://` hand-over dropping an edit, F5 and Start dead on
   `-changevideo`'s Graphics, Back to the defaults before the probe,

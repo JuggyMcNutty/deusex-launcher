@@ -418,7 +418,7 @@ static void button_row(dxl_shell *s, dxl_list *l, int i, const char *key, dxl_pa
 
     /* The actions, by group: the catalogue's, but its first, "Nothing", too. */
     const char *picked = dxl_shell_picked(s, dxl_shell_answer(s, id));
-    for (size_t a = 0; picked && a < dxl_pad_action_count(); a++)
+    for (size_t a = 0; picked && s->stores.user && a < dxl_pad_action_count(); a++)
         if (!strcmp(dxl_pad_action_at(a)->label, picked)) {
             dxl_bindings_set(s->stores.user, key, dxl_pad_action_at(a)->command);
             dxl_log("pad: %s for %s", key, dxl_pad_action_at(a)->command);
