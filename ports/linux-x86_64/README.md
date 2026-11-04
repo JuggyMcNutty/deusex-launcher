@@ -119,12 +119,6 @@ system has 2.43").
 
 OpenAL Soft reaches the desktop's audio through `libpipewire` or `libpulse`.
 Without either (a minimal container) it falls back to ALSA, which usually
-cannot open the device a sound server holds, and the engine stops at
-start-up with `Failed to initialize OpenAL device`. Install one, or play
-silently with the null driver (`ALSOFT_DRIVERS=null` does the same without
-a file):
-
-```sh
-printf '[general]\ndrivers = null\n' > /tmp/alsoft-null.conf
-ALSOFT_CONF=/tmp/alsoft-null.conf scripts/dx.sh run linux-x86_64
-```
+cannot open the device a sound server holds: the engine then logs `Audio
+initialization failed.` and plays on silent, as the original does without
+its audio. Install one for sound.
