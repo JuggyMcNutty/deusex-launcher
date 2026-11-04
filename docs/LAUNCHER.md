@@ -632,8 +632,10 @@ one it maps wrongly: each of SDL's controls asked for in turn -- the face
 buttons, the shoulders, the triggers, the middle buttons and the maker's,
 the stick clicks, the d-pad, each stick's two ways -- and pressed or moved,
 the model showing which; Skip for one the controller lacks, Back for a step
-again, by the keyboard or the mouse alone: the controller presses neither,
-nor Cancel (`src/screens/padwizard.c`; bugs.md LUI.6). It begins once the
+again, and Cancel, by the keyboard or the mouse, or from the controller
+itself: a face button it has given, held a second, a bar filling as it is
+held -- the bottom one Skip, the left one Back, the right one Cancel -- no
+step taking a control given (`src/screens/padwizard.c`). It begins once the
 controller is let go of, at rest as SDL first read it, or as it has then
 been still a second; while it is up, the controller moves nothing of the
 window. Its mapping, SDL's text for it (`src/core/padmap.c`), is given to
@@ -856,12 +858,15 @@ Xbox pad, two found by pressing or pulling them, maps that pad with the
 wizard its own confirm opened, and a controller SDL has no mapping for, its
 trigger resting at the top and first read before it was, and finds the
 bindings in `User.ini`, the mappings in `gamecontrollerdb.txt` and in the
-engine's environment; `pad_test` tries a virtual pad, whose buttons move
-nothing of the window until its back is held; `engine_and_game` starts with
-an engine this system cannot start, puts another in its place from Home, and
-the game's folder from Settings; `recovery_engine` and `graphics_engine`
-start with one at Recovery, after a run's `Running.ini`, and at
-`-changevideo`'s Graphics, whose play key and Play start nothing;
+engine's environment; `padwizard_pad_only` maps a controller SDL has no
+mapping for from the controller alone, a step skipped and gone back to and
+the sticks skipped by face buttons held, cancels another so, and finds the
+mapping in `gamecontrollerdb.txt`; `pad_test` tries a virtual pad, whose
+buttons move nothing of the window until its back is held; `engine_and_game`
+starts with an engine this system cannot start, puts another in its place
+from Home, and the game's folder from Settings; `recovery_engine` and
+`graphics_engine` start with one at Recovery, after a run's `Running.ini`,
+and at `-changevideo`'s Graphics, whose play key and Play start nothing;
 `graphics_then_home` leaves that Graphics by Esc for Home and opens Settings
 from there, its Done, not Play, which that Graphics alone has; `profiles`
 makes a profile, duplicates one, renames and deletes the copy to the trash,
@@ -937,9 +942,6 @@ Each open in Port Ex Machina's
   the original refuse it.
 - **LCORE.11**: the engine sections' seed lacks `UsePrecache`; an exit 0
   before the first map still called no game found; dead code.
-- **LUI.6**: the controller-mapping wizard cannot be skipped, stepped back
-  or cancelled from a pad, so with a pad that lacks a control and no
-  keyboard or mouse it never ends.
 - **LUI.8**: small UI defects: the Log page's buttons off the d-pad, a
   `deusex://` hand-over dropping an edit, F5 and Start dead on
   `-changevideo`'s Graphics, Back to the defaults before the probe, the
