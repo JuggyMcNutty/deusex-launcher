@@ -57,6 +57,8 @@ typedef struct {
      * button, wheel notch, pad button or trigger, as it is; Esc is back. */
     int   captured;            /* DXL_CAPTURED_* */
     int   captured_code;       /* the scancode, button, notch (+1 up) or pad button */
+    int   captured_mod;        /* a key's: SDL's modifiers as it went down, Num Lock's among them */
+    int   captured_raw;        /* a key's: the platform's scancode (SDL's raw), 0 for none */
 } dxl_input;
 
 /* The editing keys in dxl_input's text: no text SDL gives has them, and
@@ -261,6 +263,12 @@ void dxl_ui_text_ready(dxl_ui *ui, uint32_t id, dxl_rect area);
  * click on its hint, which a hint clicked is. */
 void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id);
 void dxl_ui_capture_end(dxl_ui *ui);
+/* The engine's name for a key captured (core/keys.h), as its window names
+ * it: by Num Lock as it went down (mod) and the family of the layout in use,
+ * read from SDL's keymap; a typing key by vk instead where that is not 0,
+ * Windows' code for it (platform/os.h's dxl_os_key_vk). NULL for one it
+ * passes on as none (bugs.md LCORE.6). */
+const char *dxl_ui_key_name(int scancode, int mod, int vk);
 
 /* What the last frame drew is gone -- a page or a dialog changed: the next
  * frame keeps the focus as it is now and moves nothing; the one after gives
