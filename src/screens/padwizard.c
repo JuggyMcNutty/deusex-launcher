@@ -28,6 +28,10 @@
 /* Still this long and not where SDL first read it, before the first step:
  * where it rests. */
 #define SETTLE 1.0
+/* A face button the controller has given, held this long: its own Skip,
+ * Back or Cancel (the test's back button is held as long,
+ * screens/controller.c). */
+#define HOLD_S 1.0
 
 static const struct {
     int ctl, part, axis;    /* axis: a stick's step, which wants an axis */
@@ -56,6 +60,16 @@ static const struct {
     { DXL_PADCTL_RIGHTY, DXL_PADPART_RSTICK, 1, "Push the right stick down" },
 };
 #define STEPS ((int)(sizeof steps / sizeof *steps))
+
+/* The controller's own Skip, Back and Cancel, for a controller with no keys
+ * or mouse beside it (the Smart Pro; bugs.md LUI.6): the face buttons it
+ * has given, held -- the bottom one as a pad's confirm presses the dialog's
+ * first button, the left as its clear, the right as its back. */
+enum { PAD_SKIP, PAD_BACK, PAD_CANCEL, PAD_COMMANDS };
+static const int command_ctl[PAD_COMMANDS] = { DXL_PADCTL_A, DXL_PADCTL_X, DXL_PADCTL_B };
+static const char *const command_does[PAD_COMMANDS] = {
+    "the bottom face button skips", "the left face button goes back", "the right face button cancels",
+};
 
 /* Where everything rests, the moment a step begins. */
 static void rest(dxl_padwizard_state *w) {
@@ -173,6 +187,32 @@ static int take(dxl_padwizard_state *w) {
         return 1;
     }
     return 0;
+}
+
+/* Whether the source a control was given is held now. */
+static int held(const dxl_padwizard_state *w, int ctl) {
+    const dxl_padsrc *s = &w->map.src[ctl];
+    if (s->kind == DXL_PADSRC_BUTTON) return SDL_GetJoystickButton(w->joy, s->index);
+    if (s->kind == DXL_PADSRC_HAT) return (SDL_GetJoystickHat(w->joy, s->index) & s->hat_mask) != 0;
+    if (s->kind != DXL_PADSRC_AXIS || s->index < 0 || s->index >= 16) return 0;
+    int d = SDL_GetJoystickAxis(w->joy, s->index) - w->axis_rest[s->index];
+    return s->half > 0 ? d >= TAKEN : s->half < 0 ? d <= -TAKEN : (d >= TAKEN || d <= -TAKEN);
+}
+
+/* The line under the step: let go first; then Skip's use, and the
+ * controller's own commands by the face buttons it has given. */
+static void help_line(const dxl_padwizard_state *w, char *out, size_t size) {
+    if (!w->armed) {
+        snprintf(out, size, "Let go of it...");
+        return;
+    }
+    size_t n = (size_t)snprintf(out, size, "Skip what the controller has none of.");
+    int any = 0;
+    for (int c = 0; c < PAD_COMMANDS && n < size; c++) {
+        if (w->map.src[command_ctl[c]].kind == DXL_PADSRC_NONE || (c == PAD_BACK && !w->step)) continue;
+        n += (size_t)snprintf(out + n, size - n, "%s%s", any++ ? ", " : " Held a second, ", command_does[c]);
+    }
+    if (any && n < size) snprintf(out + n, size - n, ".");
 }
 
 static void close_wizard(dxl_shell *s) {
@@ -294,6 +334,17 @@ void dxl_padwizard(dxl_shell *s, dxl_rect over, int back) {
         w->armed = 0;
         w->step++;
     }
+    /* The controller's own command: a face button it has given, held a
+     * second while the step waits -- armed, so the press that gave it, or
+     * opened the wizard, is let go of first. A control given is no step's
+     * answer again (take), so its hold is never one. */
+    int holding = 0;
+    for (int c = 0; c < PAD_COMMANDS && w->armed && !holding && w->step < STEPS; c++)
+        if (held(w, command_ctl[c])) holding = c + 1;
+    if (holding != w->holding) w->held_since = ui->now;
+    w->holding = holding;
+    float hold = holding ? (float)((ui->now - w->held_since) / HOLD_S) : 0;
+    int pad = hold >= 1 ? holding - 1 : -1;
     dxl_ui_animate(ui);
     if (w->step >= STEPS) {
         finish(s);
@@ -304,8 +355,16 @@ void dxl_padwizard(dxl_shell *s, dxl_rect over, int back) {
     char line[200];
     snprintf(line, sizeof line, "%d of %d: %s.", w->step + 1, STEPS, steps[w->step].ask);
     dxl_label(ui, dxl_cut_top(&in, 30), DXL_FONT_LABEL, line, t->text_focus, DXL_W_LEFT | DXL_W_MAY_CUT);
-    dxl_label(ui, dxl_cut_top(&in, 22), DXL_FONT_SMALL,
-              w->armed ? "Skip what the controller has none of." : "Let go of it...", t->help, DXL_W_LEFT);
+    char help[240];
+    help_line(w, help, sizeof help);
+    float h = dxl_paragraph(ui, in, DXL_FONT_SMALL, help, t->help);
+    dxl_cut_top(&in, h + 4);
+    /* The hold, as it fills. */
+    dxl_rect bar = dxl_cut_top(&in, 4);
+    if (hold > 0) {
+        dxl_fill(ui, bar, dxl_rgba_fade(t->panel_light, 0.2f));
+        dxl_fill(ui, (dxl_rect){ bar.x, bar.y, bar.w * (hold < 1 ? hold : 1), bar.h }, t->accent);
+    }
     dxl_rect buttons = dxl_cut_bottom(&in, 46);
     dxl_cut_bottom(&in, 10);
     dxl_pad3d_state st;
@@ -320,16 +379,20 @@ void dxl_padwizard(dxl_shell *s, dxl_rect over, int back) {
     int prev = dxl_button(ui, "wizard back", dxl_cut_left(&buttons, 150), "Back", w->step ? 0 : DXL_W_DISABLED);
     int cancel = dxl_button(ui, "wizard cancel", dxl_cut_right(&buttons, 150), "Cancel", 0);
     dxl_dialog_end(ui);
-    if (skip) {
+    if (pad >= 0) {
+        dxl_log("pad wizard: the controller's %s", pad == PAD_SKIP ? "Skip" : pad == PAD_BACK ? "Back" : "Cancel");
+        w->holding = 0;
+    }
+    if (skip || pad == PAD_SKIP) {
         w->map.src[steps[w->step].ctl].kind = DXL_PADSRC_NONE;
         w->step++;
         w->armed = 0;
         if (w->step >= STEPS) finish(s);
-    } else if (prev && w->step) {
+    } else if ((prev || pad == PAD_BACK) && w->step) {
         w->step--;
         w->map.src[steps[w->step].ctl].kind = DXL_PADSRC_NONE;
         w->armed = 0;
-    } else if (cancel || back) {
+    } else if (cancel || back || pad == PAD_CANCEL) {
         dxl_log("pad wizard: put back");
         close_wizard(s);
     }

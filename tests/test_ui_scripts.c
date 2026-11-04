@@ -354,6 +354,26 @@ static void test_remap_pad(void) {
     close_files(&b);
 }
 
+/* The mapping wizard from the controller alone (bugs.md LUI.6): a step
+ * skipped and gone back to, the sticks skipped, all by face buttons held,
+ * the mapping kept; then another cancelled so, nothing more kept. */
+static void test_padwizard_pad_only(void) {
+    CHECK_INT(fresh_home(), 0);
+    launch("padwizard_pad_only.script", "ready");
+    script_ok();
+    char *db = read_home("data/dxlauncher/gamecontrollerdb.txt");
+    CHECK(db && strstr(db, ",A pad of no maker,a:b0,b:b1,x:b2,y:b3,back:b8,guide:b10,start:b9,leftstick:b11,"
+                           "rightstick:b12,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,"
+                           "dpright:h0.2,lefttrigger:b6,righttrigger:b7,platform:Linux,") != NULL);
+    free(db);
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "pad wizard: the controller's Skip"), 5);
+    CHECK_INT(count(log, "pad wizard: the controller's Back"), 1);
+    CHECK_INT(count(log, "pad wizard: the controller's Cancel"), 1);
+    CHECK_INT(count(log, "pad wizard: put back"), 1);
+    free(log);
+}
+
 /* The controller's test: the pad drove the model alone till its back was
  * held -- Start played nothing, the back let go of left nothing -- and Esc
  * ended it again; tried twice, done twice. */
@@ -906,6 +926,7 @@ int main(void) {
     RUN(test_settings_kept);
     RUN(test_recovery);
     RUN(test_remap_pad);
+    RUN(test_padwizard_pad_only);
     RUN(test_pad_test);
     RUN(test_engine_and_game);
     RUN(test_play_refused);
