@@ -488,6 +488,33 @@ static void test_text_two_fields(void) {
 }
 
 /* A slot takes the next key as it is, Esc cancels, Delete empties. */
+/* A key captured is named as the engine's window names it (bugs.md
+ * LCORE.6): the keypad by Num Lock as the key went down, the ISO key,
+ * Windows' code for a typing key alone; SDL's keymap here the default, US. */
+static void test_key_names(void) {
+    uint32_t id = dxl_ui_id(&ui, "names slot");
+    dxl_ui_forget(&ui);
+    dxl_ui_focus(&ui, id);
+    ui.mode = DXL_INPUT_KEYBOARD;
+    begin();
+    dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0);
+    end();
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    begin();
+    dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0);
+    end();
+    key_mod(SDLK_KP_8, SDL_KMOD_NUM);
+    begin();
+    CHECK_INT(dxl_key_slot(&ui, id, (dxl_rect){ 20, 20, 160, 40 }, "W", 0), DXL_SLOT_CAPTURED);
+    CHECK_STR(dxl_ui_key_name(ui.in.captured_code, ui.in.captured_mod, 0), "NumPad8");
+    end();
+    CHECK_STR(dxl_ui_key_name(SDL_SCANCODE_KP_8, SDL_KMOD_NONE, 0), "Up");
+    CHECK_STR(dxl_ui_key_name(SDL_SCANCODE_KP_5, SDL_KMOD_NONE, 0), "Unknown0C");
+    CHECK_STR(dxl_ui_key_name(SDL_SCANCODE_NONUSBACKSLASH, SDL_KMOD_NUM, 0), "JoyZ");
+    CHECK_STR(dxl_ui_key_name(SDL_SCANCODE_W, SDL_KMOD_NUM, 'Z'), "Z");
+    CHECK_STR(dxl_ui_key_name(SDL_SCANCODE_F1, SDL_KMOD_NUM, 'Z'), "F1");
+}
+
 static void test_key_slot(void) {
     uint32_t id = dxl_ui_id(&ui, "slot");
     dxl_ui_forget(&ui);
@@ -630,6 +657,7 @@ TEST_MAIN_BEGIN
     RUN(test_text_mouse);
     RUN(test_text_two_fields);
     RUN(test_key_slot);
+    RUN(test_key_names);
     RUN(test_tabs);
     RUN(test_osk);
     offscreen_close(&o, &ui);

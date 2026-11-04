@@ -54,3 +54,8 @@ const char *dxl_end_name(int end, char *buf, size_t size) {
 int dxl_end_crashed(int end) {
     return end == SIGSEGV || end == SIGBUS || end == SIGABRT || end == SIGILL || end == SIGFPE;
 }
+
+int dxl_os_key_vk(int raw) {
+    (void)raw;
+    return 0;
+}

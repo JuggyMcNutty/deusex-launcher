@@ -10,6 +10,7 @@
 #include "core/log.h"
 #include "core/paths.h"
 #include "core/profile.h"
+#include "platform/os.h"
 #include "ui/controls.h"
 #include "ui/draw.h"
 #include "ui/text.h"
@@ -384,7 +385,9 @@ static void captured(dxl_shell *s, int a, int slot) {
     dxl_ui *ui = &s->ui;
     const char *key = NULL;
     switch (ui->in.captured) {
-    case DXL_CAPTURED_KEY: key = dxl_key_from_scancode(ui->in.captured_code); break;
+    case DXL_CAPTURED_KEY:
+        key = dxl_ui_key_name(ui->in.captured_code, ui->in.captured_mod, dxl_os_key_vk(ui->in.captured_raw));
+        break;
     case DXL_CAPTURED_MOUSE: key = dxl_key_from_mouse(ui->in.captured_code); break;
     case DXL_CAPTURED_WHEEL: key = dxl_key_from_wheel(ui->in.captured_code); break;
     default: break;
