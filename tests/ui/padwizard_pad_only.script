@@ -1,0 +1,137 @@
+# The mapping wizard from the controller alone (bugs.md LUI.6): one SDL has
+# no mapping for, opened from the keys, then the pad: A, B and X given; Y
+# skipped by A held, gone back to by X held, given; the rest given but the
+# sticks' four ways, skipped by A held: kept. Then again, cancelled by B
+# held, its letting go after leaving Settings as it is.
+pad attach raw
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+find Controller
+key Return
+wait 0.5
+find Layout
+find Map this controller...
+key Return
+wait 0.3
+expect padwizard
+wait 1.5
+pad button 0 down
+wait 0.15
+pad button 0 up
+wait 0.3
+pad button 1 down
+wait 0.15
+pad button 1 up
+wait 0.3
+pad button 2 down
+wait 0.15
+pad button 2 up
+wait 0.3
+# Y skipped by A held, then X held: back to Y, given.
+pad button 0 down
+wait 1.3
+pad button 0 up
+wait 0.3
+pad button 2 down
+wait 1.3
+pad button 2 up
+wait 0.3
+pad button 3 down
+wait 0.15
+pad button 3 up
+wait 0.3
+# The shoulders, triggers, middle buttons and sticks' clicks; the d-pad.
+pad button 4 down
+wait 0.15
+pad button 4 up
+wait 0.3
+pad button 5 down
+wait 0.15
+pad button 5 up
+wait 0.3
+pad button 6 down
+wait 0.15
+pad button 6 up
+wait 0.3
+pad button 7 down
+wait 0.15
+pad button 7 up
+wait 0.3
+pad button 8 down
+wait 0.15
+pad button 8 up
+wait 0.3
+pad button 9 down
+wait 0.15
+pad button 9 up
+wait 0.3
+pad button 10 down
+wait 0.15
+pad button 10 up
+wait 0.3
+pad button 11 down
+wait 0.15
+pad button 11 up
+wait 0.3
+pad button 12 down
+wait 0.15
+pad button 12 up
+wait 0.3
+pad hat 0 1
+wait 0.15
+pad hat 0 0
+wait 0.3
+pad hat 0 4
+wait 0.15
+pad hat 0 0
+wait 0.3
+pad hat 0 8
+wait 0.15
+pad hat 0 0
+wait 0.3
+pad hat 0 2
+wait 0.15
+pad hat 0 0
+wait 0.3
+# The sticks' four ways the raw pad has none of here: A held each time.
+pad button 0 down
+wait 1.3
+pad button 0 up
+wait 0.3
+pad button 0 down
+wait 1.3
+pad button 0 up
+wait 0.3
+pad button 0 down
+wait 1.3
+pad button 0 up
+wait 0.3
+pad button 0 down
+wait 1.3
+pad button 0 up
+wait 0.3
+expect settings Controller
+# Again, cancelled from the pad: B held once A and B are given.
+find Map this controller...
+key Return
+wait 0.3
+expect padwizard
+wait 1.5
+pad button 0 down
+wait 0.15
+pad button 0 up
+wait 0.3
+pad button 1 down
+wait 0.15
+pad button 1 up
+wait 0.3
+pad button 1 down
+wait 1.3
+expect settings Controller
+pad button 1 up
+wait 0.4
+expect settings Controller
+quit

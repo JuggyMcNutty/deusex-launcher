@@ -116,6 +116,8 @@ typedef struct {
     Uint8          hat_rest[4];
     dxl_padmap     map;
     dxl_padmesh    mesh;
+    int            holding;       /* 1 + the controller's own command held (padwizard.c), 0 none */
+    double         held_since;    /* ...since when */
 } dxl_padwizard_state;
 
 /* What a folder is chosen for, by the browser or the system's dialog. */
