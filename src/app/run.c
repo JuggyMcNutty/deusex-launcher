@@ -700,6 +700,13 @@ static void commit(dxl_run *r) {
     /* The engine's own sections whole before it runs, a profile made by an
      * earlier launcher's too (core/engine_sections.h). */
     if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");
+    /* A profile an earlier launcher made holds its folders' names as UTF-8,
+     * which the engine reads a byte a character, another folder (bugs.md
+     * LCORE.7): made their text again, written as the engine reads it. */
+    dxl_ini *sys = dxl_config_ini(r->config);
+    size_t healed = dxl_ini_undo_utf8(sys, "Core.System", "SavePath") + dxl_ini_undo_utf8(sys, "Core.System", "CachePath") +
+                    dxl_ini_undo_utf8(sys, "Core.System", "Paths");
+    if (healed) dxl_log("%d folder(s) an earlier launcher wrote as UTF-8 written as the engine reads them", (int)healed);
     if (dxl_sentinel_create(&r->sentinel, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     if (dxl_lastrun_clear(r->session.profile.state_dir) != 0)
         dxl_log("warning: the run before's LastRun.ini could not be taken away");

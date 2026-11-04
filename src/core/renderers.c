@@ -30,7 +30,7 @@ const char *dxl_gfx_api_name(dxl_gfx_api a) {
 void dxl_renderers_load(dxl_renderer_list *out, const char *path) {
     memset(out, 0, sizeof *out);
 
-    dxl_ini *ini = dxl_ini_load(path, NULL);
+    dxl_ini *ini = dxl_ini_load_utf8(path, NULL);
     if (!ini) return;
 
     size_t n = dxl_ini_get_all(ini, "Renderers", "Renderer", NULL, 0);
@@ -210,7 +210,7 @@ int dxl_gpu_msaa_broken(const dxl_gpu_probe *g) {
 #define PROBE "Probe"
 
 char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p) {
-    dxl_ini *ini = dxl_ini_new();
+    dxl_ini *ini = dxl_ini_new_utf8();
     dxl_ini_set_eol(ini, "\n");
     dxl_ini_set_bool(ini, PROBE, "Probed", p->probed);
     dxl_ini_set_bool(ini, PROBE, "Vulkan", p->vulkan);
@@ -239,7 +239,7 @@ static void copy_key(const dxl_ini *ini, const char *key, char *out, size_t size
 
 int dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out) {
     memset(out, 0, sizeof *out);
-    dxl_ini *ini = text ? dxl_ini_parse(text, strlen(text)) : NULL;
+    dxl_ini *ini = text ? dxl_ini_parse_utf8(text, strlen(text)) : NULL;
     if (!ini || !dxl_ini_has_section(ini, PROBE)) {
         dxl_ini_free(ini);
         snprintf(out->note, sizeof out->note, "the probe gave no answer");

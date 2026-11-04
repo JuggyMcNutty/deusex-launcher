@@ -154,6 +154,10 @@ static size_t utf8_char(const unsigned char *s) {
     return n;
 }
 
+size_t dxl_utf8_char(const char *s) {
+    return utf8_char((const unsigned char *)s);
+}
+
 void dxl_text_utf8(const char *in, char *out, size_t size) {
     if (!size) return;
     const unsigned char *s = (const unsigned char *)(in ? in : "");

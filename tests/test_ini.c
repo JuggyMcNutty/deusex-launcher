@@ -257,17 +257,39 @@ static void test_overlay(void) {
     dxl_ini_free(base);
 }
 
-/* Notepad's "Unicode" ini, UTF-16 by its byte-order mark, reads as the
- * game's 8-bit text and is written so; a NUL in a line is written back. */
-static void test_utf16_and_nul(void) {
+/* A game ini in UTF-16 reads as the engine and the original read it, and is
+ * kept: unmarked, written back as it was while a character needs UTF-16, a
+ * byte a character once none does (bugs.md LCORE.8). Big-endian too; an odd
+ * size is none, its bytes Latin-1. A NUL in a line is written back. */
+static void test_utf16_kept(void) {
     const char src[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0\xe9\0\x20\x20\r\0\n\0";
     dxl_ini *ini = dxl_ini_parse(src, sizeof src - 1);
-    CHECK_STR(dxl_ini_get(ini, "A", "x"), "\xe9?");
-    CHECK_INT(dxl_ini_dirty(ini), 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "\xc3\xa9\xe2\x80\xa0");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
     size_t len = 0;
     char *out = dxl_ini_render(ini, &len);
-    CHECK_STR(out, "[A]\r\nx=\xe9?\r\n");
+    CHECK(len == sizeof src - 1 && memcmp(out, src, len) == 0);
     free(out);
+    dxl_ini_set(ini, "A", "y", "\xce\xa9");
+    const char wide[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0\xe9\0\x20\x20\r\0\n\0y\0=\0\xa9\x03\r\0\n\0";
+    out = dxl_ini_render(ini, &len);
+    CHECK(len == sizeof wide - 1 && memcmp(out, wide, len) == 0);
+    free(out);
+    dxl_ini_set(ini, "A", "x", "e");
+    dxl_ini_set(ini, "A", "y", "\xc3\xa9");
+    out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\r\nx=e\r\ny=\xe9\r\n");
+    free(out);
+    dxl_ini_free(ini);
+
+    const char be[] = "\xfe\xff\0[\0A\0]\0\n\0x\0=\x03\xa9\0\n";
+    ini = dxl_ini_parse(be, sizeof be - 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "\xce\xa9");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
+    dxl_ini_free(ini);
+    const char odd[] = "\xff\xfe[\0A\0]\0\n\0x\0=\0" "1\0\n";
+    ini = dxl_ini_parse(odd, sizeof odd - 1);
+    CHECK(dxl_ini_get(ini, "A", "x") == NULL);
     dxl_ini_free(ini);
 
     const char nul[] = "[A]\r\nx=1\r\nju\0nk\r\n";
@@ -277,6 +299,81 @@ static void test_utf16_and_nul(void) {
     out = dxl_ini_render(ini, &len);
     CHECK_INT(len, sizeof nul - 1);
     CHECK(memcmp(out, nul, len) == 0);
+    free(out);
+    dxl_ini_free(ini);
+}
+
+/* A game ini's 8-bit text is Latin-1, as the engine reads it: UTF-8 in
+ * memory, the same bytes written back, a path set written a byte a
+ * character, or UTF-16 for a character past U+00FF (bugs.md LCORE.7); after
+ * a UTF-8 mark, Latin-1 still, as the engine reads what follows it. The
+ * launcher's own inis are UTF-8 as they are. */
+static void test_game_text(void) {
+    const char *src = "[Core.System]\nSavePath=..\\Save\nName=J\xfcrgen\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_STR(dxl_ini_get(ini, "Core.System", "Name"), "J\xc3\xbcrgen");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK(len == strlen(src) && memcmp(out, src, len) == 0);
+    free(out);
+    dxl_ini_set(ini, "Core.System", "SavePath", "/home/h\xc3\xa9/Save");
+    out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[Core.System]\nSavePath=/home/h\xe9/Save\nName=J\xfcrgen\n");
+    free(out);
+    dxl_ini_set(ini, "Core.System", "CachePath", "/home/\xd0\xae/Cache");
+    out = dxl_ini_render(ini, &len);
+    CHECK(len > 2 && (unsigned char)out[0] == 0xff && (unsigned char)out[1] == 0xfe);
+    dxl_ini *back = dxl_ini_parse(out, len);
+    CHECK_STR(dxl_ini_get(back, "Core.System", "SavePath"), "/home/h\xc3\xa9/Save");
+    CHECK_STR(dxl_ini_get(back, "Core.System", "CachePath"), "/home/\xd0\xae/Cache");
+    CHECK_STR(dxl_ini_get(back, "Core.System", "Name"), "J\xc3\xbcrgen");
+    dxl_ini_free(back);
+    free(out);
+    dxl_ini_free(ini);
+
+    const char *marked = "\xef\xbb\xbf[A]\nx=J\xfcrgen\n";
+    ini = dxl_ini_parse(marked, strlen(marked));
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "J\xc3\xbcrgen");
+    CHECK_INT(dxl_ini_dirty(ini), 1);
+    out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[A]\nx=J\xfcrgen\n");
+    free(out);
+    dxl_ini_free(ini);
+
+    const char *own = "[Launcher]\nInstall=/home/h\xc3\xa9/DeusEx\n";
+    ini = dxl_ini_parse_utf8(own, strlen(own));
+    CHECK_STR(dxl_ini_get(ini, "Launcher", "Install"), "/home/h\xc3\xa9/DeusEx");
+    dxl_ini_set(ini, "Launcher", "Engine", "/opt/\xd0\xae");
+    out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[Launcher]\nInstall=/home/h\xc3\xa9/DeusEx\nEngine=/opt/\xd0\xae\n");
+    free(out);
+    dxl_ini_free(ini);
+    const char own16[] = "\xff\xfe[\0L\0]\0\n\0x\0=\0\xa9\x03\n\0";
+    ini = dxl_ini_parse_utf8(own16, sizeof own16 - 1);
+    CHECK_STR(dxl_ini_get(ini, "L", "x"), "\xce\xa9");
+    CHECK_INT(dxl_ini_dirty(ini), 1);
+    out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[L]\nx=\xce\xa9\n");
+    free(out);
+    dxl_ini_free(ini);
+}
+
+/* What an earlier launcher wrote -- UTF-8, read by the engine a byte a
+ * character -- made the text it was; Latin-1 left as it is; once (bugs.md
+ * LCORE.7). */
+static void test_undo_utf8(void) {
+    const char *src = "[Core.System]\nSavePath=/home/h\xc3\xa9/Save\nCachePath=/home/J\xfcrgen/Cache\n"
+                      "Paths=..\\System\\*.u\nPaths=/home/h\xc3\xa9/mods/X/System/*.u\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    CHECK_STR(dxl_ini_get(ini, "Core.System", "SavePath"), "/home/h\xc3\x83\xc2\xa9/Save");   /* the engine's reading */
+    CHECK_INT((int)dxl_ini_undo_utf8(ini, "Core.System", "SavePath"), 1);
+    CHECK_INT((int)dxl_ini_undo_utf8(ini, "Core.System", "CachePath"), 0);
+    CHECK_INT((int)dxl_ini_undo_utf8(ini, "Core.System", "Paths"), 1);
+    CHECK_INT((int)dxl_ini_undo_utf8(ini, "Core.System", "SavePath"), 0);
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[Core.System]\nSavePath=/home/h\xe9/Save\nCachePath=/home/J\xfcrgen/Cache\n"
+                   "Paths=..\\System\\*.u\nPaths=/home/h\xe9/mods/X/System/*.u\n");
     free(out);
     dxl_ini_free(ini);
 }
@@ -447,7 +544,9 @@ TEST_MAIN_BEGIN
     RUN(test_unterminated_last_line);
     RUN(test_last_given_wins);
     RUN(test_overlay);
-    RUN(test_utf16_and_nul);
+    RUN(test_utf16_kept);
+    RUN(test_game_text);
+    RUN(test_undo_utf8);
     RUN(test_bom_is_read_past);
     RUN(test_unterminated_last_line_key);
     RUN(test_lf_file_stays_lf);

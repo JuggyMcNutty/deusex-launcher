@@ -15,7 +15,7 @@
 int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     memset(r, 0, sizeof *r);
     char *path = dxl_path_join(state_dir, "LastRun.ini");
-    dxl_ini *ini = dxl_ini_load(path, NULL);
+    dxl_ini *ini = dxl_ini_load_utf8(path, NULL);
     free(path);
     if (!ini) return -1;
     r->known = 1;
@@ -42,7 +42,7 @@ int dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err) 
         dxl_err_set(err, "cannot create %s", state_dir);
         return -1;
     }
-    dxl_ini *ini = dxl_ini_new();
+    dxl_ini *ini = dxl_ini_new_utf8();
     dxl_ini_set_eol(ini, "\n");
     char n[32];
     snprintf(n, sizeof n, "%ld", r->ended);
