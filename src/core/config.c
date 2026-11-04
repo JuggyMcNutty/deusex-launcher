@@ -11,6 +11,7 @@ typedef struct {
     dxl_ini *ini;
     char    *path;
     int      existed;   /* on disk when opened (or since saved) */
+    int      empty;     /* none on disk nor a default to start from: written once something is set */
 } ini_file;
 
 struct dxl_config {
@@ -79,6 +80,14 @@ dxl_config *dxl_config_open_files(const char *system_dir, const char *package, c
 
     file_load(&c->user, user_ini ? given_path(system_dir, user_ini) : leaf_path(system_dir, "", "User"));
     if (!c->user.ini) seed(&c->user, system_dir, "DefUser");
+    /* Nor a DefUser.ini: an empty one, written once something is set in it
+     * -- never none, which the pages would set bindings on (bugs.md LUI.7).
+     * The engine makes a User.ini it is given and does not find the same
+     * way, at its path. */
+    if (!c->user.ini) {
+        c->user.ini = dxl_ini_new();
+        c->user.empty = 1;
+    }
     return c;
 }
 
@@ -95,7 +104,7 @@ void dxl_config_free(dxl_config *c) {
 
 static int file_save(ini_file *f, dxl_err *err) {
     if (!f->ini || !f->path) return 0;
-    if (!dxl_ini_dirty(f->ini) && f->existed) return 0;
+    if (!dxl_ini_dirty(f->ini) && (f->existed || f->empty)) return 0;
     if (dxl_ini_save(f->ini, f->path, err) != 0) return -1;
     dxl_ini_clean(f->ini);
     f->existed = 1;
@@ -123,7 +132,7 @@ int dxl_config_save(dxl_config *c, dxl_err *err) {
 }
 
 static int file_pending(const ini_file *f) {
-    return f->ini && (dxl_ini_dirty(f->ini) || !f->existed);
+    return f->ini && (dxl_ini_dirty(f->ini) || (!f->existed && !f->empty));
 }
 
 int dxl_config_dirty(const dxl_config *c) {
