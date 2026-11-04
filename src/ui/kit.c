@@ -1,4 +1,5 @@
 #include "ui/kit.h"
+#include "core/keys.h"
 #include "ui/draw.h"
 #include "ui/text.h"
 
@@ -303,6 +304,8 @@ static void key(dxl_ui *ui, const SDL_KeyboardEvent *k) {
         else if (!ui->in.captured) {
             ui->in.captured = DXL_CAPTURED_KEY;
             ui->in.captured_code = (int)k->scancode;
+            ui->in.captured_mod = (int)k->mod;
+            ui->in.captured_raw = (int)k->raw;
         }
         ui->mode = DXL_INPUT_KEYBOARD;
         ui->in.any = 1;
@@ -766,6 +769,21 @@ void dxl_ui_text_ready(dxl_ui *ui, uint32_t id, dxl_rect area) {
 void dxl_ui_capture_begin(dxl_ui *ui, uint32_t id) { ui->capture_id = id; }
 
 void dxl_ui_capture_end(dxl_ui *ui) { ui->capture_id = 0; }
+
+/* What a key types on the layout in use, unshifted: SDL's keycode as a key
+ * event gives it, by which the engine's window tells the layout's family. */
+static unsigned layout_types(int scancode, void *data) {
+    (void)data;
+    return (unsigned)SDL_GetKeyFromScancode((SDL_Scancode)scancode, SDL_KMOD_NONE, true);
+}
+
+const char *dxl_ui_key_name(int scancode, int mod, int vk) {
+    if (vk > 0 && vk < 0xff && dxl_key_typing(scancode)) {
+        const char *named = dxl_key_from_vk(vk);
+        if (named) return named;
+    }
+    return dxl_key_from_press(scancode, (mod & SDL_KMOD_NUM) != 0, dxl_key_family_of(layout_types, NULL));
+}
 
 /* Whether input reaches the scope focusables are added to now: only the
  * topmost, as last frame drew it. */

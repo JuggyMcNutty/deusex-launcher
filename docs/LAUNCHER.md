@@ -533,11 +533,15 @@ augmentations' F-keys), two keys each from `User.ini`'s `[Engine.Input]`. A
 slot takes the next key, mouse button or wheel notch; Esc puts it back, as
 its Cancel hint clicked does, Delete takes the key away. A key bound to
 another action asks: that action instead, or both (`a|b`), the key then each
-one's. Keys are named by their place on a US keyboard (`src/core/keys.c`),
-where the engine's window names them by the layout and Num Lock, as the
-original does: on AZERTY the key marked Z is written `W`, which the engine
-fires on the key marked W, a keypad key bound with Num Lock off never fires,
-and the ISO key cannot be bound (bugs.md LCORE.6); a shift, control or alt
+one's. Keys are named as the engine's window names them, as the original
+does (`src/core/keys.c`, DXWidgets' SDL2 window's KeyEventToInputKey): a
+typing key by the layout, AZERTY's, QWERTZ's, Dvorak's, Swedish's, ABNT's
+and JIS's own as Wine names them and any other's by its US place; the
+keypad's digits and point by Num Lock, with it off the keys they move by
+(`Up`, `Insert`, 5 `Unknown0C`);
+the ISO key `JoyZ`, as the original names it, the left trigger's axis's
+name too, so a Controller Layout chosen blanks a binding of it and its row
+reads Custom, and the defaults put back pass it over; a shift, control or alt
 as `Shift`, `Ctrl` or `Alt`, the name of both sides, which the engine
 follows with its side's own (`LShift`); a binding on a name that window
 never gives is marked. The game's own key menu refuses Escape, F1 to F18,
@@ -922,10 +926,6 @@ Each open in Port Ex Machina's
   passes.
 - **LAPP.10**: a first run's name change makes the sentinel again without
   freeing it; a stop waits up to 10 s for the probe.
-- **LCORE.6**: keys bound by their US place, where the engine names them by
-  the layout and Num Lock: AZERTY's and QWERTZ's letters bound to other
-  keys, a keypad key bound with Num Lock off never fires, the ISO key
-  unbindable.
 - **LCORE.9**: `INI=` and `USERINI=` resolved in any case in their last part
   alone, so a mod's ini in a folder of another case is seeded empty.
 - **LCORE.10**: a read-only ini replaced at the next save, where `main` and

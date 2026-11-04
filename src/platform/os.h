@@ -28,4 +28,10 @@ const char *dxl_end_name(int end, char *buf, size_t size);
 /* Whether that end was the program's own crash, not a stop. */
 int dxl_end_crashed(int end);
 
+/* The virtual-key code the keyboard layout in use gives a key by its
+ * platform scancode (SDL's raw): on Windows MapVirtualKeyEx's, by which
+ * DXEngine's SDL3 window names a typing key there; 0 elsewhere, and for
+ * none. */
+int dxl_os_key_vk(int raw);
+
 #endif
