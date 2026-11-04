@@ -960,8 +960,6 @@ Each open in Port Ex Machina's
   a third start plays a game of its own.
 - **X.11**: `scripts/check-abi.sh` stops without a word at a file with no
   GLIBC references, the files after it unchecked.
-- **D.45**, ruled to change: the engine built with no warning flags of its
-  own.
 
 What is untried on Windows itself is the port's
 ([verified](../ports/windows-x86_64/README.md#verified)).
