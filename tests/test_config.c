@@ -1,4 +1,5 @@
 #include "test.h"
+#include "core/bindings.h"
 #include "core/config.h"
 #include "core/ini.h"
 #include "scratch.h"
@@ -31,6 +32,7 @@ static char *scratch_install(const char *tag) {
 static void scrub(const char *dir) {
     char p[640];
     snprintf(p, sizeof p, "%s/DeusEx.ini", dir); remove(p);
+    snprintf(p, sizeof p, "%s/User.ini", dir); remove(p);
     snprintf(p, sizeof p, "%s/Running.ini", dir); remove(p);
     rmdir(dir);
 }
@@ -216,6 +218,25 @@ static void test_missing_user_ini_is_created_from_defuser(void) {
     scrub_all(dir);
 }
 
+/* Nor DefUser.ini: an empty User.ini, not none -- the Controller page set a
+ * button's action on none and crashed (bugs.md LUI.7) -- its binding kept
+ * at the save. */
+static void test_missing_user_ini_without_defuser(void) {
+    char *dir = empty_dir("nodefuser");
+    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_ini *user = dxl_config_user_ini(c);
+    CHECK(user != NULL);
+    if (user) dxl_bindings_set(user, "Joy1", "Jump");
+    dxl_err e;
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    dxl_config_free(c);
+    c = dxl_config_open(dir, "DeusEx");
+    user = dxl_config_user_ini(c);
+    CHECK_STR(user ? dxl_ini_get(user, "Engine.Input", "Joy1") : NULL, "Jump");
+    dxl_config_free(c);
+    scrub_all(dir);
+}
+
 /* Another process writes the file: a reload sees it. */
 static void test_reload_reads_what_another_wrote(void) {
     char *dir = scratch_install("reload");
@@ -289,6 +310,7 @@ TEST_MAIN_BEGIN
     RUN(test_missing_ini_is_not_fatal);
     RUN(test_missing_ini_is_created_from_default);
     RUN(test_missing_user_ini_is_created_from_defuser);
+    RUN(test_missing_user_ini_without_defuser);
     RUN(test_reload_reads_what_another_wrote);
     RUN(test_saved_is_clean);
     RUN(test_open_named_files);

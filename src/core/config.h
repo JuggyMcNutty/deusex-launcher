@@ -50,8 +50,9 @@ dxl_ini    *dxl_config_ini(dxl_config *c);
 /* How <Package>.ini came to be: 0 loaded as is, 1 created from Default.ini. */
 int         dxl_config_seeded(const dxl_config *c);
 
-/* User.ini. NULL only when it does not exist and there is no DefUser.ini to
- * create it from. */
+/* User.ini, never NULL: one that does not exist made from DefUser.ini,
+ * written at the next save, as <Package>.ini is; with no DefUser.ini
+ * either, empty, written once something is set in it. */
 dxl_ini    *dxl_config_user_ini(dxl_config *c);
 const char *dxl_config_user_path(const dxl_config *c);
 
