@@ -947,11 +947,17 @@ Each open in Port Ex Machina's
   the original refuse it.
 - **LCORE.11**: the engine sections' seed lacks `UsePrecache`; an exit 0
   before the first map still called no game found; dead code.
+- **LCORE.12**: the ini reader trims a line, a key and a value's start,
+  takes a line beginning `;` or `#` for a comment and keeps a value's
+  quotes, where the engine and the original take a line as it stands: a
+  hand-edited line read otherwise than the game reads it.
 - **LUI.8**: small UI defects: the Log page's buttons off the d-pad, a
   `deusex://` hand-over dropping an edit, F5 and Start dead on
   `-changevideo`'s Graphics, Back to the defaults before the probe, the
   icon's PNGs written in place, Recovery's foot with no Back hint.
 - **LPORT.6**: the sysroot's packages fetched against no hash.
+- **ENG.21**: an empty `INI=` or `USERINI=` taken as none, where the
+  original uses the empty name.
 - **MAIN.13**: a client started beside a running `-server` takes no line, so
   a third start plays a game of its own.
 - **X.11**: `scripts/check-abi.sh` stops without a word at a file with no
