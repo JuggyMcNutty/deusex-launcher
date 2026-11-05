@@ -957,7 +957,9 @@ Each open in Port Ex Machina's
 - **LUI.8**: small UI defects: the Log page's buttons off the d-pad, a
   `deusex://` hand-over dropping an edit, F5 and Start dead on
   `-changevideo`'s Graphics, Back to the defaults before the probe, the
-  icon's PNGs written in place, Recovery's foot with no Back hint.
+  icon's PNGs written in place, Recovery's foot with no Back hint, a failed
+  repoint save keeping the install in memory, a pick's answer left pending
+  when its control is gone, `uiscript`'s `find` focusing at once.
 - **LPORT.7**: the hand-over pipe wedges when a second start connects,
   writes and closes before its first wait; the line is lost and later starts
   find it busy.
