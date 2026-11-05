@@ -188,7 +188,8 @@ static void test_exec_file_captured(void) {
     CHECK_STR(d.exec_file, "startup.txt");
     CHECK_INT(d.action, DXL_ACTION_LAUNCH);
     /* Cut at a comma, as Parse cuts it (Core.dll 0x10146c96). */
-    CHECK_STR(decide("-exec=startup.txt,x", 1100, 0, 0).exec_file, "startup.txt");
+    dxl_decision cut = decide("-exec=startup.txt,x", 1100, 0, 0);
+    CHECK_STR(cut.exec_file, "startup.txt");
 }
 
 TEST_MAIN_BEGIN
