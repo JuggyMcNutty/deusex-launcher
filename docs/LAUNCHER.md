@@ -902,10 +902,9 @@ Kept as the original does it: the decision's order (`-safe`, the `FirstRun`
 gates, `-changevideo`, `Running.ini`), `Running.ini` made after the screens
 and taken away at a clean end or one with no game, `FirstRun` raised to 1100
 (one above it kept, but under `-firstrun`), the three command-line parsers
-(`ParseParam` stricter, as `main`'s; `Parse` cutting a value at white space
-alone, not at a comma too: bugs.md ENG.19), and the second start's
-hand-over, though its line goes to a launcher that keeps it whatever the
-install. Changed:
+(`ParseParam` stricter, as `main`'s), and the second start's hand-over,
+though its line goes to a launcher that keeps it whatever the install.
+Changed:
 
 | Original | DXLauncher | Why |
 |---|---|---|
@@ -943,8 +942,6 @@ Each open in Port Ex Machina's
   `-changevideo`'s Graphics, Back to the defaults before the probe,
   Recovery's foot with no Back hint.
 - **LPORT.6**: the sysroot's packages fetched against no hash.
-- **ENG.19**: an unquoted `X=` value cut at white space alone, where the
-  original's `Parse` cuts it at a comma too.
 - **MAIN.13**: a client started beside a running `-server` takes no line, so
   a third start plays a game of its own.
 - **X.11**: `scripts/check-abi.sh` stops without a word at a file with no

@@ -474,10 +474,12 @@ static void dry_run(dxl_run *r) {
  * that one is the launcher's too, seeded and read as the profile's would
  * be. */
 static dxl_config *open_config(dxl_run *r) {
-    char ini_word[512], user_word[512];
-    const char *ini = dxl_cmd_value(r->words, "INI", ini_word, sizeof ini_word) && ini_word[0]
+    /* Each cut as the engine cuts it (DXL_PARSE_INI): room for its 255
+     * characters at UTF-8's three bytes each. */
+    char ini_word[3 * DXL_PARSE_INI], user_word[3 * DXL_PARSE_INI];
+    const char *ini = dxl_cmd_value(r->words, "INI", DXL_PARSE_INI, ini_word, sizeof ini_word) && ini_word[0]
                           ? ini_word : r->session.profile.system_ini;
-    const char *user_ini = dxl_cmd_value(r->words, "USERINI", user_word, sizeof user_word) && user_word[0]
+    const char *user_ini = dxl_cmd_value(r->words, "USERINI", DXL_PARSE_INI, user_word, sizeof user_word) && user_word[0]
                                ? user_word : r->session.profile.user_ini;
     return dxl_config_open_files(r->session.install.system_dir ? r->session.install.system_dir : ".", PACKAGE, ini,
                                  user_ini);

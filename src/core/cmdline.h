@@ -7,7 +7,8 @@
  *                                         (the original's checks nothing after
  *                                         the name: below)
  *   dxl_cmd_value   Parse(s,"X=",v)    -- "X=" found as appStrfind finds it,
- *                                         value runs to whitespace, quotable
+ *                                         value runs to white space or a
+ *                                         comma, quotable
  *   dxl_cmd_find    appStrfind(s,"X")  -- a case-insensitive substring, but
  *                                         not straight after a letter or digit;
  *                                         no leading '-' required at all
@@ -37,12 +38,23 @@ char *dxl_cmdline_join(int argc, char *const *argv);
  * in "INI=/srv/server/x.ini". A path that ends in a flag's name still counts. */
 int dxl_cmd_param(const char *cmdline, const char *name);
 
-/* Parse: finds "<name>=" as appStrfind does, case-insensitively and not
- * straight after a letter or digit (INI= is not within USERINI=), and copies
- * the value up to the next whitespace into out. A double-quoted value may
- * contain spaces. Returns 1 if found. out is always NUL-terminated when
- * size > 0. */
-int dxl_cmd_value(const char *cmdline, const char *name, char *out, size_t size);
+/* The original's buffers for a value, in its characters: appInit's for INI=
+ * and USERINI= (Core.dll 0x10149a68, 0x10149b96), and an FString's, which
+ * DeusEx.exe reads EXEC=, -consolecommand= and -testrendev= into (Core.dll
+ * 0x10146e0e). */
+#define DXL_PARSE_INI     256
+#define DXL_PARSE_FSTRING 4096
+
+/* Parse (Core.dll 0x10146bc0): finds "<name>=" as appStrfind does,
+ * case-insensitively and not straight after a letter or digit (INI= is not
+ * within USERINI=), and copies its value into out: a double-quoted one to
+ * its closing quote, spaces and commas and all, any other to the first
+ * space, tab, CR, LF or comma; of either its first len - 1 characters at
+ * most, len the original's buffer for it (DXL_PARSE_*), one past U+FFFF
+ * counting two, as the original's UTF-16 has it. Returns 1 if found, the
+ * value empty or not. out is always NUL-terminated when size > 0, the value
+ * cut at size - 1 bytes too. */
+int dxl_cmd_value(const char *cmdline, const char *name, size_t len, char *out, size_t size);
 
 /* appStrfind: a case-insensitive substring, but none straight after a letter
  * or digit. */
