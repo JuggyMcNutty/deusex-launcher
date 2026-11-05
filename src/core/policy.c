@@ -35,7 +35,7 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
                        !dxl_cmd_param(cmd, "server") &&
                        !dxl_cmd_find(cmd, "TestRenDev");
 
-    dxl_cmd_value(cmd, "exec", out->exec_file, sizeof out->exec_file);
+    dxl_cmd_value(cmd, "exec", DXL_PARSE_FSTRING, out->exec_file, sizeof out->exec_file);
 
     /* Forwarding runs before any engine init and short-circuits everything
      * else: this process becomes a messenger and exits (section 1). */
@@ -45,12 +45,12 @@ void dxl_policy_decide(const dxl_policy_input *in, dxl_decision *out) {
     }
 
     /* Both of these exit without ever launching (section 5, steps 6 and 7). */
-    if (dxl_cmd_value(cmd, "consolecommand", out->console_command,
+    if (dxl_cmd_value(cmd, "consolecommand", DXL_PARSE_FSTRING, out->console_command,
                       sizeof out->console_command)) {
         out->action = DXL_ACTION_CONSOLE_CMD;
         return;
     }
-    if (dxl_cmd_value(cmd, "testrendev", out->test_rendev, sizeof out->test_rendev)) {
+    if (dxl_cmd_value(cmd, "testrendev", DXL_PARSE_FSTRING, out->test_rendev, sizeof out->test_rendev)) {
         out->action = DXL_ACTION_TEST_RENDEV;
         return;
     }
