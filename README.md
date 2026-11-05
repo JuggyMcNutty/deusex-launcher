@@ -174,7 +174,8 @@ Each open in Port Ex Machina's
   to F7, overlong and surrogate leads taken as UTF-8.
 - **MAIN.14**: the ini reader trims a line, a key and a value's start,
   takes a line beginning `;` or `#` for a comment and keeps a value's
-  quotes, a lone `"` too, where the original takes a line as it stands.
+  quotes, where the original takes a line as it stands, its quotes off; a
+  localized text's lone `"` kept, where the original's is empty.
 - **ENG.21**: an empty `INI=`, `USERINI=`, `LOG=` or `ABSLOG=` taken as
   none, where the original uses the empty name.
 
