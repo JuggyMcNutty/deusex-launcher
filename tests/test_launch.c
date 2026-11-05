@@ -312,6 +312,19 @@ static void test_the_two_exits_that_never_launch(void) {
     scratch_remove(root);
 }
 
+/* LOG= cut as Parse cuts it, at a comma too (Core.dll 0x10146c96): the log
+ * is the file before it. */
+static void test_log_cut_at_a_comma(void) {
+    install("l-logcomma", NULL);
+    dxl_launch_result r;
+    launch((const char *[]){ "-consolecommand=ShowLog", "LOG=Comma.log,x", NULL }, &r);
+    CHECK_STR(r.ended, "-consolecommand");
+    CHECK_INT(scratch_exists(root, "System/Comma.log"), 1);
+    CHECK_INT(scratch_exists(root, "System/Comma.log,x"), 0);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
 /* A running instance that listens takes the command line; with a bypass
  * token the launch goes on instead. */
 static void test_forwarding(void) {
@@ -632,6 +645,7 @@ TEST_MAIN_BEGIN
     RUN(test_cd_prompt_ok);
     RUN(test_make_is_fatal);
     RUN(test_the_two_exits_that_never_launch);
+    RUN(test_log_cut_at_a_comma);
     RUN(test_forwarding);
     RUN(test_forwarding_bypassed_by_the_path);
     RUN(test_server);

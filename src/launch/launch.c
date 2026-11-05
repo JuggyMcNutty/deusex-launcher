@@ -82,16 +82,21 @@ static char *package_of(const char *exe) {
 }
 
 /* LOG= (from the base directory), else ABSLOG=, else <Package>.log. Like the
- * original's, the first is looked for first, and as a substring. */
+ * original's (DeusEx.exe FOutputDeviceFile::Serialize, 0x10903880), the
+ * first is looked for first, and as a substring, each read into the log's
+ * file name: LOG= into what the base directory and its separator leave of
+ * it. */
 static char *log_path_of(const run *r) {
     char v[PATH_MAX];
-    if (dxl_cmd_value(r->cmd, "LOG", v, sizeof v) && *v) {
+    size_t base = dxl_cmd_chars(r->base) + 1;
+    size_t room = base < DXL_PARSE_LOG ? DXL_PARSE_LOG - base : 1;
+    if (dxl_cmd_value(r->cmd, "LOG", room, v, sizeof v) && *v) {
         char *p = dxl_path_from_ini(v);
         char *joined = dxl_path_join(r->base, p);
         free(p);
         return joined;
     }
-    if (dxl_cmd_value(r->cmd, "ABSLOG", v, sizeof v) && *v) return dxl_path_from_ini(v);
+    if (dxl_cmd_value(r->cmd, "ABSLOG", DXL_PARSE_LOG, v, sizeof v) && *v) return dxl_path_from_ini(v);
     size_t n = strlen(r->package) + 5;
     char *leaf = dxl_xmalloc(n);
     snprintf(leaf, n, "%s.log", r->package);
@@ -337,8 +342,8 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     dxl_log("Init: base directory: %s", r.base);
     /* appInit's INI= and USERINI=: the configuration from other files. */
     char ini[PATH_MAX], user_ini[PATH_MAX];
-    int has_ini = dxl_cmd_value(r.cmd, "INI", ini, sizeof ini) && *ini;
-    int has_user_ini = dxl_cmd_value(r.cmd, "USERINI", user_ini, sizeof user_ini) && *user_ini;
+    int has_ini = dxl_cmd_value(r.cmd, "INI", DXL_PARSE_INI, ini, sizeof ini) && *ini;
+    int has_user_ini = dxl_cmd_value(r.cmd, "USERINI", DXL_PARSE_INI, user_ini, sizeof user_ini) && *user_ini;
     r.cfg = dxl_config_open_files(r.base, r.package, has_ini ? ini : NULL,
                                   has_user_ini ? user_ini : NULL);
     if (dxl_config_seeded(r.cfg)) {

@@ -172,8 +172,6 @@ Each open in Port Ex Machina's
 - **MAIN.13**: a client beside a running `-server` takes no channel; a
   static's text never clipped to its control; the device list stops at 8; F5
   to F7, overlong and surrogate leads taken as UTF-8.
-- **ENG.19**: an unquoted `X=` value cut at white space alone, where the
-  original's `Parse` cuts it at a comma too.
 
 ## The game and the launcher
 
