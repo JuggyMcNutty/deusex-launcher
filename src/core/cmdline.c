@@ -62,7 +62,13 @@ int dxl_cmd_param(const char *cmdline, const char *name) {
     return 0;
 }
 
-int dxl_cmd_value(const char *cmdline, const char *name, char *out, size_t size) {
+/* A character's length in the original's wide line, at its UTF-8 lead byte:
+ * a continuation byte none, a four-byte character two (its UTF-16 pair). */
+static size_t utf16_units(unsigned char c) {
+    return (c & 0xc0) == 0x80 ? 0 : c >= 0xf0 ? 2 : 1;
+}
+
+int dxl_cmd_value(const char *cmdline, const char *name, size_t len, char *out, size_t size) {
     if (size) out[0] = '\0';
     if (!cmdline || !name) return 0;
 
@@ -78,19 +84,19 @@ int dxl_cmd_value(const char *cmdline, const char *name, char *out, size_t size)
     free(needle);
     if (!found) return 0;
 
+    /* Parse copies the value's first len - 1 characters (appStrncpy, Core.dll
+     * 0x101233c0), past the quote of a quoted one, then cuts it at its first
+     * quote, or one not quoted at its first space, CR, LF, tab or comma
+     * (0x10146c4e to 0x10146c96). */
     const char *start = found + nlen + 1;
-    size_t i = 0;
-    if (*start == '"') {
-        start++;
-        while (*start && *start != '"') {
-            if (i + 1 < size) out[i] = *start;
-            i++; start++;
-        }
-    } else {
-        while (*start && !isspace((unsigned char)*start)) {
-            if (i + 1 < size) out[i] = *start;
-            i++; start++;
-        }
+    int quoted = *start == '"';
+    if (quoted) start++;
+    const char *stops = quoted ? "\"" : " \r\n\t,";
+    size_t i = 0, units = 0;
+    for (; start[i] && !strchr(stops, start[i]); i++) {
+        units += utf16_units((unsigned char)start[i]);
+        if (units >= len) break;
+        if (i + 1 < size) out[i] = start[i];
     }
     if (size) out[(i < size) ? i : size - 1] = '\0';
     return 1;
