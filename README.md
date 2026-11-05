@@ -172,6 +172,11 @@ Each open in Port Ex Machina's
 - **MAIN.13**: a client beside a running `-server` takes no channel; a
   static's text never clipped to its control; the device list stops at 8; F5
   to F7, overlong and surrogate leads taken as UTF-8.
+- **MAIN.14**: the ini reader trims a line, a key and a value's start,
+  takes a line beginning `;` or `#` for a comment and keeps a value's
+  quotes, a lone `"` too, where the original takes a line as it stands.
+- **ENG.21**: an empty `INI=`, `USERINI=`, `LOG=` or `ABSLOG=` taken as
+  none, where the original uses the empty name.
 
 ## The game and the launcher
 
