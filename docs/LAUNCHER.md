@@ -962,5 +962,3 @@ Each open in Port Ex Machina's
   original uses the empty name.
 - **MAIN.13**: a client started beside a running `-server` takes no line, so
   a third start plays a game of its own.
-- **X.11**: `scripts/check-abi.sh` stops without a word at a file with no
-  GLIBC references, the files after it unchecked.
