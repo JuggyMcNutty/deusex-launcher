@@ -82,13 +82,16 @@ esac
 [ $# -ge 1 ] || { echo "usage: $0 --max 2.NN <binary> [binary...]" >&2; exit 2; }
 MAX_MINOR="${max#2.}"
 
+# None at all, a static program's, is no error: under pipefail grep's 1
+# would end the script there, unsaid, the files after it unchecked.
 versions() {
-    readelf -V --wide "$1" 2>/dev/null | grep -oE 'GLIBC_2\.[0-9]+' | sort -u -t. -k2,2n
+    readelf -V --wide "$1" 2>/dev/null | grep -oE 'GLIBC_2\.[0-9]+' | sort -u -t. -k2,2n || true
 }
 
 rc=0
 for bin in "$@"; do
     [ -f "$bin" ] || { echo "MISSING $bin" >&2; rc=1; continue; }
+    readelf -h "$bin" > /dev/null 2>&1 || { echo "FAIL $bin is no ELF file readelf reads" >&2; rc=1; continue; }
     have=$(versions "$bin")
     bad=$(printf '%s\n' "$have" | awk -F. -v max="$MAX_MINOR" 'NF == 2 && $2 > max')
     if [ -n "$bad" ]; then
