@@ -20,6 +20,8 @@ struct dxl_uiscript {
     int      seek_still;  /* moves in a row the focus stayed put */
     uint32_t seek_from;   /* the focus before the last move */
     SDL_Joystick *pad;    /* a virtual controller's, pad attach's */
+    int      failed;      /* a line failed: the script stopped there */
+    int      done;        /* every line run: its end mark said */
 };
 
 #define SEEK_TRIES 600
@@ -107,10 +109,15 @@ static void push_key_mod(SDL_Keycode k, SDL_Keymod mod) {
 
 static void push_key(SDL_Keycode k) { push_key_mod(k, SDL_KMOD_NONE); }
 
-/* The script stopped where it failed, and the window closed. */
-static void fail(dxl_uiscript *u, const char *what) {
+static void say_failed(const char *what) {
     fprintf(stderr, "ui script: FAILED: %s\n", what);
     dxl_log("ui script: FAILED: %s", what);
+}
+
+/* The script stopped where it failed, and the window closed. */
+static void fail(dxl_uiscript *u, const char *what) {
+    say_failed(what);
+    u->failed = 1;
     u->at = u->count;
     u->seek = NULL;
     SDL_Event e;
@@ -222,8 +229,7 @@ static int seek(dxl_uiscript *u, dxl_shell *s) {
     return 1;
 }
 
-double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
-    if (!u) return -1;
+static double run_lines(dxl_uiscript *u, dxl_shell *s, double now) {
     if (u->next == 0) u->next = now;
     if (u->seek && seek(u, s)) return 0;
     while (u->at < u->count && now >= u->next && !u->seek) {
@@ -315,6 +321,30 @@ double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
     }
     if (u->at >= u->count) return -1;
     return u->next > now ? u->next - now : 0;
+}
+
+double dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now) {
+    if (!u) return -1;
+    double next = run_lines(u, s, now);
+    /* The end mark: every line run, a find's control found, none failed. */
+    if (u->at >= u->count && !u->seek && !u->failed && !u->done) {
+        u->done = 1;
+        dxl_log("ui script: done");
+    }
+    return next;
+}
+
+int dxl_uiscript_end(const dxl_uiscript *u) {
+    if (!u || u->done || (u->at >= u->count && !u->seek && !u->failed)) return 1;
+    if (u->failed) return 0;
+    char what[1100];
+    if (u->seek)
+        snprintf(what, sizeof what, "stopped before its end, finding %.1000s", u->seek);
+    else
+        snprintf(what, sizeof what, "stopped before its end, at its line %d of %d: %.1000s", u->at + 1, u->count,
+                 u->lines[u->at]);
+    say_failed(what);
+    return 0;
 }
 
 void dxl_uiscript_shoot(dxl_uiscript *u, SDL_Renderer *r) {

@@ -3,6 +3,10 @@
 #include "core/paths.h"
 #include "platform/desktop.h"
 
+#ifndef DXL_DATA
+#define DXL_DATA "data"
+#endif
+
 /* Exec as the spec has it: quoted when a reserved character is in it, ",
  * `, $ and \ escaped inside the quotes, then every backslash doubled for
  * the string type; % doubled for the field codes. */
@@ -54,7 +58,43 @@ static void test_install(void) {
     free(home);
 }
 
+/* The entry the app ships, installed: deusex:// links its own, a link
+ * handed to the launcher as its first word (%u); where the desktop has
+ * update-desktop-database, the links' handler in the applications folder's
+ * MimeType cache, which xdg-open and GIO read, and gone with the entry. */
+static void test_links(void) {
+    char *home = dxl_xstrdup(scratch_dir("desktop-links"));
+    char *share = dxl_path_join(home, "share");
+    char *tmpl = dxl_path_join(DXL_DATA, DXL_APP_ID ".desktop.in");
+    dxl_err err;
+    CHECK_INT(dxl_desktop_install(share, tmpl, "/a b/deusex-launcher", &err), 0);
+    char *path = dxl_desktop_entry_path(share);
+    char *text = slurp(path, NULL);
+    CHECK(text && strstr(text, "\nMimeType=x-scheme-handler/deusex;\n") != NULL);
+    CHECK(text && strstr(text, "\nExec=\"/a b/deusex-launcher\" %u\n") != NULL);
+    free(text);
+    char *cache = dxl_path_join(share, "applications/mimeinfo.cache");
+    if (system("command -v update-desktop-database >/dev/null 2>&1") == 0) {
+        text = slurp(cache, NULL);
+        CHECK(text && strstr(text, "\nx-scheme-handler/deusex=" DXL_APP_ID ".desktop;") != NULL);
+        free(text);
+        CHECK_INT(dxl_desktop_remove(share, &err), 0);
+        text = slurp(cache, NULL);
+        CHECK(!text || !strstr(text, "x-scheme-handler/deusex="));
+        free(text);
+    } else {
+        printf("    (no update-desktop-database here: the MimeType cache not checked)\n");
+    }
+    free(cache);
+    free(path);
+    free(tmpl);
+    free(share);
+    scratch_remove(home);
+    free(home);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_exec);
     RUN(test_install);
+    RUN(test_links);
 TEST_MAIN_END

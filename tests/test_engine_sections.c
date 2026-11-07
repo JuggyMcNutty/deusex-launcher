@@ -8,9 +8,9 @@ static void test_from_retail(void) {
                       "[WinDrv.WindowsClient]\nStartupFullscreen=True\nWindowedViewportX=640\nWindowedViewportY=480\n"
                       "Brightness=0.6\nMinDesiredFrameRate=1.000000\nDecals=Yes\n"
                       "[Galaxy.GalaxyAudioSubsystem]\nMusicVolume=153\nOutputRate=22050Hz\nUseSurround=False\n"
-                      "[D3DDrv.D3DRenderDevice]\nDetailTextures=False\n";
+                      "[D3DDrv.D3DRenderDevice]\nDetailTextures=False\nUsePrecache=True\n";
     dxl_ini *ini = dxl_ini_parse(src, strlen(src));
-    CHECK_INT(dxl_engine_sections_seed(ini), 40);
+    CHECK_INT(dxl_engine_sections_seed(ini), 41);
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "StartupFullscreen"), "True");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "WindowedViewportX"), "640");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Brightness"), "0.600000");
@@ -22,6 +22,7 @@ static void test_from_retail(void) {
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "UseSurround"), "False");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "SpeechVolume"), "255");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineRenderDevice", "DetailTextures"), "False");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineRenderDevice", "UsePrecache"), "True");
     /* No key the engine neither reads nor writes. */
     CHECK_INT(dxl_ini_has_section(ini, "Engine.DXEngineWindowSystem"), 0);
     /* Seeded, again: nothing more. */
@@ -39,6 +40,7 @@ static void test_engine_read(void) {
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "WindowedViewportX"), "1920");
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "MusicVolume"), "178.500000");   /* left as it is */
     CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "SoundVolume"), "200");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineRenderDevice", "UsePrecache"), "False");
     dxl_ini_free(ini);
 }
 

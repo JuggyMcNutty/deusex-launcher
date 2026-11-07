@@ -80,6 +80,13 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
     struct stat ls;
     char *target = lstat(path, &ls) == 0 && S_ISLNK(ls.st_mode) ? realpath(path, NULL) : NULL;
     if (target) path = target;
+    /* A read-only file is refused, not replaced: the original's write in
+     * place fails on one, as Windows' replace does. */
+    if (access(path, F_OK) == 0 && access(path, W_OK) != 0) {
+        dxl_err_set(err, "%s is read-only", path);
+        free(target);
+        return -1;
+    }
     char *dir = dxl_path_dirname(path);
     size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 16;
     char *tmp = dxl_xmalloc(n);

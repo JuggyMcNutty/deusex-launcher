@@ -39,7 +39,7 @@ static void forwarded(dxl_game *g, const char *msg, int ready) {
     dxl_log("forwarded: %s", msg);
     if (!ready) return;
     dxl_game_send(g, "TakeFocus");
-    char url[DXL_HANDOFF_MAX];
+    char url[DXL_HANDOFF_MAX + 1];
     if (first_token(msg, url, sizeof url) && url[0] != '-') {
         /* A link's server, as the game takes a server: host:port. */
         char link[256];
@@ -81,7 +81,7 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
             free(line);
         }
         if (ev & DXL_GAME_EXTRA) {
-            char msg[DXL_HANDOFF_MAX];
+            char msg[DXL_HANDOFF_MAX + 1];
             while (dxl_instance_poll(req->instance, msg, sizeof msg)) forwarded(&g, msg, out->ready);
         }
         if (ev & DXL_GAME_ENDED) break;

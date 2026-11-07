@@ -1,8 +1,11 @@
 # The Graphics screen of -changevideo with an engine this system cannot
-# start: its Play off, the reason beside it, so no Play to be found -- the
-# script ends there, its window closed. test_ui_scripts.c finds that, no
-# game started and the launcher's exit 0.
+# start: F5 plays nothing; its Play off, the reason beside it, so no Play
+# to be found -- the script ends there, its window closed. test_ui_scripts.c
+# finds that, no game started and the launcher's exit 0.
 wait 1.5
+expect settings Graphics
+key F5
+wait 1
 expect settings Graphics
 find Play
 key Return

@@ -11,8 +11,10 @@
  * instance's channel, woken once a second besides: the launcher costs next
  * to nothing while the game runs.
  *
- * A clean end is exit 0 with ready seen: an engine that finds no game
- * exits 0 without ever being ready.
+ * A clean end is exit 0 with ready seen: an engine that ends before its
+ * first map is in played nothing, whatever its exit. One that finds no
+ * game exits 1, its error line "DXEngine error: No UE1 game found in the
+ * given folder" (core/lastrun.h).
  */
 #ifndef DXL_PLAY_H
 #define DXL_PLAY_H

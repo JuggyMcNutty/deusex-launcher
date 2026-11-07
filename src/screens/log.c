@@ -100,7 +100,9 @@ void dxl_page_log(dxl_shell *s, dxl_rect r) {
     dxl_rect buttons = dxl_cut_bottom(&area, 46);
     dxl_cut_bottom(&area, 12);
 
-    /* The view: one focusable, its up and down its own. */
+    /* The view: one focusable, its up and down its own but off either
+     * end, where the kit's move stands and takes the focus out of it, to
+     * the tabs above or the buttons below, as a list's does. */
     uint32_t vid = dxl_ui_id(ui, "log view");
     int hits = dxl_ui_focusable(ui, vid, area, 0);
     dxl_well(ui, area);
@@ -109,7 +111,12 @@ void dxl_page_log(dxl_shell *s, dxl_rect r) {
     float lh = dxl_text_line(ui, DXL_FONT_MONO);
     int shown = (int)(in.h / lh);
     if (shown < 1) shown = 1;
-    int steps = dxl_ui_take_ud(ui, vid);
+    int max = s->log_lines - shown;
+    if (max < 0) max = 0;
+    if (s->log_top > max) s->log_top = max;
+    int down = ui->in.nav[DXL_DIR_DOWN], up = ui->in.nav[DXL_DIR_UP];
+    int off_end = (down > up && s->log_top >= max) || (up > down && s->log_top <= 0);
+    int steps = off_end ? 0 : dxl_ui_take_ud(ui, vid);
     if (hits & DXL_HIT_FOCUSED) {
         steps += (ui->in.page_down - ui->in.page_up) * shown;
         ui->in.page_down = ui->in.page_up = 0;
@@ -118,9 +125,6 @@ void dxl_page_log(dxl_shell *s, dxl_rect r) {
         steps -= (int)(ui->in.wheel * 3);
         ui->in.wheel = 0;
     }
-    int max = s->log_lines - shown;
-    if (max < 0) max = 0;
-    if (s->log_top > max) s->log_top = max;
     s->log_top += steps;
     if (s->log_top > max) s->log_top = max;
     if (s->log_top < 0) s->log_top = 0;

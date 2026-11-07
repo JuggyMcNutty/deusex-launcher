@@ -24,6 +24,13 @@
  * UTF-16 little-endian after FF FE. The launcher's own inis (the _utf8
  * calls) are UTF-8 as they are.
  *
+ * A line is read as the original's reader and DXEngine's read it
+ * (FConfigFile::Read; core-dll.md, configuration): a header a line that
+ * begins [ and ends ], else a key up to its first = and its value after
+ * it, nothing trimmed, so "Key = 5" is a key "Key " of " 5"; a game ini's
+ * value that begins and ends with " is read without them, the launcher's
+ * own as it is. ; and # begin no comment: a line with no = is none.
+ *
  * Lookup is ASCII case-insensitive, matching FConfigCacheIni. A key given
  * twice reads at its last value and is set there, and a section written
  * twice is one section, its blocks read in order: the engine reads them so,

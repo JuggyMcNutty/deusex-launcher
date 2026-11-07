@@ -64,7 +64,13 @@ static void test_describe(void) {
     CHECK_STR(line, "exit 1: Could not open /g/Maps/.dx");
     dxl_lastrun z = { .known = 1, .status = 0, .ready = 0 };
     dxl_lastrun_describe(&z, line, sizeof line);
-    CHECK_STR(line, "exit 0 before its first map was in: no game found, or none started");
+    CHECK_STR(line, "exit 0 before its first map was in");
+    /* No game in the folder: the engine's exit 1 and its error, said so
+     * (DXEngine's GameApp.cpp), not an exit 0. */
+    dxl_lastrun g = { .known = 1, .status = 1 };
+    snprintf(g.error, sizeof g.error, "No UE1 game found in the given folder");
+    dxl_lastrun_describe(&g, line, sizeof line);
+    CHECK_STR(line, "exit 1: No UE1 game found in the given folder");
     dxl_lastrun k = { .known = 1, .status = END_KILL_STATUS, .signal = END_KILL, .ready = 0 };
     dxl_lastrun_describe(&k, line, sizeof line);
     CHECK_STR(line, "killed by " END_KILL_NAME ", before its first map was in");

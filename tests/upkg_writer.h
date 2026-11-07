@@ -48,15 +48,28 @@ static inline void str(buf *b, const char *s) {
 }
 
 /* A property's tag, in the format's order: its name, its type and size
- * code, a struct's name, a size of a byte (code 5) or a word (code 6), an
- * array index. */
+ * code, a struct's name, a size of a byte (code 5), a word (code 6) or a
+ * dword (code 7), an array index. */
 static inline void tag(buf *b, int name, int type, int size_code, int index, int struct_name, int size) {
     idx(b, name);
     u8(b, (uint8_t)(type | size_code << 4 | (index ? 0x80 : 0)));
     if (type == DXL_UPROP_STRUCT) idx(b, struct_name);
     if (size_code == 5) u8(b, (uint8_t)size);
     if (size_code == 6) u16(b, (uint16_t)size);
+    if (size_code == 7) u32(b, (uint32_t)size);
     if (index) u8(b, (uint8_t)index);
+}
+
+/* The size code a value of size bytes is written with, as both engines
+ * write it (the original's SerializeTaggedProperties, Core.dll 0x10126d8f;
+ * DXEngine's PackageStreamWriter::EndProperty): 0 to 4 for 1, 2, 4, 12 and
+ * 16 bytes, else 5, 6 or 7, the size after the tag in a byte, a word or a
+ * dword. A bool, its value in the tag, has a size of 0: code 5. */
+static inline int dxl_ts_size_code(int size) {
+    static const int fixed[5] = { 1, 2, 4, 12, 16 };
+    for (int i = 0; i < 5; i++)
+        if (size == fixed[i]) return i;
+    return size <= 0xff ? 5 : size <= 0xffff ? 6 : 7;
 }
 
 /* The bytes a compact index takes. */
@@ -98,7 +111,7 @@ static inline void dxl_ts_int(buf *b, int name, int value) {
  * index takes two bytes from 64 up. */
 static inline void dxl_ts_str(buf *b, int name, const char *value) {
     int n = (int)strlen(value) + 1, size = idx_size(n) + n;
-    tag(b, name, DXL_UPROP_STR, size < 256 ? 5 : 6, 0, 0, size);
+    tag(b, name, DXL_UPROP_STR, dxl_ts_size_code(size), 0, 0, size);
     str(b, value);
 }
 

@@ -19,6 +19,8 @@
 #include "core/common.h"
 #include "platform/instance.h"
 
+#include <stdatomic.h>
+
 #define DXL_LAUNCHER_FD_ENV "DXL_LAUNCHER_FD"
 
 /* The platform's: the process, the launcher's end of the line. */
@@ -81,5 +83,11 @@ int  dxl_open_path(const char *path);
 #define DXL_RUN_TIMED_OUT (-2)
 int  dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
                      int *status, dxl_err *err);
+/* The same, given up once *stop is set (NULL: never), within a tenth of a
+ * second: the program killed then, and DXL_RUN_STOPPED -- the window's
+ * probe as the window goes. */
+#define DXL_RUN_STOPPED (-3)
+int  dxl_run_capture_until(char *const argv[], int timeout_ms, const atomic_int *stop, char *out, size_t size,
+                           char *errs, size_t errs_size, int *status, dxl_err *err);
 
 #endif

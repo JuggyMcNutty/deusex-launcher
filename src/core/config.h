@@ -21,18 +21,16 @@
 /* [FirstRun] FirstRun is an engine-version integer, not a boolean.
  * dx-reverse-info/wizard.md "The FirstRun version gates". 1100 was confirmed live to
  * be the engine version itself ("Init: Version: 1100"). */
-#define DXL_FIRSTRUN_MIGRATE_BELOW 220
 #define DXL_FIRSTRUN_WIZARD_BELOW  400
 #define DXL_FIRSTRUN_CURRENT       1100
 
 typedef struct dxl_config dxl_config;
 
-/* Opens <system_dir>/<package>.ini and User.ini. Never fails: with no ini and
- * no Default.ini the result is an empty, writable config. */
-dxl_config *dxl_config_open(const char *system_dir, const char *package);
-/* The same, with the files the command line's INI= and USERINI= name, as
- * the original's appInit takes them -- relative to System/, or absolute --
- * in place of <package>.ini and User.ini (NULL for those). */
+/* Opens <system_dir>/<package>.ini and User.ini, or the files the command
+ * line's INI= and USERINI= name in their place, as the original's appInit
+ * takes them -- relative to System/, or absolute (NULL for none). Never
+ * fails: with no ini and no Default.ini the result is an empty, writable
+ * config. */
 dxl_config *dxl_config_open_files(const char *system_dir, const char *package, const char *ini,
                                   const char *user_ini);
 void        dxl_config_free(dxl_config *c);
@@ -43,18 +41,13 @@ int         dxl_config_save(dxl_config *c, dxl_err *err);
  * do -- after another process has written them. A file that is not there
  * keeps what was read before. */
 void        dxl_config_reload(dxl_config *c);
-int         dxl_config_dirty(const dxl_config *c);
 const char *dxl_config_path(const dxl_config *c);
 dxl_ini    *dxl_config_ini(dxl_config *c);
-
-/* How <Package>.ini came to be: 0 loaded as is, 1 created from Default.ini. */
-int         dxl_config_seeded(const dxl_config *c);
 
 /* User.ini, never NULL: one that does not exist made from DefUser.ini,
  * written at the next save, as <Package>.ini is; with no DefUser.ini
  * either, empty, written once something is set in it. */
 dxl_ini    *dxl_config_user_ini(dxl_config *c);
-const char *dxl_config_user_path(const dxl_config *c);
 
 int  dxl_config_first_run(const dxl_config *c);
 /* FirstRun set to held, the value the launch went by (dxl_decision's
@@ -63,9 +56,5 @@ int  dxl_config_first_run(const dxl_config *c);
  * written even over a higher stored value, and one above 1100 is kept
  * otherwise. */
 void dxl_config_clamp_first_run(dxl_config *c, int held);
-
-const char *dxl_config_render_device(const dxl_config *c);
-const char *dxl_config_cd_path(const dxl_config *c);
-const char *dxl_config_game_engine(const dxl_config *c);
 
 #endif

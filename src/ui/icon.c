@@ -74,7 +74,21 @@ int dxl_icon_save(const char *path, int px) {
     if (!made) return -1;
     SDL_Surface *s = dxl_icon(px);
     if (!s) return -1;
-    int ok = SDL_SavePNG(s, path);
+    /* Made in memory, then written whole or not at all, as the launcher's
+     * other files are (dxl_path_write_atomic): a cut write leaves the menu
+     * the icon it had. */
+    SDL_IOStream *png = SDL_IOFromDynamicMem();
+    int ok = png && SDL_SavePNG_IO(s, png, false);
     SDL_DestroySurface(s);
+    if (ok) {
+        const void *bytes = SDL_GetPointerProperty(SDL_GetIOProperties(png), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER,
+                                                   NULL);
+        Sint64 len = SDL_GetIOSize(png);
+        dxl_err e = { { 0 } };
+        ok = bytes && len > 0 && dxl_path_write_atomic(path, bytes, (size_t)len, &e) == 0;
+        /* Its caller says why by SDL's error, as for SDL's own write. */
+        if (!ok) SDL_SetError("%s", dxl_err_msg(&e));
+    }
+    if (png) SDL_CloseIO(png);
     return ok ? 0 : -1;
 }
