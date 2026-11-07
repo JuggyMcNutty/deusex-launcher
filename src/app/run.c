@@ -671,20 +671,22 @@ static void antialias_check(dxl_run *r, atomic_int *stop) {
 }
 
 /* The instance for the run's words: the mark of a launcher running, every
- * launcher's, as the original's every instance keeps its mutex, and the
- * hand-over's channel, unless a launcher listens on it already, as the
- * original marks every client's log window IsBrowser; but for a dedicated
- * server (-server), which takes no line a second start hands on, as the
- * original's, whose log window is never IsBrowser: the mark alone. Taken
- * again, of the other kind, when a relaunch changes it: the new one before
- * the old goes, so the mark never lapses. */
+ * launcher's, as the original's every instance keeps its mutex, and a
+ * hand-over's channel of its own, as the original marks every client's log
+ * window IsBrowser; but for a dedicated server (-server), which takes no
+ * line a second start hands on, as the original's, whose log window is
+ * never IsBrowser: the mark alone. Taken anew at a relaunch, as the
+ * original's relaunched DeusEx.exe is a new instance, its log window the
+ * newest: the new one before the old goes, so the mark never lapses, and
+ * the old kept where no new one can be had. */
 static void hold_instance(dxl_run *r) {
     int server = dxl_cmd_param(r->words, "server");
-    if (r->instance && dxl_instance_listens(r->instance) == !server) return;
     char *id = dxl_session_instance_id(&r->session);
-    dxl_instance *was = r->instance;
-    r->instance = server ? dxl_instance_acquire_lock(id) : dxl_instance_acquire(id);
-    dxl_instance_release(was);
+    dxl_instance *now = server ? dxl_instance_acquire_lock(id) : dxl_instance_acquire(id);
+    if (now) {
+        dxl_instance_release(r->instance);
+        r->instance = now;
+    }
     free(id);
 }
 

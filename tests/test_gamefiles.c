@@ -477,6 +477,50 @@ static void test_beside_outlives_the_first(void) {
     free(home);
 }
 
+/* With the first gone, a start hands its line to a launcher started beside
+ * it, still running, as the original's to that one's log window: no screen
+ * shown, no second game (bugs.md LAPP.12). The two launchers are this
+ * process's instances. */
+static void test_beside_takes_the_line(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-line"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_session ss;
+    CHECK_INT(dxl_session_open(&ss, NULL, NULL), 0);
+    char *id = dxl_session_instance_id(&ss);
+
+    /* The first at Home, one beside it; the first quits. */
+    dxl_instance *first = dxl_instance_acquire(id);
+    dxl_instance *beside = dxl_instance_acquire(id);
+    CHECK(first != NULL && beside != NULL);
+    dxl_instance_release(first);
+
+    dxl_run_ui ui = { .view = note_view };
+    char *argv[] = { "deusex-launcher", "-nosound", NULL };
+    static atomic_int stop;
+    beside_views = 0;
+    CHECK_INT(dxl_run_main(2, argv, &ui, &stop), 0);
+    CHECK_INT(beside_views, 0);
+    char line[DXL_HANDOFF_MAX + 1];
+    CHECK_INT(dxl_instance_poll(beside, line, sizeof line), 1);
+    CHECK_STR(line, "-nosound");
+
+    dxl_instance_release(beside);
+    free(id);
+    dxl_session_close(&ss);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A window closed at Recovery: its Quit. */
 static int recovery_views;
 static int quit_at_recovery(void *ctx, dxl_run *r, dxl_view which) {
@@ -904,6 +948,7 @@ TEST_MAIN_BEGIN
     RUN(test_ends_without_a_game);
     RUN(test_unanswered);
     RUN(test_beside_outlives_the_first);
+    RUN(test_beside_takes_the_line);
     RUN(test_first_run_refused);
     RUN(test_relaunch_drops_ini);
     RUN(test_back_home);
