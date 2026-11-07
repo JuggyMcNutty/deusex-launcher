@@ -127,6 +127,13 @@ void dxl_settings_defaults(dxl_shell *s, const char *page) {
     free(def);
 }
 
+int dxl_settings_defaults_ready(dxl_shell *s, const char *page) {
+    const dxl_setting *renderer = dxl_setting_find("graphics.renderer");
+    if (page && (!renderer || strcmp(page, renderer->page) != 0)) return 1;
+    dxl_shell_probe(s);
+    return s->probe_state != 1;
+}
+
 static char *text_of(dxl_shell *s, const dxl_setting *st, size_t *size) {
     for (int i = 0; i < s->text_count; i++)
         if (s->text_rows[i] == st) {
@@ -557,11 +564,19 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
         dxl_shell_confirm(s, dxl_ui_id(ui, "settings reset"), names[s->settings_tab],
                           "Every setting on this page back to its default?", "Reset", "Keep them");
     }
-    if (dxl_shell_answer(s, dxl_ui_id(ui, "settings reset")) == 1) {
-        dxl_settings_defaults(s, names[s->settings_tab]);
-        dxl_shell_toast(s, "%s: back to the defaults.", names[s->settings_tab]);
+    if (dxl_shell_answer(s, dxl_ui_id(ui, "settings reset")) == 1) s->reset_waits = s->settings_tab + 1;
+    /* Graphics' once the probe has answered: Software where it found no GPU
+     * driver, as a new profile has it. */
+    if (s->reset_waits && dxl_settings_defaults_ready(s, names[s->reset_waits - 1])) {
+        const char *page = names[s->reset_waits - 1];
+        s->reset_waits = 0;
+        dxl_settings_defaults(s, page);
+        dxl_shell_toast(s, "%s: back to the defaults.", page);
     }
-    if (done && graphics) {
+    if (s->reset_waits) dxl_ui_animate(ui);
+    /* F5 and the pad's Start play from it too, as from Home. */
+    int play = graphics && !refused && !busy && ui->in.start;
+    if ((done || play) && graphics) {
         dxl_settings_keep(s);
         s->result = 1;
     } else if (done || (ui->in.back && !busy)) {

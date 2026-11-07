@@ -10,6 +10,12 @@
 #include "upkg_writer.h"
 
 #include <stdint.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 /* ---- the package ------------------------------------------------------- */
 
@@ -47,8 +53,8 @@ static buf make_package(void) {
     /* 2: MyTex, its palette export 1, masked */
     tag(&obj[1], N_PALETTE_PROP, DXL_UPROP_OBJECT, 0, 0, 0, 0);
     idx(&obj[1], 1);
-    tag(&obj[1], N_MASKED, DXL_UPROP_BOOL, 0, 0, 0, 0);
-    obj[1].d[obj[1].n - 1] |= 0x80;   /* a bool's value: its tag's high bit */
+    tag(&obj[1], N_MASKED, DXL_UPROP_BOOL, 5, 0, 0, 0);   /* a size of 0, as both engines write a bool */
+    obj[1].d[obj[1].n - 2] |= 0x80;   /* its value: its tag's high bit */
     idx(&obj[1], N_NONE);
     idx(&obj[1], 1);                       /* one mipmap */
     u32(&obj[1], 0);                       /* the offset past it */
@@ -231,8 +237,56 @@ static void test_wide_string(void) {
     CHECK_INT(dxl_ur_i32(&cut), 42);
 }
 
+/* A package's bytes moved to the end of a page whose next one cannot be
+ * read: a reader that goes past them faults, in any build. NULL where no
+ * such pages can be had. */
+typedef struct {
+    uint8_t *map;
+    size_t   len;
+} guarded;
+
+static uint8_t *guard(guarded *g, const uint8_t *d, size_t n) {
+#ifdef _WIN32
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    size_t page = si.dwPageSize;
+#else
+    size_t page = (size_t)sysconf(_SC_PAGESIZE);
+#endif
+    size_t body = (n + page - 1) / page * page;
+    g->len = body + page;
+#ifdef _WIN32
+    DWORD was;
+    g->map = VirtualAlloc(NULL, g->len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (g->map && !VirtualProtect(g->map + body, page, PAGE_NOACCESS, &was)) {
+        VirtualFree(g->map, 0, MEM_RELEASE);
+        g->map = NULL;
+    }
+#else
+    g->map = mmap(NULL, g->len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (g->map == MAP_FAILED) g->map = NULL;
+    if (g->map && mprotect(g->map + body, page, PROT_NONE) != 0) {
+        munmap(g->map, g->len);
+        g->map = NULL;
+    }
+#endif
+    if (!g->map) return NULL;
+    memcpy(g->map + body - n, d, n);
+    return g->map + body - n;
+}
+
+static void unguard(guarded *g) {
+    if (!g->map) return;
+#ifdef _WIN32
+    VirtualFree(g->map, 0, MEM_RELEASE);
+#else
+    munmap(g->map, g->len);
+#endif
+}
+
 /* Broken a thousand ways -- bytes changed, cut short -- every reader
- * refuses it or reads within it (ASan's builds see to the second). */
+ * refuses it or reads within it: the objects' readers on its bytes guarded
+ * (guard), so that one that read past them would fault. */
 static void test_broken(void) {
     buf b = make_package();
     uint32_t seed = 12345;
@@ -253,6 +307,10 @@ static void test_broken(void) {
         dxl_err e;
         if (dxl_upkg_parse(&p, d, n, &e) == 0) {
             parsed++;
+            guarded g;
+            uint8_t *own = p.data, *moved = guard(&g, p.data, p.size);
+            CHECK(moved != NULL);
+            if (moved) p.data = moved;
             for (int32_t i = 0; i < p.export_count; i++) {
                 dxl_uimage im;
                 if (dxl_upkg_texture(&p, i, &im, &e) == 0) dxl_uimage_free(&im);
@@ -270,6 +328,8 @@ static void test_broken(void) {
                 }
                 (void)dxl_upkg_ref_class(&p, i + 1);
             }
+            p.data = own;
+            unguard(&g);
             dxl_upkg_free(&p);
         }
         free(d);

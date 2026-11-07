@@ -43,6 +43,8 @@ dxl_test(test_padmap)
 target_link_libraries(test_padmap PRIVATE dxl_ui)
 dxl_test(test_shell_pick)
 target_link_libraries(test_shell_pick PRIVATE dxl_screens)
+dxl_test(test_shell_choose)
+target_link_libraries(test_shell_choose PRIVATE dxl_screens)
 dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
@@ -102,7 +104,7 @@ add_dependencies(test_gamefiles stub_engine)
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
 
 # Windows' own: the Known Folders, the finder's Windows places, the Start
-# menu's entry and deusex://, the Recycle Bin.
+# menu's entry and deusex://, the Recycle Bin, the hand-over's pipe.
 if(WIN32)
     dxl_test(test_folders_win32)
     dxl_test(test_finder_win32)
@@ -110,6 +112,7 @@ if(WIN32)
     target_link_libraries(test_desktop_win32 PRIVATE dxl_platform)
     dxl_test(test_trash_win32)
     target_link_libraries(test_trash_win32 PRIVATE dxl_platform)
+    dxl_test(test_instance_win32)
     return()
 endif()
 
@@ -120,6 +123,7 @@ dxl_test(test_xdg)
 dxl_test(test_finder)
 dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
+target_compile_definitions(test_desktop PRIVATE DXL_DATA="${DXL_ROOT}/data")
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
 

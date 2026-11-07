@@ -17,6 +17,13 @@ void dxl_startup(volatile int *stop, void (*wake)(void));
  * handler returns -- may let go. Nothing on POSIX. */
 void dxl_startup_ended(void);
 
+/* What the start says said, its run about to begin: a console borrowed of
+ * the parent's to say it is let go -- Windows' GUI launcher's, started from
+ * a cmd.exe, its own from then on, as a GUI program is: that console's
+ * Ctrl+C or closing no stop of its. Nothing on POSIX, nor for a program
+ * whose console is its own (dxl-cli). */
+void dxl_startup_detach(void);
+
 #ifdef _WIN32
 /* A deusex:// link opened by the registered handler ("<program>" "%1")
  * is the raw command line's one quoted argument, which Windows puts there

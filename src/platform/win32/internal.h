@@ -1,7 +1,7 @@
-/* What Windows' platform files share among themselves and no one else:
- * UTF-8 to UTF-16 and back -- the launcher's paths are UTF-8 with '/',
- * Windows' wide calls take UTF-16 -- errno from Windows' errors, and the
- * single instance's channel, an event the waits wait on. */
+/* What Windows' platform files share among themselves and no one else but
+ * their tests: UTF-8 to UTF-16 and back -- the launcher's paths are UTF-8
+ * with '/', Windows' wide calls take UTF-16 -- errno from Windows' errors,
+ * and the single instance's channel, an event the waits wait on. */
 #ifndef DXL_WIN32_INTERNAL_H
 #define DXL_WIN32_INTERNAL_H
 
@@ -28,6 +28,11 @@ const char *dxl_win_error(DWORD error, char *buf, size_t size);
 /* The channel's event, set while something waits on it; NULL when the
  * instance has none. */
 HANDLE dxl_instance_event(const dxl_instance *inst);
+
+/* The tests' (tests/test_instance_win32.c), NULL but there: called with the
+ * pipe's name between its making and the primary's first wait for a
+ * sender, where a second start can come and go before that wait. */
+extern void (*dxl_instance_test_made)(const wchar_t *pipe);
 
 /* A word quoted for a command line as CommandLineToArgvW splits it, onto
  * line's end (its size in wchar_t, NUL-terminated; 0 when it would not

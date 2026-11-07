@@ -95,9 +95,11 @@ struct dxl_window {
     dxl_wake      *quit;
     SDL_Semaphore *drained;
 
-    /* The GPU probe, dxl-cli --probe --ini in a worker. */
+    /* The GPU probe, dxl-cli --probe --ini in a worker, given up as the
+     * window goes (probe_stop). */
     SDL_Thread    *probe_thread;
     SDL_AtomicInt  probe_done;
+    atomic_int     probe_stop;
     dxl_gpu_probe  probe_result;
     char          *cli;
     Uint32         job_event;
@@ -183,7 +185,7 @@ static int has_word(const char *line, const char *word) {
 /* A second start's command line: the window raised, on the big screen
  * when it asks for it (run.c passes --big-screen on). */
 static void take_lines(dxl_window *w) {
-    char line[DXL_HANDOFF_MAX];
+    char line[DXL_HANDOFF_MAX + 1];
     while (w->run && dxl_instance_poll(w->run->instance, line, sizeof line)) {
         dxl_log("a second start's command line: %s", line);
         /* Brought back when minimized alone: SDL's restore un-maximizes a
@@ -258,7 +260,7 @@ static int SDLCALL probe_main(void *p) {
     char out[4096];
     int status = 0;
     dxl_err e;
-    if (dxl_run_capture(argv, 10000, out, sizeof out, NULL, 0, &status, &e) != 0 ||
+    if (dxl_run_capture_until(argv, 10000, &w->probe_stop, out, sizeof out, NULL, 0, &status, &e) != 0 ||
         dxl_gpu_probe_from_ini(out, &w->probe_result) != 0) {
         memset(&w->probe_result, 0, sizeof w->probe_result);
         snprintf(w->probe_result.note, sizeof w->probe_result.note, "%s --probe gave no answer", w->cli);
@@ -277,6 +279,7 @@ static void start_probe(dxl_shell *s) {
     free(w->cli);
     w->cli = dxl_path_join(w->run->session.app_dir, "dxl-cli" DXL_EXE_SUFFIX);
     SDL_SetAtomicInt(&w->probe_done, 0);
+    atomic_store(&w->probe_stop, 0);
     w->probe_thread = SDL_CreateThread(probe_main, "dxl-probe", w);
     if (!w->probe_thread) {
         /* An answer all the same, as a probe that gave none: nothing waits
@@ -692,10 +695,25 @@ static void set_big(dxl_shell *s, int on) {
     dxl_ui_set_big(&s->ui, w->big);
 }
 
+#ifdef _WIN32
+/* SDL's messages, into the launcher's log: its own output on Windows
+ * attaches to the parent's console for them, which the launcher has let go
+ * of to be its own (platform/startup.h, bugs.md LPORT.8). */
+static void SDLCALL sdl_log(void *userdata, int category, SDL_LogPriority priority, const char *message) {
+    (void)userdata;
+    (void)category;
+    (void)priority;
+    dxl_log("SDL: %s", message);
+}
+#endif
+
 static int open_window(dxl_window *w, dxl_run *r) {
     dxl_shell *s = &w->shell;
     if (w->window) return 0;
     if (!w->sdl) {
+#ifdef _WIN32
+        SDL_SetLogOutputFunction(sdl_log, NULL);
+#endif
         SDL_SetAppMetadata("DXLauncher", w->version, DXL_APP_ID);
         /* A launcher waiting on the player keeps no screensaver off; the
          * signals are the launcher's own (dxl_window_wake). */
@@ -954,6 +972,7 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
     dxl_shell_init(&w->shell, version);
     w->pick_lock = SDL_CreateMutex();
     w->script = dxl_uiscript_open();
+    atomic_init(&w->probe_stop, 0);
     if (!signal_wake) signal_wake = dxl_wake_new();
     return w;
 }
@@ -961,7 +980,12 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
 void dxl_window_free(dxl_window *w) {
     if (!w) return;
     listen_stop(w);
-    if (w->probe_thread) SDL_WaitThread(w->probe_thread, NULL);
+    /* A probe still on is given up: no one is left to take its answer, and
+     * a stop waits for it no more than a tenth of a second. */
+    if (w->probe_thread) {
+        atomic_store(&w->probe_stop, 1);
+        SDL_WaitThread(w->probe_thread, NULL);
+    }
     free(w->cli);
     close_window(w, NULL);
     if (w->kit) dxl_ui_free(&w->shell.ui);
@@ -971,6 +995,7 @@ void dxl_window_free(dxl_window *w) {
         SDL_Quit();
     }
     SDL_DestroyMutex(w->pick_lock);
+    dxl_uiscript_end(w->script);
     dxl_uiscript_free(w->script);
     free(w->words_before);
     free(w->picked);

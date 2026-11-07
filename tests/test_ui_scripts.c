@@ -8,6 +8,7 @@
  * scratch folders. */
 #define _GNU_SOURCE
 #include "test.h"
+#include "ends.h"
 #include "core/engine_settings.h"
 #include "core/ini.h"
 #include "core/json.h"
@@ -90,20 +91,25 @@ static char *read_home(const char *rel) {
     return text ? text : dxl_xstrdup("");
 }
 
-/* The script ran to its end: no line of it failed. */
-static void script_ok(void) {
-    char *out = read_home("out.txt"), *log = read_home("state/dxlauncher/launcher.log");
-    if (strstr(out, "ui script: FAILED")) fprintf(stderr, "%s", out);
-    CHECK(strstr(out, "ui script: FAILED") == NULL);
-    CHECK(strstr(log, "ui script: FAILED") == NULL);
-    free(out);
-    free(log);
-}
-
 static int count(const char *text, const char *what) {
     int n = 0;
     for (const char *p = text; (p = strstr(p, what)); p += strlen(what)) n++;
     return n;
+}
+
+/* Each script run since the home was made ran to its end: its end mark
+ * (screens/uiscript.h) as many times as a script was read, and no line of
+ * one failed. */
+static void script_ok(void) {
+    char *out = read_home("out.txt"), *log = read_home("state/dxlauncher/launcher.log");
+    int scripts = count(out, "ui script " DXL_UI_SCRIPTS "/"), ended = count(out, "ui script: done\n");
+    if (strstr(out, "ui script: FAILED") || ended != scripts) fprintf(stderr, "%s", out);
+    CHECK(strstr(out, "ui script: FAILED") == NULL);
+    CHECK(strstr(log, "ui script: FAILED") == NULL);
+    CHECK(scripts > 0);
+    CHECK_INT(ended, scripts);
+    free(out);
+    free(log);
 }
 
 /* The nth line holding what, or "". */
@@ -294,14 +300,15 @@ static void test_settings_kept(void) {
 }
 
 /* After a crash: Recovery, its log page, the next run in a window, another
- * renderer; Play; the window's words on that run alone. */
+ * renderer; Play; the window's words on that run alone. Quit after the
+ * second crash: the launcher's exit that game's status. */
 static void test_recovery(void) {
     CHECK_INT(fresh_home(), 0);
     profile_files a, b;
     open_files(&a);
     char was[32];
     snprintf(was, sizeof was, "%s", dxl_es_choice(a.es, DXL_ES_RENDER_TYPE));
-    launch("recovery.script", "crash");
+    CHECK_INT(launch("recovery.script", "crash"), END_CRASH_STATUS);
     script_ok();
     char *log = read_home("state/dxlauncher/launcher.log");
     CHECK_INT(count(log, "starting the game:"), 2);
@@ -489,7 +496,7 @@ static void test_play_refused(void) {
 }
 
 /* -changevideo's Graphics left for Home, Settings opened from there: its
- * Done goes Home, the game not started. */
+ * Done goes Home, the game not started; then F5 on it plays. */
 static void test_graphics_then_home(void) {
     CHECK_INT(fresh_home(), 0);
     /* FirstRun as a run leaves it: below 400 -changevideo is the first
@@ -509,6 +516,15 @@ static void test_graphics_then_home(void) {
     script_ok();
     char *log = read_home("state/dxlauncher/launcher.log");
     CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+    /* -changevideo's Graphics again, F5 its Play (bugs.md LUI.8). */
+    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/graphics_play.script' "
+                 "'%s/deusex-launcher' -changevideo >>'%s/out.txt' 2>&1",
+                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, app, home),
+              0);
+    script_ok();
+    log = read_home("state/dxlauncher/launcher.log");
+    CHECK_INT(count(log, "starting the game:"), 1);
     free(log);
 }
 
@@ -828,6 +844,25 @@ static void test_multiplayer(void) {
     script_ok();
     started_with("--url=127.0.0.1:7998");
 
+    /* A link handed over while a name is edited on Settings: the edit kept
+     * first, then Multiplayer asks (bugs.md LUI.8). */
+    CHECK_INT(fresh_home(), 0);
+    master_here(1);
+    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/multiplayer_handover_edit.script' "
+                 "'%s/deusex-launcher' >>'%s/out.txt' 2>&1 & sleep 8; DXL_HOME='%s' %s '%s/deusex-launcher' "
+                 "'deusex://127.0.0.1:7997/' >>'%s/out.txt' 2>&1; wait",
+                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, app, home, home, OUR_PADS, app, home),
+              0);
+    script_ok();
+    log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "a second start's command line: deusex://127.0.0.1:7997") != NULL);
+    CHECK(strstr(log, "starting the game") == NULL);
+    free(log);
+    profile_files h;
+    open_files(&h);
+    CHECK_STR(value(h.usr, "DefaultPlayer", "Name"), "Waited");
+    close_files(&h);
+
     CHECK_INT(fresh_home(), 0);
     fakes_start(&f, 1);
     CHECK_INT(launch_with("multiplayer_password.script", "ready", "DXL_STUB_ARGS=1"), 0);
@@ -938,6 +973,43 @@ static void first_run(const char *script, char *looks, char *layout) {
     close_files(&b);
 }
 
+/* Back to the defaults on Graphics before the GPU probe has answered, the
+ * probe's dxl-cli one that finds no GPU driver, 3 s slow: once it has, the
+ * page on the software renderer, as a new profile there begins (bugs.md
+ * LUI.8), not the defaults file's Vulkan. */
+static void test_defaults_wait(void) {
+    CHECK_INT(fresh_home(), 0);
+    char cli[300], real[310];
+    snprintf(cli, sizeof cli, "%s/dxl-cli", app);
+    snprintf(real, sizeof real, "%s/dxl-cli.real", app);
+    CHECK_INT(rename(cli, real), 0);
+    FILE *f = fopen(cli, "w");
+    CHECK(f != NULL);
+    if (f) {
+        fprintf(f, "#!/bin/sh\n"
+                   "case \" $* \" in *\" --probe \"*)\n"
+                   "    sleep 3\n"
+                   "    printf '[Probe]\\nProbed=True\\nVulkan=False\\nGLES=False\\nGL=False\\n'\n"
+                   "    exit 0 ;;\n"
+                   "esac\n"
+                   "exec '%s' \"$@\"\n",
+                real);
+        fclose(f);
+        chmod(cli, 0755);
+    }
+    CHECK_INT(launch("defaults_wait.script", "ready"), 0);
+    script_ok();
+    rename(real, cli);
+    profile_files b;
+    open_files(&b);
+    CHECK(b.es != NULL);
+    if (b.es) CHECK_STR(dxl_es_choice(b.es, DXL_ES_RENDER_TYPE), "Software");
+    close_files(&b);
+    char *log = read_home("state/dxlauncher/launcher.log");
+    CHECK(strstr(log, "probe: Vulkan 0") != NULL);
+    free(log);
+}
+
 /* Make the profile pressed before the GPU probe has answered, then Back:
  * the press goes with the page, so Your profile, shown again once the
  * probe has answered, makes nothing until Make is pressed again. The
@@ -1007,6 +1079,7 @@ int main(void) {
     RUN(test_shots_page);
     RUN(test_first_run);
     RUN(test_make_waits);
+    RUN(test_defaults_wait);
     if (!dxl_test_failures) sh("rm -rf '%s' '%s'", app, home);
     else fprintf(stderr, "kept for a look: %s, %s\n", app, home);
     if (dxl_test_failures) {

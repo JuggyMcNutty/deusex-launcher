@@ -148,7 +148,7 @@ static void test_handoff_delivers_the_command_line(void) {
     dxl_instance *primary = dxl_instance_acquire(g_root);
     CHECK(primary != NULL);
 
-    char buf[DXL_HANDOFF_MAX];
+    char buf[DXL_HANDOFF_MAX + 1];
     CHECK_INT(dxl_instance_poll(primary, buf, sizeof buf), 0);   /* nothing yet */
 
     dxl_err e;
@@ -180,6 +180,29 @@ static void test_lock_without_channel(void) {
     dxl_instance_release(client);
 }
 
+/* A client beside a server, which holds the lock alone, listens without it,
+ * as the original's every client does: a forward reaches it, and the
+ * channel is its own while it listens. */
+static void test_listen_beside_the_lock(void) {
+    dxl_instance *server = dxl_instance_acquire_lock(g_root);
+    CHECK(server != NULL);
+    CHECK(dxl_instance_acquire(g_root) == NULL);
+    dxl_instance *client = dxl_instance_listen(g_root);
+    CHECK(client != NULL);
+    CHECK_INT(dxl_instance_listens(client), 1);
+    CHECK_INT(dxl_instance_locked(client), 0);
+    CHECK_INT(dxl_instance_locked(server), 1);
+    CHECK(dxl_instance_listen(g_root) == NULL);
+    dxl_err e;
+    CHECK_INT(dxl_instance_forward(g_root, "map", 1000, &e), 0);
+    char buf[DXL_HANDOFF_MAX + 1];
+    CHECK_INT(dxl_instance_poll(client, buf, sizeof buf), 1);
+    CHECK_STR(buf, "map");
+    dxl_instance_release(client);
+    CHECK_INT(dxl_instance_other_running(g_root), 1);   /* the lock still the server's */
+    dxl_instance_release(server);
+}
+
 TEST_MAIN_BEGIN
     build_install();
     RUN(test_sentinel_lifecycle);
@@ -189,5 +212,6 @@ TEST_MAIN_BEGIN
     RUN(test_lock_is_per_install);
     RUN(test_handoff_delivers_the_command_line);
     RUN(test_lock_without_channel);
+    RUN(test_listen_beside_the_lock);
     teardown();
 TEST_MAIN_END

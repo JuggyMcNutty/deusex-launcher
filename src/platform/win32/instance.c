@@ -4,10 +4,12 @@
  * so a crashed launcher's never reads as live. The channel is a named pipe,
  * \\.\pipe\deusex-launcher.<hash>, one message a command line: the primary
  * waits for a sender to connect, reads the message, and waits again; its
- * event is set while either is ready to go on.
+ * event is set while either is ready to go on. A pipe that will not wait is
+ * given up, the lock kept alone.
  */
 #include "platform/instance.h"
 #include "platform/win32/internal.h"
+#include "core/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,8 +20,11 @@ struct dxl_instance {
     HANDLE     pipe;       /* INVALID_HANDLE_VALUE: the lock alone */
     OVERLAPPED ov;
     int        reading;    /* a read pending, else a wait for a sender */
+    DWORD      error;      /* the last wait's that failed, for the log */
     char       buf[DXL_HANDOFF_MAX + 1];
 };
+
+void (*dxl_instance_test_made)(const wchar_t *pipe);
 
 /* FNV-1a over the id, as POSIX's: two homes get two names. */
 static unsigned long id_hash(const char *id) {
@@ -36,9 +41,14 @@ static void names(const char *id, wchar_t *mutex, wchar_t *pipe, size_t size) {
     swprintf(pipe, size, L"\\\\.\\pipe\\deusex-launcher.%08lx", id_hash(id));
 }
 
-/* The next wait: for a sender, or, connected, for its message. */
-static void arm(dxl_instance *inst) {
-    for (;;) {
+/* The next wait: for a sender, or, connected, for its message. 0 when it
+ * leaves a call in flight, or one done, its event set; -1 when the pipe
+ * will not wait, each call failing at once: none then sets the event, and
+ * one set by hand would wake every wait for nothing (bugs.md LPORT.7). */
+static int arm(dxl_instance *inst) {
+    /* A sender gone takes a turn, the wait for the next one another: four
+     * are more than a working pipe needs. */
+    for (int turn = 0; turn < 4; turn++) {
         ResetEvent(inst->ov.hEvent);
         if (!inst->reading) {
             if (ConnectNamedPipe(inst->pipe, &inst->ov)) {
@@ -46,23 +56,65 @@ static void arm(dxl_instance *inst) {
                 continue;
             }
             DWORD e = GetLastError();
-            if (e == ERROR_PIPE_CONNECTED) {
+            if (e == ERROR_IO_PENDING) return 0;
+            /* Connected before the wait; or come, written and gone before
+             * it, the pipe closing (ERROR_NO_DATA): what it wrote is read
+             * all the same, the read then finding its end. */
+            if (e == ERROR_PIPE_CONNECTED || e == ERROR_NO_DATA) {
                 inst->reading = 1;
                 continue;
             }
-            if (e != ERROR_IO_PENDING) SetEvent(inst->ov.hEvent);   /* to be tried again */
-            return;
+            /* Failed at once: what is left of a sender dropped, the wait
+             * made again. */
+            inst->error = e;
+            DisconnectNamedPipe(inst->pipe);
+            continue;
         }
         DWORD got = 0;
         if (ReadFile(inst->pipe, inst->buf, DXL_HANDOFF_MAX, &got, &inst->ov)) {
             SetEvent(inst->ov.hEvent);   /* there already */
-            return;
+            return 0;
         }
         DWORD e = GetLastError();
-        if (e == ERROR_IO_PENDING || e == ERROR_MORE_DATA) return;
+        if (e == ERROR_IO_PENDING || e == ERROR_MORE_DATA) return 0;
         /* The sender went before it said anything: wait for the next. */
+        inst->error = e;
         DisconnectNamedPipe(inst->pipe);
         inst->reading = 0;
+    }
+    return -1;
+}
+
+/* The channel given up, the lock kept, as -server's: a second start then
+ * plays beside this launcher. */
+static void give_up(dxl_instance *inst) {
+    char why[256];
+    dxl_log("the hand-over's pipe will not wait (%s): a second start plays beside this launcher",
+            dxl_win_error(inst->error, why, sizeof why));
+    CancelIo(inst->pipe);
+    DisconnectNamedPipe(inst->pipe);
+    CloseHandle(inst->pipe);
+    CloseHandle(inst->ov.hEvent);
+    inst->pipe = INVALID_HANDLE_VALUE;
+    inst->ov.hEvent = NULL;
+}
+
+/* The handoff pipe, into inst: the first instance of its name, so none
+ * while a launcher listens on it already (a client beside a server, which
+ * holds the mutex). Failing to make it is not fatal -- the instance just
+ * cannot receive URLs. */
+static void open_pipe(dxl_instance *inst, const wchar_t *pname) {
+    HANDLE p = CreateNamedPipeW(pname, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+                                1, 0, DXL_HANDOFF_MAX, 0, NULL);
+    HANDLE e = p != INVALID_HANDLE_VALUE ? CreateEventW(NULL, TRUE, FALSE, NULL) : NULL;
+    if (e) {
+        inst->pipe = p;
+        inst->ov.hEvent = e;
+        if (dxl_instance_test_made) dxl_instance_test_made(pname);
+        if (arm(inst) != 0) give_up(inst);
+    } else if (p != INVALID_HANDLE_VALUE) {
+        CloseHandle(p);
     }
 }
 
@@ -79,28 +131,30 @@ static dxl_instance *acquire(const char *id, int listen) {
     memset(inst, 0, sizeof *inst);
     inst->mutex = m;
     inst->pipe = INVALID_HANDLE_VALUE;
-    /* The handoff channel. Failing to open it is not fatal -- we are still the
-     * only instance, we just cannot receive URLs. */
-    if (listen) {
-        HANDLE p = CreateNamedPipeW(pname, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
-                                    PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
-                                    1, 0, DXL_HANDOFF_MAX, 0, NULL);
-        HANDLE e = p != INVALID_HANDLE_VALUE ? CreateEventW(NULL, TRUE, FALSE, NULL) : NULL;
-        if (e) {
-            inst->pipe = p;
-            inst->ov.hEvent = e;
-            arm(inst);
-        } else if (p != INVALID_HANDLE_VALUE) {
-            CloseHandle(p);
-        }
-    }
+    if (listen) open_pipe(inst, pname);
     return inst;
 }
 
 dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
 dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
 
+dxl_instance *dxl_instance_listen(const char *id) {
+    wchar_t mname[64], pname[64];
+    names(id, mname, pname, 64);
+    dxl_instance *inst = dxl_xmalloc(sizeof *inst);
+    memset(inst, 0, sizeof *inst);
+    inst->pipe = INVALID_HANDLE_VALUE;
+    open_pipe(inst, pname);
+    if (inst->pipe == INVALID_HANDLE_VALUE) {
+        free(inst);
+        return NULL;
+    }
+    return inst;
+}
+
 int dxl_instance_listens(const dxl_instance *inst) { return inst && inst->pipe != INVALID_HANDLE_VALUE; }
+
+int dxl_instance_locked(const dxl_instance *inst) { return inst && inst->mutex; }
 
 HANDLE dxl_instance_event(const dxl_instance *inst) { return dxl_instance_listens(inst) ? inst->ov.hEvent : NULL; }
 
@@ -112,8 +166,10 @@ void dxl_instance_release(dxl_instance *inst) {
         CloseHandle(inst->pipe);
         CloseHandle(inst->ov.hEvent);
     }
-    ReleaseMutex(inst->mutex);
-    CloseHandle(inst->mutex);
+    if (inst->mutex) {
+        ReleaseMutex(inst->mutex);
+        CloseHandle(inst->mutex);
+    }
     free(inst);
 }
 
@@ -180,22 +236,32 @@ int dxl_instance_poll(dxl_instance *inst, char *buf, size_t size) {
         BOOL done = GetOverlappedResult(inst->pipe, &inst->ov, &got, FALSE);
         DWORD e = done ? 0 : GetLastError();
         if (!done && e == ERROR_IO_INCOMPLETE) return 0;
+        int have = 0;
         if (!inst->reading) {
-            /* A sender connected (or the wait failed): read its message. */
-            inst->reading = done || e == ERROR_PIPE_CONNECTED;
-            arm(inst);
-            continue;
+            /* A sender connected, gone already or not: its message read
+             * next. Or the wait failed: what is left dropped, the wait made
+             * again. */
+            if (done || e == ERROR_PIPE_CONNECTED || e == ERROR_NO_DATA) {
+                inst->reading = 1;
+            } else {
+                inst->error = e;
+                DisconnectNamedPipe(inst->pipe);
+            }
+        } else {
+            /* Its message, whole or cut at the buffer; then the next sender. */
+            have = done || e == ERROR_MORE_DATA;
+            if (have) {
+                size_t n = got < size - 1 ? got : size - 1;
+                memcpy(buf, inst->buf, n);
+                buf[n] = '\0';
+            }
+            DisconnectNamedPipe(inst->pipe);
+            inst->reading = 0;
         }
-        /* Its message, whole or cut at the buffer; then the next sender. */
-        int have = done || e == ERROR_MORE_DATA;
-        if (have) {
-            size_t n = got < size - 1 ? got : size - 1;
-            memcpy(buf, inst->buf, n);
-            buf[n] = '\0';
+        if (arm(inst) != 0) {
+            give_up(inst);
+            return have;
         }
-        DisconnectNamedPipe(inst->pipe);
-        inst->reading = 0;
-        arm(inst);
         if (have) return 1;
     }
     return 0;

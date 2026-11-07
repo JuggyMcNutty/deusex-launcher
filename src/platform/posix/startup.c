@@ -29,3 +29,5 @@ void dxl_startup(volatile int *stop, void (*wake)(void)) {
 }
 
 void dxl_startup_ended(void) {}
+
+void dxl_startup_detach(void) {}

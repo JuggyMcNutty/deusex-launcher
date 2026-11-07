@@ -426,6 +426,11 @@ static int take_pipe(HANDLE h, char *buf, size_t size, size_t *got) {
 
 int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
                     int *status, dxl_err *err) {
+    return dxl_run_capture_until(argv, timeout_ms, NULL, out, size, errs, errs_size, status, err);
+}
+
+int dxl_run_capture_until(char *const argv[], int timeout_ms, const atomic_int *stop, char *out, size_t size,
+                          char *errs, size_t errs_size, int *status, dxl_err *err) {
     if (size) out[0] = '\0';
     if (errs && errs_size) errs[0] = '\0';
     SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
@@ -464,16 +469,17 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     }
     CloseHandle(pi.hThread);
     size_t got = 0, got_err = 0;
-    int open_out = 1, open_err = err_r != NULL, timed_out = 0;
+    int open_out = 1, open_err = err_r != NULL, timed_out = 0, stopped = 0;
     /* A deadline, not a count of quiet waits: a program that talks on and
-     * on is stopped at it too. */
+     * on is stopped at it too; and the stop, seen within a wait's 20 ms. */
     ULONGLONG deadline = GetTickCount64() + (ULONGLONG)(timeout_ms > 0 ? timeout_ms : 0);
     for (;;) {
         if (open_out) open_out = take_pipe(out_r, out, size, &got);
         if (open_err) open_err = take_pipe(err_r, errs, errs_size, &got_err);
         if (!open_out && !open_err) break;
         ULONGLONG now = GetTickCount64();
-        if (now >= deadline) {
+        stopped = stop && atomic_load(stop);
+        if (now >= deadline || stopped) {
             timed_out = 1;
             break;
         }
@@ -495,6 +501,10 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     int sig = 0, st = 0;
     ended_with(code, &st, &sig);
     if (status) *status = st;
+    if (stopped) {
+        dxl_err_set(err, "%s stopped", argv[0]);
+        return DXL_RUN_STOPPED;
+    }
     if (timed_out) {
         dxl_err_set(err, "%s gave no answer in %d ms", argv[0], timeout_ms);
         return DXL_RUN_TIMED_OUT;

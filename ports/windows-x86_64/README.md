@@ -58,7 +58,7 @@ Under Proton-CachyOS 11.0's wine (`wine-11.0 (CachyOS)`), in the
 development container on Arch Linux, on the desktop's Xwayland (KDE Plasma
 on Wayland), AMD Radeon 780M under Mesa's RADV and radeonsi:
 
-- `scripts/dx.sh test windows-x86_64`: the 51 tests under Wine, Windows'
+- `scripts/dx.sh test windows-x86_64`: the 53 tests under Wine, Windows'
   own among them ([how it is tested](../../docs/LAUNCHER.md#how-it-is-tested)).
 - The window, driven by a UI script from a fresh home: the first run on
   `gamefiles/` to Home, and Play, the engine on Vulkan to a clean end.

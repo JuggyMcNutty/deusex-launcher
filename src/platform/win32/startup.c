@@ -5,8 +5,11 @@
  * process as it returns. Windows' error boxes are kept
  * from popping up over a crash or a missing DLL, the game's too, which
  * inherits the mode: the launcher reports how it ended. A GUI program has
- * no console of its own: deusex-launcher.exe writes its --help and
- * --version to its parent's, when it has one.
+ * no console of its own: deusex-launcher.exe borrows its parent's, when it
+ * has one, for what its start says -- its --help and --version, an option
+ * it does not know, a hand-over, a dry run -- and lets go of it as its run
+ * begins, its own from then on, as a GUI program started from a cmd.exe
+ * is: that console's Ctrl+C and closing no stop of its (bugs.md LPORT.8).
  */
 #include "platform/startup.h"
 #include "platform/win32/internal.h"
@@ -67,12 +70,30 @@ void dxl_startup_ended(void) {
     if (ended) SetEvent(ended);
 }
 
-/* The console's code page as the program found it, 0 for no console: its
- * UTF-8 is the program's while it runs, and the console, a cmd.exe's it
- * was started from, has its own again as the program ends. */
+/* The console's code page as the program found it, where it made it
+ * UTF-8, else 0: its UTF-8 is the program's while it has the console, and
+ * the console, a cmd.exe's it was started from, has its own again as the
+ * program ends or lets go of it. */
 static UINT console_cp;
+/* The console is the parent's, attached to for what the start says. */
+static int borrowed;
 
-static void console_cp_back(void) { SetConsoleOutputCP(console_cp); }
+static void console_cp_back(void) {
+    if (console_cp) SetConsoleOutputCP(console_cp);
+    console_cp = 0;
+}
+
+void dxl_startup_detach(void) {
+    if (!borrowed) return;
+    borrowed = 0;
+    fflush(stdout);
+    fflush(stderr);
+    console_cp_back();
+    /* What is written from here goes nowhere, as a GUI program's does. */
+    if (!freopen("NUL", "w", stdout)) {}
+    if (!freopen("NUL", "w", stderr)) {}
+    FreeConsole();
+}
 
 /* Before main: a GUI program started from a console writes to it, in
  * UTF-8; the error mode for this program and those it starts. */
@@ -80,9 +101,13 @@ __attribute__((constructor)) static void startup_early(void) {
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
     if ((!out || out == INVALID_HANDLE_VALUE) && AttachConsole(ATTACH_PARENT_PROCESS)) {
+        borrowed = 1;
         if (!freopen("CONOUT$", "w", stdout)) {}
         if (!freopen("CONOUT$", "w", stderr)) {}
     }
-    console_cp = GetConsoleOutputCP();
-    if (console_cp && console_cp != CP_UTF8 && SetConsoleOutputCP(CP_UTF8)) atexit(console_cp_back);
+    UINT cp = GetConsoleOutputCP();
+    if (cp && cp != CP_UTF8 && SetConsoleOutputCP(CP_UTF8)) {
+        console_cp = cp;
+        atexit(console_cp_back);
+    }
 }
