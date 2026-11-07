@@ -106,7 +106,7 @@ typedef struct {
 
 /* argv as main() has it; stop, set by a signal, stops the game. Returns the
  * exit code. */
-int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop);
+int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop);
 
 /* The profile id the run's from now on, as the window switches to it: its
  * config, crash sentinel and last run the run's (app/session.h's

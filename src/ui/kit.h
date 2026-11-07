@@ -235,6 +235,12 @@ void dxl_ui_name(dxl_ui *ui, uint32_t id, const char *name);
 /* Between frames, the last frame's focusable of that name, the last drawn
  * of it (a dialog's over its page's); 0 for none. */
 uint32_t dxl_ui_named(const dxl_ui *ui, const char *name);
+/* Between frames, whether the moves alone -- a pad's d-pad, the arrows --
+ * take the focus from where it is to id among what the last frame drew
+ * (ui/focus.h's dxl_focus_reaches): not out of a slider by its left and
+ * right, its steps, nor of a field being edited, its caret's. A script's
+ * find of a control no player could reach fails by it (screens/uiscript.h). */
+int      dxl_ui_reaches(const dxl_ui *ui, uint32_t id);
 /* The pointer's part alone, for what takes no focus (a hint): HOVERED,
  * HELD, ACTIVATED. */
 int  dxl_ui_clickable(dxl_ui *ui, uint32_t id, dxl_rect r);

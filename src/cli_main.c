@@ -31,7 +31,7 @@
 #define DXL_VERSION "unversioned"
 #endif
 
-static volatile int stop;
+static atomic_int stop;
 
 static void usage(FILE *f) {
     fprintf(f,

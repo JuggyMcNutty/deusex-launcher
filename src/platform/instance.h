@@ -4,16 +4,18 @@
  *
  *   1. CreateMutex("DeusExIsRunning") + ERROR_ALREADY_EXISTS, used ONLY to
  *      decide whether a surviving Running.ini means a crash or a concurrent
- *      instance (dx-reverse-info/launch-flow.md, "Platform seams").
+ *      instance (dx-reverse-info/launch-flow.md, "Platform seams"). Every
+ *      instance makes it and keeps its handle to its end, so the mutex is
+ *      there while any instance runs, the first or a later one.
  *   2. FindWindowEx for a WLog window carrying the "IsBrowser" property, then
  *      WM_COPYDATA with the tail of the command line and a 30s timeout
  *      (section 2) -- so a second launch opens a URL in the running game
  *      instead of starting a second copy.
  *
  * Both survive here; only the transport changes, the platform's
- * (platform/posix/instance.c: a lock on a pidfile, a unix socket). The
- * protocol is unchanged: one message, the command line. A wait for one is
- * platform/wait.h's.
+ * (platform/posix/instance.c: a lock each launcher shares on a file, a unix
+ * socket). The protocol is unchanged: one message, the command line. A wait
+ * for one is platform/wait.h's.
  */
 #ifndef DXL_INSTANCE_H
 #define DXL_INSTANCE_H
@@ -26,38 +28,38 @@
 
 typedef struct dxl_instance dxl_instance;
 
-/* Becomes the primary instance for id. NULL if another already is. The
- * desktop launcher's id is its home's (app/session.h): one launcher for a
- * home, whatever the install. */
+/* Marks this launcher running for id until it is released, as every
+ * launcher does, the original's mutex every instance keeps; and takes the
+ * channel a second start hands its command line to, unless a launcher
+ * listens on it already: the first client, as the original marks every
+ * client's log window IsBrowser. NULL when neither can be had. The desktop
+ * launcher's id is its home's (app/session.h): one channel for a home,
+ * whatever the install. */
 dxl_instance *dxl_instance_acquire(const char *id);
-/* The lock alone, with no channel to forward to: an instance nothing should
+/* The mark alone, with no channel to forward to: an instance nothing should
  * hand a command line to -- the original's -server, whose log window is
  * never marked IsBrowser. */
 dxl_instance *dxl_instance_acquire_lock(const char *id);
-/* The channel alone, without the lock: a client started beside a launcher
- * that holds it and takes no line (-server's), as the original marks every
- * client's log window IsBrowser. NULL when a launcher listens already, or
- * there is no channel to be had. */
-dxl_instance *dxl_instance_listen(const char *id);
 void          dxl_instance_release(dxl_instance *inst);
 
-/* Is another instance live? Answers without taking the lock, for the
- * Running.ini question. */
-int dxl_instance_other_running(const char *id);
+/* Is a launcher other than inst (NULL: any) marked running for id, now? The
+ * Running.ini question, as the original's mutex answers it: a launcher
+ * started beside another, which outlives it, live for a later start. */
+int dxl_instance_other_running(const dxl_instance *inst, const char *id);
 
-/* Sends message to the primary instance. Returns 0 on success. The original
- * allows 30s; nothing here should ever take that long, but the timeout exists
- * so a wedged primary cannot hang the messenger forever. */
+/* Sends message to the launcher that has the channel. Returns 0 on success.
+ * The original allows 30s; nothing here should ever take that long, but the
+ * timeout exists so a wedged launcher cannot hang the messenger forever. */
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
                          dxl_err *err);
 
 /* Non-blocking. Returns 1 and NUL-terminates buf when a handoff arrived. */
 int dxl_instance_poll(dxl_instance *inst, char *buf, size_t size);
 
-/* Whether a second start can hand it a command line: an instance with a
- * channel, not the lock alone. */
+/* Whether a second start can hand it a command line: an instance with the
+ * channel, not the mark alone. */
 int dxl_instance_listens(const dxl_instance *inst);
-/* Whether it holds the lock: not the channel alone. */
+/* Whether it marks its launcher running. */
 int dxl_instance_locked(const dxl_instance *inst);
 
 #endif
