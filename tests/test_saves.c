@@ -90,7 +90,9 @@ static void test_list(void) {
             CHECK_STR(s.items[4].folder, "Save0011");
             CHECK_INT(s.items[4].readable, 0);
         }
-        CHECK(s.items[0].info.snapshot.rgba == NULL);
+        /* The list leaves the snapshot unread: Save0010's, which its info
+         * holds. */
+        CHECK(s.items[1].info.snapshot.rgba == NULL);
         /* Its snapshot, read when asked for: the writer's picture in it. */
         dxl_saveinfo full;
         char *info = scratch_path(dir, "Save0010/SaveInfo.dxs");

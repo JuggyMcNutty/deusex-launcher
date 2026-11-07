@@ -182,7 +182,7 @@ void dxl_lastrun_describe(const dxl_lastrun *r, char *out, size_t size) {
     else if (r->error[0])
         snprintf(out, size, "exit %d: %s", r->status, r->error);
     else if (r->status == 0 && !r->ready)
-        snprintf(out, size, "exit 0 before its first map was in: no game found, or none started");
+        snprintf(out, size, "exit 0 before its first map was in");
     else
         snprintf(out, size, "exit %d", r->status);
 }

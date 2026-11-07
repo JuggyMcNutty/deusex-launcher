@@ -1,0 +1,28 @@
+# A deusex:// link handed over while a text is edited (bugs.md LUI.8): the
+# page stays until the edit is kept, then Multiplayer asks about the link's
+# server. test_ui_scripts.c hands the link over from a second start 8 s in
+# and finds the name kept in User.ini.
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+find Multiplayer
+key Return
+wait 0.3
+find Your name
+key Return
+wait 0.2
+key Backspace *40
+type Waited
+wait 8
+expect settings Multiplayer
+key Return
+wait 0.5
+expect confirm
+find Not now
+key Return
+wait 0.3
+expect multiplayer
+quit

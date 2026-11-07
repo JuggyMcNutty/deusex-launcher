@@ -31,7 +31,10 @@
  * Blank lines and those starting with # are skipped. The script runs on
  * across the window's screens -- the first run, Home, the game, Recovery --
  * a wait counting from the line before; a frame takes each key and text
- * before the next line runs.
+ * before the next line runs. Once its last line has run, a find's once its
+ * control is found, "ui script: done" in the launcher's log and on stderr:
+ * its end mark. A script the window's end finds short of it, a line never
+ * run, is FAILED, as one whose line fails.
  */
 #ifndef DXL_UISCRIPT_H
 #define DXL_UISCRIPT_H
@@ -49,5 +52,8 @@ void          dxl_uiscript_free(dxl_uiscript *u);
 double        dxl_uiscript_step(dxl_uiscript *u, dxl_shell *s, double now);
 /* After the frame is drawn, before it is presented: a shot asked for. */
 void          dxl_uiscript_shoot(dxl_uiscript *u, SDL_Renderer *r);
+/* At the window's end: 1 when there is no script or it ran to its end;
+ * else 0, FAILED said with where it stopped, unless a line of it failed. */
+int           dxl_uiscript_end(const dxl_uiscript *u);
 
 #endif

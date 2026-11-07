@@ -1,0 +1,6 @@
+# The Graphics screen of -changevideo played by F5, as its Play plays it:
+# test_ui_scripts.c finds the game started. The window closes for the game,
+# so nothing follows the key.
+wait 1.5
+expect settings Graphics
+key F5

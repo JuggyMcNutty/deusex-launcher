@@ -8,4 +8,3 @@ wait 0.5
 expect saves
 find NYC - Liberty Island
 key Return
-wait 1.5

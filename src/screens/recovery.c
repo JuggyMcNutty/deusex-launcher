@@ -254,7 +254,18 @@ void dxl_page_recovery(dxl_shell *s, dxl_rect r) {
     int got = dxl_shell_answer(s, fix_id);
     if (got >= 0) choose_renderer(s, dxl_shell_picked(s, got));
     got = dxl_shell_answer(s, defaults_id);
-    if (got >= 0) reset_page(s, got);
+    if (got >= 0) s->reset_waits = got + 1;
+    if (s->reset_waits) {
+        /* Graphics' and every page's once the probe has answered, as
+         * Settings' (dxl_settings_defaults_ready). */
+        int page = s->reset_waits - 1, pages = (int)dxl_settings_page_count();
+        if (dxl_settings_defaults_ready(s, page < pages ? dxl_settings_page((size_t)page) : NULL)) {
+            s->reset_waits = 0;
+            reset_page(s, page);
+        } else {
+            dxl_ui_animate(ui);
+        }
+    }
 
     if (play || (ui->in.start && s->engine_ok)) {
         s->result = 1;

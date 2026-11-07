@@ -242,6 +242,7 @@ typedef struct dxl_shell {
     uint32_t     asked_for;
     int          answer;          /* the choice, 1 kept or yes, 0 no; -1 none yet */
     int          answered;
+    unsigned long answered_in;    /* the kit's frame it was given in (dxl_shell_answer_expire) */
     const char  *pick_labels[DXL_PICK_MAX];  /* into pick_text: the dialog's own copy */
     char         pick_text[DXL_PICK_MAX][96];
     char         pick_detail[DXL_PICK_MAX][96];   /* each one's group, or a word on it; "" for none */
@@ -318,6 +319,7 @@ typedef struct dxl_shell {
      * renderers.ini's list, resolved by it. */
     int          probe_state;
     int          make_waits;     /* Make the profile pressed before the probe answered: made once it has, on its page */
+    int          reset_waits;    /* Back to the defaults likewise: its page + 1 (the pages' count + 1 for every page), 0 none */
     dxl_gpu_probe probe;
     dxl_renderer_list renderers;
     void       (*start_probe)(struct dxl_shell *s);
@@ -510,6 +512,11 @@ void dxl_settings_keep(dxl_shell *s);
 /* A page's settings (NULL: every page's) as a new profile has them, the
  * keys too on the keyboard's: the open stores', kept as the page is. */
 void dxl_settings_defaults(dxl_shell *s, const char *page);
+/* Whether they may be given now: those of the renderer's page, or every
+ * page's, once the probe has answered (asked here), so that where it finds
+ * no GPU driver they are on the software renderer, as a new profile's
+ * (dxl_shell_no_gpu); the rest at once. */
+int  dxl_settings_defaults_ready(dxl_shell *s, const char *page);
 /* The screen is done (the window closes): what a page holds, kept. */
 void dxl_shell_leave(dxl_shell *s);
 
@@ -537,6 +544,11 @@ void dxl_shell_confirm(dxl_shell *s, uint32_t id, const char *title, const char 
 void dxl_shell_confirm3(dxl_shell *s, uint32_t id, const char *title, const char *text, const char *yes,
                         const char *third, const char *no);
 int  dxl_shell_answer(dxl_shell *s, uint32_t id);
+/* As a frame ends (dxl_shell_frame): an answer still unread the frame after
+ * the dialog gave it, its control not drawn -- gone with its page or its
+ * list -- dropped, not left to hold back what waits for none (a link handed
+ * over) nor read by that control drawn again. */
+void dxl_shell_answer_expire(dxl_shell *s);
 
 /* The dialogs: over r, the window less its foot; back is the Esc or the
  * pad's back the dialog takes. */

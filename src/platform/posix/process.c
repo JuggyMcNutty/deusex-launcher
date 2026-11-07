@@ -298,6 +298,11 @@ static long long now_ms(void) {
 
 int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, char *errs, size_t errs_size,
                     int *status, dxl_err *err) {
+    return dxl_run_capture_until(argv, timeout_ms, NULL, out, size, errs, errs_size, status, err);
+}
+
+int dxl_run_capture_until(char *const argv[], int timeout_ms, const atomic_int *stop, char *out, size_t size,
+                          char *errs, size_t errs_size, int *status, dxl_err *err) {
     if (size) out[0] = '\0';
     if (errs && errs_size) errs[0] = '\0';
     char *exe = on_path(argv[0]);
@@ -342,6 +347,7 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
         /* A group of its own: what it starts (a hook's helpers in their
          * subshell) ends with it at the limit, not beside the game. */
         setpgid(0, 0);
+        signal(SIGPIPE, SIG_DFL);   /* the launcher ignores it; a helper must not */
         dup2(pipefd[1], STDOUT_FILENO);
         int null = open("/dev/null", O_RDWR | O_CLOEXEC);
         if (null >= 0) dup2(null, STDIN_FILENO);
@@ -362,13 +368,14 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     close(pipefd[1]);
     if (errfd[1] >= 0) close(errfd[1]);
     size_t got = 0, got_err = 0;
-    int open_out = 1, open_err = errfd[0] >= 0, timed_out = 0;
+    int open_out = 1, open_err = errfd[0] >= 0, timed_out = 0, stopped = 0;
     /* A deadline, not a count of quiet polls: a program that talks on and
-     * on is stopped at it too. */
+     * on is stopped at it too; and the stop, seen within a poll's 100 ms. */
     long long deadline = now_ms() + timeout_ms;
     while (open_out || open_err) {
         long long left = deadline - now_ms();
-        if (left <= 0) {
+        stopped = stop && atomic_load(stop);
+        if (left <= 0 || stopped) {
             timed_out = 1;
             break;
         }
@@ -390,6 +397,10 @@ int dxl_run_capture(char *const argv[], int timeout_ms, char *out, size_t size, 
     while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}
     int code = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);
     if (status) *status = code;
+    if (stopped) {
+        dxl_err_set(err, "%s stopped", argv[0]);
+        return DXL_RUN_STOPPED;
+    }
     if (timed_out) {
         dxl_err_set(err, "%s gave no answer in %d ms", argv[0], timeout_ms);
         return DXL_RUN_TIMED_OUT;

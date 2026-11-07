@@ -136,12 +136,12 @@ static void test_line(void) {
     CHECK_INT(ready, 1);
     dxl_game_send(&g, "TakeFocus");
     dxl_game_send(&g, "Open 01_NYC_UNATCOIsland");
-    dxl_game_send(&g, "quit");
+    dxl_game_send(&g, "Quit");
     char said[64];
     CHECK_INT(wait_end(&g, 5000, said, sizeof said), 1);
     CHECK_INT(dxl_game_clean(&g), 1);
     char *text = slurp(log, NULL);
-    CHECK(text && strstr(text, "line: TakeFocus\nline: Open 01_NYC_UNATCOIsland\nline: quit\n") != NULL);
+    CHECK(text && strstr(text, "line: TakeFocus\nline: Open 01_NYC_UNATCOIsland\nline: Quit\n") != NULL);
     free(text);
     free(log);
     dxl_game_close(&g);
@@ -286,6 +286,45 @@ static void test_capture(void) {
     CHECK(strstr(dxl_err_msg(&e), "cannot run dxl-no-such-program: not found") != NULL);
 #endif
 }
+
+/* A capture given up once its stop is set: the program killed then, not
+ * at its time limit -- the window's probe as the window goes. */
+static void test_capture_stopped(void) {
+    atomic_int stop;
+    atomic_init(&stop, 1);
+    dxl_env_set("DXL_STUB", "stubborn");
+    char *hang[] = { DXL_STUB_ENGINE, NULL };
+    char out[64];
+    int status = -1;
+    dxl_err e;
+    long long t0 = dxl_os_ms();
+    CHECK_INT(dxl_run_capture_until(hang, 10000, &stop, out, sizeof out, NULL, 0, &status, &e), DXL_RUN_STOPPED);
+    CHECK(dxl_os_ms() - t0 < 3000);
+    CHECK_INT(status, END_KILL_STATUS);
+    dxl_env_set("DXL_STUB", NULL);
+}
+
+#ifndef _WIN32
+/* Whether a /proc/<pid>/status text has SIGPIPE among the signals ignored;
+ * -1 for no such text. */
+static int ignores_sigpipe(const char *status) {
+    const char *ign = status ? strstr(status, "SigIgn:") : NULL;
+    if (!ign) return -1;
+    return (int)((strtoull(ign + 7, NULL, 16) >> (SIGPIPE - 1)) & 1);
+}
+
+/* A helper run for its output starts with SIGPIPE's default, as the game
+ * does: the launcher ignores it (as this test does), and an exec keeps an
+ * ignored signal ignored. */
+static void test_capture_sigpipe(void) {
+    char out[4096];
+    int status = -1;
+    dxl_err e;
+    char *cat[] = { "cat", "/proc/self/status", NULL };
+    CHECK_INT(dxl_run_capture(cat, 3000, out, sizeof out, NULL, 0, &status, &e), 0);
+    CHECK_INT(ignores_sigpipe(out), 0);
+}
+#endif
 
 #ifdef _WIN32
 /* A handle the launcher holds inheritable -- a library's file, as one may
@@ -487,6 +526,10 @@ TEST_MAIN_BEGIN
     RUN(test_crash);
     RUN(test_cannot_run);
     RUN(test_capture);
+    RUN(test_capture_stopped);
+#ifndef _WIN32
+    RUN(test_capture_sigpipe);
+#endif
 #ifdef _WIN32
     RUN(test_handles_kept);
 #else

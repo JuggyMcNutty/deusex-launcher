@@ -196,13 +196,16 @@ static void test_line_outlived(void) {
  * thread's, as another process's would be, the launcher's loop free to read
  * each: on Windows a sender waits for the one before it to be read. */
 static char forward_id[64];
-static int forward_rc[2];
+static int forward_rc[3];
+static char longest[DXL_HANDOFF_MAX + 1];
 static pthread_t forwarder;
 static void *forward_main(void *p) {
     (void)p;
     forward_rc[0] = dxl_instance_forward(forward_id, "127.0.0.1:7790 -log", 1000, NULL);
     /* A link's server, as a second start hands it on: the game's own way. */
     forward_rc[1] = dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/", 1000, NULL);
+    /* The longest line a second start hands on: its URL whole. */
+    forward_rc[2] = dxl_instance_forward(forward_id, longest, 1000, NULL);
     return NULL;
 }
 static void forward_on_ready(void *ctx) {
@@ -224,16 +227,22 @@ static void test_forwarded(void) {
         .on_ready = forward_on_ready,
     };
     dxl_play_result r;
-    forward_rc[0] = forward_rc[1] = -1;
+    memset(longest, 'x', DXL_HANDOFF_MAX);
+    forward_rc[0] = forward_rc[1] = forward_rc[2] = -1;
     dxl_play(&req, &r);
     pthread_join(forwarder, NULL);
     CHECK_INT(forward_rc[0], 0);
     CHECK_INT(forward_rc[1], 0);
+    CHECK_INT(forward_rc[2], 0);
     CHECK_INT(r.clean, 1);
     char *text = slurp(log, NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 127.0.0.1:7790\n") != NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 10.0.0.5:7780\n") != NULL);
     CHECK(text && strstr(text, "too-early") == NULL);
+    char *want = dxl_xmalloc(DXL_HANDOFF_MAX + 16);
+    snprintf(want, DXL_HANDOFF_MAX + 16, "line: Open %s\n", longest);
+    CHECK(text && strstr(text, want) != NULL);
+    free(want);
     free(text);
     dxl_play_result_free(&r);
     dxl_instance_release(inst);

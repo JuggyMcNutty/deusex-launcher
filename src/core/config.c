@@ -17,7 +17,6 @@ typedef struct {
 struct dxl_config {
     ini_file base;      /* <Package>.ini */
     ini_file user;      /* User.ini */
-    int      seeded;
 };
 
 static char *leaf_path(const char *dir, const char *prefix, const char *name) {
@@ -52,18 +51,21 @@ static void seed(ini_file *f, const char *system_dir, const char *default_name) 
 }
 
 /* A file the command line names: as given if absolute, else from System/,
- * its name found in any case. */
+ * each part found in any case and one not there kept as given (a new
+ * ini's), as the engine finds it and Windows the original's: so
+ * "INI=..\MyMod\System\MyMod.ini" on a folder named mymod. */
 static char *given_path(const char *system_dir, const char *given) {
     char *p = dxl_path_from_ini(given);
     if (dxl_fs_is_absolute(p)) return p;
-    char *joined = dxl_path_join(system_dir, p);
+    char *path = dxl_xstrdup(system_dir);
+    for (char *save = NULL, *part = strtok_r(p, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+        char *next = dxl_path_resolve_ci(path, part);
+        if (!next) next = dxl_path_join(path, part);
+        free(path);
+        path = next;
+    }
     free(p);
-    char *dir = dxl_path_dirname(joined);
-    char *found = dxl_path_resolve_ci(dir, dxl_path_basename(joined));
-    free(dir);
-    if (!found) return joined;
-    free(joined);
-    return found;
+    return path;
 }
 
 dxl_config *dxl_config_open_files(const char *system_dir, const char *package, const char *ini,
@@ -72,10 +74,7 @@ dxl_config *dxl_config_open_files(const char *system_dir, const char *package, c
     memset(c, 0, sizeof *c);
 
     file_load(&c->base, ini ? given_path(system_dir, ini) : leaf_path(system_dir, "", package));
-    if (!c->base.ini) {
-        seed(&c->base, system_dir, "Default");
-        c->seeded = c->base.ini != NULL;
-    }
+    if (!c->base.ini) seed(&c->base, system_dir, "Default");
     if (!c->base.ini) c->base.ini = dxl_ini_new();
 
     file_load(&c->user, user_ini ? given_path(system_dir, user_ini) : leaf_path(system_dir, "", "User"));
@@ -89,10 +88,6 @@ dxl_config *dxl_config_open_files(const char *system_dir, const char *package, c
         c->user.empty = 1;
     }
     return c;
-}
-
-dxl_config *dxl_config_open(const char *system_dir, const char *package) {
-    return dxl_config_open_files(system_dir, package, NULL, NULL);
 }
 
 void dxl_config_free(dxl_config *c) {
@@ -131,20 +126,9 @@ int dxl_config_save(dxl_config *c, dxl_err *err) {
     return 0;
 }
 
-static int file_pending(const ini_file *f) {
-    return f->ini && (dxl_ini_dirty(f->ini) || (!f->existed && !f->empty));
-}
-
-int dxl_config_dirty(const dxl_config *c) {
-    return file_pending(&c->base) || file_pending(&c->user);
-}
-
 const char *dxl_config_path(const dxl_config *c) { return c->base.path; }
 dxl_ini *dxl_config_ini(dxl_config *c) { return c->base.ini; }
-int dxl_config_seeded(const dxl_config *c) { return c->seeded; }
-
 dxl_ini *dxl_config_user_ini(dxl_config *c) { return c->user.ini; }
-const char *dxl_config_user_path(const dxl_config *c) { return c->user.path; }
 
 int dxl_config_first_run(const dxl_config *c) {
     return dxl_ini_get_int(c->base.ini, "FirstRun", "FirstRun", 0);
@@ -154,16 +138,4 @@ void dxl_config_clamp_first_run(dxl_config *c, int held) {
     int first_run = held < DXL_FIRSTRUN_CURRENT ? DXL_FIRSTRUN_CURRENT : held;
     if (dxl_config_first_run(c) != first_run)
         dxl_ini_set_int(c->base.ini, "FirstRun", "FirstRun", first_run);
-}
-
-const char *dxl_config_render_device(const dxl_config *c) {
-    return dxl_ini_get(c->base.ini, "Engine.Engine", "GameRenderDevice");
-}
-
-const char *dxl_config_cd_path(const dxl_config *c) {
-    return dxl_ini_get(c->base.ini, "Engine.Engine", "CdPath");
-}
-
-const char *dxl_config_game_engine(const dxl_config *c) {
-    return dxl_ini_get(c->base.ini, "Engine.Engine", "GameEngine");
 }

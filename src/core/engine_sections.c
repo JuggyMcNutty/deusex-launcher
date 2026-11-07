@@ -59,6 +59,7 @@ static const struct {
     { RENDER, "Coronas", BOOL, "True" },
     { RENDER, "HighDetailActors", BOOL, "True" },
     { RENDER, "DetailTextures", BOOL, "True" },
+    { RENDER, "UsePrecache", BOOL, "False" },
 };
 
 /* A retail value as the engine would write it back, or 0 when the engine

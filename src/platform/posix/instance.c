@@ -83,6 +83,34 @@ static char *lock_path_for(const char *id) {
     return p;
 }
 
+/* Whether a launcher listens on the channel at sa. */
+static int listened(const struct sockaddr_un *sa, socklen_t len) {
+    int s = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (s < 0) return 0;
+    int on = connect(s, (const struct sockaddr *)sa, len) == 0;
+    close(s);
+    return on;
+}
+
+/* The handoff channel, into inst, unless a launcher listens on it already
+ * (a client beside a server, which holds the lock). Failing to open it is
+ * not fatal -- the instance just cannot receive URLs. */
+static void open_channel(dxl_instance *inst, const char *id) {
+    int s = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    if (s < 0) return;
+    struct sockaddr_un sa;
+    socklen_t len = socket_addr(&sa, id);
+    /* A file an earlier launcher left, no one listening on it, would refuse
+     * the bind. */
+    if (len && !listened(&sa, len)) unlink(sa.sun_path);
+    if (len && bind(s, (struct sockaddr *)&sa, len) == 0) {
+        inst->sock_fd = s;
+        inst->sock_path = dxl_xstrdup(sa.sun_path);
+    } else {
+        close(s);
+    }
+}
+
 static dxl_instance *acquire(const char *id, int listen) {
     char *path = lock_path_for(id);
     int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
@@ -106,32 +134,32 @@ static dxl_instance *acquire(const char *id, int listen) {
     inst->lock_path = path;
     inst->sock_fd = -1;
     inst->sock_path = NULL;
-
-    /* The handoff channel. Failing to open it is not fatal -- we are still the
-     * only instance, we just cannot receive URLs. */
-    int s = listen ? socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0) : -1;
-    if (s >= 0) {
-        struct sockaddr_un sa;
-        socklen_t len = socket_addr(&sa, id);
-        /* A file an earlier instance left (the lock is ours: no one listens
-         * on it) would refuse the bind. */
-        if (len) unlink(sa.sun_path);
-        if (len && bind(s, (struct sockaddr *)&sa, len) == 0) {
-            inst->sock_fd = s;
-            inst->sock_path = dxl_xstrdup(sa.sun_path);
-        } else {
-            close(s);
-        }
-    }
+    if (listen) open_channel(inst, id);
     return inst;
 }
 
 dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
 dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
 
+dxl_instance *dxl_instance_listen(const char *id) {
+    dxl_instance *inst = dxl_xmalloc(sizeof *inst);
+    inst->lock_fd = -1;
+    inst->lock_path = NULL;
+    inst->sock_fd = -1;
+    inst->sock_path = NULL;
+    open_channel(inst, id);
+    if (inst->sock_fd < 0) {
+        free(inst);
+        return NULL;
+    }
+    return inst;
+}
+
 int dxl_instance_fd(const dxl_instance *inst) { return inst ? inst->sock_fd : -1; }
 
 int dxl_instance_listens(const dxl_instance *inst) { return dxl_instance_fd(inst) >= 0; }
+
+int dxl_instance_locked(const dxl_instance *inst) { return inst && inst->lock_fd >= 0; }
 
 void dxl_instance_release(dxl_instance *inst) {
     if (!inst) return;

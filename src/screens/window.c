@@ -91,9 +91,11 @@ struct dxl_window {
     dxl_wake      *quit;
     SDL_Semaphore *drained;
 
-    /* The GPU probe, dxl-cli --probe --ini in a worker. */
+    /* The GPU probe, dxl-cli --probe --ini in a worker, given up as the
+     * window goes (probe_stop). */
     SDL_Thread    *probe_thread;
     SDL_AtomicInt  probe_done;
+    atomic_int     probe_stop;
     dxl_gpu_probe  probe_result;
     char          *cli;
     Uint32         job_event;
@@ -167,7 +169,7 @@ static void listen_stop(dxl_window *w) {
 
 /* A second start's command line: the window raised. */
 static void take_lines(dxl_window *w) {
-    char line[DXL_HANDOFF_MAX];
+    char line[DXL_HANDOFF_MAX + 1];
     while (w->run && dxl_instance_poll(w->run->instance, line, sizeof line)) {
         dxl_log("a second start's command line: %s", line);
         /* Brought back when minimized alone: SDL's restore un-maximizes a
@@ -192,7 +194,7 @@ static int SDLCALL probe_main(void *p) {
     char out[4096];
     int status = 0;
     dxl_err e;
-    if (dxl_run_capture(argv, 10000, out, sizeof out, NULL, 0, &status, &e) != 0 ||
+    if (dxl_run_capture_until(argv, 10000, &w->probe_stop, out, sizeof out, NULL, 0, &status, &e) != 0 ||
         dxl_gpu_probe_from_ini(out, &w->probe_result) != 0) {
         memset(&w->probe_result, 0, sizeof w->probe_result);
         snprintf(w->probe_result.note, sizeof w->probe_result.note, "%s --probe gave no answer", w->cli);
@@ -211,6 +213,7 @@ static void start_probe(dxl_shell *s) {
     free(w->cli);
     w->cli = dxl_path_join(w->run->session.app_dir, "dxl-cli" DXL_EXE_SUFFIX);
     SDL_SetAtomicInt(&w->probe_done, 0);
+    atomic_store(&w->probe_stop, 0);
     w->probe_thread = SDL_CreateThread(probe_main, "dxl-probe", w);
     if (!w->probe_thread) {
         /* An answer all the same, as a probe that gave none: nothing waits
@@ -744,6 +747,7 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
     w->stop = stop;
     dxl_shell_init(&w->shell, version);
     w->script = dxl_uiscript_open();
+    atomic_init(&w->probe_stop, 0);
     if (!signal_wake) signal_wake = dxl_wake_new();
     return w;
 }
@@ -751,7 +755,12 @@ dxl_window *dxl_window_new(const char *version, volatile int *stop) {
 void dxl_window_free(dxl_window *w) {
     if (!w) return;
     listen_stop(w);
-    if (w->probe_thread) SDL_WaitThread(w->probe_thread, NULL);
+    /* A probe still on is given up: no one is left to take its answer, and
+     * a stop waits for it no more than a tenth of a second. */
+    if (w->probe_thread) {
+        atomic_store(&w->probe_stop, 1);
+        SDL_WaitThread(w->probe_thread, NULL);
+    }
     free(w->cli);
     close_window(w, NULL);
     if (w->kit) dxl_ui_free(&w->shell.ui);
@@ -760,6 +769,7 @@ void dxl_window_free(dxl_window *w) {
         TTF_Quit();
         SDL_Quit();
     }
+    dxl_uiscript_end(w->script);
     dxl_uiscript_free(w->script);
     free(w->words_before);
     free(w);
