@@ -54,6 +54,7 @@ if [ "$force" = 0 ] && [ "$(cat "$SYS/.dx-recipe" 2>/dev/null)" = "$RECIPE" ]; t
 fi
 
 SDL_VER="2.30.8"     # /usr/trimui/lib/libSDL2-2.0.so.0.3000.8
+SDL_SHA256=380c295ea76b9bd72d90075793971c8bcb232ba0a69a9b14da4ae8f603350058
 MESA_TAG="mesa-26.2.2"
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
@@ -115,24 +116,26 @@ PC
 
 # ---- SDL2 headers -----------------------------------------------------------
 say "fetching SDL $SDL_VER headers ..."
-curl -fsSL --retry 3 -o "$tmp/sdl.tar.gz" \
-    "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VER/SDL2-$SDL_VER.tar.gz"
-tar -C "$tmp" -xzf "$tmp/sdl.tar.gz"
+sdl="$(dx_fetch_cached "SDL2-$SDL_VER.tar.gz" \
+    "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VER/SDL2-$SDL_VER.tar.gz" "$SDL_SHA256")"
+tar -C "$tmp" -xzf "$sdl"
 mkdir -p "$SYS/include/SDL2"
 cp "$tmp/SDL2-$SDL_VER/include/"*.h "$SYS/include/SDL2/"
 
 # ---- Vulkan, EGL/GLES/KHR, OpenAL headers -----------------------------------
 say "fetching pinned headers ..."
-dx_fetch_arch_pkg "$tmp/arch" vulkan-headers 1:1.4.357.0-1 any
-dx_fetch_arch_pkg "$tmp/arch" libglvnd       1.7.0-3       x86_64
-dx_fetch_arch_pkg "$tmp/arch" openal         1.25.2-2      x86_64
+dx_fetch_arch_pkg "$tmp/arch" vulkan-headers 1:1.4.357.0-1 any    2f6c34cc829c4b63c0cf08cf147841c8ded023b746324540fb02322d9c415c07
+dx_fetch_arch_pkg "$tmp/arch" libglvnd       1.7.0-3       x86_64 633c2e95d7798d0ce7ee1b7fe970a22325f7f6d35b9f923bb61b223a80934437
+dx_fetch_arch_pkg "$tmp/arch" openal         1.25.2-2      x86_64 f836d5ee3aa0fc4b46800ac41840e8aa35d076de93114fd07d0de43546c1bd07
 for d in vulkan vk_video EGL GLES2 GLES3 KHR AL; do
     cp -a "$tmp/arch/usr/include/$d" "$SYS/include/"
 done
-# Mesa's two EGL extension headers, beside libglvnd's.
-for h in eglmesaext.h eglext_angle.h; do
-    curl -fsSL --retry 3 -o "$SYS/include/EGL/$h" \
-        "https://gitlab.freedesktop.org/mesa/mesa/-/raw/$MESA_TAG/include/EGL/$h"
+# Mesa's two EGL extension headers, beside libglvnd's, each pinned.
+for pin in "eglmesaext.h e9119482f23bfa6a4fd006278d16434328fa91abcb6c55033959c262644d85f4" \
+           "eglext_angle.h df92523469632129b6b0c37bcade9fa8cc449e23e487beda2cc130b4e4bd1df5"; do
+    h="${pin% *}"
+    cp "$(dx_fetch_cached "$MESA_TAG-$h" "https://gitlab.freedesktop.org/mesa/mesa/-/raw/$MESA_TAG/include/EGL/$h" "${pin#* }")" \
+        "$SYS/include/EGL/$h"
 done
 
 printf '%s\n' "$RECIPE" > "$SYS/.dx-recipe"
