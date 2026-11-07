@@ -50,17 +50,22 @@ static void seed(ini_file *f, const char *system_dir, const char *default_name) 
 }
 
 /* A file the command line names: as given if absolute, else from System/,
- * its name found in any case. */
+ * each part found in any case and one not there kept as given -- a new
+ * ini's name, made in the folder found -- as Windows finds the original's
+ * "INI=..\MyMod\System\MyMod.ini" on a folder named mymod, and the engine
+ * makes the file there. */
 static char *given_path(const char *system_dir, const char *given) {
     char *p = dxl_path_from_ini(given);
     if (p[0] == '/') return p;
-    /* Every component in any case, as Windows finds the original's
-     * "INI=..\MyMod\System\MyMod.ini" on a folder named mymod; the last
-     * component alone was. */
-    char *found = dxl_path_resolve_ci(system_dir, p);
-    if (!found) found = dxl_path_join(system_dir, p);
+    char *path = dxl_xstrdup(system_dir);
+    for (char *save = NULL, *part = strtok_r(p, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+        char *next = dxl_path_resolve_ci(path, part);
+        if (!next) next = dxl_path_join(path, part);
+        free(path);
+        path = next;
+    }
     free(p);
-    return found;
+    return path;
 }
 
 dxl_config *dxl_config_open_files(const char *system_dir, const char *package, const char *ini,

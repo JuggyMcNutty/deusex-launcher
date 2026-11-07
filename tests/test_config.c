@@ -216,6 +216,15 @@ static void test_open_named_files(void) {
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
     CHECK(scratch_exists(dir, "New.ini"));
+
+    /* A new one in a folder there in another case alone: made in that
+     * folder, as the engine makes it (bugs.md LCORE.13). */
+    scratch_write(dir, "mymod/system/Readme.txt", "");
+    c = dxl_config_open_files(sysdir, "DeusEx", "..\\MyMod\\System\\MyMod.ini", NULL);
+    CHECK(dxl_config_seeded(c));
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    dxl_config_free(c);
+    CHECK(scratch_exists(dir, "mymod/system/MyMod.ini"));
     scratch_remove(dir);
 }
 

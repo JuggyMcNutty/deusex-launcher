@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 static char g_root[512];
@@ -158,33 +159,53 @@ static void test_sentinel_survives_to_next_launch(void) {
 
 /* --- single instance and handoff --------------------------------------- */
 
-static void test_lock_is_exclusive(void) {
+/* Every instance marks itself running to its end, as the original's every
+ * instance makes its mutex and keeps it: the first finds none before it, a
+ * later one the first; with the first gone, a third finds the second, whose
+ * Running.ini is no crash (bugs.md LAPP.11); with none left, none. */
+static void test_every_instance_marked(void) {
     CHECK_INT(dxl_instance_other_running(), 0);
 
-    dxl_instance *first = dxl_instance_acquire();
+    int other = -1;
+    dxl_instance *first = dxl_instance_acquire(1, &other);
     CHECK(first != NULL);
+    CHECK_INT(other, 0);
     CHECK_INT(dxl_instance_other_running(), 1);
 
-    dxl_instance *second = dxl_instance_acquire();
-    CHECK(second == NULL);
+    dxl_instance *second = dxl_instance_acquire(0, &other);
+    CHECK(second != NULL);
+    CHECK_INT(other, 1);
 
     dxl_instance_release(first);
+    CHECK_INT(dxl_instance_other_running(), 1);
+    dxl_instance *third = dxl_instance_acquire(1, &other);
+    CHECK(third != NULL);
+    CHECK_INT(other, 1);
+
+    dxl_instance_release(second);
+    dxl_instance_release(third);
     CHECK_INT(dxl_instance_other_running(), 0);
+    dxl_instance *again = dxl_instance_acquire(1, &other);
+    CHECK_INT(other, 0);
+    dxl_instance_release(again);
 }
 
-/* One instance whatever the install, as the original's mutex is: a second
+/* One mark whatever the install, as the original's mutex is: a second
  * install's launch finds the first's game live. */
 static void test_lock_is_the_users(void) {
-    dxl_instance *a = dxl_instance_acquire();
+    dxl_instance *a = dxl_instance_acquire(1, NULL);
     CHECK(a != NULL);
-    CHECK(dxl_instance_acquire() == NULL);
+    int other = 0;
+    dxl_instance *b = dxl_instance_acquire(1, &other);
+    CHECK_INT(other, 1);
+    dxl_instance_release(b);
     dxl_instance_release(a);
 }
 
 /* The handoff protocol is unchanged from WM_COPYDATA: one message carrying
  * the command line. Only the transport differs. */
 static void test_handoff_delivers_the_command_line(void) {
-    dxl_instance *primary = dxl_instance_acquire();
+    dxl_instance *primary = dxl_instance_acquire(1, NULL);
     CHECK(primary != NULL);
 
     char buf[DXL_HANDOFF_MAX + 1];
@@ -210,30 +231,31 @@ static void test_handoff_delivers_the_command_line(void) {
     dxl_instance_release(primary);
 }
 
-/* The lock alone: live for the Running.ini question, but nothing to forward
+/* The mark alone: live for the Running.ini question, but nothing to forward
  * to -- a forward finds no one and fails. */
 static void test_lock_without_channel(void) {
-    dxl_instance *server = dxl_instance_acquire_lock();
+    dxl_instance *server = dxl_instance_acquire(0, NULL);
     CHECK(server != NULL);
     CHECK_INT(dxl_instance_fd(server), -1);
     CHECK_INT(dxl_instance_other_running(), 1);
     dxl_err e;
     CHECK(dxl_instance_forward("map", 1000, &e) != 0);
     dxl_instance_release(server);
-    dxl_instance *client = dxl_instance_acquire();
+    dxl_instance *client = dxl_instance_acquire(1, NULL);
     CHECK(dxl_instance_fd(client) >= 0);
     dxl_instance_release(client);
 }
 
-/* A client beside another instance listens without the lock, as the
+/* A client beside another instance listens on a channel of its own, as the
  * original's every client's log window is IsBrowser: beside a -server's
- * lock alone, a forward reaches it. */
+ * mark alone, a forward reaches it. */
 static void test_listen_without_the_lock(void) {
-    dxl_instance *server = dxl_instance_acquire_lock();
+    dxl_instance *server = dxl_instance_acquire(0, NULL);
     CHECK(server != NULL);
-    CHECK(dxl_instance_acquire() == NULL);
-    dxl_instance *client = dxl_instance_listen();
+    int other = 0;
+    dxl_instance *client = dxl_instance_acquire(1, &other);
     CHECK(client != NULL);
+    CHECK_INT(other, 1);
     CHECK(dxl_instance_fd(client) >= 0);
     dxl_err e;
     CHECK_INT(dxl_instance_forward("map", 1000, &e), 0);
@@ -241,8 +263,32 @@ static void test_listen_without_the_lock(void) {
     CHECK_INT(dxl_instance_poll(client, buf, sizeof buf), 1);
     CHECK_STR(buf, "map");
     dxl_instance_release(client);
-    CHECK_INT(dxl_instance_other_running(), 1);   /* the lock still the server's */
+    CHECK_INT(dxl_instance_other_running(), 1);   /* the server's mark */
     dxl_instance_release(server);
+}
+
+/* A forward goes to the newest client's channel first, as the original's
+ * finds the newest log window first, a window made later going on top of
+ * those before it; with that one gone, to the one before (bugs.md
+ * MAIN.15). */
+static void test_forward_to_the_newest(void) {
+    dxl_instance *older = dxl_instance_acquire(1, NULL);
+    struct timespec pause = { 0, 20 * 1000 * 1000 };
+    nanosleep(&pause, NULL);
+    dxl_instance *newer = dxl_instance_acquire(1, NULL);
+    CHECK(older != NULL && newer != NULL);
+    dxl_err e;
+    char buf[DXL_HANDOFF_MAX + 1];
+    for (int i = 0; i < 3; i++) {
+        CHECK_INT(dxl_instance_forward("map", 1000, &e), 0);
+        CHECK_INT(dxl_instance_poll(newer, buf, sizeof buf), 1);
+        CHECK_INT(dxl_instance_poll(older, buf, sizeof buf), 0);
+    }
+    dxl_instance_release(newer);
+    CHECK_INT(dxl_instance_forward("again", 1000, &e), 0);
+    CHECK_INT(dxl_instance_poll(older, buf, sizeof buf), 1);
+    CHECK_STR(buf, "again");
+    dxl_instance_release(older);
 }
 
 /* A Running.ini in another case, a copied install's, goes with the run's
@@ -300,11 +346,12 @@ TEST_MAIN_BEGIN
     RUN(test_sentinel_lifecycle);
     RUN(test_sentinel_survives_to_next_launch);
     RUN(test_sentinel_removes_another_case);
-    RUN(test_lock_is_exclusive);
+    RUN(test_every_instance_marked);
     RUN(test_lock_is_the_users);
     RUN(test_handoff_delivers_the_command_line);
     RUN(test_lock_without_channel);
     RUN(test_listen_without_the_lock);
+    RUN(test_forward_to_the_newest);
     RUN(test_log_held);
     teardown();
 TEST_MAIN_END

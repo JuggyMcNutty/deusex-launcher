@@ -57,6 +57,33 @@ static void test_save_refuses_read_only(void) {
     scratch_remove(dir);
 }
 
+/* A linked ini is written where its link leads, the link kept; one whose
+ * link points nowhere yet is made there, as the engine's write makes it,
+ * not called read-only (bugs.md LCORE.13). */
+static void test_save_through_a_link(void) {
+    const char *dir = scratch_dir("ini-link");
+    scratch_write(dir, "Real/DeusEx.ini", "[A]\r\nx=1\r\n");
+    char *real = scratch_path(dir, "Real/DeusEx.ini");
+    char *link = scratch_path(dir, "System/DeusEx.ini");
+    CHECK_INT(symlink("../Real/DeusEx.ini", link), 0);
+    const char *src = "[A]\r\nx=2\r\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    dxl_err err = { 0 };
+    for (int nowhere = 0; nowhere < 2; nowhere++) {
+        if (nowhere) remove(real);
+        CHECK_INT(dxl_ini_save(ini, link, &err), 0);
+        struct stat st;
+        CHECK(lstat(link, &st) == 0 && S_ISLNK(st.st_mode));
+        char *got = slurp(real, NULL);
+        CHECK(got && strcmp(got, "[A]\r\nx=2\r\n") == 0);
+        free(got);
+    }
+    dxl_ini_free(ini);
+    free(real);
+    free(link);
+    scratch_remove(dir);
+}
+
 /* The entries of a folder but . and .. */
 static int entries(const char *path) {
     DIR *d = opendir(path);
@@ -415,6 +442,7 @@ TEST_MAIN_BEGIN
     RUN(test_roundtrip_fixtures);
     RUN(test_save_refuses_read_only);
     RUN(test_save_keeps_the_mode);
+    RUN(test_save_through_a_link);
     RUN(test_reads_values);
     RUN(test_repeated_keys);
     RUN(test_set_preserves_everything_else);

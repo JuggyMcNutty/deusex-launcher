@@ -1,6 +1,7 @@
 #include "core/ini.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -290,22 +291,48 @@ char *dxl_ini_render(const dxl_ini *ini, size_t *out_len) {
     return bytes;   /* ownership passes to the caller */
 }
 
+/* Where a link leads, followed link by link as the system follows one, a
+ * relative target from its link's folder: the end, there or not yet; NULL
+ * for a loop or a link that cannot be read. Caller frees. */
+static char *link_end(const char *path) {
+    char *at = dxl_xstrdup(path);
+    for (int hops = 0; hops < 40; hops++) {
+        struct stat st;
+        char to[PATH_MAX];
+        if (lstat(at, &st) != 0 || !S_ISLNK(st.st_mode)) return at;
+        ssize_t n = readlink(at, to, sizeof to - 1);
+        if (n <= 0) break;
+        to[n] = '\0';
+        const char *slash = strrchr(at, '/');
+        size_t keep = to[0] == '/' || !slash ? 0 : (size_t)(slash - at) + 1;
+        char *next = dxl_xmalloc(keep + (size_t)n + 1);
+        memcpy(next, at, keep);
+        memcpy(next + keep, to, (size_t)n + 1);
+        free(at);
+        at = next;
+    }
+    free(at);
+    return NULL;
+}
+
 int dxl_ini_save(const dxl_ini *ini, const char *path, dxl_err *err) {
     /* The fresh file takes the ini's place: a linked ini's target, not
-     * the link (which became a plain file, its target left stale), and
-     * never a read-only one, a UE1 player's way of keeping settings, which
-     * the original's write in place refuses. */
+     * the link (which became a plain file, its target left stale) -- one
+     * that points nowhere made where it points, as the engine's write makes
+     * it -- and never a read-only one, a UE1 player's way of keeping
+     * settings, which the original's write in place refuses. */
     char *target = NULL;
     struct stat st;
-    if (lstat(path, &st) == 0) {
-        if (S_ISLNK(st.st_mode)) target = realpath(path, NULL);
-        if (access(target ? target : path, W_OK) != 0) {
-            dxl_err_set(err, "%s is read-only", path);
-            free(target);
-            return -1;
-        }
+    if (lstat(path, &st) == 0 && S_ISLNK(st.st_mode) && !(target = link_end(path))) {
+        dxl_err_set(err, "%s: its link cannot be followed", path);
+        return -1;
     }
     const char *dest = target ? target : path;
+    if (access(dest, F_OK) == 0 && access(dest, W_OK) != 0) {
+        dxl_err_set(err, "%s is read-only", path);
+        free(target);
+        return -1;
+    }
 
     /* Write-and-rename, so an interrupted save cannot leave a truncated
      * config behind -- this file is the engine's only persistent state: on

@@ -152,6 +152,10 @@ Each adapts the original to desktop Linux, by the owner's choice:
   at its first space, so a path with one (Steam's `Deus Ex`, GOG's
   `GOG Games`) is cut inside itself and the running game opens a piece of it
   ([the forward](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md#1-single-instance-forwarding-0x10908a300x10908cd1)).
+- **A second start forwards to the newest running client**, where the
+  original asks the newest copy's log window alone and, when that is a
+  server's, finds no browser and starts a second game
+  ([the forward](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md#1-single-instance-forwarding-0x10908a300x10908cd1)).
 - **An empty `INI=` or `USERINI=` is none**, the game's own file, as
   DXEngine takes it: the original's empty name ends in a critical error at
   start, and an empty `USERINI=` plays with no key bindings and saves
@@ -177,7 +181,7 @@ Each open in Port Ex Machina's
 ## The game and the launcher
 
 The original's process becomes the game, so its launcher code stays for the
-whole run: it holds the single-instance lock a second launch finds, closes
+whole run: it keeps the mark of a game running a later launch finds, closes
 the splash when the engine is up, hands on what a second launch forwards,
 and deletes `Running.ini` when the game ends cleanly. Here the engine is a
 program of its own, `run-game.sh` started beside the launcher with the

@@ -333,6 +333,39 @@ static void test_list_scrolls(void) {
     SDL_QuitSubSystem(SDL_INIT_EVENTS);
 }
 
+/* Every device registered in the list, as the original's RefreshList adds
+ * each, with no cap: forty more than the three the stand-ins register, all
+ * shown with "Show all devices", in the order of their captions (bugs.md
+ * MAIN.15). */
+static void test_list_has_no_cap(void) {
+    const char *dir = scratch_dir("wizard");
+    size_t size = 16384;
+    char *text = malloc(size);
+    snprintf(text, size, "[Public]\r\n");
+    for (int i = 1; i <= 40; i++)
+        snprintf(text + strlen(text), size - strlen(text),
+                 "Object=(Name=Many.Device%d,Class=Class,MetaClass=Engine.RenderDevice)\r\n", i);
+    for (int i = 1; i <= 40; i++)
+        snprintf(text + strlen(text), size - strlen(text), "[Device%d]\r\nClassCaption=\"Many %02d\"\r\n", i, i);
+    scratch_write(dir, "System/Many.int", text);
+    free(text);
+    CHECK_INT(SDL_InitSubSystem(SDL_INIT_EVENTS), 0);
+    fixture_t f;
+    open_wizard(&f, DXL_PAGE_RENDERER);
+    dxl_wizard_first_paint(f.w, 0);
+    dxl_dialog_click(f.d, 1110);                           /* all devices */
+    CHECK_INT(page(&f, 1103)->item_count, 43);
+    char buf[2048];
+    items(page(&f, 1103), buf, sizeof buf);
+    CHECK(strncmp(buf, "3dfx Glide for Windows|Direct3D Support|Many 01|Many 02|", 56) == 0);
+    CHECK(strstr(buf, "|Many 39|Many 40|Software Rendering") != NULL);
+    close_wizard(&f);
+    char *many = scratch_path(dir, "System/Many.int");
+    remove(many);
+    free(many);
+    SDL_QuitSubSystem(SDL_INIT_EVENTS);
+}
+
 /* A .int's text as SDL takes it: UTF-8 as it is, else Latin-1 converted --
  * a lead byte past F4, an overlong one, a surrogate or past U+10FFFF is no
  * UTF-8. No font needed. */
@@ -432,6 +465,7 @@ TEST_MAIN_BEGIN
     RUN(test_quit_while_detecting);
     RUN(test_static_clipped);
     RUN(test_list_scrolls);
+    RUN(test_list_has_no_cap);
     RUN(test_cancel);
     RUN(test_safe_options);
     RUN(test_reset);

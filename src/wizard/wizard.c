@@ -24,7 +24,6 @@
 #define FRAME_H    253
 
 #define DETECT_MS  30000   /* how long the Renderer page waits for Detected.ini */
-#define MAX_SHOWN  32
 
 typedef struct {
     dxl_ctl_kind kind;
@@ -92,7 +91,7 @@ typedef struct {
     /* Renderer */
     int                all, painted;
     dxl_renderdev_list devices;
-    size_t             shown[MAX_SHOWN];
+    size_t            *shown;    /* every device the list shows, as the original's has no cap */
     int                shown_count, selected;
     /* Detail */
     char              *detail;
@@ -174,7 +173,9 @@ static void refresh_list(dxl_wizard *w, page *p) {
     dxl_renderdev_free(&p->devices);
     dxl_renderdev_load(&p->devices, w->req->system_dir, w->req->loc,
                        dxl_config_ini(w->req->config), NULL);
-    p->shown_count = (int)dxl_renderdev_shown(&p->devices, p->all, p->shown, MAX_SHOWN,
+    free(p->shown);
+    p->shown = dxl_xmalloc((p->devices.count ? p->devices.count : 1) * sizeof *p->shown);
+    p->shown_count = (int)dxl_renderdev_shown(&p->devices, p->all, p->shown, p->devices.count,
                                               &p->selected);
 }
 
@@ -291,6 +292,7 @@ void dxl_wizard_push(dxl_wizard *w, dxl_page_id id) {
 static void pop(dxl_wizard *w) {
     page *p = top(w);
     dxl_renderdev_free(&p->devices);
+    free(p->shown);
     free(p->detail);
     w->depth--;
 }

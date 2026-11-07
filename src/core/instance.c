@@ -8,16 +8,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 struct dxl_instance {
-    int   lock_fd;     /* -1: a channel alone */
+    int   lock_fd;     /* its mark of a game running; -1 for none */
     int   sock_fd;
-    char *lock_path;
     char *sock_path;   /* the channel's file, removed at release */
 };
 
@@ -79,53 +78,68 @@ static void open_channel(dxl_instance *inst) {
     }
 }
 
-static char *lock_path(void) {
+/* The file the instances mark themselves running on, opened: a planted link
+ * is refused. -1 when it cannot be. */
+static int open_lock(void) {
     char *dir = runtime_dir();
     size_t n = (dir ? strlen(dir) : 4) + 32;
-    char *p = dxl_xmalloc(n);
-    snprintf(p, n, "%s/deusex-launcher.lock", dir ? dir : "/tmp");
+    char *path = dxl_xmalloc(n);
+    snprintf(path, n, "%s/deusex-launcher.lock", dir ? dir : "/tmp");
     free(dir);
-    return p;
+    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
+    free(path);
+    return fd;
 }
 
-static dxl_instance *acquire(int listen) {
-    char *path = lock_path();
-    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
-    if (fd < 0) { free(path); return NULL; }
+/* The first byte's lock, of type, asked (F_OFD_SETLK) or tested
+ * (F_OFD_GETLK) through fd's open file description, each instance's its
+ * own; l_pid 0, as a description's lock asks. -1 when the call fails. */
+static int byte_lock(int fd, int cmd, struct flock *l, short type) {
+    memset(l, 0, sizeof *l);
+    l->l_type = type;
+    l->l_whence = SEEK_SET;
+    l->l_start = 0;
+    l->l_len = 1;
+    return fcntl(fd, cmd, l);
+}
 
-    if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        close(fd);
-        free(path);
-        return NULL;                      /* someone else holds it */
+/* The mark, made or found made, as the original's CreateMutex makes its
+ * DeusExIsRunning or opens it, ERROR_ALREADY_EXISTS saying another had it:
+ * a write lock, had only where no other instance holds its read lock, then
+ * kept as a read lock, the change one step; else a read lock beside the
+ * others', which a write lock held for that step delays for no longer. 0
+ * when held, *other set. */
+static int take_mark(int fd, int *other) {
+    struct flock l;
+    if (byte_lock(fd, F_OFD_SETLK, &l, F_WRLCK) == 0) {
+        *other = 0;
+        return byte_lock(fd, F_OFD_SETLK, &l, F_RDLCK);
     }
-
-    if (ftruncate(fd, 0) == 0) {
-        char pid[32];
-        int n = snprintf(pid, sizeof pid, "%ld\n", (long)getpid());
-        ssize_t ignored = write(fd, pid, (size_t)n);
-        (void)ignored;
+    if (errno != EAGAIN && errno != EACCES) return -1;
+    *other = 1;
+    for (int tries = 0; tries < 100; tries++) {
+        if (byte_lock(fd, F_OFD_SETLK, &l, F_RDLCK) == 0) return 0;
+        if (errno != EAGAIN && errno != EACCES) return -1;
+        struct timespec pause = { 0, 10 * 1000 * 1000 };
+        nanosleep(&pause, NULL);
     }
+    return -1;
+}
 
+dxl_instance *dxl_instance_acquire(int listen, int *other) {
+    int was = 0;
     dxl_instance *inst = dxl_xmalloc(sizeof *inst);
-    inst->lock_fd = fd;
-    inst->lock_path = path;
     inst->sock_fd = -1;
     inst->sock_path = NULL;
+    inst->lock_fd = open_lock();
+    if (inst->lock_fd >= 0 && take_mark(inst->lock_fd, &was) != 0) {
+        close(inst->lock_fd);
+        inst->lock_fd = -1;
+        was = 0;
+    }
+    if (other) *other = was;
     if (listen) open_channel(inst);
-    return inst;
-}
-
-dxl_instance *dxl_instance_acquire(void) { return acquire(1); }
-dxl_instance *dxl_instance_acquire_lock(void) { return acquire(0); }
-
-dxl_instance *dxl_instance_listen(void) {
-    dxl_instance *inst = dxl_xmalloc(sizeof *inst);
-    inst->lock_fd = -1;
-    inst->lock_path = NULL;
-    inst->sock_fd = -1;
-    inst->sock_path = NULL;
-    open_channel(inst);
-    if (inst->sock_fd < 0) {
+    if (inst->lock_fd < 0 && inst->sock_fd < 0) {
         free(inst);
         return NULL;
     }
@@ -141,27 +155,36 @@ void dxl_instance_release(dxl_instance *inst) {
         unlink(inst->sock_path);
     }
     free(inst->sock_path);
-    if (inst->lock_fd >= 0) {
-        flock(inst->lock_fd, LOCK_UN);
-        close(inst->lock_fd);
-    }
-    /* Leaving the lock file behind (it holds the last pid) is harmless: the
-     * lock is on the descriptor, not the name, so a stale file never blocks
-     * anyone. */
-    free(inst->lock_path);
+    /* The mark goes with its description, as the original's mutex with its
+     * last handle, however the process ends. The file stays behind,
+     * harmless: the lock is on the description, not the name, so a stale
+     * file never reads as live. */
+    if (inst->lock_fd >= 0) close(inst->lock_fd);
     free(inst);
 }
 
 int dxl_instance_other_running(void) {
-    char *path = lock_path();
-    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
-    free(path);
+    int fd = open_lock();
     if (fd < 0) return 0;
-
-    int busy = (flock(fd, LOCK_EX | LOCK_NB) != 0);
-    if (!busy) flock(fd, LOCK_UN);
+    struct flock l;
+    int busy = byte_lock(fd, F_OFD_GETLK, &l, F_WRLCK) == 0 && l.l_type != F_UNLCK;
     close(fd);
     return busy;
+}
+
+/* A client's channel found in the runtime folder: its file's name, and when
+ * it was made, its bind. */
+typedef struct {
+    char           *name;
+    struct timespec made;
+} channel;
+
+/* The newest first; one made at the same moment by its name. */
+static int newest_first(const void *a, const void *b) {
+    const channel *x = a, *y = b;
+    if (x->made.tv_sec != y->made.tv_sec) return x->made.tv_sec < y->made.tv_sec ? 1 : -1;
+    if (x->made.tv_nsec != y->made.tv_nsec) return x->made.tv_nsec < y->made.tv_nsec ? 1 : -1;
+    return strcmp(y->name, x->name);
 }
 
 int dxl_instance_forward(const char *message, int timeout_ms,
@@ -184,24 +207,47 @@ int dxl_instance_forward(const char *message, int timeout_ms,
     size_t mlen = strlen(message ? message : "");
     if (mlen > DXL_HANDOFF_MAX) mlen = DXL_HANDOFF_MAX;
 
-    /* Every client's channel in turn, until one takes the line: a file a
-     * process that died left takes none. */
-    int sent = 0, why = ENOENT;
+    /* Every client's channel, the newest first: the original's FindWindowEx
+     * walks the windows in their stacking order, a window made later put on
+     * top of those before it, so the log window it finds first is the
+     * newest client's. */
+    channel *found = NULL;
+    size_t count = 0, cap = 0;
     size_t pn = strlen(CHANNEL_PREFIX), sn = strlen(CHANNEL_SUFFIX);
     DIR *d = opendir(dir);
     struct dirent *de;
-    while (!sent && d && (de = readdir(d)) != NULL) {
+    while (d && (de = readdir(d)) != NULL) {
         size_t n = strlen(de->d_name);
         if (n <= pn + sn || strncmp(de->d_name, CHANNEL_PREFIX, pn) != 0 ||
             strcmp(de->d_name + n - sn, CHANNEL_SUFFIX) != 0)
             continue;
         struct sockaddr_un sa;
-        socklen_t len = socket_addr(&sa, dir, de->d_name);
-        if (!len) continue;
-        if (sendto(s, message ? message : "", mlen, 0, (struct sockaddr *)&sa, len) >= 0) sent = 1;
-        else why = errno;
+        struct stat st;
+        if (!socket_addr(&sa, dir, de->d_name) || lstat(sa.sun_path, &st) != 0 || !S_ISSOCK(st.st_mode)) continue;
+        if (count == cap) {
+            cap = cap ? 2 * cap : 8;
+            found = dxl_xrealloc(found, cap * sizeof *found);
+        }
+        found[count].name = dxl_xstrdup(de->d_name);
+        found[count].made = st.st_mtim;
+        count++;
     }
     if (d) closedir(d);
+    if (count) qsort(found, count, sizeof *found, newest_first);
+
+    /* Each in turn until one takes the line: a file a process that died
+     * left takes none. */
+    int sent = 0, why = ENOENT;
+    for (size_t i = 0; i < count; i++) {
+        struct sockaddr_un sa;
+        socklen_t len = socket_addr(&sa, dir, found[i].name);
+        if (!sent && len) {
+            if (sendto(s, message ? message : "", mlen, 0, (struct sockaddr *)&sa, len) >= 0) sent = 1;
+            else why = errno;
+        }
+        free(found[i].name);
+    }
+    free(found);
     close(s);
     free(dir);
     if (!sent) {

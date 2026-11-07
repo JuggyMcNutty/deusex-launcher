@@ -357,7 +357,7 @@ static void test_empty_log_names_no_log(void) {
  * token the launch goes on instead. */
 static void test_forwarding(void) {
     install("l-fwd", NULL);
-    dxl_instance *primary = dxl_instance_acquire();
+    dxl_instance *primary = dxl_instance_acquire(1, NULL);
     dxl_launch_result r;
     launch((const char *[]){ "DXMP_Cathedral", NULL }, &r);
     CHECK_STR(r.ended, "forwarded");
@@ -381,7 +381,7 @@ static void test_forwarding(void) {
  * folder holds a token is never forwarded, as the original's is not. */
 static void test_forwarding_bypassed_by_the_path(void) {
     install("l-fwd-NewWindow", NULL);
-    dxl_instance *primary = dxl_instance_acquire();
+    dxl_instance *primary = dxl_instance_acquire(1, NULL);
     scratch_write(root, "System/Running.ini", "");
     dxl_launch_result r;
     launch((const char *[]){ "DXMP_Cathedral", NULL }, &r);
@@ -459,7 +459,7 @@ static void test_ready_and_relay(void) {
 static void test_relay_beside_a_server(void) {
     install("l-relay-server", NULL);
     scratch_write(root, "System/game-mode.txt", "relay");
-    dxl_instance *server = dxl_instance_acquire_lock();
+    dxl_instance *server = dxl_instance_acquire(0, NULL);
     CHECK(server != NULL);
     S.forward_after_ready = 1;
     S.forward_line = "DX.dx?Name=JC -x";
@@ -481,7 +481,7 @@ static void test_relay_beside_a_server(void) {
 static void test_relay_to_the_client_left(void) {
     install("l-relay-left", NULL);
     scratch_write(root, "System/game-mode.txt", "relay");
-    S.release_first = dxl_instance_acquire();
+    S.release_first = dxl_instance_acquire(1, NULL);
     CHECK(S.release_first != NULL);
     S.forward_after_ready = 1;
     S.forward_line = "DX.dx?Name=JC -x";

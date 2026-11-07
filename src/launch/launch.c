@@ -343,7 +343,6 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
      * file, which the first holds with read sharing alone, and that launch
      * runs without a log. */
     r.log_path = log_path_of(&r);
-    int other = dxl_instance_other_running();
     dxl_log_open_new(r.log_path);
     dxl_log("Init: command line: %s", r.cmd);
     dxl_log("Init: base directory: %s", r.base);
@@ -375,17 +374,14 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
         free(bmp);
     }
 
-    /* 4 and 5.3. The lock, and for a client the line a second launch
-     * forwards to (the original's IsBrowser window). Not had: another
-     * instance holds it, though none did when the log was opened, as the
-     * original's CreateMutex finds its mutex there already; a client
-     * listens all the same, as every client's log window of the original
-     * is IsBrowser, beside a -server too. */
-    r.inst = client ? dxl_instance_acquire() : dxl_instance_acquire_lock();
-    if (!r.inst) {
-        other = 1;
-        if (client) r.inst = dxl_instance_listen();
-    }
+    /* 4 and 5.3. The mark of a game running, every instance's to its end,
+     * as the original's every instance makes its mutex and keeps it: found
+     * made already, another instance is live, the question InitEngine asks
+     * of a Running.ini. And for a client the line a second launch forwards
+     * to, its own, as every client's log window of the original is
+     * IsBrowser, beside a -server too. */
+    int other = 0;
+    r.inst = dxl_instance_acquire(client, &other);
 
     /* 5. InitEngine. */
     dxl_policy_input in = {
