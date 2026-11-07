@@ -73,11 +73,12 @@ FILE *dxl_fs_open_log(const char *path);
  * beside it, synced, given the old file's mode where files have modes (0644
  * for a new one), and put in its place, the folder synced on POSIX and the
  * move written through on Windows. A crash or a power cut leaves the old
- * file or the new one, never half of either. On POSIX a link is written
- * through: its target replaced, or made where the link points when it is
- * not there yet, the link kept; one that cannot be followed, a loop,
- * refused. A read-only file is refused:
- * on Windows by the move, on POSIX before it ("<path> is read-only"). */
+ * file or the new one, never half of either. A link (on Windows a symbolic
+ * link) is written through: its target replaced, or made where the link
+ * points when it is not there yet, the link kept; one that cannot be
+ * followed, a loop, refused ("<path>: its link cannot be followed"). A
+ * read-only file is refused: on Windows by the move, on POSIX before it
+ * ("<path> is read-only"). */
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err);
 
 /* The tops of the file system, NULL-terminated: "/" alone here, each

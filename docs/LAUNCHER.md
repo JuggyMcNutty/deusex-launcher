@@ -56,8 +56,9 @@ refused.
 
 A file is written whole or not at all, the icon's PNGs too: to a new file
 beside it, flushed, then moved over it
-(`dxl_path_write_atomic`, `MoveFileExW`). Windows' files have no mode to
-keep.
+(`dxl_path_write_atomic`, `MoveFileExW`); a symbolic link is written
+through, the file it leads to replaced, or made there when it is not there
+yet, and the link kept. Windows' files have no mode to keep.
 
 The launcher's own folder is where `deusex-launcher.exe` is: the engine
 beside it (`DXEngine.exe`, its `.pk3`, OpenAL Soft's `OpenAL32.dll`),
@@ -801,7 +802,9 @@ one, a start that says nothing, one come and gone before its first wait.
 loads and saves an ini in the game's format byte for byte (CR LF, blank
 lines, repeated keys; 8-bit text Latin-1 and UTF-16 kept, as the engine
 reads and writes them, and a path past Latin-1 written UTF-16; each line
-read as the original's reader takes it), and
+read as the original's reader takes it; a symbolic link written where it
+leads, made there when it is not there yet, where Windows lets the test
+make one, in its developer mode), and
 `test_json` `Settings.json`, the members it does not know kept in their
 order; `test_cmdline` the original's three parsers, which differ, and
 `test_argv` and `test_engine_args` the game's words and the engine's, a
@@ -978,8 +981,5 @@ Changed:
 
 ## Known defects
 
-Each open in Port Ex Machina's
-[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
-
-- **LPORT.10**: a linked ini is replaced by a plain file at the next save,
-  where the engine writes through the link.
+None open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md).

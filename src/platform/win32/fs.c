@@ -1,8 +1,9 @@
 /* The file system on Windows (platform/fs.h): its wide calls, each path
  * UTF-16 with '\' on the way in and UTF-8 with '/' on the way back. A file
  * replaced whole by a new one written beside it, flushed and moved over it
- * (MoveFileExW); a link to a folder a symbolic one, which Windows lets a
- * user make only in its developer mode.
+ * (MoveFileExW), a symbolic link written through to where it leads; a link
+ * to a folder a symbolic one, which Windows lets a user make only in its
+ * developer mode.
  */
 #include "platform/fs.h"
 #include "platform/win32/internal.h"
@@ -14,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include <winioctl.h>
 
 static int sep(char c) { return c == '/' || c == '\\'; }
 
@@ -206,11 +208,154 @@ FILE *dxl_fs_open_log(const char *path) {
     return f;
 }
 
+/* A symbolic link's reparse point as FSCTL_GET_REPARSE_POINT gives it: the
+ * layout of the DDK's REPARSE_DATA_BUFFER (ntifs.h), which the SDK's
+ * headers lack, its names after it -- the substitute name, which Windows
+ * follows, and the print name, for show. */
+typedef struct {
+    ULONG  tag;
+    USHORT data_length;
+    USHORT reserved;
+    USHORT substitute_offset;
+    USHORT substitute_length;
+    USHORT print_offset;
+    USHORT print_length;
+    ULONG  flags;
+} symlink_point;
+
+/* An absolute link's target, its substitute name, as the launcher names a
+ * path: "\??\C:\x" as "C:/x", "\??\UNC\host\share\x" as "//host/share/x", a
+ * volume's "\??\Volume{...}\x" through Win32's "\\?\"; NULL for one of the
+ * object manager's own names ("\Device\..."), which no Win32 path names. */
+static char *link_target(const wchar_t *name) {
+    if (!wcsncmp(name, L"\\??\\", 4) || !wcsncmp(name, L"\\\\?\\", 4)) {
+        const wchar_t *rest = name + 4;
+        int unc = !wcsncmp(rest, L"UNC\\", 4);
+        if (!unc && rest[0] && rest[1] == L':') return dxl_u8(rest, 1);
+        char *tail = dxl_u8(unc ? rest + 4 : rest, 1);
+        size_t n = strlen(tail) + 5;
+        char *out = dxl_xmalloc(n);
+        snprintf(out, n, "%s%s", unc ? "//" : "//?/", tail);
+        free(tail);
+        return out;
+    }
+    if (name[0] == L'\\' && name[1] != L'\\') return NULL;
+    return dxl_u8(name, 1);
+}
+
+/* A relative target of the link at at from the link's own folder, '\' as
+ * '/'; one that starts at a root ("\x") from the link's drive's. Caller
+ * frees. */
+static char *beside(const char *at, const wchar_t *name) {
+    char *rel = dxl_u8(name, 1);
+    char *base = rel[0] == '/' ? dxl_xstrndup(at, dxl_fs_root_len(at)) : dxl_path_dirname(at);
+    char *out = dxl_path_join(base, rel);
+    free(base);
+    free(rel);
+    return out;
+}
+
+/* The reparse point at w read (FSCTL_GET_REPARSE_POINT), the point itself
+ * opened (FILE_FLAG_OPEN_REPARSE_POINT; a folder's with
+ * FILE_FLAG_BACKUP_SEMANTICS): 1, *to a symbolic link's target as the
+ * launcher names a path, a relative one from the link's folder at's (caller
+ * frees); 0 for another kind of point; -1 where it cannot be read. */
+static int read_point(const wchar_t *w, const char *at, char **to) {
+    HANDLE h = CreateFileW(w, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                           OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    if (h == INVALID_HANDLE_VALUE) return -1;
+    BYTE *buf = dxl_xmalloc(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+    DWORD got = 0;
+    BOOL ok = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, NULL, 0, buf, MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &got, NULL);
+    CloseHandle(h);
+    int rc = -1;
+    ULONG tag = 0;
+    symlink_point p;
+    if (ok && got >= sizeof tag) memcpy(&tag, buf, sizeof tag);
+    if (ok && got >= sizeof tag && tag != IO_REPARSE_TAG_SYMLINK) {
+        rc = 0;
+    } else if (ok && got >= sizeof p) {
+        memcpy(&p, buf, sizeof p);
+        if (p.substitute_length && p.substitute_length % sizeof(wchar_t) == 0 &&
+            (size_t)p.substitute_offset + p.substitute_length <= got - sizeof p) {
+            size_t n = p.substitute_length / sizeof(wchar_t);
+            wchar_t *name = dxl_xmalloc((n + 1) * sizeof *name);
+            memcpy(name, buf + sizeof p + p.substitute_offset, n * sizeof *name);
+            name[n] = L'\0';
+            *to = p.flags & SYMLINK_FLAG_RELATIVE ? beside(at, name) : link_target(name);
+            free(name);
+            rc = *to ? 1 : -1;
+        }
+    }
+    free(buf);
+    return rc;
+}
+
+/* The reparse tag of the entry at w as its folder lists it (FindFirstFileW's
+ * dwReserved0); 0 for none. */
+static DWORD listed_tag(const wchar_t *w) {
+    WIN32_FIND_DATAW fd;
+    HANDLE f = wcspbrk(w, L"*?") ? INVALID_HANDLE_VALUE : FindFirstFileW(w, &fd);
+    if (f == INVALID_HANDLE_VALUE) return 0;
+    FindClose(f);
+    return fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT ? fd.dwReserved0 : 0;
+}
+
+/* What the symbolic link at at leads to: 1, *to its target as the launcher
+ * names a path (caller frees); 0 where at is no symbolic link -- a file or
+ * a folder, nothing yet, another kind of reparse point (a junction, a cloud
+ * file's placeholder, an app's alias), each written as any other; -1 for a
+ * link whose point cannot be read. The point is asked for where at's
+ * attributes have one (GetFileAttributesW, the link's own); one that cannot
+ * be read is a link's where its folder lists it as one. */
+static int read_link(const char *at, char **to) {
+    *to = NULL;
+    wchar_t *w = dxl_w(at, 1);
+    DWORD a = GetFileAttributesW(w);
+    int rc = 0;
+    if (a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_REPARSE_POINT)) {
+        rc = read_point(w, at, to);
+        if (rc < 0 && listed_tag(w) != IO_REPARSE_TAG_SYMLINK) rc = 0;
+    }
+    free(w);
+    return rc;
+}
+
+/* Where a symbolic link leads, followed link by link as Windows follows
+ * one, a relative target from its link's folder: the end, there or not yet,
+ * path itself where it is no link (caller frees); NULL for a loop, or a
+ * link whose point cannot be read. 63 links at most, the most Windows
+ * follows on a path. */
+static char *link_end(const char *path) {
+    char *at = dxl_xstrdup(path);
+    for (int hops = 0; hops <= 63; hops++) {
+        char *to = NULL;
+        int r = read_link(at, &to);
+        if (r == 0) return at;
+        free(at);
+        if (r < 0) return NULL;
+        at = to;
+    }
+    free(at);
+    return NULL;
+}
+
 /* A temporary file beside it, made new (CREATE_NEW), written whole, synced
  * (FlushFileBuffers), then moved over it, which on one volume replaces it
  * at once. Windows' files have no modes to keep. */
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
     static volatile LONG seq;
+    /* A symbolic link (a dotfiles repository's) is written where it leads,
+     * as DXEngine's CreateFile and the original's write through one: the
+     * move would put a file in the link's place, its target stale. One that
+     * leads nowhere yet is made where it leads; one that cannot be followed,
+     * a loop, is refused. */
+    char *target = link_end(path);
+    if (!target) {
+        dxl_err_set(err, "%s: its link cannot be followed", path);
+        return -1;
+    }
+    path = target;
     char *dir = dxl_path_dirname(path);
     size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 48;
     char *tmp = dxl_xmalloc(n);
@@ -259,6 +404,7 @@ out:
     free(wp);
     free(tmp);
     free(dir);
+    free(target);
     return rc;
 }
 
