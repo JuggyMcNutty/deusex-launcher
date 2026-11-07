@@ -114,8 +114,12 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
         path = target;
     }
     /* A read-only file is refused, not replaced: the original's write in
-     * place fails on one, as Windows' replace does. */
-    if (access(path, F_OK) == 0 && access(path, W_OK) != 0) {
+     * place fails on one, as Windows' replace does. One whose every write
+     * bit is off is read-only to root too, as Windows' read-only attribute
+     * is to an administrator, where access() passes every file for root,
+     * the Smart Pro's user (bugs.md LCORE.10). */
+    struct stat ro;
+    if (stat(path, &ro) == 0 && (access(path, W_OK) != 0 || !(ro.st_mode & 0222))) {
         dxl_err_set(err, "%s is read-only", path);
         free(target);
         return -1;
