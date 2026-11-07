@@ -17,6 +17,7 @@ void dxl_focus_add(dxl_focus_list *l, uint32_t id, dxl_box box, int scope) {
     l->items[l->count].id = id;
     l->items[l->count].box = box;
     l->items[l->count].scope = scope;
+    l->items[l->count].own_lr = 0;
     l->count++;
 }
 
@@ -98,6 +99,45 @@ uint32_t dxl_focus_move(const dxl_focus_list *l, uint32_t from, dxl_dir dir) {
         }
     }
     return best;
+}
+
+void dxl_focus_own_lr(dxl_focus_list *l, uint32_t id) {
+    for (int i = 0; i < l->count; i++)
+        if (l->items[i].id == id) l->items[i].own_lr = 1;
+}
+
+/* Its place in the list's scope, or -1. */
+static int place(const dxl_focus_list *l, uint32_t id, int scope) {
+    for (int i = 0; i < l->count; i++)
+        if (l->items[i].id == id && l->items[i].scope == scope) return i;
+    return -1;
+}
+
+int dxl_focus_reaches(const dxl_focus_list *l, uint32_t from, uint32_t to) {
+    int top = dxl_focus_top_scope(l);
+    int goal = place(l, to, top), start = place(l, from, top);
+    if (start < 0) start = place(l, dxl_focus_first(l), top);
+    if (goal < 0 || start < 0) return 0;
+    /* Every move from each place reached, breadth first, each place once. */
+    int queue[DXL_FOCUS_MAX], head = 0, tail = 0;
+    char seen[DXL_FOCUS_MAX];
+    memset(seen, 0, sizeof seen);
+    queue[tail++] = start;
+    seen[start] = 1;
+    while (head < tail) {
+        int at = queue[head++];
+        if (at == goal) return 1;
+        const dxl_focusable *f = &l->items[at];
+        for (int d = DXL_DIR_UP; d <= DXL_DIR_RIGHT; d++) {
+            if (f->own_lr && (d == DXL_DIR_LEFT || d == DXL_DIR_RIGHT)) continue;
+            int next = place(l, dxl_focus_move(l, f->id, (dxl_dir)d), top);
+            if (next >= 0 && !seen[next]) {
+                seen[next] = 1;
+                queue[tail++] = next;
+            }
+        }
+    }
+    return 0;
 }
 
 uint32_t dxl_focus_step(const dxl_focus_list *l, uint32_t from, int step) {

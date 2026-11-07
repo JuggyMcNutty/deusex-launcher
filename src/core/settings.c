@@ -111,7 +111,8 @@ static int decode(const dxl_set_place *p, const char *v, char *out, size_t size)
     switch (p->codec) {
     case DXL_CODEC_BOOL:
     case DXL_CODEC_NOT: {
-        int b = dxl_text_bool(v);
+        /* User.ini's a class's config, whose import takes no yes or no. */
+        int b = p->store == DXL_STORE_USER ? dxl_class_bool(v) : dxl_text_bool(v);
         if (b < 0) return 0;
         snprintf(out, size, "%d", p->codec == DXL_CODEC_NOT ? !b : b);
         return 1;

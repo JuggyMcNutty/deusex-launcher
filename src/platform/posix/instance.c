@@ -1,11 +1,16 @@
-/* The single instance on POSIX (platform/instance.h). The lock is flock on
- * a pidfile in the runtime folder ($XDG_RUNTIME_DIR, else one of the user's
- * own under /tmp), held on the descriptor, not the name: the file stays
- * after the process, holding the last pid, and a stale one never reads as
- * live -- nothing is written to the install. The channel is a unix socket
- * file in that folder, whose mode (0700) keeps other users' lines out, as
- * an abstract name would not; removed at release, a stale one at the next
- * bind.
+/* The single instance on POSIX (platform/instance.h). Every launcher marks
+ * itself running, for its whole run, with a lock it shares with the others,
+ * as the original's every instance keeps its DeusExIsRunning mutex: a read
+ * lock on the first byte of a file in the runtime folder ($XDG_RUNTIME_DIR,
+ * else one of the user's own under /tmp), an open file description's
+ * (F_OFD_SETLK), so each instance's is its own, a process's two among them.
+ * Another launcher is live where a write lock would meet a read lock of
+ * another description's (F_OFD_GETLK). The lock is on the description, not
+ * the name, and goes with it however the process ends: the file stays, and a
+ * stale one never reads as live -- nothing is written to the install. The
+ * channel is a unix socket file in that folder, the first client's, whose
+ * mode (0700) keeps other users' lines out, as an abstract name would not;
+ * removed at release, a stale one at the next bind.
  */
 #define _GNU_SOURCE
 #include "platform/instance.h"
@@ -17,16 +22,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 struct dxl_instance {
-    int   lock_fd;
+    int   lock_fd;     /* its mark of a launcher running; -1 for none */
     int   sock_fd;
-    char *lock_path;
     char *sock_path;   /* the channel's file, removed at release */
 };
 
@@ -74,13 +77,36 @@ static socklen_t socket_addr(struct sockaddr_un *sa, const char *id) {
     return (socklen_t)(offsetof(struct sockaddr_un, sun_path) + (size_t)n + 1);
 }
 
-static char *lock_path_for(const char *id) {
+/* The file the launchers mark themselves running on, opened: a planted link
+ * is refused. -1 when it cannot be. */
+static int open_lock(const char *id) {
     char *dir = runtime_dir();
     size_t n = (dir ? strlen(dir) : 4) + 48;
-    char *p = dxl_xmalloc(n);
-    snprintf(p, n, "%s/deusex-launcher.%08lx.lock", dir ? dir : "/tmp", id_hash(id));
+    char *path = dxl_xmalloc(n);
+    snprintf(path, n, "%s/deusex-launcher.%08lx.lock", dir ? dir : "/tmp", id_hash(id));
     free(dir);
-    return p;
+    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
+    free(path);
+    return fd;
+}
+
+/* The first byte's lock, of type, asked (F_OFD_SETLK) or tested
+ * (F_OFD_GETLK) through fd's description; l_pid 0, as a description's lock
+ * asks. -1 when the call fails. */
+static int byte_lock(int fd, int cmd, struct flock *l, short type) {
+    memset(l, 0, sizeof *l);
+    l->l_type = type;
+    l->l_whence = SEEK_SET;
+    l->l_start = 0;
+    l->l_len = 1;
+    return fcntl(fd, cmd, l);
+}
+
+/* Whether a launcher other than fd's description's marks itself running:
+ * a write lock there would meet its read lock. */
+static int marked_by_another(int fd) {
+    struct flock l;
+    return byte_lock(fd, F_OFD_GETLK, &l, F_WRLCK) == 0 && l.l_type != F_UNLCK;
 }
 
 /* Whether a launcher listens on the channel at sa. */
@@ -93,8 +119,8 @@ static int listened(const struct sockaddr_un *sa, socklen_t len) {
 }
 
 /* The handoff channel, into inst, unless a launcher listens on it already
- * (a client beside a server, which holds the lock). Failing to open it is
- * not fatal -- the instance just cannot receive URLs. */
+ * (the first client, or one beside a server). Failing to open it is not
+ * fatal -- the instance just cannot receive URLs. */
 static void open_channel(dxl_instance *inst, const char *id) {
     int s = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (s < 0) return;
@@ -112,48 +138,26 @@ static void open_channel(dxl_instance *inst, const char *id) {
 }
 
 static dxl_instance *acquire(const char *id, int listen) {
-    char *path = lock_path_for(id);
-    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
-    if (fd < 0) { free(path); return NULL; }
-
-    if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        close(fd);
-        free(path);
-        return NULL;                      /* someone else holds it */
-    }
-
-    if (ftruncate(fd, 0) == 0) {
-        char pid[32];
-        int n = snprintf(pid, sizeof pid, "%ld\n", (long)getpid());
-        ssize_t ignored = write(fd, pid, (size_t)n);
-        (void)ignored;
-    }
-
     dxl_instance *inst = dxl_xmalloc(sizeof *inst);
-    inst->lock_fd = fd;
-    inst->lock_path = path;
     inst->sock_fd = -1;
     inst->sock_path = NULL;
+    /* The mark: a read lock, which no other launcher's refuses. */
+    struct flock l;
+    inst->lock_fd = open_lock(id);
+    if (inst->lock_fd >= 0 && byte_lock(inst->lock_fd, F_OFD_SETLK, &l, F_RDLCK) != 0) {
+        close(inst->lock_fd);
+        inst->lock_fd = -1;
+    }
     if (listen) open_channel(inst, id);
-    return inst;
-}
-
-dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
-dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
-
-dxl_instance *dxl_instance_listen(const char *id) {
-    dxl_instance *inst = dxl_xmalloc(sizeof *inst);
-    inst->lock_fd = -1;
-    inst->lock_path = NULL;
-    inst->sock_fd = -1;
-    inst->sock_path = NULL;
-    open_channel(inst, id);
-    if (inst->sock_fd < 0) {
+    if (inst->lock_fd < 0 && inst->sock_fd < 0) {
         free(inst);
         return NULL;
     }
     return inst;
 }
+
+dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
+dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
 
 int dxl_instance_fd(const dxl_instance *inst) { return inst ? inst->sock_fd : -1; }
 
@@ -168,27 +172,20 @@ void dxl_instance_release(dxl_instance *inst) {
         unlink(inst->sock_path);
     }
     free(inst->sock_path);
-    if (inst->lock_fd >= 0) {
-        flock(inst->lock_fd, LOCK_UN);
-        close(inst->lock_fd);
-    }
-    /* Leaving the lock file behind (it holds the last pid) is harmless: the
-     * lock is on the descriptor, not the name, so a stale file never blocks
-     * anyone. */
-    free(inst->lock_path);
+    /* The mark goes with its description, as it does however the process
+     * ends. The file stays behind, harmless: the lock is on the
+     * description, not the name, so a stale file never reads as live. */
+    if (inst->lock_fd >= 0) close(inst->lock_fd);
     free(inst);
 }
 
-int dxl_instance_other_running(const char *id) {
-    char *path = lock_path_for(id);
-    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);   /* a planted link is refused */
-    free(path);
+int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
+    if (dxl_instance_locked(inst)) return marked_by_another(inst->lock_fd);
+    int fd = open_lock(id);
     if (fd < 0) return 0;
-
-    int busy = (flock(fd, LOCK_EX | LOCK_NB) != 0);
-    if (!busy) flock(fd, LOCK_UN);
+    int other = marked_by_another(fd);
     close(fd);
-    return busy;
+    return other;
 }
 
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms,

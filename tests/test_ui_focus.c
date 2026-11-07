@@ -72,6 +72,52 @@ static void test_tab_order(void) {
     CHECK_INT(dxl_focus_step(&l, 42, -1), 9);
 }
 
+/* The moves alone reach what a pad's d-pad would (bugs.md LUI.8): across
+ * the grid, from where the focus is, or from the first where it is
+ * nowhere; nothing under a dialog; not left or right out of one whose own
+ * they are, a slider's; nor one that no move lands on, drawn where another
+ * is. */
+static void test_reaches(void) {
+    static dxl_focus_list l;
+    grid(&l);
+    CHECK_INT(dxl_focus_reaches(&l, 1, 9), 1);
+    CHECK_INT(dxl_focus_reaches(&l, 9, 1), 1);
+    CHECK_INT(dxl_focus_reaches(&l, 5, 5), 1);
+    CHECK_INT(dxl_focus_reaches(&l, 42, 9), 1);
+    CHECK_INT(dxl_focus_reaches(&l, 1, 42), 0);
+    dxl_focus_add(&l, 100, box(100, 300, 100, 40), 1);
+    dxl_focus_add(&l, 101, box(220, 300, 100, 40), 1);
+    CHECK_INT(dxl_focus_reaches(&l, 5, 101), 1);
+    CHECK_INT(dxl_focus_reaches(&l, 100, 5), 0);
+
+    /* Two sliders, one over the other, and a button beside the lower. */
+    static dxl_focus_list s;
+    dxl_focus_clear(&s);
+    dxl_focus_add(&s, 1, box(0, 0, 300, 40), 0);
+    dxl_focus_add(&s, 2, box(0, 60, 300, 40), 0);
+    dxl_focus_add(&s, 3, box(400, 60, 100, 40), 0);
+    CHECK_INT(dxl_focus_reaches(&s, 1, 3), 1);
+    dxl_focus_own_lr(&s, 1);
+    dxl_focus_own_lr(&s, 2);
+    CHECK_INT(dxl_focus_reaches(&s, 1, 2), 1);
+    CHECK_INT(dxl_focus_reaches(&s, 1, 3), 0);
+    CHECK_INT(dxl_focus_reaches(&s, 3, 1), 1);
+    /* A new frame's are moves again until they are taken. */
+    dxl_focus_clear(&s);
+    dxl_focus_add(&s, 2, box(0, 60, 300, 40), 0);
+    dxl_focus_add(&s, 3, box(400, 60, 100, 40), 0);
+    CHECK_INT(dxl_focus_reaches(&s, 2, 3), 1);
+
+    /* One drawn where another is, after it: every move lands on the other. */
+    static dxl_focus_list o;
+    dxl_focus_clear(&o);
+    dxl_focus_add(&o, 1, box(0, 0, 100, 40), 0);
+    dxl_focus_add(&o, 2, box(0, 60, 100, 40), 0);
+    dxl_focus_add(&o, 3, box(0, 60, 100, 40), 0);
+    CHECK_INT(dxl_focus_reaches(&o, 1, 2), 1);
+    CHECK_INT(dxl_focus_reaches(&o, 1, 3), 0);
+}
+
 static void test_overflow(void) {
     static dxl_focus_list l;
     dxl_focus_clear(&l);
@@ -88,5 +134,6 @@ TEST_MAIN_BEGIN
     RUN(test_overlap_first);
     RUN(test_scopes);
     RUN(test_tab_order);
+    RUN(test_reaches);
     RUN(test_overflow);
 TEST_MAIN_END

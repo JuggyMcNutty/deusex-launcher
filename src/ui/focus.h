@@ -5,8 +5,9 @@
  * dialog's, while one is up), to the nearest whose middle lies that way,
  * by distance along the move plus twice the distance across it, one that
  * overlaps the focused rect across the move first. Tab and Shift-Tab step
- * through them in the order they were drawn. No SDL here: plain rects, so
- * the rules are tested without a display (tests/test_ui_focus.c).
+ * through them in the order they were drawn. Whether the moves alone reach
+ * one, as a pad's d-pad would, is dxl_focus_reaches. No SDL here: plain
+ * rects, so the rules are tested without a display (tests/test_ui_focus.c).
  */
 #ifndef DXL_UI_FOCUS_H
 #define DXL_UI_FOCUS_H
@@ -23,6 +24,7 @@ typedef struct {
     uint32_t id;
     dxl_box  box;
     int      scope;     /* 0 the screen's; a dialog's higher */
+    int      own_lr;    /* left and right its own, no moves: a slider's steps, a field's caret */
 } dxl_focusable;
 
 typedef struct {
@@ -46,5 +48,14 @@ uint32_t dxl_focus_move(const dxl_focus_list *l, uint32_t from, dxl_dir dir);
 uint32_t dxl_focus_step(const dxl_focus_list *l, uint32_t from, int step);
 /* The top scope's first, or 0. */
 uint32_t dxl_focus_first(const dxl_focus_list *l);
+
+/* id's left and right its own from now on, as a slider takes them for its
+ * steps (ui/kit.h's dxl_ui_take_lr): no moves out of it. */
+void     dxl_focus_own_lr(dxl_focus_list *l, uint32_t id);
+/* Whether the moves alone -- a pad's d-pad, the arrows -- take the focus
+ * from `from` to `to` among the top scope's (`from` not there: from its
+ * first, where a move from it goes), left and right never out of one whose
+ * own they are; Tab is no move. */
+int      dxl_focus_reaches(const dxl_focus_list *l, uint32_t from, uint32_t to);
 
 #endif

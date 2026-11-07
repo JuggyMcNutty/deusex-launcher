@@ -135,23 +135,36 @@ void dxl_buf_word(dxl_buf *b, const char *s) {
 
 /* Its first token, as the engine's import takes one (the original's token
  * reader, Core.dll 0x10164cb0): a quoted string's text, else the run of
- * letters, digits, _ and - it begins with. */
-int dxl_text_bool(const char *v) {
-    if (!v) return -1;
+ * letters, digits, _ and - it begins with; into t, 0 when none fits. */
+static int first_token(const char *v, char *t, size_t size) {
+    if (!v) return 0;
     size_t n = 0;
     if (*v == '"') {
         const char *end = strchr(++v, '"');
-        if (!end) return -1;
+        if (!end) return 0;
         n = (size_t)(end - v);
     } else {
         while (isalnum((unsigned char)v[n]) || v[n] == '_' || v[n] == '-') n++;
     }
-    char t[8];
-    if (n >= sizeof t) return -1;
+    if (n >= size) return 0;
     memcpy(t, v, n);
     t[n] = '\0';
+    return 1;
+}
+
+int dxl_text_bool(const char *v) {
+    char t[8];
+    if (!first_token(v, t, sizeof t)) return -1;
     if (!dxl_stricmp(t, "True") || !dxl_stricmp(t, "Yes") || !strcmp(t, "1")) return 1;
     if (!dxl_stricmp(t, "False") || !dxl_stricmp(t, "No") || !strcmp(t, "0")) return 0;
+    return -1;
+}
+
+int dxl_class_bool(const char *v) {
+    char t[8];
+    if (!first_token(v, t, sizeof t)) return -1;
+    if (!dxl_stricmp(t, "True") || !strcmp(t, "1")) return 1;
+    if (!dxl_stricmp(t, "False") || !strcmp(t, "0")) return 0;
     return -1;
 }
 

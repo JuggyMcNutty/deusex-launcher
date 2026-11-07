@@ -16,7 +16,7 @@
 typedef struct dxl_window dxl_window;
 
 /* stop is set by a signal: the screen up ends as a quit. */
-dxl_window *dxl_window_new(const char *version, volatile int *stop);
+dxl_window *dxl_window_new(const char *version, atomic_int *stop);
 void        dxl_window_free(dxl_window *w);
 /* run.c's dxl_run_ui, the window's. */
 void        dxl_window_ui(dxl_window *w, dxl_run_ui *ui);

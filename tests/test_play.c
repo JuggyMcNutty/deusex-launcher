@@ -21,7 +21,7 @@ typedef struct {
 } scratch_run;
 
 static void play_stub(scratch_run *s, const char *tag, char *const env[], dxl_instance *inst,
-                      volatile int *stop, dxl_play_result *out) {
+                      atomic_int *stop, dxl_play_result *out) {
     s->dir = dxl_xstrdup(scratch_dir(tag));
     s->log = scratch_path(s->dir, "run.log");
     char *argv[] = { DXL_STUB_ENGINE, "--no-launcher", "/games/Deus Ex",
@@ -121,7 +121,7 @@ static void test_quotes_kept(void) {
  * WM_CLOSE) is killed when its time is up. Stopped once it is ready, deaf
  * by then: a stop sent while it still starts would end it before it could
  * take no notice. */
-static volatile int stop_now;
+static atomic_int stop_now;
 static void stop_on_ready(void *ctx) {
     (void)ctx;
     stop_now = 1;

@@ -208,7 +208,7 @@ static void test_crash(void) {
  * start takes it back, so the game's end is seen, not waited for ever. */
 static void test_child_ignored(void) {
     signal(SIGCHLD, SIG_IGN);
-    static volatile int stop;
+    static atomic_int stop;
     dxl_startup(&stop, NULL);
     char *argv[] = { DXL_STUB_ENGINE, NULL };
     char *env[] = { "DXL_STUB=crash", NULL };
