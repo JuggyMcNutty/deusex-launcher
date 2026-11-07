@@ -74,12 +74,45 @@ static int keep_mode(int fd, mode_t mode) {
     return errno == EPERM || errno == EOPNOTSUPP ? 0 : -1;
 }
 
+/* Where a link leads, followed link by link as the system follows one, a
+ * relative target from its link's folder: the end, there or not yet; NULL
+ * for a loop or a link that cannot be read. Caller frees. */
+static char *link_end(const char *path) {
+    char *at = dxl_xstrdup(path);
+    for (int hops = 0; hops < 40; hops++) {
+        struct stat st;
+        char to[PATH_MAX];
+        if (lstat(at, &st) != 0 || !S_ISLNK(st.st_mode)) return at;
+        ssize_t n = readlink(at, to, sizeof to - 1);
+        if (n <= 0) break;
+        to[n] = '\0';
+        const char *slash = strrchr(at, '/');
+        size_t keep = to[0] == '/' || !slash ? 0 : (size_t)(slash - at) + 1;
+        char *next = dxl_xmalloc(keep + (size_t)n + 1);
+        memcpy(next, at, keep);
+        memcpy(next + keep, to, (size_t)n + 1);
+        free(at);
+        at = next;
+    }
+    free(at);
+    return NULL;
+}
+
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
     /* A linked file (a dotfiles repository's) is written where it points:
-     * the rename would put a file in the link's place, its target stale. */
+     * the rename would put a file in the link's place, its target stale.
+     * One that points nowhere yet is made where it points, as the engine's
+     * write through the link makes it; one that cannot be followed, a loop,
+     * is refused, as the engine's write fails on it. */
     struct stat ls;
-    char *target = lstat(path, &ls) == 0 && S_ISLNK(ls.st_mode) ? realpath(path, NULL) : NULL;
-    if (target) path = target;
+    char *target = NULL;
+    if (lstat(path, &ls) == 0 && S_ISLNK(ls.st_mode)) {
+        if (!(target = link_end(path))) {
+            dxl_err_set(err, "%s: its link cannot be followed", path);
+            return -1;
+        }
+        path = target;
+    }
     /* A read-only file is refused, not replaced: the original's write in
      * place fails on one, as Windows' replace does. */
     if (access(path, F_OK) == 0 && access(path, W_OK) != 0) {

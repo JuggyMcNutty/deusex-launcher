@@ -130,7 +130,7 @@ static void test_every_launcher_marked(void) {
     dxl_instance *second = dxl_instance_acquire(g_root);
     CHECK(second != NULL);
     CHECK_INT(dxl_instance_locked(second), 1);
-    CHECK_INT(dxl_instance_listens(second), 0);   /* the channel the first's */
+    CHECK_INT(dxl_instance_listens(second), 1);   /* a channel of its own */
     CHECK_INT(dxl_instance_other_running(first, g_root), 1);
     CHECK_INT(dxl_instance_other_running(second, g_root), 1);
 
@@ -200,9 +200,9 @@ static void test_lock_without_channel(void) {
     dxl_instance_release(client);
 }
 
-/* A client beside a server, which holds the mark alone, takes the channel,
- * as the original's every client's log window is IsBrowser: a forward
- * reaches it, and the channel is its own while it listens. */
+/* A client beside a server, which holds the mark alone, listens, as the
+ * original's every client's log window is IsBrowser: a forward reaches it;
+ * a client beside both listens on a channel of its own. */
 static void test_listen_beside_the_lock(void) {
     dxl_instance *server = dxl_instance_acquire_lock(g_root);
     CHECK(server != NULL);
@@ -213,7 +213,7 @@ static void test_listen_beside_the_lock(void) {
     CHECK_INT(dxl_instance_locked(server), 1);
     dxl_instance *third = dxl_instance_acquire(g_root);
     CHECK(third != NULL);
-    CHECK_INT(dxl_instance_listens(third), 0);
+    CHECK_INT(dxl_instance_listens(third), 1);
     dxl_instance_release(third);
     dxl_err e;
     CHECK_INT(dxl_instance_forward(g_root, "map", 1000, &e), 0);
@@ -223,6 +223,39 @@ static void test_listen_beside_the_lock(void) {
     dxl_instance_release(client);
     CHECK_INT(dxl_instance_other_running(NULL, g_root), 1);   /* the server's mark */
     dxl_instance_release(server);
+}
+
+/* Each client listens on a channel of its own: a forward goes to the
+ * newest, as the original's to the log window it finds first, a window
+ * made later put on top of those before it; with that one gone, to the one
+ * before; and with the first gone, to one started beside it, still running,
+ * not to a second game (bugs.md LAPP.12). */
+static void test_newest_takes_the_line(void) {
+    dxl_instance *first = dxl_instance_acquire(g_root);
+    dxl_os_sleep_ms(20);   /* a later start, a later channel */
+    dxl_instance *beside = dxl_instance_acquire(g_root);
+    CHECK(first != NULL && beside != NULL);
+    dxl_err e;
+    char buf[DXL_HANDOFF_MAX + 1];
+    for (int i = 0; i < 2; i++) {
+        CHECK_INT(dxl_instance_forward(g_root, "map", 1000, &e), 0);
+        CHECK_INT(dxl_instance_poll(beside, buf, sizeof buf), 1);
+        CHECK_STR(buf, "map");
+        CHECK_INT(dxl_instance_poll(first, buf, sizeof buf), 0);
+    }
+    dxl_instance_release(beside);
+    CHECK_INT(dxl_instance_forward(g_root, "back", 1000, &e), 0);
+    CHECK_INT(dxl_instance_poll(first, buf, sizeof buf), 1);
+    CHECK_STR(buf, "back");
+
+    beside = dxl_instance_acquire(g_root);
+    CHECK(beside != NULL);
+    dxl_instance_release(first);
+    CHECK_INT(dxl_instance_other_running(NULL, g_root), 1);
+    CHECK_INT(dxl_instance_forward(g_root, "later", 1000, &e), 0);
+    CHECK_INT(dxl_instance_poll(beside, buf, sizeof buf), 1);
+    CHECK_STR(buf, "later");
+    dxl_instance_release(beside);
 }
 
 TEST_MAIN_BEGIN
@@ -235,5 +268,6 @@ TEST_MAIN_BEGIN
     RUN(test_handoff_delivers_the_command_line);
     RUN(test_lock_without_channel);
     RUN(test_listen_beside_the_lock);
+    RUN(test_newest_takes_the_line);
     teardown();
 TEST_MAIN_END

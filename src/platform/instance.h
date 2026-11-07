@@ -10,12 +10,13 @@
  *   2. FindWindowEx for a WLog window carrying the "IsBrowser" property, then
  *      WM_COPYDATA with the tail of the command line and a 30s timeout
  *      (section 2) -- so a second launch opens a URL in the running game
- *      instead of starting a second copy.
+ *      instead of starting a second copy. Every client's log window carries
+ *      the property, whatever runs beside it; a server's never (section 4).
  *
  * Both survive here; only the transport changes, the platform's
  * (platform/posix/instance.c: a lock each launcher shares on a file, a unix
- * socket). The protocol is unchanged: one message, the command line. A wait
- * for one is platform/wait.h's.
+ * socket each client). The protocol is unchanged: one message, the command
+ * line. A wait for one is platform/wait.h's.
  */
 #ifndef DXL_INSTANCE_H
 #define DXL_INSTANCE_H
@@ -29,12 +30,11 @@
 typedef struct dxl_instance dxl_instance;
 
 /* Marks this launcher running for id until it is released, as every
- * launcher does, the original's mutex every instance keeps; and takes the
- * channel a second start hands its command line to, unless a launcher
- * listens on it already: the first client, as the original marks every
- * client's log window IsBrowser. NULL when neither can be had. The desktop
- * launcher's id is its home's (app/session.h): one channel for a home,
- * whatever the install. */
+ * launcher does, the original's mutex every instance keeps; and opens a
+ * channel of its own a second start can hand its command line to, as the
+ * original marks every client's log window IsBrowser, whatever runs beside
+ * it. NULL when neither can be had. The desktop launcher's id is its
+ * home's (app/session.h): the channels of a home, whatever the install. */
 dxl_instance *dxl_instance_acquire(const char *id);
 /* The mark alone, with no channel to forward to: an instance nothing should
  * hand a command line to -- the original's -server, whose log window is
@@ -47,9 +47,11 @@ void          dxl_instance_release(dxl_instance *inst);
  * started beside another, which outlives it, live for a later start. */
 int dxl_instance_other_running(const dxl_instance *inst, const char *id);
 
-/* Sends message to the launcher that has the channel. Returns 0 on success.
- * The original allows 30s; nothing here should ever take that long, but the
- * timeout exists so a wedged launcher cannot hang the messenger forever. */
+/* Sends message to a client's channel, the newest that takes it, as the
+ * original's to the log window it finds first, the newest. Returns 0 on
+ * success. The original allows 30s; nothing here should ever take that
+ * long, but the timeout exists so a wedged launcher cannot hang the
+ * messenger forever. */
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms,
                          dxl_err *err);
 
