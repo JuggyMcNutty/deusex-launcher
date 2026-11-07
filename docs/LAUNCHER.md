@@ -66,7 +66,9 @@ one that cannot be followed, a loop, is refused. It keeps the mode the old
 one had, set only where the new one's differs; a filesystem with no
 permissions to keep (exFAT, FAT) refusing that is no failure. A file the
 launcher may not write, a read-only one, is not replaced: its save fails,
-`<file> is read-only`, as the original's write in place does.
+`<file> is read-only`, as the original's write in place does; to root too
+where its every write bit is off, as Windows' read-only attribute holds
+for an administrator.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md` with the notices it names
@@ -960,7 +962,4 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LCORE.10**: run as root, the launcher still replaces a read-only ini at
-  the next save: `access()` passes every file for root, and the Smart Pro's
-  user is root (SSH logs in as root).
 - **LPORT.6**: the sysroot's packages fetched against no hash.

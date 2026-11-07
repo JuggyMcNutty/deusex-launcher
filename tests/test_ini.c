@@ -573,19 +573,20 @@ static void test_save_refuses_read_only(void) {
     char *path = scratch_path(dir, "DeusEx.ini");
     scratch_write(dir, "DeusEx.ini", "[A]\r\nx=1\r\n");
     chmod(path, 0444);
-    if (access(path, W_OK) != 0) {   /* root writes anything */
-        dxl_ini *ini = dxl_ini_parse("[A]\r\nx=2\r\n", 10);
-        dxl_err e = { 0 };
-        CHECK_INT(dxl_ini_save(ini, path, &e), -1);
-        CHECK(strstr(dxl_err_msg(&e), "read-only") != NULL);
-        dxl_ini_free(ini);
-        size_t len = 0;
-        char *text = slurp(path, &len);
-        CHECK_STR(text, "[A]\r\nx=1\r\n");
-        free(text);
-        struct stat st;
-        CHECK(stat(path, &st) == 0 && (st.st_mode & 0777) == 0444);
-    }
+    /* Refused to root too, which may write any file, its every write bit
+     * off (bugs.md LCORE.10): the test run as root in a user namespace,
+     * unshare -r, asks it. */
+    dxl_ini *ini = dxl_ini_parse("[A]\r\nx=2\r\n", 10);
+    dxl_err e = { 0 };
+    CHECK_INT(dxl_ini_save(ini, path, &e), -1);
+    CHECK(strstr(dxl_err_msg(&e), "read-only") != NULL);
+    dxl_ini_free(ini);
+    size_t len = 0;
+    char *text = slurp(path, &len);
+    CHECK_STR(text, "[A]\r\nx=1\r\n");
+    free(text);
+    struct stat st;
+    CHECK(stat(path, &st) == 0 && (st.st_mode & 0777) == 0444);
     chmod(path, 0644);
     free(path);
     scratch_remove(dir);
