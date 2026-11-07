@@ -568,6 +568,42 @@ static void test_save_refuses_read_only(void) {
 #endif
 }
 
+/* An ini whose link points nowhere yet is made where it points, the link
+ * kept, as the engine's write through the link makes it: a relative link's
+ * target from its own folder, a link to a link followed to its end (bugs.md
+ * LCORE.14). One that cannot be followed, a loop, is refused, nothing put
+ * in its place, as the engine's write fails on it. */
+static void test_save_through_a_link_to_nowhere(void) {
+#ifndef _WIN32
+    const char *dir = scratch_dir("ini-nowhere");
+    char *real = scratch_path(dir, "Real/DeusEx.ini");
+    char *link = scratch_path(dir, "System/DeusEx.ini");
+    char *hop = scratch_path(dir, "System/Hop.ini");
+    CHECK_INT(dxl_fs_link_dir("../Real/DeusEx.ini", hop), 0);
+    CHECK_INT(dxl_fs_link_dir("Hop.ini", link), 0);
+    dxl_ini *ini = dxl_ini_parse("[A]\r\nx=2\r\n", 10);
+    dxl_err e = { 0 };
+    CHECK_INT(dxl_ini_save(ini, link, &e), 0);
+    CHECK_INT(dxl_fs_is_link(link), 1);
+    CHECK_INT(dxl_fs_is_link(hop), 1);
+    size_t len = 0;
+    char *text = slurp(real, &len);
+    CHECK_STR(text, "[A]\r\nx=2\r\n");
+    free(text);
+    char *loop = scratch_path(dir, "System/Loop.ini");
+    CHECK_INT(dxl_fs_link_dir("Loop.ini", loop), 0);
+    CHECK_INT(dxl_ini_save(ini, loop, &e), -1);
+    CHECK(strstr(dxl_err_msg(&e), "cannot be followed") != NULL);
+    CHECK_INT(dxl_fs_is_link(loop), 1);
+    dxl_ini_free(ini);
+    free(loop);
+    free(hop);
+    free(link);
+    free(real);
+    scratch_remove(dir);
+#endif
+}
+
 /* A CRLF file made LF, as the desktop launcher writes its profiles' inis. */
 static void test_set_eol(void) {
     const char *src = "[A]\r\nx=1\r\n\r\n[B]\r\ny=2";
@@ -625,5 +661,6 @@ TEST_MAIN_BEGIN
     RUN(test_rewrite_normalises_line_ending);
     RUN(test_save_is_atomic_and_keeps_the_mode);
     RUN(test_save_refuses_read_only);
+    RUN(test_save_through_a_link_to_nowhere);
     RUN(test_set_eol);
 TEST_MAIN_END

@@ -2,14 +2,16 @@
  * itself running with a named mutex of its own, kept to its end, as the
  * original's every instance keeps its DeusExIsRunning (CreateMutex and
  * ERROR_ALREADY_EXISTS): Local\deusex-launcher.<hash>.<n>, the first number
- * no launcher holds, gone with the last handle to it, so a crashed
- * launcher's never reads as live. Another launcher is live where a mark of
- * another number opens. The channel is a named pipe,
- * \\.\pipe\deusex-launcher.<hash>, the first client's, one message a
- * command line: the launcher that has it waits for a sender to connect,
- * reads the message, and waits again; its event is set while either is
- * ready to go on. A pipe that will not wait is given up, the mark kept
- * alone.
+ * past every one held, so the highest held is the newest launcher's (past
+ * the last, the first none holds), gone with the last handle to it, so a
+ * crashed launcher's never reads as live. Another launcher is live where a
+ * mark of another number opens. Each client's channel is a named pipe of
+ * its own, \\.\pipe\deusex-launcher.<hash>.<n>, its mark's number, as the
+ * original marks every client's log window IsBrowser, one message a command
+ * line: the launcher waits for a sender to connect, reads the message, and
+ * waits again; its event is set while either is ready to go on. A pipe that
+ * will not wait is given up, the mark kept alone. A second start sends to
+ * the newest client's pipe there.
  */
 #include "platform/instance.h"
 #include "platform/win32/internal.h"
@@ -49,14 +51,28 @@ static void mark_name(const char *id, int n, wchar_t *out, size_t size) {
     swprintf(out, size, L"Local\\deusex-launcher.%08lx.%d", id_hash(id), n);
 }
 
-static void pipe_name(const char *id, wchar_t *out, size_t size) {
-    swprintf(out, size, L"\\\\.\\pipe\\deusex-launcher.%08lx", id_hash(id));
+/* The pipe of the client whose mark is number n. */
+static void pipe_name(const char *id, int n, wchar_t *out, size_t size) {
+    swprintf(out, size, L"\\\\.\\pipe\\deusex-launcher.%08lx.%d", id_hash(id), n);
 }
 
-/* This launcher's mark: the mutex of the first number no launcher holds,
- * made here, its number into *n. NULL when every number is held. */
+/* This launcher's mark: the mutex of the first number past every one held,
+ * so that of two launchers held the later's is the higher, as the forward
+ * takes it; past the last, the first number no launcher holds. Made here,
+ * its number into *n. NULL when every number is held. */
 static HANDLE take_mark(const char *id, int *n) {
+    int from = 0;
     for (int i = 0; i < MARKS; i++) {
+        wchar_t name[64];
+        mark_name(id, i, name, 64);
+        HANDLE m = OpenMutexW(SYNCHRONIZE, FALSE, name);
+        if (m) {
+            CloseHandle(m);
+            from = i + 1;
+        }
+    }
+    for (int k = 0; k < MARKS; k++) {
+        int i = (from + k) % MARKS;
         wchar_t name[64];
         mark_name(id, i, name, 64);
         HANDLE m = CreateMutexW(NULL, FALSE, name);
@@ -128,10 +144,9 @@ static void give_up(dxl_instance *inst) {
     inst->ov.hEvent = NULL;
 }
 
-/* The handoff pipe, into inst: the first instance of its name, so none
- * while a launcher listens on it already (the first client, or one beside
- * a server). Failing to make it is not fatal -- the instance just cannot
- * receive URLs. */
+/* This client's pipe, into inst, named for its mark: the first instance of
+ * the name, so none where another made it first. Failing to make it is not
+ * fatal -- the instance just cannot receive URLs. */
 static void open_pipe(dxl_instance *inst, const wchar_t *pname) {
     HANDLE p = CreateNamedPipeW(pname, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
                                 PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
@@ -148,13 +163,16 @@ static void open_pipe(dxl_instance *inst, const wchar_t *pname) {
 }
 
 static dxl_instance *acquire(const char *id, int listen) {
-    wchar_t pname[64];
-    pipe_name(id, pname, 64);
     dxl_instance *inst = dxl_xmalloc(sizeof *inst);
     memset(inst, 0, sizeof *inst);
     inst->mutex = take_mark(id, &inst->mark);
     inst->pipe = INVALID_HANDLE_VALUE;
-    if (listen) open_pipe(inst, pname);
+    /* A client's pipe is its mark's: none without one. */
+    if (listen && inst->mutex) {
+        wchar_t pname[64];
+        pipe_name(id, inst->mark, pname, 64);
+        open_pipe(inst, pname);
+    }
     if (!inst->mutex && inst->pipe == INVALID_HANDLE_VALUE) {
         free(inst);
         return NULL;
@@ -197,35 +215,49 @@ int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
     return 0;
 }
 
-/* How long a pipe that is not there is waited for: a launcher makes its
- * pipe straight after its mark, so one still starting has it by then; one
- * that holds the mark alone (-server's, or one whose pipe failed) never
- * does, and a start beside it goes on at once, as POSIX's does. */
+/* How long no client's pipe is waited for: a launcher makes its pipe
+ * straight after its mark, so one still starting has it by then; one that
+ * holds the mark alone (-server's, or one whose pipe failed) never does, and
+ * a start beside it goes on at once, as POSIX's does. */
 #define NO_PIPE_MS 250
 
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dxl_err *err) {
-    wchar_t pname[64];
-    pipe_name(id, pname, 64);
     /* This start is the one in the foreground: the launcher it hands over
      * to may bring its window, or the game's, to the front, which Windows
      * lets a program in the background do only when the foreground one
      * allows it. */
     AllowSetForegroundWindow(ASFW_ANY);
     ULONGLONG start = GetTickCount64(), deadline = start + (ULONGLONG)(timeout_ms > 0 ? timeout_ms : 0);
-    HANDLE h;
+    HANDLE h = INVALID_HANDLE_VALUE;
     char why[256];
     for (;;) {
-        h = CreateFileW(pname, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        /* The clients' pipes, the newest first, the highest number held
+         * (take_mark), as the original's FindWindowEx finds the newest log
+         * window first: one not there (a server's mark, a launcher's whose
+         * pipe failed) passed over, one there but between two senders
+         * waited for. */
+        wchar_t pname[64], busy[64] = L"";
+        DWORD e = ERROR_FILE_NOT_FOUND;
+        for (int i = MARKS - 1; i >= 0; i--) {
+            pipe_name(id, i, pname, 64);
+            h = CreateFileW(pname, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            if (h != INVALID_HANDLE_VALUE) break;
+            DWORD got = GetLastError();
+            if (got == ERROR_FILE_NOT_FOUND) continue;
+            e = got;
+            if (got == ERROR_PIPE_BUSY) {
+                wcscpy(busy, pname);
+                break;
+            }
+        }
         if (h != INVALID_HANDLE_VALUE) break;
-        DWORD e = GetLastError();
         ULONGLONG now = GetTickCount64();
-        if ((e != ERROR_PIPE_BUSY && e != ERROR_FILE_NOT_FOUND) || now >= deadline ||
-            (e == ERROR_FILE_NOT_FOUND && now - start >= NO_PIPE_MS)) {
+        if (now >= deadline || (!busy[0] && (e != ERROR_FILE_NOT_FOUND || now - start >= NO_PIPE_MS))) {
             dxl_err_set(err, "handoff failed: %s", dxl_win_error(e, why, sizeof why));
             return -1;
         }
-        /* The primary between two senders: wait for it, a little at a time. */
-        if (e == ERROR_PIPE_BUSY) WaitNamedPipeW(pname, (DWORD)(deadline - now < 100 ? deadline - now : 100));
+        /* The newest between two senders: wait for it, a little at a time. */
+        if (busy[0]) WaitNamedPipeW(busy, (DWORD)(deadline - now < 100 ? deadline - now : 100));
         else Sleep(20);
     }
     size_t mlen = strlen(message ? message : "");

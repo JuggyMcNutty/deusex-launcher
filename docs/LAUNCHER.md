@@ -311,13 +311,19 @@ opens the server.
    named after its config folder and a number, as the original's every
    instance keeps its `DeusExIsRunning`: a start finds one started beside
    another live after that one has ended, its `Running.ini` no crash. The
-   line is a named pipe, the first client's
-   (`src/platform/win32/instance.c`), a start's line read whenever it comes,
-   before the launcher's first wait for it too. One playing a dedicated
+   line is a named pipe, each client's own, numbered as its mark
+   (`src/platform/win32/instance.c`), as the original marks every client's
+   log window `IsBrowser`, a start's line read whenever it comes, before the
+   launcher's first wait for it too. It goes to the newest, as the
+   original's to the log window it finds first, each mark taking the number
+   past every one held: one started beside another by a bypass word takes a
+   later start's line, and still does once the other has ended; one the
+   game relaunches takes a mark and a pipe anew, the newest, as the
+   original's relaunched copy is a new instance. One playing a dedicated
    server (`-server`, started so or relaunched to it by the game) takes
    none, as the original's server, whose log window is never `IsBrowser`: a
-   second start, finding no pipe, plays beside it at once and takes the
-   pipe, as the original's client, so a third start hands its command line
+   second start, finding no pipe, plays beside it at once with a pipe of its
+   own, as the original's client, so a third start hands its command line
    to that one.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
@@ -810,7 +816,8 @@ any case;
 replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
 `test_install` what makes an install, in the odd cases a copy leaves;
 `test_lastrun` a run's end, written and read back; `test_runtime` the crash
-sentinel, the state folder and every launcher's mark of running;
+sentinel, the state folder, every launcher's mark of running, and each
+client's channel of its own, a line going to the newest;
 `test_renderers` the renderers the probe and
 the engine's build offer, and the PowerVR's anti-aliasing lock;
 `test_desktop` the app menu's entry, its `Exec` quoted as the spec has it,
@@ -861,8 +868,9 @@ relaunched to, that takes no second start's line, and ends with no game
 after a crash, Recovery quit, `-consolecommand=` and `-testrendev=`, which
 take `Running.ini` away, and with Recovery not answered, which leaves it,
 or a stop before the game, which starts none; finds a launcher started
-beside another live once that one has ended, its `Running.ini` no crash;
-and checks that nothing in the game's folder changed over them all.
+beside another live once that one has ended, its `Running.ini` no crash,
+and hands it a later start's line; and checks that nothing in the game's
+folder changed over them all.
 
 The window's kit is tested on SDL's software renderer and a surface: focus
 and navigation and what the d-pad's moves reach (`test_ui_focus`), text
@@ -950,7 +958,10 @@ gates, `-changevideo`, `Running.ini`), `Running.ini` made after the screens
 and taken away at a clean end or one with no game, `FirstRun` raised to 1100
 (one above it kept, but under `-firstrun`), the three command-line parsers
 (`ParseParam` stricter, as `main`'s), and the second start's hand-over,
-though its line goes to a launcher that keeps it whatever the install.
+though its line goes to a launcher that keeps it whatever the install, and
+to the newest client past a server started after it, as `main`'s, where the
+original asks the newest copy's log window alone and, a server's, starts a
+second game.
 Changed:
 
 | Original | DXLauncher | Why |
@@ -970,6 +981,5 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LAPP.12**: the hand-over channel stays with the first client: once it
-  ends, a client started beside it never takes the channel over, so a later
-  start opens a second game.
+- **LPORT.10**: a linked ini is replaced by a plain file at the next save,
+  where the engine writes through the link.
