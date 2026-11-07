@@ -306,17 +306,19 @@ opens the server.
 
 1. **A second start** hands its command line to the launcher that runs and
    ends, unless the line holds one of the original's four bypass words
-   (`Server`, `NewWindow`, `changevideo`, `TestRenDev`). One launcher for a
-   home: the lock is a mutex named after its config folder, as the
-   original's `DeusExIsRunning`, and the line a named pipe
+   (`Server`, `NewWindow`, `changevideo`, `TestRenDev`). Every launcher of
+   a home marks itself running for its whole run with a mutex of its own,
+   named after its config folder and a number, as the original's every
+   instance keeps its `DeusExIsRunning`: a start finds one started beside
+   another live after that one has ended, its `Running.ini` no crash. The
+   line is a named pipe, the first client's
    (`src/platform/win32/instance.c`), a start's line read whenever it comes,
    before the launcher's first wait for it too. One playing a dedicated
-   server (`-server`, started so or
-   relaunched to it by the game) holds the lock alone and takes no line, as
-   the original's server, whose log window is never `IsBrowser`: a second
-   start, finding no pipe, plays beside it at once and takes the line
-   without the lock, as the original's client, so a third start hands its
-   command line to that one.
+   server (`-server`, started so or relaunched to it by the game) takes
+   none, as the original's server, whose log window is never `IsBrowser`: a
+   second start, finding no pipe, plays beside it at once and takes the
+   pipe, as the original's client, so a third start hands its command line
+   to that one.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -482,7 +484,9 @@ device's), taking its built-in default for a key missing there; a row reads
 the same way, and is written to both, so the two agree. The engine takes its
 built-in default for a value its converters cannot read (`maybe` for a bool,
 a rate without `Hz`), stopping nothing: to a row such text is no value
-either, so it shows that default. A value is written as the engine writes it
+either, so it shows that default; so is a `Yes` or a `No` in `User.ini`'s
+bools, its classes' config, whose import takes `True` or `1` and `False` or
+`0` alone. A value is written as the engine writes it
 (`True`, `0.600000`, `153`, `44100Hz`), and only as the player changes it:
 one outside a slider's range, as the game's console or a hand sets it, shows
 at the slider's end and stays as it is until the slider is moved. Before the
@@ -691,25 +695,29 @@ engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
 
 The launcher waits on the line, a second start's pipe and the engine's
 process, waking once a second besides. Stopped (dxl-cli's console's Ctrl+C,
-Ctrl+Break or its closing -- the GUI launcher says what its start says on
-the console it was started from, then lets go of it, its own as a GUI
-program started from cmd is -- a sign-out, a shutdown: for the last three the
-console's handler waits for the stop, as Windows ends the process when it
-returns, `src/platform/win32/startup.c`), it asks the engine to quit --
+Ctrl+Break or its closing, for which the console's handler waits for the
+stop, as Windows ends the process when it returns,
+`src/platform/win32/startup.c`; the GUI launcher says what its start says
+on the console it was started from, then lets go of it, its own as a GUI
+program started from cmd is), it asks the engine to quit --
 `Quit` on the line, and `WM_CLOSE` to its windows -- and ends one still
 running 5 s later (`TerminateProcess`, its code 0x40010004, which Recovery
 calls the launcher's): DXEngine quits at its next frame, so only a stuck one
-is ended.
+is ended. A sign-out or a shutdown is no stop: Windows gives their console
+events to services, not to a program of the desktop, and never to one that
+loads user32, as both of the launcher's do; it ends the launcher where it
+is, and the game, whose window takes no notice of the session's end.
 
 ## Recovery
 
 `Running.ini`, the original's crash sentinel, in the profile's state
 folder: made before the game, the folder with it where it is gone, taken
 away at a clean end and at one with no game -- a quit on a screen,
-`-consolecommand=`, `-testrendev=` -- as the original's at every end but a
-crash and its CD prompt. A screen no one answered is no quit: one whose
-window does not open, or that a stop closes (a sign-out, a shutdown), leaves
-it, and a stop
+`-consolecommand=`, `-testrendev=`, a stop before the game, which starts
+none -- as the original's at every end but a crash and its CD prompt; at
+one with no game, not while another launcher runs, whose it may be. A
+screen no one answered is no quit: one whose
+window does not open leaves it, and a stop
 after a run that was not clean opens no Recovery, the next start's to
 open. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
@@ -720,7 +728,8 @@ place, whether it was ever ready, whether the launcher stopped it
 (`Stopped`, and `Killed` where it took no notice and was killed), and the
 save it started on. It is
 written as the run ends, the run before's taken away as `Running.ini` is
-made: a launcher killed while the game plays, or a power cut, leaves
+made: a launcher ended while the game plays -- killed, or by a sign-out
+or a shutdown -- or a power cut, leaves
 none, and Recovery, Home and `dxl-cli` say how that
 run ended is not known, never the run before's end. The window
 opens on Recovery after a run that was not clean, and at the next start that
@@ -734,7 +743,7 @@ it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
 a stage or install of DXLauncher again). A run the launcher itself
-stopped -- its window closed, the console's Ctrl+C or closing, a sign-out --
+stopped -- its window closed, the console's Ctrl+C or closing --
 is said to be no fault
 of the game's, though its settings and last save may not have been
 written. A run the engine drew with its
@@ -801,7 +810,8 @@ any case;
 replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
 `test_install` what makes an install, in the odd cases a copy leaves;
 `test_lastrun` a run's end, written and read back; `test_runtime` the crash
-sentinel and the state folder; `test_renderers` the renderers the probe and
+sentinel, the state folder and every launcher's mark of running;
+`test_renderers` the renderers the probe and
 the engine's build offer, and the PowerVR's anti-aliasing lock;
 `test_desktop` the app menu's entry, its `Exec` quoted as the spec has it,
 and the `deusex://` links it takes, in the MimeType cache where the desktop
@@ -850,10 +860,13 @@ a launcher killed while it plays, a dedicated server, started so or
 relaunched to, that takes no second start's line, and ends with no game
 after a crash, Recovery quit, `-consolecommand=` and `-testrendev=`, which
 take `Running.ini` away, and with Recovery not answered, which leaves it,
+or a stop before the game, which starts none; finds a launcher started
+beside another live once that one has ended, its `Running.ini` no crash;
 and checks that nothing in the game's folder changed over them all.
 
 The window's kit is tested on SDL's software renderer and a surface: focus
-and navigation (`test_ui_focus`), text (`test_ui_text`), and the keyboard,
+and navigation and what the d-pad's moves reach (`test_ui_focus`), text
+(`test_ui_text`), and the keyboard,
 the mouse and virtual pads with an Xbox's, a DualSense's and a Switch Pro's
 ids (`test_ui_input`), the controls and the on-screen keyboard
 (`test_ui_controls`), the sound on SDL's dummy output (`test_ui_audio`) and
@@ -865,7 +878,9 @@ keyboard, the mouse and four virtual pads, and fails on any diagnostic of
 the kit's: a label cut short, focusables on one another or off the window
 (`test_ui_shots_*`); with `--out=<dir>` it writes them as PNGs for review.
 On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the window a script
-of keys, text, controls found by their labels, virtual controllers, page
+of keys, text, controls found by their labels -- given the focus where the
+arrows, a pad's d-pad, reach them, FAILED where they do not -- virtual
+controllers, page
 checks and shots, through its own event queue (`src/screens/uiscript.h`),
 `ui script: done` once its last line has run, FAILED for a line that fails
 or one never run: a first run from a fresh home to the game and its clean
@@ -941,7 +956,7 @@ Changed:
 | Original | DXLauncher | Why |
 |---|---|---|
 | `System/DeusEx.exe`, in the game's folder, its settings in the game's `DeusEx.ini` and `User.ini` | An app of its own; the settings, saves and shots in a profile in the user's own folders | Nothing written to the game's folder but an ini the line names; more than one way to play one install |
-| The launcher and the engine one process, which stays for the game's run | The engine a child, started by its words, which the launcher waits on, holding its lock to the end | The engine is a program of its own; started by its words, a quoted word in the command line arrives whole |
+| The launcher and the engine one process, which stays for the game's run | The engine a child, started by its words, which the launcher waits on, marked running to its end | The engine is a program of its own; started by its words, a quoted word in the command line arrives whole |
 | The CD check | Dropped; an install is checked by `DeusEx.exe`'s build and the files the engine needs | No disc to wait for |
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The desktop's screens, from a laptop's to a television's, and pads |
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
@@ -955,5 +970,6 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LUI.8**: `uiscript`'s `find` focuses its control at once, so a script
-  cannot catch a control the d-pad does not reach.
+- **LAPP.12**: the hand-over channel stays with the first client: once it
+  ends, a client started beside it never takes the channel over, so a later
+  start opens a second game.

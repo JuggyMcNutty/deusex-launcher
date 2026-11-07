@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <string.h>
 
-static volatile int *stop_flag;
+static atomic_int *stop_flag;
 static void (*wake_up)(void);
 
 static void on_signal(int sig) {
@@ -13,7 +13,7 @@ static void on_signal(int sig) {
     if (wake_up) wake_up();
 }
 
-void dxl_startup(volatile int *stop, void (*wake)(void)) {
+void dxl_startup(atomic_int *stop, void (*wake)(void)) {
     stop_flag = stop;
     wake_up = wake;
     struct sigaction sa;

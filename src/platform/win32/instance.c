@@ -1,11 +1,15 @@
-/* The single instance on Windows (platform/instance.h): the lock is a
- * named mutex, Local\deusex-launcher.<hash>, the original's own way
- * (CreateMutex and ERROR_ALREADY_EXISTS), gone with the last handle to it,
- * so a crashed launcher's never reads as live. The channel is a named pipe,
- * \\.\pipe\deusex-launcher.<hash>, one message a command line: the primary
- * waits for a sender to connect, reads the message, and waits again; its
- * event is set while either is ready to go on. A pipe that will not wait is
- * given up, the lock kept alone.
+/* The single instance on Windows (platform/instance.h): each launcher marks
+ * itself running with a named mutex of its own, kept to its end, as the
+ * original's every instance keeps its DeusExIsRunning (CreateMutex and
+ * ERROR_ALREADY_EXISTS): Local\deusex-launcher.<hash>.<n>, the first number
+ * no launcher holds, gone with the last handle to it, so a crashed
+ * launcher's never reads as live. Another launcher is live where a mark of
+ * another number opens. The channel is a named pipe,
+ * \\.\pipe\deusex-launcher.<hash>, the first client's, one message a
+ * command line: the launcher that has it waits for a sender to connect,
+ * reads the message, and waits again; its event is set while either is
+ * ready to go on. A pipe that will not wait is given up, the mark kept
+ * alone.
  */
 #include "platform/instance.h"
 #include "platform/win32/internal.h"
@@ -15,9 +19,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The marks' numbers: more launchers of a home at once than any player
+ * starts. */
+#define MARKS 64
+
 struct dxl_instance {
-    HANDLE     mutex;
-    HANDLE     pipe;       /* INVALID_HANDLE_VALUE: the lock alone */
+    HANDLE     mutex;      /* its mark of a launcher running; NULL for none */
+    int        mark;       /* the mark's number */
+    HANDLE     pipe;       /* INVALID_HANDLE_VALUE: the mark alone */
     OVERLAPPED ov;
     int        reading;    /* a read pending, else a wait for a sender */
     DWORD      error;      /* the last wait's that failed, for the log */
@@ -36,9 +45,29 @@ static unsigned long id_hash(const char *id) {
     return h & 0xffffffffUL;
 }
 
-static void names(const char *id, wchar_t *mutex, wchar_t *pipe, size_t size) {
-    swprintf(mutex, size, L"Local\\deusex-launcher.%08lx", id_hash(id));
-    swprintf(pipe, size, L"\\\\.\\pipe\\deusex-launcher.%08lx", id_hash(id));
+static void mark_name(const char *id, int n, wchar_t *out, size_t size) {
+    swprintf(out, size, L"Local\\deusex-launcher.%08lx.%d", id_hash(id), n);
+}
+
+static void pipe_name(const char *id, wchar_t *out, size_t size) {
+    swprintf(out, size, L"\\\\.\\pipe\\deusex-launcher.%08lx", id_hash(id));
+}
+
+/* This launcher's mark: the mutex of the first number no launcher holds,
+ * made here, its number into *n. NULL when every number is held. */
+static HANDLE take_mark(const char *id, int *n) {
+    for (int i = 0; i < MARKS; i++) {
+        wchar_t name[64];
+        mark_name(id, i, name, 64);
+        HANDLE m = CreateMutexW(NULL, FALSE, name);
+        if (!m) continue;
+        if (GetLastError() != ERROR_ALREADY_EXISTS) {
+            *n = i;
+            return m;
+        }
+        CloseHandle(m);
+    }
+    return NULL;
 }
 
 /* The next wait: for a sender, or, connected, for its message. 0 when it
@@ -85,7 +114,7 @@ static int arm(dxl_instance *inst) {
     return -1;
 }
 
-/* The channel given up, the lock kept, as -server's: a second start then
+/* The channel given up, the mark kept, as -server's: a second start then
  * plays beside this launcher. */
 static void give_up(dxl_instance *inst) {
     char why[256];
@@ -100,9 +129,9 @@ static void give_up(dxl_instance *inst) {
 }
 
 /* The handoff pipe, into inst: the first instance of its name, so none
- * while a launcher listens on it already (a client beside a server, which
- * holds the mutex). Failing to make it is not fatal -- the instance just
- * cannot receive URLs. */
+ * while a launcher listens on it already (the first client, or one beside
+ * a server). Failing to make it is not fatal -- the instance just cannot
+ * receive URLs. */
 static void open_pipe(dxl_instance *inst, const wchar_t *pname) {
     HANDLE p = CreateNamedPipeW(pname, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
                                 PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
@@ -119,38 +148,22 @@ static void open_pipe(dxl_instance *inst, const wchar_t *pname) {
 }
 
 static dxl_instance *acquire(const char *id, int listen) {
-    wchar_t mname[64], pname[64];
-    names(id, mname, pname, 64);
-    HANDLE m = CreateMutexW(NULL, TRUE, mname);
-    if (!m) return NULL;
-    if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        CloseHandle(m);
-        return NULL;                      /* someone else holds it */
-    }
+    wchar_t pname[64];
+    pipe_name(id, pname, 64);
     dxl_instance *inst = dxl_xmalloc(sizeof *inst);
     memset(inst, 0, sizeof *inst);
-    inst->mutex = m;
+    inst->mutex = take_mark(id, &inst->mark);
     inst->pipe = INVALID_HANDLE_VALUE;
     if (listen) open_pipe(inst, pname);
-    return inst;
-}
-
-dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
-dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
-
-dxl_instance *dxl_instance_listen(const char *id) {
-    wchar_t mname[64], pname[64];
-    names(id, mname, pname, 64);
-    dxl_instance *inst = dxl_xmalloc(sizeof *inst);
-    memset(inst, 0, sizeof *inst);
-    inst->pipe = INVALID_HANDLE_VALUE;
-    open_pipe(inst, pname);
-    if (inst->pipe == INVALID_HANDLE_VALUE) {
+    if (!inst->mutex && inst->pipe == INVALID_HANDLE_VALUE) {
         free(inst);
         return NULL;
     }
     return inst;
 }
+
+dxl_instance *dxl_instance_acquire(const char *id) { return acquire(id, 1); }
+dxl_instance *dxl_instance_acquire_lock(const char *id) { return acquire(id, 0); }
 
 int dxl_instance_listens(const dxl_instance *inst) { return inst && inst->pipe != INVALID_HANDLE_VALUE; }
 
@@ -166,31 +179,33 @@ void dxl_instance_release(dxl_instance *inst) {
         CloseHandle(inst->pipe);
         CloseHandle(inst->ov.hEvent);
     }
-    if (inst->mutex) {
-        ReleaseMutex(inst->mutex);
-        CloseHandle(inst->mutex);
-    }
+    if (inst->mutex) CloseHandle(inst->mutex);
     free(inst);
 }
 
-int dxl_instance_other_running(const char *id) {
-    wchar_t mname[64], pname[64];
-    names(id, mname, pname, 64);
-    HANDLE m = OpenMutexW(SYNCHRONIZE, FALSE, mname);
-    if (!m) return 0;
-    CloseHandle(m);
-    return 1;
+int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
+    for (int i = 0; i < MARKS; i++) {
+        if (dxl_instance_locked(inst) && inst->mark == i) continue;
+        wchar_t name[64];
+        mark_name(id, i, name, 64);
+        HANDLE m = OpenMutexW(SYNCHRONIZE, FALSE, name);
+        if (m) {
+            CloseHandle(m);
+            return 1;
+        }
+    }
+    return 0;
 }
 
 /* How long a pipe that is not there is waited for: a launcher makes its
- * pipe straight after its mutex, so one still starting has it by then; one
- * that holds the lock alone (-server's, or one whose pipe failed) never
+ * pipe straight after its mark, so one still starting has it by then; one
+ * that holds the mark alone (-server's, or one whose pipe failed) never
  * does, and a start beside it goes on at once, as POSIX's does. */
 #define NO_PIPE_MS 250
 
 int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dxl_err *err) {
-    wchar_t mname[64], pname[64];
-    names(id, mname, pname, 64);
+    wchar_t pname[64];
+    pipe_name(id, pname, 64);
     /* This start is the one in the foreground: the launcher it hands over
      * to may bring its window, or the game's, to the front, which Windows
      * lets a program in the background do only when the foreground one

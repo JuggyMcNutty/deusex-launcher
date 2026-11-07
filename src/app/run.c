@@ -403,7 +403,7 @@ static const char *view_name(dxl_view v) {
 /* A screen no one answered (DXL_VIEW_UNANSWERED): 1 for a signal's stop,
  * as a game the launcher stopped ends; DXL_RUN_EXIT_SCREEN for a screen due
  * with no window. */
-static int unanswered(dxl_run *r, volatile int *stop, dxl_view v) {
+static int unanswered(dxl_run *r, atomic_int *stop, dxl_view v) {
     if (stop && *stop) {
         dxl_log("%s: stopped before it was answered", view_name(v));
         return 1;
@@ -520,7 +520,7 @@ static void open_log(dxl_run *r, int beside) {
  * install is the first one offered; with no window, from --game's install.
  * 0 to go on; -1 when the player quit there; else the exit code to stop
  * with. */
-static int first_run(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
+static int first_run(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
     if (ui && ui->view && !r->opt.import_only) {
         int v = ui->view(ui->ctx, r, DXL_VIEW_FIRST_RUN);
         if (v == DXL_VIEW_UNANSWERED) return unanswered(r, stop, DXL_VIEW_FIRST_RUN);
@@ -605,13 +605,13 @@ static dxl_view view_of(const dxl_run *r) {
     return home_wanted(r) && !r->relaunched ? DXL_VIEW_HOME : DXL_VIEW_NONE;
 }
 
-/* Whether another launcher is live: the one holding the lock this run did
- * not get. A dry run or a printed command takes no lock, so it asks. */
+/* Whether another launcher is live now: one other than this run's, each
+ * marked running for its whole run, the first or one started beside it
+ * (platform/instance.h). A dry run or a printed command, which marks
+ * nothing, asks of any. */
 static int other_instance(dxl_run *r) {
-    if (dxl_instance_locked(r->instance)) return 0;
-    if (!r->opt.dry && !r->opt.print_command) return 1;
     char *id = dxl_session_instance_id(&r->session);
-    int other = dxl_instance_other_running(id);
+    int other = dxl_instance_other_running(r->instance, id);
     free(id);
     return other;
 }
@@ -635,8 +635,9 @@ static void decide(dxl_run *r) {
  * the PowerVR's speckle): whatever the profile's Settings.json asks, or the
  * engine's own 4x where it has none -- a first run's "the engine's
  * defaults". The GPU is asked through dxl-cli --probe, in a process of its
- * own, once a run, and only for a game that would multisample. */
-static void antialias_check(dxl_run *r) {
+ * own, once a run, and only for a game that would multisample; given up at
+ * once at a stop, which then starts no game (play). */
+static void antialias_check(dxl_run *r, atomic_int *stop) {
     char *json = dxl_path_join(r->session.profile.engine_dir, "Settings.json");
     char taken[16];
     dxl_es_antialias_taken(json, taken, sizeof taken);
@@ -650,7 +651,7 @@ static void antialias_check(dxl_run *r) {
         char out[4096];
         int status = 0;
         dxl_err e;
-        if (dxl_run_capture(argv, 10000, out, sizeof out, NULL, 0, &status, &e) != 0 ||
+        if (dxl_run_capture_until(argv, 10000, stop, out, sizeof out, NULL, 0, &status, &e) != 0 ||
             dxl_gpu_probe_from_ini(out, &r->gpu) != 0) {
             memset(&r->gpu, 0, sizeof r->gpu);
             dxl_log("anti-aliasing: %s --probe gave no answer; %s as it is", cli, taken);
@@ -670,28 +671,30 @@ static void antialias_check(dxl_run *r) {
     free(json);
 }
 
-/* The instance for the run's words: the lock and the hand-over's channel,
- * but for a dedicated server (-server), which takes no line a second start
- * hands on, as the original's, whose log window is never IsBrowser: the
- * lock alone. A client beside a launcher that holds the lock takes the
- * channel alone, as the original's is IsBrowser beside a server too. Taken
- * again, of the other kind, when a relaunch changes it. */
+/* The instance for the run's words: the mark of a launcher running, every
+ * launcher's, as the original's every instance keeps its mutex, and the
+ * hand-over's channel, unless a launcher listens on it already, as the
+ * original marks every client's log window IsBrowser; but for a dedicated
+ * server (-server), which takes no line a second start hands on, as the
+ * original's, whose log window is never IsBrowser: the mark alone. Taken
+ * again, of the other kind, when a relaunch changes it: the new one before
+ * the old goes, so the mark never lapses. */
 static void hold_instance(dxl_run *r) {
     int server = dxl_cmd_param(r->words, "server");
     if (r->instance && dxl_instance_listens(r->instance) == !server) return;
     char *id = dxl_session_instance_id(&r->session);
-    dxl_instance_release(r->instance);
+    dxl_instance *was = r->instance;
     r->instance = server ? dxl_instance_acquire_lock(id) : dxl_instance_acquire(id);
-    if (!r->instance && !server) r->instance = dxl_instance_listen(id);
+    dxl_instance_release(was);
     free(id);
 }
 
 /* An end with no game after it, as the original's every end but a crash
  * and its CD prompt (dx-reverse-info/launch-flow.md, Exit paths): a quit on
- * a screen, -consolecommand=, -testrendev= take Running.ini away; not
- * another launcher's, live, which holds the lock. */
+ * a screen, -consolecommand=, -testrendev=, a stop before the game take
+ * Running.ini away; not while another launcher is live, whose it may be. */
 static void end_without_game(dxl_run *r) {
-    if (!dxl_instance_locked(r->instance) || !r->sentinel.path || !dxl_sentinel_exists(&r->sentinel)) return;
+    if (!r->sentinel.path || !dxl_sentinel_exists(&r->sentinel) || other_instance(r)) return;
     dxl_sentinel_remove(&r->sentinel);
     dxl_log("Running.ini taken away: an end with no game");
 }
@@ -699,9 +702,9 @@ static void end_without_game(dxl_run *r) {
 /* Saved, FirstRun raised, the sentinel made: after the screens, before the
  * game, in the original's order (dx-reverse-info/launch-flow.md section
  * 5). */
-static void commit(dxl_run *r) {
+static void commit(dxl_run *r, atomic_int *stop) {
     dxl_err e;
-    antialias_check(r);
+    antialias_check(r, stop);
     /* The engine's own sections whole before it runs, a profile made by an
      * earlier launcher's too (core/engine_sections.h). */
     if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");
@@ -739,8 +742,19 @@ static char *shown_line(char *const *argv) {
     return line;
 }
 
-/* The game, and its end recorded. */
-static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
+/* The game, and its end recorded. A stop that came before it -- while the
+ * start asked the GPU about anti-aliasing -- starts none: one started and
+ * stopped at once ends before its ready, unclean, and Running.ini stays for
+ * Recovery (bugs.md LAPP.11). An end with no game instead. */
+static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
+    if (stop && *stop) {
+        dxl_log("stopped before the game started");
+        dxl_play_result_free(&r->played);
+        memset(&r->played, 0, sizeof r->played);
+        r->played.clean = 1;
+        end_without_game(r);
+        return 0;
+    }
     char *log = dxl_lastrun_rotate(r->session.profile.logs_dir);
     char **argv = engine_argv(r);
     char *line = shown_line(argv);
@@ -789,7 +803,7 @@ static int play(dxl_run *r, const dxl_run_ui *ui, volatile int *stop) {
     return last->status;
 }
 
-int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop) {
+int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) {
     dxl_run *r = dxl_xmalloc(sizeof *r);
     memset(r, 0, sizeof *r);
     int rc = 0;
@@ -816,7 +830,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     dxl_policy_input pre = { .cmdline = r->words };
     dxl_decision first;
     dxl_policy_decide(&pre, &first);
-    int busy = dxl_instance_other_running(id);
+    int busy = dxl_instance_other_running(NULL, id);
     /* The line, and what of the launcher's own the one running takes too:
      * a link's server first, as a URL is the original's first word; its
      * window on the big screen last. */
@@ -986,7 +1000,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             dxl_log("engine: no loadgame-url feature: the game's own start, not %s", r->url);
             r->url[0] = '\0';
         }
-        commit(r);
+        commit(r, stop);
         rc = play(r, ui, stop);
         r->url[0] = '\0';
         /* The inis as the engine left them: it writes them whole at a clean

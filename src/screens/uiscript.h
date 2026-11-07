@@ -10,7 +10,11 @@
  *                     Down pressed, a frame each, until one is drawn, then Up
  *                     once the focus stays put at the bottom, and at the top
  *                     Tabs, one more each time, into another column, and Down
- *                     again; a frame draws it focused before the next line
+ *                     again; drawn, it has the focus at once where the arrows,
+ *                     a pad's d-pad, reach it from the focus (ui/kit.h's
+ *                     dxl_ui_reaches), no row on the way chosen, and is FAILED
+ *                     where they do not; a frame draws it focused before the
+ *                     next line
  *   expect <name>     the page or dialog up: home, welcome, find, import, recovery,
  *                     about, settings, log, profiles, saves, shots (shot: one shown whole),
  *                     multiplayer, mods;

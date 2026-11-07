@@ -8,9 +8,13 @@
 #ifndef DXL_STARTUP_H
 #define DXL_STARTUP_H
 
+#include <stdatomic.h>
+
 /* From here on, an end asked from outside sets *stop and calls wake (NULL:
- * nothing to wake); a wait it breaks ends at once. */
-void dxl_startup(volatile int *stop, void (*wake)(void));
+ * nothing to wake); a wait it breaks ends at once. An atomic, which a
+ * signal's handler may set, and Windows' console handler on a thread of its
+ * own. */
+void dxl_startup(atomic_int *stop, void (*wake)(void));
 
 /* The program's work is done (the run returned): what waits for the end to
  * be clean -- Windows' closing console, which ends the process as its

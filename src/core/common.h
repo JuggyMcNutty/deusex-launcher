@@ -40,10 +40,15 @@ const char *dxl_stristr(const char *hay, const char *needle);
 /* In-place whitespace trim; returns a pointer into the original buffer. */
 char *dxl_trim(char *s);
 
-/* A bool as the engine reads one, in its config and its classes', by its
- * first token: 1 for true, yes or 1 in any case, 0 for false, no or 0, -1
- * for other text ("False " is false, "1.0" true, " True" neither). */
+/* A bool as the engine reads one in its own config (DeusEx.ini's devices
+ * and its sections), by its first token: 1 for true, yes or 1 in any case,
+ * 0 for false, no or 0, -1 for other text ("False " is false, "1.0" true,
+ * " True" neither). */
 int   dxl_text_bool(const char *v);
+/* The same as a class's config imports one, User.ini's script classes'
+ * (UBoolProperty::ImportText, Core.dll 0x10166380, and the engine's): 1 for
+ * true or 1 in any case, 0 for false or 0; yes and no are other text, -1. */
+int   dxl_class_bool(const char *v);
 
 /* Text for showing, as UTF-8: in as it is when it is UTF-8, else read as
  * Latin-1, the game's own (a save the original wrote); cut at a whole
