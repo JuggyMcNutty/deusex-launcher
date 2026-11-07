@@ -656,6 +656,8 @@ void dxl_ui_end(dxl_ui *ui) {
         ui->text_lost = ui->text_id;
         dxl_ui_text_end(ui);
     }
+    /* A field being edited: its left and right the caret's, no moves. */
+    if (ui->text_id) dxl_focus_own_lr(&ui->cur, ui->text_id);
     if (ui->capture_id && !dxl_focus_has(&ui->cur, ui->capture_id)) dxl_ui_capture_end(ui);
 
     /* The brackets round the focus, moved to it over 150 ms. */
@@ -717,6 +719,8 @@ void dxl_ui_focus(dxl_ui *ui, uint32_t id) { ui->focus = id; }
 void dxl_ui_forget(dxl_ui *ui) { ui->forget = 1; }
 
 int dxl_ui_take_lr(dxl_ui *ui, uint32_t id) {
+    /* Its left and right its own, no moves out of it (dxl_ui_reaches). */
+    dxl_focus_own_lr(&ui->cur, id);
     int steps = ui->in.nav[DXL_DIR_RIGHT] - ui->in.nav[DXL_DIR_LEFT];
     if (ui->focus_was != id || (!ui->in.nav[DXL_DIR_RIGHT] && !ui->in.nav[DXL_DIR_LEFT])) return 0;
     ui->focus = id;
@@ -855,6 +859,8 @@ uint32_t dxl_ui_named(const dxl_ui *ui, const char *name) {
         if (!strcmp(ui->names.at[i].name, name)) id = ui->names.at[i].id;
     return id;
 }
+
+int dxl_ui_reaches(const dxl_ui *ui, uint32_t id) { return dxl_focus_reaches(&ui->cur, ui->focus, id); }
 
 int dxl_ui_clickable(dxl_ui *ui, uint32_t id, dxl_rect r) {
     if (!scope_live(ui)) return 0;

@@ -159,6 +159,29 @@ static void test_codecs(void) {
     dxl_ini_free(st.system);
 }
 
+/* User.ini's bools are a class's config, which the original's import and
+ * the engine's take as true or 1 and false or 0 alone, by the first token:
+ * a yes or a no there is no value, the row's default (bugs.md LCORE.13);
+ * the engine's own config takes them. */
+static void test_class_bools(void) {
+    dxl_stores st;
+    memset(&st, 0, sizeof st);
+    st.user = parse("[DeusEx.DeusExPlayer]\nbSubtitles=Yes\nbAlwaysRun=TRUE\nbToggleCrouch=1.0\n"
+                    "[Engine.PlayerPawn]\nbInvertMouse=No\nbAlwaysMouseLook=\"false\"\n");
+    CHECK_STR(get(&st, "game.subtitles"), "0");
+    CHECK_STR(get(&st, "game.always_run"), "1");
+    CHECK_STR(get(&st, "game.toggle_crouch"), "1");
+    CHECK_STR(get(&st, "mouse.invert"), "1");
+    CHECK_STR(get(&st, "mouse.look"), "0");
+    dxl_ini_free(st.user);
+    CHECK_INT(dxl_class_bool("yes"), -1);
+    CHECK_INT(dxl_class_bool("No"), -1);
+    CHECK_INT(dxl_class_bool("True,"), 1);
+    CHECK_INT(dxl_class_bool("0"), 0);
+    CHECK_INT(dxl_text_bool("Yes"), 1);
+    CHECK_INT(dxl_text_bool("no"), 0);
+}
+
 /* A number clamped; text kept as written. The device has no size to choose:
  * its window is the whole screen. */
 static void test_numbers(void) {
@@ -386,6 +409,7 @@ TEST_MAIN_BEGIN
     RUN(test_rows);
     RUN(test_generations);
     RUN(test_codecs);
+    RUN(test_class_bools);
     RUN(test_numbers);
     RUN(test_choices_and_text);
     RUN(test_next_run);

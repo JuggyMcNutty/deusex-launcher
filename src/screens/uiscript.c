@@ -190,13 +190,22 @@ static void pad(dxl_uiscript *u, const char *arg) {
     }
 }
 
-/* A find under way: the control focused once it is drawn, else one more
- * Down, or once the focus stays put at the bottom, Up; at the top too,
- * Tabs -- one more each time -- to a control in another column, and Down
- * again. 1 while it goes on. */
+/* A find under way: once the control is drawn, the focus given it at
+ * once where the d-pad's moves -- the arrows -- take the focus to it from
+ * where it is (dxl_ui_reaches), no row on the way chosen as a walk would
+ * choose it, and a failure where they do not: no player could reach it.
+ * Not drawn yet, one more Down, or once the focus stays put at the bottom,
+ * Up; at the top too, Tabs -- one more each time -- to a control in another
+ * column, and Down again. 1 while it goes on. */
 static int seek(dxl_uiscript *u, dxl_shell *s) {
     uint32_t id = dxl_ui_named(&s->ui, u->seek);
     if (id) {
+        if (!dxl_ui_reaches(&s->ui, id)) {
+            char what[200];
+            snprintf(what, sizeof what, "no way by the arrows to %s on %s", u->seek, up_now(s));
+            fail(u, what);
+            return 0;
+        }
         dxl_ui_focus(&s->ui, id);
         s->ui.mode = DXL_INPUT_KEYBOARD;
         u->seek = NULL;

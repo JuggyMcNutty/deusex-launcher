@@ -22,13 +22,15 @@
 #include "core/common.h"
 #include "platform/instance.h"
 
+#include <stdatomic.h>
+
 typedef struct {
     char *const  *argv;      /* the engine's words (core/engine_args.h) */
     char *const  *env;       /* changes to the environment, or NULL */
     const char   *workdir;   /* the game's System folder */
     const char   *log_path;  /* the engine's output and errors */
     dxl_instance *instance;  /* a second launch's lines, or NULL */
-    volatile int *stop;      /* set by a signal: the game is stopped (dxl_game_stop, then dxl_game_kill) */
+    atomic_int   *stop;      /* set by a signal: the game is stopped (dxl_game_stop, then dxl_game_kill) */
     /* Told as the engine says it is up; may be NULL. */
     void (*on_ready)(void *ctx);
     void *ctx;

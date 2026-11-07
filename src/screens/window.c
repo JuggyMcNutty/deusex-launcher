@@ -71,7 +71,7 @@ typedef struct {
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
-    volatile int  *stop;
+    atomic_int    *stop;
     dxl_run       *run;
     SDL_Window    *window;
     SDL_Renderer  *renderer;
@@ -740,7 +740,7 @@ static void after_play(void *ctx, dxl_run *r) {
     }
 }
 
-dxl_window *dxl_window_new(const char *version, volatile int *stop) {
+dxl_window *dxl_window_new(const char *version, atomic_int *stop) {
     dxl_window *w = dxl_xmalloc(sizeof *w);
     memset(w, 0, sizeof *w);
     w->version = version;

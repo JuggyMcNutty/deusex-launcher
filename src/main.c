@@ -15,7 +15,7 @@
 #define DXL_VERSION "unversioned"
 #endif
 
-static volatile int stop;
+static atomic_int stop;
 
 int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {

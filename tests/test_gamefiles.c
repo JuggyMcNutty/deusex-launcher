@@ -226,7 +226,7 @@ static int run_launcher(const char *game, const char *word) {
     char opt[700];
     snprintf(opt, sizeof opt, "--game=%s", game);
     char *argv[] = { "deusex-launcher", opt, (char *)word, NULL };
-    static volatile int stop;
+    static atomic_int stop;
     return dxl_run_main(word ? 3 : 2, argv, NULL, &stop);
 }
 
@@ -356,7 +356,8 @@ static void test_killed_mid_game(void) {
 
 /* A dedicated server takes no line a second start hands on, as the
  * original's -server: started so, or relaunched to it by the game, its
- * launcher holds the lock alone, and a forward finds no one to take it. */
+ * launcher marks itself running with no channel, and a forward finds no
+ * one to take it. */
 static void test_server_takes_no_handover(void) {
     char *home = dxl_xstrdup(scratch_dir("gamefiles-server"));
     dxl_env_set("DXL_HOME", home);
@@ -386,7 +387,7 @@ static void test_server_takes_no_handover(void) {
         }
         dxl_os_sleep_ms(300);
         CHECK_INT(starts, 1 + relaunched);
-        CHECK_INT(dxl_instance_other_running(id), 1);
+        CHECK_INT(dxl_instance_other_running(NULL, id), 1);
         dxl_err e;
         CHECK(dxl_instance_forward(id, "-nosound", 1000, &e) != 0);
         int status = 0;
@@ -398,6 +399,76 @@ static void test_server_takes_no_handover(void) {
     dxl_session_close(&ss);
     free(root);
     dxl_env_set("DXL_STUB_LINE", NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
+/* Every launcher marks itself running, the first and one started beside
+ * it, as the original's every instance keeps its mutex: with the first
+ * gone, a start finds the one beside it live, whose Running.ini is no
+ * crash -- Home, not Recovery, and the file left at a quit -- and with that
+ * one gone too, Recovery (bugs.md LAPP.11). The two launchers are this
+ * process's marks, the start's words a bypass word's. */
+static int beside_view, beside_views;
+static int note_view(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    (void)r;
+    beside_view = (int)which;
+    beside_views++;
+    return 0;
+}
+static void test_beside_outlives_the_first(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-beside"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_session ss;
+    CHECK_INT(dxl_session_open(&ss, NULL, NULL), 0);
+    char *id = dxl_session_instance_id(&ss);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+
+    /* The first at Home; one beside it playing, its Running.ini made; the
+     * first quits. */
+    dxl_instance *first = dxl_instance_acquire(id);
+    dxl_instance *beside = dxl_instance_acquire(id);
+    CHECK(first != NULL && beside != NULL);
+    FILE *f = fopen(sentinel, "wb");
+    if (f) fclose(f);
+    dxl_instance_release(first);
+
+    dxl_run_ui ui = { .view = note_view };
+    char *argv[] = { "deusex-launcher", "-NewWindow", NULL };
+    static atomic_int stop;
+    beside_views = 0;
+    CHECK_INT(dxl_run_main(2, argv, &ui, &stop), 0);
+    CHECK_INT(beside_views, 1);
+    CHECK_INT(beside_view, DXL_VIEW_HOME);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    dxl_instance_release(beside);
+    beside_views = 0;
+    CHECK_INT(dxl_run_main(2, argv, &ui, &stop), 0);
+    CHECK_INT(beside_views, 1);
+    CHECK_INT(beside_view, DXL_VIEW_RECOVERY);
+    CHECK_INT(dxl_path_exists(sentinel), 0);
+
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(id);
+    dxl_session_close(&ss);
+    free(root);
     dxl_env_set("DXL_STUB", NULL);
     dxl_env_set("DXL_STUB_MS", NULL);
     dxl_env_set("DXL_ENGINE", NULL);
@@ -440,7 +511,7 @@ static void test_ends_without_a_game(void) {
         if (!words[i]) {
             dxl_run_ui ui = { .view = quit_at_recovery };
             char *argv[] = { "deusex-launcher", NULL };
-            static volatile int stop;
+            static atomic_int stop;
             recovery_views = 0;
             CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
             CHECK_INT(recovery_views, 1);
@@ -476,7 +547,7 @@ static void test_first_run_refused(void) {
     CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_NOGAME);
     dxl_env_set("DXL_STUB_FEATURES", NULL);
     char *argv[] = { "deusex-launcher", NULL };
-    static volatile int stop;
+    static atomic_int stop;
     CHECK_INT(dxl_run_main(1, argv, NULL, &stop), 0);
     free(root);
     dxl_env_set("DXL_STUB", NULL);
@@ -525,7 +596,7 @@ static void test_relaunch_drops_ini(void) {
     dxl_env_set("DXL_STUB_LINE", "-changevideo");
     dxl_run_ui ui = { .view = play_then_graphics };
     char *argv[] = { "deusex-launcher", word, NULL };
-    static volatile int stop;
+    static atomic_int stop;
     graphics_ini[0] = '\0';
     CHECK_INT(dxl_run_main(2, argv, &ui, &stop), 0);
     CHECK_STR(graphics_ini, p.system_ini);
@@ -575,7 +646,7 @@ static void test_unanswered(void) {
 
     dxl_run_ui ui = { .view = not_answered };
     char *argv[] = { "deusex-launcher", NULL };
-    static volatile int stop;
+    static atomic_int stop;
     unanswered_views = play_at_recovery = 0;
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), DXL_RUN_EXIT_SCREEN);
     CHECK_INT(unanswered_views, 1);
@@ -583,10 +654,11 @@ static void test_unanswered(void) {
     stop = 1;
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 1);
     CHECK_INT(dxl_path_exists(sentinel), 1);
-    /* Play at Recovery, the launcher stopped as the game would start: on the
-     * device a stop before the game starts none (run.c, after the game
-     * hook), an end with no game: Running.ini taken away and no LastRun,
-     * so no Recovery after it. */
+    /* Play at Recovery, the launcher stopped as the game would start: a stop
+     * before the game -- while the start asks the GPU about anti-aliasing,
+     * or on the device during the game hook -- starts none (run.c), an end
+     * with no game: Running.ini taken away and no LastRun, so no Recovery
+     * after it (bugs.md LAPP.11). */
     unanswered_views = 0;
     play_at_recovery = 1;
     dxl_env_set("DXL_STUB", "crash");
@@ -647,7 +719,7 @@ static void test_back_home(void) {
     dxl_env_set("DXL_STUB_COUNT", count);
     dxl_run_ui ui = { .view = home_then_quit };
     char *argv[] = { "deusex-launcher", NULL };
-    static volatile int stop;
+    static atomic_int stop;
     views = saw_rewrite = 0;
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 0);
     CHECK_INT(views, 2);
@@ -801,6 +873,7 @@ TEST_MAIN_BEGIN
     RUN(test_server_takes_no_handover);
     RUN(test_ends_without_a_game);
     RUN(test_unanswered);
+    RUN(test_beside_outlives_the_first);
     RUN(test_first_run_refused);
     RUN(test_relaunch_drops_ini);
     RUN(test_back_home);
