@@ -43,7 +43,7 @@ the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
-| `$XDG_RUNTIME_DIR` (else `/tmp/deusex-launcher-<uid>`, made 0700) | `deusex-launcher.<hash>.lock`, a lock on which every launcher of a home marks itself running, and the `.sock`, the channel a second start hands its command line over, the first client's, removed as it ends |
+| `$XDG_RUNTIME_DIR` (else `/tmp/deusex-launcher-<uid>`, made 0700) | `deusex-launcher.<hash>.lock`, a lock on which every launcher of a home marks itself running, and each client's `deusex-launcher.<hash>.<pid>.<n>.sock`, a channel a second start hands its command line over, the newest's first, removed as it ends |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. A mod's profile
@@ -60,12 +60,13 @@ which the harness's runs read: an engine whose `--version` lacks
 
 A file is written whole or not at all: to a new file beside it, synced,
 then renamed over it
-(`dxl_path_write_atomic`); a link is written through, its target replaced
-and the link kept. It keeps the mode the old one had, set only where the new
-one's differs; a filesystem with no permissions to keep (exFAT, FAT)
-refusing that is no failure. A file the launcher may not write, a
-read-only one, is not replaced: its save fails, `<file> is read-only`, as
-the original's write in place does.
+(`dxl_path_write_atomic`); a link is written through, its target replaced,
+or made where the link points when it is not there yet, and the link kept;
+one that cannot be followed, a loop, is refused. It keeps the mode the old
+one had, set only where the new one's differs; a filesystem with no
+permissions to keep (exFAT, FAT) refusing that is no failure. A file the
+launcher may not write, a read-only one, is not replaced: its save fails,
+`<file> is read-only`, as the original's write in place does.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md` with the notices it names
@@ -325,12 +326,18 @@ profile being chosen -- or the game, while it plays, opens the server.
    file in the user's runtime folder named after its config folder, as the
    original's every instance keeps its `DeusExIsRunning` mutex: a start
    finds one started beside another live after that one has ended, its
-   `Running.ini` no crash. The line is a socket file beside it, the first
-   client's (`src/platform/posix/instance.c`): one playing a dedicated
-   server (`-server`, started so or relaunched to it by the game) takes
-   none, as the original's server, whose log window is never `IsBrowser`,
-   so a second start plays beside it and takes the line, as the original's
-   client, and a third start hands its command line to that one.
+   `Running.ini` no crash. The line is a socket file beside it, each
+   client's own (`src/platform/posix/instance.c`), as the original marks
+   every client's log window `IsBrowser`, and goes to the newest, as the
+   original's to the log window it finds first: one started beside another
+   by a bypass word takes a later start's line, and still does once the
+   other has ended; one the game relaunches takes a channel anew, the
+   newest, as the original's relaunched copy is a new instance. One playing
+   a dedicated server (`-server`, started so or relaunched to it by the
+   game) takes none, as the original's server, whose log window is never
+   `IsBrowser`, so a second start plays beside it and takes the line, as
+   the original's client, and a third start hands its command line to that
+   one.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -779,7 +786,8 @@ but `test_ui_scripts` with no display. `test_ini` loads and saves an ini in
 the game's format byte for byte (CR LF, blank lines, repeated keys; 8-bit
 text Latin-1 and UTF-16 kept, as the engine reads and writes them, and a
 path past Latin-1 written UTF-16; each line read as the original's reader
-takes it; a read-only file left as it is), and `test_json` `Settings.json`,
+takes it; a read-only file left as it is; a link written where it leads,
+made there when it is not there yet), and `test_json` `Settings.json`,
 the members it does not know kept in their order; `test_cmdline` the
 original's three parsers, which differ, and `test_argv` and
 `test_engine_args` the game's words and the engine's, a quoted word whole;
@@ -793,7 +801,8 @@ any case;
 replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
 `test_install` what makes an install, in the odd cases a copy leaves;
 `test_lastrun` a run's end, written and read back; `test_runtime` the crash
-sentinel, the state folder and every launcher's mark of running;
+sentinel, the state folder, every launcher's mark of running, and each
+client's channel of its own, a line going to the newest;
 `test_renderers` the renderers the probe and
 the engine's build offer, and the PowerVR's anti-aliasing lock; `test_xdg`
 the XDG folders, the spec's defaults where none is set. `test_settings`
@@ -843,8 +852,8 @@ start's line, and ends with no game after a crash, Recovery quit,
 `-consolecommand=` and `-testrendev=`, which take `Running.ini` away, and
 with Recovery not answered, which leaves it, or a stop before the game,
 which starts none; finds a launcher started beside another live once that
-one has ended, its `Running.ini` no crash; and checks that nothing in the
-game's folder changed over them all.
+one has ended, its `Running.ini` no crash, and hands it a later start's
+line; and checks that nothing in the game's folder changed over them all.
 
 The window's kit is tested on SDL's software renderer and a surface: focus
 and navigation and what the d-pad's moves reach (`test_ui_focus`), text
@@ -928,7 +937,10 @@ gates, `-changevideo`, `Running.ini`), `Running.ini` made after the screens
 and taken away at a clean end or one with no game, `FirstRun` raised to 1100
 (one above it kept, but under `-firstrun`), the three command-line parsers
 (`ParseParam` stricter, as `main`'s), and the second start's hand-over,
-though its line goes to a launcher that keeps it whatever the install.
+though its line goes to a launcher that keeps it whatever the install, and
+to the newest client past a server started after it, as `main`'s, where the
+original asks the newest copy's log window alone and, a server's, starts a
+second game.
 Changed:
 
 | Original | DXLauncher | Why |
@@ -948,12 +960,7 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LAPP.12**: the hand-over channel stays with the first client: once it
-  ends, a client started beside it never takes the channel over, so a later
-  start opens a second game.
 - **LCORE.10**: run as root, the launcher still replaces a read-only ini at
   the next save: `access()` passes every file for root, and the Smart Pro's
   user is root (SSH logs in as root).
-- **LCORE.14**: an ini whose link points nowhere is replaced by a plain file
-  at the next save, where the engine writes through the link.
 - **LPORT.6**: the sysroot's packages fetched against no hash.
