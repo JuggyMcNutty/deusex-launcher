@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "core/instance.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -14,11 +15,16 @@
 #include <unistd.h>
 
 struct dxl_instance {
-    int   lock_fd;
+    int   lock_fd;     /* -1: a channel alone */
     int   sock_fd;
     char *lock_path;
     char *sock_path;   /* the channel's file, removed at release */
 };
+
+/* A client's channel: deusex-launcher-<pid>.<n>.sock in the runtime folder,
+ * the n-th this process opened. */
+#define CHANNEL_PREFIX "deusex-launcher-"
+#define CHANNEL_SUFFIX ".sock"
 
 /* The folder of the lock and the channel: $XDG_RUNTIME_DIR, the user's own
  * (0700 by the system), else /tmp/deusex-launcher-<uid>, made 0700 and
@@ -38,19 +44,39 @@ static char *runtime_dir(void) {
     return own;
 }
 
-/* The channel's address, a socket file in the runtime folder: only its
+/* A channel's address, a socket file in the runtime folder dir: only its
  * owner can send a line, where an abstract name took anyone's (the
- * original's WM_COPYDATA stays within the player's desktop). 0 where there
- * is no folder, or the name would not fit. */
-static socklen_t socket_addr(struct sockaddr_un *sa) {
+ * original's WM_COPYDATA stays within the player's desktop). 0 where the
+ * name would not fit. */
+static socklen_t socket_addr(struct sockaddr_un *sa, const char *dir, const char *name) {
     memset(sa, 0, sizeof *sa);
     sa->sun_family = AF_UNIX;
-    char *dir = runtime_dir();
-    if (!dir) return 0;
-    int n = snprintf(sa->sun_path, sizeof sa->sun_path, "%s/deusex-launcher.sock", dir);
-    free(dir);
+    int n = snprintf(sa->sun_path, sizeof sa->sun_path, "%s/%s", dir, name);
     if (n < 0 || (size_t)n >= sizeof sa->sun_path) return 0;
     return (socklen_t)(offsetof(struct sockaddr_un, sun_path) + (size_t)n + 1);
+}
+
+/* This process's next channel, into inst. Failing to open it is not fatal:
+ * the instance just cannot receive URLs. */
+static void open_channel(dxl_instance *inst) {
+    static int opened;
+    char *dir = runtime_dir();
+    if (!dir) return;
+    char name[64];
+    snprintf(name, sizeof name, CHANNEL_PREFIX "%ld.%d" CHANNEL_SUFFIX, (long)getpid(), ++opened);
+    struct sockaddr_un sa;
+    socklen_t len = socket_addr(&sa, dir, name);
+    free(dir);
+    int s = len ? socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0) : -1;
+    if (s < 0) return;
+    /* A file an earlier process of this pid left would refuse the bind. */
+    unlink(sa.sun_path);
+    if (bind(s, (struct sockaddr *)&sa, len) == 0) {
+        inst->sock_fd = s;
+        inst->sock_path = dxl_xstrdup(sa.sun_path);
+    } else {
+        close(s);
+    }
 }
 
 static char *lock_path(void) {
@@ -85,28 +111,26 @@ static dxl_instance *acquire(int listen) {
     inst->lock_path = path;
     inst->sock_fd = -1;
     inst->sock_path = NULL;
-
-    /* The handoff channel. Failing to open it is not fatal -- we are still the
-     * only instance, we just cannot receive URLs. */
-    int s = listen ? socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0) : -1;
-    if (s >= 0) {
-        struct sockaddr_un sa;
-        socklen_t len = socket_addr(&sa);
-        /* A file an earlier instance left (the lock is ours: no one listens
-         * on it) would refuse the bind. */
-        if (len) unlink(sa.sun_path);
-        if (len && bind(s, (struct sockaddr *)&sa, len) == 0) {
-            inst->sock_fd = s;
-            inst->sock_path = dxl_xstrdup(sa.sun_path);
-        } else {
-            close(s);
-        }
-    }
+    if (listen) open_channel(inst);
     return inst;
 }
 
 dxl_instance *dxl_instance_acquire(void) { return acquire(1); }
 dxl_instance *dxl_instance_acquire_lock(void) { return acquire(0); }
+
+dxl_instance *dxl_instance_listen(void) {
+    dxl_instance *inst = dxl_xmalloc(sizeof *inst);
+    inst->lock_fd = -1;
+    inst->lock_path = NULL;
+    inst->sock_fd = -1;
+    inst->sock_path = NULL;
+    open_channel(inst);
+    if (inst->sock_fd < 0) {
+        free(inst);
+        return NULL;
+    }
+    return inst;
+}
 
 int dxl_instance_fd(const dxl_instance *inst) { return inst ? inst->sock_fd : -1; }
 
@@ -142,27 +166,46 @@ int dxl_instance_other_running(void) {
 
 int dxl_instance_forward(const char *message, int timeout_ms,
                          dxl_err *err) {
+    char *dir = runtime_dir();
+    if (!dir) {
+        dxl_err_set(err, "handoff failed: no runtime folder of this user's");
+        return -1;
+    }
     int s = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-    if (s < 0) { dxl_err_set(err, "socket: %s", strerror(errno)); return -1; }
+    if (s < 0) {
+        dxl_err_set(err, "socket: %s", strerror(errno));
+        free(dir);
+        return -1;
+    }
 
     struct timeval tv = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
     setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
 
-    struct sockaddr_un sa;
-    socklen_t len = socket_addr(&sa);
-    if (!len) {
-        close(s);
-        dxl_err_set(err, "handoff failed: no runtime folder of this user's");
-        return -1;
-    }
     size_t mlen = strlen(message ? message : "");
     if (mlen > DXL_HANDOFF_MAX) mlen = DXL_HANDOFF_MAX;
 
-    ssize_t sent = sendto(s, message ? message : "", mlen, 0,
-                          (struct sockaddr *)&sa, len);
+    /* Every client's channel in turn, until one takes the line: a file a
+     * process that died left takes none. */
+    int sent = 0, why = ENOENT;
+    size_t pn = strlen(CHANNEL_PREFIX), sn = strlen(CHANNEL_SUFFIX);
+    DIR *d = opendir(dir);
+    struct dirent *de;
+    while (!sent && d && (de = readdir(d)) != NULL) {
+        size_t n = strlen(de->d_name);
+        if (n <= pn + sn || strncmp(de->d_name, CHANNEL_PREFIX, pn) != 0 ||
+            strcmp(de->d_name + n - sn, CHANNEL_SUFFIX) != 0)
+            continue;
+        struct sockaddr_un sa;
+        socklen_t len = socket_addr(&sa, dir, de->d_name);
+        if (!len) continue;
+        if (sendto(s, message ? message : "", mlen, 0, (struct sockaddr *)&sa, len) >= 0) sent = 1;
+        else why = errno;
+    }
+    if (d) closedir(d);
     close(s);
-    if (sent < 0) {
-        dxl_err_set(err, "handoff failed: %s", strerror(errno));
+    free(dir);
+    if (!sent) {
+        dxl_err_set(err, "handoff failed: %s", strerror(why));
         return -1;
     }
     return 0;

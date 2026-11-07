@@ -131,28 +131,36 @@ static int reap(dxl_game *g) {
     return 1;
 }
 
-/* A whole line from what has come in, into line; 1 if there was one. */
-static int take_line(dxl_game *g, char *line, size_t size) {
-    char *nl = memchr(g->pending, '\n', g->pending_len);
-    if (!nl) {
-        if (g->pending_len < sizeof g->pending) return 0;
-        nl = g->pending + g->pending_len - 1;   /* an over-long line: cut it */
+/* A line is any length; one past this with no end is taken as it is. */
+#define LINE_MOST (1 << 20)
+
+/* A whole line from what has come in, malloc'd into *line; 1 if there was
+ * one. */
+static int take_line(dxl_game *g, char **line) {
+    char *nl = g->pending_len ? memchr(g->pending, '\n', g->pending_len) : NULL;
+    size_t used;
+    if (nl) {
+        used = (size_t)(nl - g->pending) + 1;
+    } else if (g->pending_len >= LINE_MOST) {
+        used = g->pending_len;
+        nl = g->pending + used;
+    } else {
+        return 0;
     }
     size_t n = (size_t)(nl - g->pending);
-    if (size) {
-        size_t c = n < size - 1 ? n : size - 1;
-        memcpy(line, g->pending, c);
-        line[c] = '\0';
-        if (c && line[c - 1] == '\r') line[c - 1] = '\0';
-    }
-    size_t used = n + 1 <= g->pending_len ? n + 1 : g->pending_len;
+    if (n && g->pending[n - 1] == '\r') n--;
+    char *out = dxl_xmalloc(n + 1);
+    memcpy(out, g->pending, n);
+    out[n] = '\0';
     memmove(g->pending, g->pending + used, g->pending_len - used);
     g->pending_len -= used;
+    *line = out;
     return 1;
 }
 
-int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char *line, size_t size) {
-    if (take_line(g, line, size)) return DXL_GAME_LINE;
+int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char **line) {
+    *line = NULL;
+    if (take_line(g, line)) return DXL_GAME_LINE;
     struct pollfd p[2];
     int n = 0, chan = -1, extra = -1;
     if (g->channel >= 0) { p[n].fd = g->channel; p[n].events = POLLIN; chan = n++; }
@@ -160,14 +168,18 @@ int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char *line, size_t size) {
     int r = poll(p, (nfds_t)n, ms);
     int seen = 0;
     if (r > 0 && chan >= 0 && (p[chan].revents & (POLLIN | POLLHUP | POLLERR))) {
+        if (g->pending_len == g->pending_cap) {
+            g->pending_cap = g->pending_cap ? g->pending_cap * 2 : 1024;
+            g->pending = dxl_xrealloc(g->pending, g->pending_cap);
+        }
         ssize_t got = read(g->channel, g->pending + g->pending_len,
-                           sizeof g->pending - g->pending_len);
+                           g->pending_cap - g->pending_len);
         if (got > 0) g->pending_len += (size_t)got;
         else if (got == 0 || (errno != EAGAIN && errno != EINTR)) {
             close(g->channel);          /* the engine's end is gone: it ended, or dropped it */
             g->channel = -1;
         }
-        if (take_line(g, line, size)) seen |= DXL_GAME_LINE;
+        if (take_line(g, line)) seen |= DXL_GAME_LINE;
     }
     if (r > 0 && extra >= 0 && (p[extra].revents & POLLIN)) seen |= DXL_GAME_EXTRA;
     /* The end is told once nothing else is waiting to be read. */
@@ -191,6 +203,14 @@ void dxl_game_signal(dxl_game *g, int sig) {
 }
 
 int dxl_game_clean(const dxl_game *g) { return g->ended && g->status == 0; }
+
+void dxl_game_close(dxl_game *g) {
+    free(g->pending);
+    g->pending = NULL;
+    g->pending_len = g->pending_cap = 0;
+    if (g->channel >= 0) close(g->channel);
+    g->channel = -1;
+}
 
 int dxl_child_start(const char *exe, const char *flags, const char *workdir, pid_t *pid,
                     dxl_err *err) {

@@ -187,6 +187,14 @@ static const char *current_driver(const page *p) {
     return NULL;
 }
 
+/* The note: the selected device's line in Startup.int's [Descriptions]. */
+static void show_note(dxl_wizard *w, page *p) {
+    const char *path = p->painted ? current_driver(p) : NULL;
+    char *note = dxl_loc_line_format(path ? dxl_renderdev_note(w->req->loc, path) : "");
+    dxl_ctl_set_text(w->d, dxl_dialog_find(w->d, 1104, 1), note);
+    free(note);
+}
+
 static void fill_renderer(dxl_wizard *w, page *p) {
     dxl_ctl *list = dxl_dialog_find(w->d, 1103, 1);
     dxl_ctl_clear_items(w->d, list);
@@ -195,14 +203,11 @@ static void fill_renderer(dxl_wizard *w, page *p) {
     } else {
         for (int i = 0; i < p->shown_count; i++)
             dxl_ctl_add_item(w->d, list, p->devices.items[p->shown[i]].caption);
-        list->selected = p->selected;
+        dxl_ctl_select(w->d, list, p->selected);
     }
     dxl_dialog_find(w->d, 1109, 1)->checked = !p->all;
     dxl_dialog_find(w->d, 1110, 1)->checked = p->all;
-    const char *path = p->painted ? current_driver(p) : NULL;
-    char *note = dxl_loc_line_format(path ? dxl_renderdev_note(w->req->loc, path) : "");
-    dxl_ctl_set_text(w->d, dxl_dialog_find(w->d, 1104, 1), note);
-    free(note);
+    show_note(w, p);
 }
 
 /* ---- SafeOptions' boxes ------------------------------------------------------- */
@@ -395,8 +400,9 @@ static void on_command(dxl_dialog *d, int id, dxl_notify what, void *ctx) {
         if ((id == 1109 || id == 1110) && what == DXL_CLICKED) {
             dxl_wizard_show_all(w, dxl_dialog_find(w->d, 1110, 1)->checked);
         } else if (id == 1103 && what == DXL_SELCHANGE && p->painted) {
+            /* The list as it is, scrolled where it was: the note follows. */
             p->selected = dxl_dialog_find(w->d, 1103, 1)->selected;
-            fill_renderer(w, p);
+            show_note(w, p);
         } else if (id == 1103 && what == DXL_DBLCLK) {
             next(w);
         }

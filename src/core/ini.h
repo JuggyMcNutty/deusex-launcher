@@ -20,6 +20,13 @@
  * when every character is below U+0100, else UTF-16 little-endian after
  * FF FE.
  *
+ * A line is read as the original's reader reads it (FConfigFile::Read;
+ * core-dll.md, configuration): a header a line that begins [ and ends ],
+ * else a key up to its first = and its value after it, nothing trimmed, so
+ * "Key = 5" is a key "Key " of " 5", and a value that begins and ends with
+ * " without them, a .int's as an ini's. ; and # begin no comment: a line
+ * with no = is none.
+ *
  * Lookup is ASCII case-insensitive, matching FConfigCacheIni. A key given
  * twice reads at its last value and is set there, and a section written
  * twice is one section, its blocks read in order, as the original reads

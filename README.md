@@ -98,6 +98,8 @@ the original, 14 of the 15 match to the pixel, all made without
 `Help/LogoSmall.bmp`, whose band every wizard page shows where the install
 has it, as GOG's and Steam's both do, not yet compared (bugs.md MAIN.12);
 the splash differs only in its picture, which wine shows colour-reduced.
+The Renderer list's scroll bar, there past 8 devices, is drawn in the
+classic look, with no capture to compare it with.
 
 Fonts come from a wine or Proton install: MS Sans Serif (`sserife.fon`) for
 the pages, Arial at 12 pixels for the Driver page's link, Tahoma 8 pt for
@@ -150,6 +152,10 @@ Each adapts the original to desktop Linux, by the owner's choice:
   at its first space, so a path with one (Steam's `Deus Ex`, GOG's
   `GOG Games`) is cut inside itself and the running game opens a piece of it
   ([the forward](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/launch-flow.md#1-single-instance-forwarding-0x10908a300x10908cd1)).
+- **An empty `INI=` or `USERINI=` is none**, the game's own file, as
+  DXEngine takes it: the original's empty name ends in a critical error at
+  start, and an empty `USERINI=` plays with no key bindings and saves
+  nothing.
 - **A CPU that is not x86 has no MMX** to the Detail page
   ([`machine.c`](src/platform/posix/machine.c)), which takes its low sound
   settings then, 11025 Hz among them, as the original's does on a CPU
@@ -164,20 +170,9 @@ Each adapts the original to desktop Linux, by the owner's choice:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **MAIN.11**: the engine's line cut at 1,023 bytes, so a `RELAUNCH` past
-  1,014 characters relaunches cut.
 - **MAIN.12**: the wizard's logo band never compared with the original's;
   the 14 of 15 pixel matches and the screenshots made without
   `Help/LogoSmall.bmp`.
-- **MAIN.13**: a client beside a running `-server` takes no channel; a
-  static's text never clipped to its control; the device list stops at 8; F5
-  to F7, overlong and surrogate leads taken as UTF-8.
-- **MAIN.14**: the ini reader trims a line, a key and a value's start,
-  takes a line beginning `;` or `#` for a comment and keeps a value's
-  quotes, where the original takes a line as it stands, its quotes off; a
-  localized text's lone `"` kept, where the original's is empty.
-- **ENG.21**: an empty `INI=`, `USERINI=`, `LOG=` or `ABSLOG=` taken as
-  none, where the original uses the empty name.
 
 ## The game and the launcher
 
@@ -197,7 +192,7 @@ descriptor the engine finds in `DXL_LAUNCHER_FD`, one text line per message:
 | the engine | `ready` | it is up, its first map in: the splash closes, as the original's does when the engine exists |
 | the launcher | `TakeFocus` | a second launch forwarded its command line: the game's window to the front |
 | the launcher | `Open <url>` | then the command line's first word, unless it starts with `-`: travel there |
-| the engine | `relaunch <line>` | the game's `RELAUNCH`: once the game has ended cleanly, the launcher starts again with that command line alone, as the original's starts `DeusEx.exe` with it ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)); after a crash, not; cut past 1,014 characters (bugs.md MAIN.11) |
+| the engine | `relaunch <line>` | the game's `RELAUNCH`: once the game has ended cleanly, the launcher starts again with that command line alone, as the original's starts `DeusEx.exe` with it ([`RELAUNCH`](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/core-dll.md#relaunch)); after a crash, not |
 
 A forwarded command line that arrives before `ready` is dropped, as the
 original's log window drops one before its main loop runs.

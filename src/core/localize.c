@@ -17,8 +17,8 @@ struct dxl_loc {
     char     *language;
     loc_file *files;
     size_t    file_count, file_cap;
-    /* Everything handed out -- unquoted values, placeholders -- so returned
-     * pointers stay valid for the object's life. */
+    /* The placeholders handed out, so returned pointers stay valid for the
+     * object's life. */
     char    **owned;
     size_t    owned_count, owned_cap;
 };
@@ -78,15 +78,7 @@ static dxl_ini *file_for(dxl_loc *l, const char *package, const char *ext) {
     return f->ini;
 }
 
-/* UE1's reader drops a value's surrounding quotes, and only when both are
- * there (FConfigFile::Read). */
-static const char *unquoted(dxl_loc *l, const char *v) {
-    size_t n = strlen(v);
-    if (n >= 2 && v[0] == '"' && v[n - 1] == '"')
-        return keep(l, dxl_xstrndup(v + 1, n - 2));
-    return v;
-}
-
+/* The value as the reader gives it, its quotes off there (core/ini.h). */
 const char *dxl_loc_get(dxl_loc *l, const char *package, const char *section,
                         const char *key, int optional) {
     const char *exts[2] = { l->language, "int" };
@@ -94,7 +86,7 @@ const char *dxl_loc_get(dxl_loc *l, const char *package, const char *section,
         if (i == 1 && dxl_stricmp(exts[0], "int") == 0) break;
         dxl_ini *ini = file_for(l, package, exts[i]);
         const char *v = ini ? dxl_ini_get(ini, section, key) : NULL;
-        if (v) return unquoted(l, v);
+        if (v) return v;
     }
     if (optional) return "";
     size_t n = strlen(l->language) + strlen(package) + strlen(section) + strlen(key) + 16;

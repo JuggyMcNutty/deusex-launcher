@@ -216,6 +216,10 @@ static void test_bool_spelling(void) {
     dxl_ini_free(ini);
 }
 
+/* A line as the original's reader takes it (bugs.md MAIN.14): a header a
+ * line that begins [ and ends ], else a key up to its first = and its value
+ * after it, nothing trimmed, a value in quotes without them (a lone "
+ * empty); ; and # begin no comment. Every line is written back as it was. */
 static void test_comments_and_oddities(void) {
     const char *src =
         "; leading comment\r\n"
@@ -224,19 +228,38 @@ static void test_comments_and_oddities(void) {
         "  spaced = value with spaces  \r\n"
         "empty=\r\n"
         "novalue\r\n"
+        ";key=x\r\n"
+        "#hash=y\r\n"
+        "quoted=\"a b\"\r\n"
+        "lone=\"\r\n"
+        "half=\"open\r\n"
+        "[T] \r\n"
+        "under=S\r\n"
         "[Unclosed\r\n";
     dxl_ini *ini = dxl_ini_parse(src, strlen(src));
 
-    CHECK_STR(dxl_ini_get(ini, "S", "spaced"), "value with spaces");
+    CHECK(dxl_ini_get(ini, "S", "spaced") == NULL);
+    CHECK_STR(dxl_ini_get(ini, "S", "  spaced "), " value with spaces  ");
     CHECK_STR(dxl_ini_get(ini, "S", "empty"), "");
     /* A line with no '=' is not a pair; it is preserved verbatim. */
     CHECK(dxl_ini_get(ini, "S", "novalue") == NULL);
+    CHECK_STR(dxl_ini_get(ini, "S", ";key"), "x");
+    CHECK_STR(dxl_ini_get(ini, "S", "#hash"), "y");
+    CHECK_STR(dxl_ini_get(ini, "S", "quoted"), "a b");
+    CHECK_STR(dxl_ini_get(ini, "S", "lone"), "");
+    CHECK_STR(dxl_ini_get(ini, "S", "half"), "\"open");
+    /* "[T] " is no header: the keys after it are the section's before. */
+    CHECK_STR(dxl_ini_get(ini, "S", "under"), "S");
+    CHECK(dxl_ini_get(ini, "T", "under") == NULL);
 
     size_t len = 0;
     char *out = dxl_ini_render(ini, &len);
     CHECK_INT(len, strlen(src));
     CHECK(memcmp(out, src, len) == 0);
     free(out);
+    /* The value as it is read, set again, changes nothing. */
+    dxl_ini_set(ini, "S", "quoted", "a b");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
     dxl_ini_free(ini);
 }
 

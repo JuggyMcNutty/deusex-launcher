@@ -11,7 +11,8 @@ static void setup(void) {
     const char *dir = scratch_dir("loc");
     scratch_write(dir, "System/Startup.int",
                   "[General]\r\nRun=Run!\r\nWorldHigh=\"High detail textures\"\r\n"
-                  "Half=\"only one quote\r\nEmpty=\r\n"
+                  "Half=\"only one quote\r\nEmpty=\r\nLone=\"\r\n"
+                  "Trailing=Now viewing from \r\n"
                   "[IDDIALOG_ConfigPageDriver]\r\nIDC_DriverInfo=One.\\n\\nTwo.\r\n");
     scratch_write(dir, "System/window.INT", "[General]\r\nNextButton=&Next >\r\n");
     scratch_write(dir, "System/Startup.frt", "[General]\r\nRun=Lancer!\r\n");
@@ -28,6 +29,9 @@ static void test_values_and_quotes(void) {
     /* ...and only when both are there. */
     CHECK_STR(dxl_loc_general(l, "Startup", "Half"), "\"only one quote");
     CHECK_STR(dxl_loc_general(l, "Startup", "Empty"), "");
+    /* A lone quote is both: empty. A last blank is the text's own. */
+    CHECK_STR(dxl_loc_general(l, "Startup", "Lone"), "");
+    CHECK_STR(dxl_loc_general(l, "Startup", "Trailing"), "Now viewing from ");
     /* A file in another case is found; the text is returned raw, & and all. */
     CHECK_STR(dxl_loc_general(l, "Window", "NextButton"), "&Next >");
     dxl_loc_free(l);

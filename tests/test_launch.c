@@ -35,7 +35,8 @@ typedef struct {
     char critical_text[256];
     int  forward_after_ready;       /* pump: forward this once the splash is gone */
     const char *forward_line;
-    int  forwarded;
+    dxl_instance *release_first;    /* pump: let this go before the forward */
+    int  forward_tried, forwarded;
     int  stop_after_ready;          /* pump: ask the run to stop once the splash is gone */
     volatile int stop;
 } stub;
@@ -73,9 +74,14 @@ static void s_critical(void *c, const char *title, const char *text) {
 static void s_pump(void *c) {
     (void)c;
     if (S.stop_after_ready && S.splash_hides > 0) S.stop = 1;
-    if (S.forward_after_ready && !S.forwarded && S.splash_hides > 0) {
+    if (S.forward_after_ready && !S.forward_tried && S.splash_hides > 0) {
+        dxl_instance_release(S.release_first);
+        S.release_first = NULL;
         dxl_err e;
+        S.forward_tried = 1;
         S.forwarded = dxl_instance_forward(S.forward_line, 1000, &e) == 0;
+        /* Taken by no one: the game, which waits for it, is stopped. */
+        if (!S.forwarded) S.stop = 1;
     }
 }
 
@@ -97,7 +103,8 @@ static const char *GAME =
     "       read a <&$fd; read b <&$fd\n"
     "       printf '%s|%s' \"$a\" \"$b\" > \"$here/game-got.txt\" ;;\n"
     "stubborn) trap '' TERM; printf 'hello\\nready\\n' >&$fd; exec sleep 30 ;;\n"
-    "relaunch) printf 'hello\\nready\\nrelaunch -changevideo\\n' >&$fd ;;\n"
+    "relaunch) line=$(cat \"$here/game-line.txt\" 2>/dev/null || printf %s -changevideo)\n"
+    "          printf 'hello\\nready\\nrelaunch %s\\n' \"$line\" >&$fd ;;\n"
     "esac\n"
     "exit $(cat \"$here/game-exit.txt\" 2>/dev/null || echo 0)\n";
 
@@ -325,6 +332,27 @@ static void test_log_cut_at_a_comma(void) {
     scratch_remove(root);
 }
 
+/* An empty LOG= or ABSLOG= is the empty name, as the original's log device
+ * takes it (DeusEx.exe 0x10903880, 0x109038a8): the base folder itself, or
+ * no name, which no file opens as -- no log, the run going on; a LOG= found
+ * is the one taken, an ABSLOG= after it unread. */
+static void test_empty_log_names_no_log(void) {
+    install("l-emptylog", NULL);
+    char abslog[600];
+    snprintf(abslog, sizeof abslog, "ABSLOG=%s/Abs.log", sys);
+    dxl_launch_result r;
+    launch((const char *[]){ "-consolecommand=ShowLog", "LOG=", abslog, NULL }, &r);
+    CHECK_STR(r.ended, "-consolecommand");
+    CHECK_INT(scratch_exists(root, "System/DeusEx.log"), 0);
+    CHECK_INT(scratch_exists(root, "System/Abs.log"), 0);
+    dxl_launch_result_free(&r);
+    launch((const char *[]){ "-consolecommand=ShowLog", "ABSLOG=", NULL }, &r);
+    CHECK_STR(r.ended, "-consolecommand");
+    CHECK_INT(scratch_exists(root, "System/DeusEx.log"), 0);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
 /* A running instance that listens takes the command line; with a bypass
  * token the launch goes on instead. */
 static void test_forwarding(void) {
@@ -425,6 +453,50 @@ static void test_ready_and_relay(void) {
     scratch_remove(root);
 }
 
+/* A client started beside a -server listens all the same, as the
+ * original's every client's log window is IsBrowser and a server's never:
+ * a third launch's line reaches its game. */
+static void test_relay_beside_a_server(void) {
+    install("l-relay-server", NULL);
+    scratch_write(root, "System/game-mode.txt", "relay");
+    dxl_instance *server = dxl_instance_acquire_lock();
+    CHECK(server != NULL);
+    S.forward_after_ready = 1;
+    S.forward_line = "DX.dx?Name=JC -x";
+    dxl_launch_result r;
+    launch(NULL, &r);
+    CHECK_STR(r.ended, "the game ran");
+    CHECK_INT(S.forwarded, 1);
+    char *got = read_file("System/game-got.txt");
+    CHECK_STR(got, "TakeFocus|Open DX.dx?Name=JC");
+    free(got);
+    dxl_launch_result_free(&r);
+    dxl_instance_release(server);
+    scratch_remove(root);
+}
+
+/* A client started with a bypass word beside another listens too: with the
+ * first gone, a launch's line reaches it, as the original's finds the log
+ * window still there. */
+static void test_relay_to_the_client_left(void) {
+    install("l-relay-left", NULL);
+    scratch_write(root, "System/game-mode.txt", "relay");
+    S.release_first = dxl_instance_acquire();
+    CHECK(S.release_first != NULL);
+    S.forward_after_ready = 1;
+    S.forward_line = "DX.dx?Name=JC -x";
+    dxl_launch_result r;
+    launch((const char *[]){ "-NewWindow", NULL }, &r);
+    CHECK_STR(r.ended, "the game ran");
+    CHECK_INT(S.forwarded, 1);
+    char *got = read_file("System/game-got.txt");
+    CHECK_STR(got, "TakeFocus|Open DX.dx?Name=JC");
+    free(got);
+    dxl_launch_result_free(&r);
+    dxl_instance_release(S.release_first);
+    scratch_remove(root);
+}
+
 /* The engine's RELAUNCH: once the game has ended cleanly, the launcher is
  * started again with the line; after a crash, not. */
 static void test_engine_relaunch(void) {
@@ -443,6 +515,24 @@ static void test_engine_relaunch(void) {
     scratch_write(root, "System/game-exit.txt", "1");
     launch(NULL, &r);
     CHECK(r.relaunch_flags == NULL);
+    dxl_launch_result_free(&r);
+    scratch_remove(root);
+}
+
+/* A RELAUNCH line of any length comes whole, as the original passes the
+ * rest of the line on: none cut at 1,023 bytes, the rest a line of its own. */
+static void test_engine_relaunch_long(void) {
+    install("l-relaunch-long", NULL);
+    scratch_write(root, "System/game-mode.txt", "relaunch");
+    char want[3016];
+    memset(want, 'a', 3000);
+    memcpy(want + 3000, " -server", 9);
+    scratch_write(root, "System/game-line.txt", want);
+    dxl_launch_result r;
+    launch(NULL, &r);
+    CHECK_STR(r.ended, "the game ran");
+    CHECK_INT(r.relaunch_flags ? (int)strlen(r.relaunch_flags) : 0, 3008);
+    CHECK(r.relaunch_flags && strcmp(r.relaunch_flags, want) == 0);
     dxl_launch_result_free(&r);
     scratch_remove(root);
 }
@@ -646,10 +736,14 @@ TEST_MAIN_BEGIN
     RUN(test_make_is_fatal);
     RUN(test_the_two_exits_that_never_launch);
     RUN(test_log_cut_at_a_comma);
+    RUN(test_empty_log_names_no_log);
     RUN(test_forwarding);
     RUN(test_forwarding_bypassed_by_the_path);
     RUN(test_server);
     RUN(test_splash_bitmaps);
     RUN(test_ready_and_relay);
+    RUN(test_relay_beside_a_server);
+    RUN(test_relay_to_the_client_left);
     RUN(test_engine_relaunch);
+    RUN(test_engine_relaunch_long);
 TEST_MAIN_END

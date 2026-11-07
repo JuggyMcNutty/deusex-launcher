@@ -5,6 +5,9 @@
 #include <string.h>
 
 #define ITEM_H 13          /* a list row: the font's height */
+#define SCROLL_W 16        /* a list's scroll bar: its width, and its arrows' height */
+#define THUMB_MIN 6        /* the bar's thumb at its shortest, as wine's */
+#define WHEEL_ROWS 3       /* the rows a turn of the wheel scrolls */
 #define DOUBLE_CLICK_MS 500
 
 /* ---- the bitmaps Windows draws check boxes and radio buttons from --------
@@ -99,7 +102,7 @@ dxl_dialog *dxl_dialog_open(dxl_gui *g, const char *title, int w, int h, int off
     d->line_h = g->line_h;
     d->w = w;
     d->h = h;
-    d->focus = d->hover = d->pressed = d->space = d->last_click_ctl = -1;
+    d->focus = d->hover = d->pressed = d->space = d->last_click_ctl = d->thumb = -1;
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     if (offscreen) {
         d->surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
@@ -187,7 +190,7 @@ void dxl_dialog_remove_layer(dxl_dialog *d, int layer) {
         d->ctls[o++] = d->ctls[i];
     }
     d->count = o;
-    d->focus = d->hover = d->pressed = d->space = d->last_click_ctl = -1;
+    d->focus = d->hover = d->pressed = d->space = d->last_click_ctl = d->thumb = -1;
     d->dirty = 1;
 }
 
@@ -209,6 +212,63 @@ void dxl_ctl_clear_items(dxl_dialog *d, dxl_ctl *c) {
     c->items = NULL;
     c->item_count = 0;
     c->selected = -1;
+    c->top = 0;
+    d->dirty = 1;
+}
+
+/* A list's inside, within its sunken edge. */
+static SDL_Rect list_inside(const dxl_ctl *c) {
+    SDL_Rect in = { c->rc.x + 2, c->rc.y + 2, c->rc.w - 4, c->rc.h - 4 };
+    return in;
+}
+
+/* The rows a list shows. */
+static int list_rows(const dxl_ctl *c) {
+    int rows = (c->rc.h - 4) / ITEM_H;
+    return rows > 0 ? rows : 1;
+}
+
+/* Its vertical scroll bar, at the inside's right, there only while it has
+ * more items than rows; w 0 when there is none. */
+static SDL_Rect list_bar(const dxl_ctl *c) {
+    SDL_Rect in = list_inside(c), bar = { in.x + in.w - SCROLL_W, in.y, SCROLL_W, in.h };
+    if (c->item_count <= list_rows(c)) bar.w = 0;
+    return bar;
+}
+
+/* The bar's thumb, on the track between its arrows: as long as the rows
+ * are a share of the items, as far down as the first row shown is; h 0
+ * when the track has no room for one. */
+static SDL_Rect list_thumb(const dxl_ctl *c) {
+    SDL_Rect bar = list_bar(c);
+    int track = bar.h - 2 * SCROLL_W, rows = list_rows(c), most = c->item_count - rows;
+    SDL_Rect t = { bar.x, bar.y + SCROLL_W, bar.w, 0 };
+    if (!bar.w || track < THUMB_MIN) return t;
+    t.h = track * rows / c->item_count;
+    if (t.h < THUMB_MIN) t.h = THUMB_MIN;
+    if (most > 0) t.y += (track - t.h) * c->top / most;
+    return t;
+}
+
+/* The first row a list shows, kept within its items. */
+static void list_scroll(dxl_ctl *c, int top) {
+    int most = c->item_count - list_rows(c);
+    if (top > most) top = most;
+    if (top < 0) top = 0;
+    c->top = top;
+}
+
+/* Its selection scrolled into view, as a list box keeps it. */
+static void list_show(dxl_ctl *c) {
+    int rows = list_rows(c);
+    if (c->selected < 0) return;
+    if (c->selected < c->top) list_scroll(c, c->selected);
+    else if (c->selected >= c->top + rows) list_scroll(c, c->selected - rows + 1);
+}
+
+void dxl_ctl_select(dxl_dialog *d, dxl_ctl *c, int item) {
+    c->selected = item >= 0 && item < c->item_count ? item : -1;
+    list_show(c);
     d->dirty = 1;
 }
 
@@ -254,6 +314,41 @@ static int shown_default(const dxl_dialog *d, int i) {
     return d->ctls[i].is_default;
 }
 
+/* A scroll bar's arrow, centred on its button: a triangle 7 pixels across
+ * and 4 down, in the text's colour. */
+static void bar_arrow(SDL_Renderer *r, SDL_Rect b, int up) {
+    int cx = b.x + b.w / 2 - 1, y0 = b.y + b.h / 2 - 2;
+    for (int k = 0; k < 4; k++)
+        dxl_hline(r, cx - k, cx + k + 1, up ? y0 + k : y0 + 3 - k, dxl_colors.text);
+}
+
+/* A list's scroll bar, in the classic look: an arrow button at each end,
+ * the track between them COLOR_3DHILIGHT and COLOR_3DFACE in a checkerboard
+ * (wine's brush where the highlight is the window's colour), and the thumb
+ * a raised button. */
+static void draw_bar(SDL_Renderer *r, const dxl_ctl *c, SDL_Rect bar) {
+    const dxl_palette *p = &dxl_colors;
+    SDL_Rect track = { bar.x, bar.y + SCROLL_W, bar.w, bar.h - 2 * SCROLL_W };
+    if (track.h > 0) {
+        dxl_fill(r, track, p->highlight);
+        SDL_SetRenderDrawColor(r, p->face.r, p->face.g, p->face.b, 255);
+        for (int y = track.y; y < track.y + track.h; y++)
+            for (int x = track.x + !((track.x + y) & 1); x < track.x + track.w; x += 2)
+                SDL_RenderDrawPoint(r, x, y);
+    }
+    for (int up = 1; up >= 0; up--) {
+        SDL_Rect b = { bar.x, up ? bar.y : bar.y + bar.h - SCROLL_W, bar.w, SCROLL_W };
+        dxl_fill(r, b, p->face);
+        dxl_edge(r, b, DXL_EDGE_RAISED);
+        bar_arrow(r, b, up);
+    }
+    SDL_Rect t = list_thumb(c);
+    if (t.h) {
+        dxl_fill(r, t, p->face);
+        dxl_edge(r, t, DXL_EDGE_RAISED);
+    }
+}
+
 static void draw_ctl(dxl_dialog *d, int i) {
     dxl_ctl *c = &d->ctls[i];
     SDL_Renderer *r = d->ren;
@@ -265,7 +360,11 @@ static void draw_ctl(dxl_dialog *d, int i) {
 
     switch (c->kind) {
     case DXL_CTL_TEXT:
+        /* Clipped to the control, as a static's window clips its text:
+         * what does not fit runs onto nothing below. */
+        SDL_RenderSetClipRect(r, &rc);
         dxl_text_wrapped(r, g, d->font, rc, c->text, p->text, NULL);
+        SDL_RenderSetClipRect(r, NULL);
         break;
     case DXL_CTL_ETCHED:
         dxl_hline(r, rc.x, rc.x + rc.w, rc.y, p->shadow);
@@ -352,10 +451,15 @@ static void draw_ctl(dxl_dialog *d, int i) {
     }
     case DXL_CTL_LIST: {
         SDL_Rect in = dxl_edge(r, rc, DXL_EDGE_SUNKEN);
+        SDL_Rect bar = list_bar(c);
+        if (bar.w) {
+            draw_bar(r, c, bar);
+            in.w -= bar.w;
+        }
         dxl_fill(r, in, p->window);
         SDL_RenderSetClipRect(r, &in);
-        for (int k = 0; k < c->item_count; k++) {
-            SDL_Rect row = { in.x, in.y + k * ITEM_H, in.w, ITEM_H };
+        for (int k = c->top; k < c->item_count; k++) {
+            SDL_Rect row = { in.x, in.y + (k - c->top) * ITEM_H, in.w, ITEM_H };
             if (row.y >= in.y + in.h) break;
             int sel = k == c->selected;
             if (sel) dxl_fill(r, row, p->sel);
@@ -525,7 +629,36 @@ static void list_select(dxl_dialog *d, int i, int item) {
     dxl_ctl *c = &d->ctls[i];
     if (item < 0 || item >= c->item_count || item == c->selected) return;
     c->selected = item;
+    list_show(c);
     notify(d, c->id, DXL_SELCHANGE);
+}
+
+/* A press on a list's scroll bar at y: an arrow scrolls a row, the track
+ * either side of the thumb a page of rows, the thumb is held to drag. */
+static void bar_press(dxl_dialog *d, int i, int y) {
+    dxl_ctl *c = &d->ctls[i];
+    SDL_Rect bar = list_bar(c), t = list_thumb(c);
+    int rows = list_rows(c);
+    if (y < bar.y + SCROLL_W) list_scroll(c, c->top - 1);
+    else if (y >= bar.y + bar.h - SCROLL_W) list_scroll(c, c->top + 1);
+    else if (!t.h) return;
+    else if (y < t.y) list_scroll(c, c->top - rows);
+    else if (y >= t.y + t.h) list_scroll(c, c->top + rows);
+    else {
+        d->thumb = i;
+        d->thumb_dy = y - t.y;
+    }
+}
+
+/* The held thumb's top at y: the first row shown, the nearest to it. */
+static void bar_drag(dxl_dialog *d, int y) {
+    dxl_ctl *c = &d->ctls[d->thumb];
+    SDL_Rect bar = list_bar(c), t = list_thumb(c);
+    int room = bar.h - 2 * SCROLL_W - t.h, most = c->item_count - list_rows(c);
+    if (room <= 0 || most <= 0) return;
+    int at = y - d->thumb_dy - (bar.y + SCROLL_W);
+    if (at < 0) at = 0;
+    list_scroll(c, (at * most + room / 2) / room);
 }
 
 static int visible_id(dxl_dialog *d, int id) {
@@ -647,6 +780,11 @@ static void handle(dxl_dialog *d, const SDL_Event *e) {
         return;
     case SDL_MOUSEMOTION: {
         if (!our_window(d, e->motion.windowID)) return;
+        if (d->thumb >= 0) {
+            bar_drag(d, e->motion.y);
+            d->dirty = 1;
+            return;
+        }
         int h = hit(d, e->motion.x, e->motion.y);
         if (h >= 0 && d->ctls[h].kind != DXL_CTL_COOL && d->ctls[h].kind != DXL_CTL_URL) h = -1;
         if (d->pressed >= 0) h = inside(d->ctls[d->pressed].rc, e->motion.x, e->motion.y) ? d->pressed : -1;
@@ -660,8 +798,13 @@ static void handle(dxl_dialog *d, const SDL_Event *e) {
         dxl_ctl *c = &d->ctls[i];
         if (c->tabstop) d->focus = i;
         if (c->kind == DXL_CTL_LIST) {
-            SDL_Rect in = { c->rc.x + 2, c->rc.y + 2, c->rc.w - 4, c->rc.h - 4 };
-            int item = (e->button.y - in.y) / ITEM_H;
+            SDL_Rect in = list_inside(c), bar = list_bar(c);
+            if (bar.w && inside(bar, e->button.x, e->button.y)) {
+                bar_press(d, i, e->button.y);
+                d->dirty = 1;
+                return;
+            }
+            int item = c->top + (e->button.y - in.y) / ITEM_H;
             Uint32 now = SDL_GetTicks();
             int twice = d->last_click_ctl == i && item == c->selected &&
                         now - d->last_click < DOUBLE_CLICK_MS;
@@ -677,11 +820,24 @@ static void handle(dxl_dialog *d, const SDL_Event *e) {
     }
     case SDL_MOUSEBUTTONUP: {
         if (!our_window(d, e->button.windowID) || e->button.button != SDL_BUTTON_LEFT) return;
+        d->thumb = -1;
         int i = d->pressed;
         d->pressed = -1;
         d->dirty = 1;
         if (i >= 0 && i < d->count && inside(d->ctls[i].rc, e->button.x, e->button.y))
             activate(d, i);
+        return;
+    }
+    case SDL_MOUSEWHEEL: {
+        /* The list under the mouse, WHEEL_ROWS rows a turn. */
+        if (!our_window(d, e->wheel.windowID) || !e->wheel.y) return;
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+        int i = hit(d, x, y);
+        if (i < 0 || d->ctls[i].kind != DXL_CTL_LIST) return;
+        int turns = e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e->wheel.y : e->wheel.y;
+        list_scroll(&d->ctls[i], d->ctls[i].top - turns * WHEEL_ROWS);
+        d->dirty = 1;
         return;
     }
     case SDL_KEYDOWN:

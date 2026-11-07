@@ -260,6 +260,99 @@ static void test_quit_while_detecting(void) {
     close_wizard(&f);
 }
 
+/* The pixels in rc that are not the colour c. */
+static int other_than(dxl_dialog *d, SDL_Rect rc, dxl_rgb c) {
+    SDL_Surface *s = d->surface;
+    int n = 0;
+    for (int y = rc.y; y < rc.y + rc.h && y < s->h; y++)
+        for (int x = rc.x; x < rc.x + rc.w && x < s->w; x++) {
+            Uint8 r, g, b;
+            SDL_GetRGB(((Uint32 *)((Uint8 *)s->pixels + y * s->pitch))[x], s->format, &r, &g, &b);
+            if (r != c.r || g != c.g || b != c.b) n++;
+        }
+    return n;
+}
+
+/* A static's text is clipped to the control, as its window clips it: a
+ * prompt longer than its 75 dialog units draws nothing on the page below. */
+static void test_static_clipped(void) {
+    fixture_t f;
+    open_wizard(&f, DXL_PAGE_FIRSTTIME);
+    dxl_ctl *prompt = page(&f, 1002);
+    char text[512] = "";
+    for (int i = 0; i < 30; i++) strcat(text, "Starting.\n");
+    dxl_ctl_set_text(f.d, prompt, text);
+    dxl_dialog_draw(f.d);
+    SDL_Rect below = { prompt->rc.x, prompt->rc.y + prompt->rc.h, prompt->rc.w, 40 };
+    CHECK_INT(other_than(f.d, below, dxl_colors.face), 0);
+    close_wizard(&f);
+}
+
+/* More devices than the list's 8 rows: one chosen past them is scrolled
+ * into view, as a list box keeps its selection, and a click lands on the
+ * row shown there. */
+static void test_list_scrolls(void) {
+    const char *dir = scratch_dir("wizard");
+    char text[1400] = "[Public]\r\n";
+    for (int i = 1; i <= 8; i++)
+        snprintf(text + strlen(text), sizeof text - strlen(text),
+                 "Object=(Name=Extra.Device%d,Class=Class,MetaClass=Engine.RenderDevice)\r\n", i);
+    for (int i = 1; i <= 8; i++)
+        snprintf(text + strlen(text), sizeof text - strlen(text), "[Device%d]\r\nClassCaption=\"Extra %d\"\r\n", i, i);
+    scratch_write(dir, "System/Extra.int", text);
+    CHECK_INT(SDL_InitSubSystem(SDL_INIT_EVENTS), 0);
+    fixture_t f;
+    open_wizard(&f, DXL_PAGE_RENDERER);
+    dxl_wizard_first_paint(f.w, 0);
+    dxl_dialog_click(f.d, 1110);                           /* all devices */
+    CHECK_INT(page(&f, 1103)->item_count, 11);
+    dxl_dialog_choose(f.d, 1103, 10, 0);                   /* the last */
+    CHECK_STR(page(&f, 1104)->text, "The software note.");
+    dxl_dialog_draw(f.d);
+    dxl_ctl *list = page(&f, 1103);
+    SDL_Rect in = { list->rc.x + 2, list->rc.y + 2, list->rc.w - 4, list->rc.h - 4 };
+    int highlit = 0;
+    for (int y = in.y; y < in.y + in.h; y++) {
+        SDL_Rect row = { in.x, y, 1, 1 };
+        if (other_than(f.d, row, dxl_colors.sel) == 0) highlit++;
+    }
+    CHECK(highlit > 0);                                    /* the selection, drawn */
+    SDL_Event e;
+    memset(&e, 0, sizeof e);
+    e.type = SDL_MOUSEBUTTONDOWN;
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = in.x + 20;
+    e.button.y = in.y + 6;                                 /* the first row shown */
+    SDL_PushEvent(&e);
+    dxl_dialog_step(f.d, 0);
+    CHECK_INT(page(&f, 1103)->selected, 3);                /* Extra 2, below three */
+    close_wizard(&f);
+    char *extra = scratch_path(dir, "System/Extra.int");
+    remove(extra);
+    free(extra);
+    SDL_QuitSubSystem(SDL_INIT_EVENTS);
+}
+
+/* A .int's text as SDL takes it: UTF-8 as it is, else Latin-1 converted --
+ * a lead byte past F4, an overlong one, a surrogate or past U+10FFFF is no
+ * UTF-8. No font needed. */
+static void test_text_as_utf8(void) {
+    static const char *const cases[][2] = {
+        { "\xe2\x82\xac", "\xe2\x82\xac" },
+        { "caf\xe9", "caf\xc3\xa9" },
+        { "\xf5\xa1\xa2\xa3", "\xc3\xb5\xc2\xa1\xc2\xa2\xc2\xa3" },
+        { "\xc0\xaf", "\xc3\x80\xc2\xaf" },
+        { "\xe0\x80\xaf", "\xc3\xa0\xc2\x80\xc2\xaf" },
+        { "\xed\xa0\x80", "\xc3\xad\xc2\xa0\xc2\x80" },
+        { "\xf4\x90\x80\x80", "\xc3\xb4\xc2\x90\xc2\x80\xc2\x80" },
+    };
+    for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
+        char *u = dxl_gui_utf8(cases[i][0]);
+        CHECK_STR(u, cases[i][1]);
+        free(u);
+    }
+}
+
 /* Cancel, anywhere, ends it with 0. */
 static void test_cancel(void) {
     fixture_t f;
@@ -324,10 +417,11 @@ static void test_safe_mode_buttons(void) {
 }
 
 TEST_MAIN_BEGIN
+    RUN(test_text_as_utf8);
     dxl_err e;
     if (dxl_gui_init(&gui, 0, &e) != 0) {
         printf("skipped: %s\n", dxl_err_msg(&e));
-        return 77;
+        return dxl_test_failures ? 1 : 77;
     }
     setup();
     RUN(test_layout);
@@ -336,6 +430,8 @@ TEST_MAIN_BEGIN
     RUN(test_keys);
     RUN(test_msgbox_ampersands);
     RUN(test_quit_while_detecting);
+    RUN(test_static_clipped);
+    RUN(test_list_scrolls);
     RUN(test_cancel);
     RUN(test_safe_options);
     RUN(test_reset);

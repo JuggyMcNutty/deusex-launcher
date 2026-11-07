@@ -225,6 +225,26 @@ static void test_lock_without_channel(void) {
     dxl_instance_release(client);
 }
 
+/* A client beside another instance listens without the lock, as the
+ * original's every client's log window is IsBrowser: beside a -server's
+ * lock alone, a forward reaches it. */
+static void test_listen_without_the_lock(void) {
+    dxl_instance *server = dxl_instance_acquire_lock();
+    CHECK(server != NULL);
+    CHECK(dxl_instance_acquire() == NULL);
+    dxl_instance *client = dxl_instance_listen();
+    CHECK(client != NULL);
+    CHECK(dxl_instance_fd(client) >= 0);
+    dxl_err e;
+    CHECK_INT(dxl_instance_forward("map", 1000, &e), 0);
+    char buf[DXL_HANDOFF_MAX + 1];
+    CHECK_INT(dxl_instance_poll(client, buf, sizeof buf), 1);
+    CHECK_STR(buf, "map");
+    dxl_instance_release(client);
+    CHECK_INT(dxl_instance_other_running(), 1);   /* the lock still the server's */
+    dxl_instance_release(server);
+}
+
 /* A Running.ini in another case, a copied install's, goes with the run's
  * own: left, it opened RecoveryMode at every launch. */
 /* The log emptied by the launcher that holds it alone: one opened while
@@ -284,6 +304,7 @@ TEST_MAIN_BEGIN
     RUN(test_lock_is_the_users);
     RUN(test_handoff_delivers_the_command_line);
     RUN(test_lock_without_channel);
+    RUN(test_listen_without_the_lock);
     RUN(test_log_held);
     teardown();
 TEST_MAIN_END

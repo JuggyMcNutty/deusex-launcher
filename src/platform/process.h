@@ -25,8 +25,8 @@
 typedef struct {
     pid_t  pid;
     int    channel;       /* the launcher's end of the line, or -1 */
-    char   pending[1024]; /* a line the engine has not finished */
-    size_t pending_len;
+    char  *pending;       /* a line the engine has not finished, of any length */
+    size_t pending_len, pending_cap;
     int    status;        /* once ended: the exit code, or 128 + the signal */
     int    ended;
 } dxl_game;
@@ -41,8 +41,10 @@ int dxl_game_start(dxl_game *g, const char *exe, const char *flags, const char *
 #define DXL_GAME_EXTRA 2   /* extra_fd is readable */
 #define DXL_GAME_ENDED 4   /* the game ended: g->status */
 
-/* Waits up to ms for any of them; 0 when nothing happened. */
-int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char *line, size_t size);
+/* Waits up to ms for any of them; 0 when nothing happened. A line comes
+ * whole, of any length (the engine's RELAUNCH line can be long), malloc'd
+ * into *line: the caller frees it. */
+int dxl_game_wait(dxl_game *g, int extra_fd, int ms, char **line);
 
 /* A line to the engine; nothing when it has no line. */
 void dxl_game_send(dxl_game *g, const char *line);
@@ -52,6 +54,9 @@ void dxl_game_signal(dxl_game *g, int sig);
 
 /* A clean end: the game exited with 0. */
 int dxl_game_clean(const dxl_game *g);
+
+/* Lets go of the line and what came on it, once the game has ended. */
+void dxl_game_close(dxl_game *g);
 
 /* Starts exe with flags as its one argument in workdir and lets it go (the
  * Renderer page's detection run). Reaped by dxl_child_reap. */

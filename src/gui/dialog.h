@@ -5,9 +5,10 @@
  *
  * Controls are placed in pixels (gui.h converts from dialog units). A
  * control's command goes to the dialog's on_command: a button's click, a
- * list's new selection or double click. Escape and closing the window send
- * IDCANCEL (2); Enter clicks the focused button, else the default one, else
- * sends IDOK (1).
+ * list's new selection or double click. A list with more items than rows
+ * shows a vertical scroll bar and scrolls by it, the wheel and its
+ * selection. Escape and closing the window send IDCANCEL (2); Enter clicks
+ * the focused button, else the default one, else sends IDOK (1).
  */
 #ifndef DXL_DIALOG_H
 #define DXL_DIALOG_H
@@ -48,6 +49,7 @@ typedef struct {
     int          is_default;  /* a push button: Enter's */
     char       **items;       /* a list's */
     int          item_count, selected;
+    int          top;         /* a list's first row shown */
     SDL_Texture *bitmap;
     int          bitmap_w, bitmap_h;
 } dxl_ctl;
@@ -67,6 +69,8 @@ struct dxl_dialog {
     int           count, cap;
     int           focus, hover, pressed;     /* control indices, or -1 */
     int           space;      /* the control Space pressed, clicked as it is let go; -1 */
+    int           thumb, thumb_dy;   /* the list whose scroll bar's thumb the mouse holds, or -1;
+                                      * where on the thumb */
     int           ended, result;
     dxl_command_fn on_command;
     void         *ctx;
@@ -92,6 +96,9 @@ void        dxl_dialog_remove_layer(dxl_dialog *d, int layer);
 void        dxl_ctl_set_text(dxl_dialog *d, dxl_ctl *c, const char *text);
 void        dxl_ctl_add_item(dxl_dialog *d, dxl_ctl *c, const char *item);
 void        dxl_ctl_clear_items(dxl_dialog *d, dxl_ctl *c);
+/* A list's item selected (-1: none), as LB_SETCURSEL selects it: scrolled
+ * into view, no command sent. */
+void        dxl_ctl_select(dxl_dialog *d, dxl_ctl *c, int item);
 /* A bitmap control takes the size of its bitmap, as SS_BITMAP does. */
 void        dxl_ctl_set_bitmap(dxl_dialog *d, dxl_ctl *c, const char *bmp_path);
 /* Focus to the first control that takes it. */

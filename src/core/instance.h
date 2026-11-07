@@ -8,16 +8,18 @@
  *   2. FindWindowEx for a WLog window carrying the "IsBrowser" property, then
  *      WM_COPYDATA with the tail of the command line and a 30s timeout
  *      (section 2) -- so a second launch opens a URL in the running game
- *      instead of starting a second copy.
+ *      instead of starting a second copy. Every client's log window carries
+ *      the property, whatever runs beside it; a server's never (section 4).
  *
  * Both survive here; only the transport changes. The lock is flock on a
  * pidfile in the runtime folder ($XDG_RUNTIME_DIR, else one of the user's
  * own under /tmp), held on the descriptor, not the name: the file stays
  * after the process, holding the last pid, and a stale one never reads as
- * live -- nothing is written to the install. The channel is a unix socket
- * file in that folder, whose mode (0700) keeps other users' lines out, as
- * the original's WM_COPYDATA stays within the player's desktop; removed at
- * release, a stale one at the next bind.
+ * live -- nothing is written to the install. A client's channel is a unix
+ * socket file of its own in that folder, whose mode (0700) keeps other
+ * users' lines out, as the original's WM_COPYDATA stays within the player's
+ * desktop; removed at release. A second launch sends to the first channel
+ * that takes its line, as the original's to the first log window it finds.
  *
  * Both are named for the user alone, never the install, as the original's
  * mutex and IsBrowser window are: a launch of another install, a copy or a
@@ -43,15 +45,20 @@ dxl_instance *dxl_instance_acquire(void);
  * hand a command line to -- the original's -server, whose log window is
  * never marked IsBrowser. */
 dxl_instance *dxl_instance_acquire_lock(void);
+/* A channel alone, without the lock: a client started beside another
+ * instance, a -server's or a client's, whose log window the original marks
+ * IsBrowser all the same. NULL when there is no channel to be had. */
+dxl_instance *dxl_instance_listen(void);
 void          dxl_instance_release(dxl_instance *inst);
 
 /* Is another instance live? Answers without taking the lock, for the
  * Running.ini question. */
 int dxl_instance_other_running(void);
 
-/* Sends message to the primary instance. Returns 0 on success. The original
- * allows 30s; nothing here should ever take that long, but the timeout exists
- * so a wedged primary cannot hang the messenger forever. */
+/* Sends message to a client's channel, the first that takes it. Returns 0
+ * on success. The original allows 30s; nothing here should ever take that
+ * long, but the timeout exists so a wedged client cannot hang the messenger
+ * forever. */
 int dxl_instance_forward(const char *message, int timeout_ms,
                          dxl_err *err);
 

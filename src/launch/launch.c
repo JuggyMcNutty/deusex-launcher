@@ -85,18 +85,21 @@ static char *package_of(const char *exe) {
  * original's (DeusEx.exe FOutputDeviceFile::Serialize, 0x10903880), the
  * first is looked for first, and as a substring, each read into the log's
  * file name: LOG= into what the base directory and its separator leave of
- * it. */
+ * it. One found empty names the base directory itself, or nothing, which
+ * no file opens as: NULL, no log, the run going on, as the original's
+ * device goes dead (0x10903971). */
 static char *log_path_of(const run *r) {
     char v[PATH_MAX];
     size_t base = dxl_cmd_chars(r->base) + 1;
     size_t room = base < DXL_PARSE_LOG ? DXL_PARSE_LOG - base : 1;
-    if (dxl_cmd_value(r->cmd, "LOG", room, v, sizeof v) && *v) {
+    if (dxl_cmd_value(r->cmd, "LOG", room, v, sizeof v)) {
+        if (!*v) return NULL;
         char *p = dxl_path_from_ini(v);
         char *joined = dxl_path_join(r->base, p);
         free(p);
         return joined;
     }
-    if (dxl_cmd_value(r->cmd, "ABSLOG", DXL_PARSE_LOG, v, sizeof v) && *v) return dxl_path_from_ini(v);
+    if (dxl_cmd_value(r->cmd, "ABSLOG", DXL_PARSE_LOG, v, sizeof v)) return *v ? dxl_path_from_ini(v) : NULL;
     size_t n = strlen(r->package) + 5;
     char *leaf = dxl_xmalloc(n);
     snprintf(leaf, n, "%s.log", r->package);
@@ -215,7 +218,9 @@ static int play(run *r, volatile int *stop) {
      * which the engine opens by that very name. */
     setenv("DXL_PACKAGE", r->package, 1);
     setenv("DXL_INI", dxl_config_path(r->cfg), 1);
-    setenv("DXL_USERINI", dxl_config_user_path(r->cfg), 1);
+    /* None for an empty USERINI=, which the engine takes from the line. */
+    const char *user_path = dxl_config_user_path(r->cfg);
+    setenv("DXL_USERINI", user_path ? user_path : "", 1);
     dxl_err e;
     dxl_game g;
     dxl_log("starting the game: %s %s", script, r->cmd);
@@ -230,8 +235,8 @@ static int play(run *r, volatile int *stop) {
 
     int hello = 0, ready = 0, signalled = 0, waited = 0, killed = 0, since_term = 0;
     for (;;) {
-        char line[1024];
-        int ev = dxl_game_wait(&g, dxl_instance_fd(r->inst), WAIT_STEP_MS, line, sizeof line);
+        char *line = NULL;
+        int ev = dxl_game_wait(&g, dxl_instance_fd(r->inst), WAIT_STEP_MS, &line);
         if (ev & DXL_GAME_LINE) {
             if (strcmp(line, "hello") == 0) {
                 hello = 1;
@@ -244,6 +249,7 @@ static int play(run *r, volatile int *stop) {
                 r->relaunch = dxl_xstrdup(line[8] ? line + 9 : "");
                 dxl_log("Relaunch: %s", r->relaunch);
             }
+            free(line);
         }
         if (ev & DXL_GAME_EXTRA) {
             char msg[DXL_HANDOFF_MAX + 1];
@@ -278,6 +284,7 @@ static int play(run *r, volatile int *stop) {
         }
         if (r->ui->pump) r->ui->pump(r->ui->ctx);
     }
+    dxl_game_close(&g);
     splash_hide(r);
     dxl_log("the game ended: %d", g.status);
     /* 127 before the engine's first word: run-game.sh found no engine to
@@ -340,10 +347,11 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     dxl_log_open_new(r.log_path);
     dxl_log("Init: command line: %s", r.cmd);
     dxl_log("Init: base directory: %s", r.base);
-    /* appInit's INI= and USERINI=: the configuration from other files. */
+    /* appInit's INI= and USERINI=: the configuration from other files, one
+     * found empty the empty name (dxl_config_open_files). */
     char ini[PATH_MAX], user_ini[PATH_MAX];
-    int has_ini = dxl_cmd_value(r.cmd, "INI", DXL_PARSE_INI, ini, sizeof ini) && *ini;
-    int has_user_ini = dxl_cmd_value(r.cmd, "USERINI", DXL_PARSE_INI, user_ini, sizeof user_ini) && *user_ini;
+    int has_ini = dxl_cmd_value(r.cmd, "INI", DXL_PARSE_INI, ini, sizeof ini);
+    int has_user_ini = dxl_cmd_value(r.cmd, "USERINI", DXL_PARSE_INI, user_ini, sizeof user_ini);
     r.cfg = dxl_config_open_files(r.base, r.package, has_ini ? ini : NULL,
                                   has_user_ini ? user_ini : NULL);
     if (dxl_config_seeded(r.cfg)) {
@@ -370,9 +378,14 @@ void dxl_launch_run(int argc, char **argv, const char *exe_path, const dxl_launc
     /* 4 and 5.3. The lock, and for a client the line a second launch
      * forwards to (the original's IsBrowser window). Not had: another
      * instance holds it, though none did when the log was opened, as the
-     * original's CreateMutex finds its mutex there already. */
+     * original's CreateMutex finds its mutex there already; a client
+     * listens all the same, as every client's log window of the original
+     * is IsBrowser, beside a -server too. */
     r.inst = client ? dxl_instance_acquire() : dxl_instance_acquire_lock();
-    if (!r.inst) other = 1;
+    if (!r.inst) {
+        other = 1;
+        if (client) r.inst = dxl_instance_listen();
+    }
 
     /* 5. InitEngine. */
     dxl_policy_input in = {

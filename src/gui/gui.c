@@ -385,22 +385,31 @@ void dxl_focus_rect(SDL_Renderer *r, SDL_Rect rc, SDL_Point origin, dxl_rgb unde
 
 /* ---- text --------------------------------------------------------------- */
 
-/* The .int files are in the game's code page: text that is not UTF-8 is
- * read as Windows-1252's Latin-1 part. Caller frees. */
+/* Whether the n bytes at s are UTF-8: each lead byte C2 to F4, nothing
+ * overlong, no surrogate, nothing past U+10FFFF. */
 static int valid_utf8(const char *s, size_t n) {
-    int valid = 1;
-    for (size_t i = 0; i < n && valid; i++) {
-        unsigned char c = (unsigned char)s[i];
-        if (c < 0x80) continue;
-        int more = (c & 0xE0) == 0xC0 ? 1 : (c & 0xF0) == 0xE0 ? 2 : (c & 0xF8) == 0xF0 ? 3 : -1;
-        if (more < 0 || i + (size_t)more >= n + 0) { valid = 0; break; }
-        for (int k = 1; k <= more; k++)
-            if (((unsigned char)s[i + (size_t)k] & 0xC0) != 0x80) valid = 0;
-        i += (size_t)more;
+    const unsigned char *u = (const unsigned char *)s;
+    for (size_t i = 0; i < n;) {
+        unsigned char c = u[i];
+        if (c < 0x80) {
+            i++;
+            continue;
+        }
+        size_t more = c >= 0xC2 && c <= 0xDF ? 1 : c >= 0xE0 && c <= 0xEF ? 2 : c >= 0xF0 && c <= 0xF4 ? 3 : 0;
+        if (!more || i + more >= n) return 0;
+        for (size_t k = 1; k <= more; k++)
+            if ((u[i + k] & 0xC0) != 0x80) return 0;
+        unsigned char c1 = u[i + 1];
+        if ((c == 0xE0 && c1 < 0xA0) || (c == 0xF0 && c1 < 0x90)) return 0;   /* overlong */
+        if (c == 0xED && c1 >= 0xA0) return 0;                                  /* a surrogate */
+        if (c == 0xF4 && c1 >= 0x90) return 0;                                  /* past U+10FFFF */
+        i += more + 1;
     }
-    return valid;
+    return 1;
 }
 
+/* The .int files are in the game's code page: text that is not UTF-8 is
+ * read as Windows-1252's Latin-1 part. Caller frees. */
 static char *utf8(const char *s, size_t n) {
     if (valid_utf8(s, n)) return dxl_xstrndup(s, n);
     char *out = dxl_xmalloc(n * 2 + 1), *o = out;
