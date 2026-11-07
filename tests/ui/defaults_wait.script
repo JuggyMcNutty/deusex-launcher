@@ -1,0 +1,23 @@
+# Back to the defaults on Graphics before the GPU probe has answered
+# (bugs.md LUI.8): done once it has, on the software renderer where it
+# found no GPU driver. test_ui_scripts.c makes the probe's dxl-cli one that
+# finds none, 3 s slow, and reads Settings.json.
+wait 1.5
+expect home
+find Settings
+key Return
+wait 0.5
+expect settings
+find Graphics
+key Return
+wait 0.3
+expect settings Graphics
+find Back to the defaults
+key Return
+wait 0.3
+expect confirm
+find Reset
+key Return
+wait 5
+expect settings Graphics
+quit

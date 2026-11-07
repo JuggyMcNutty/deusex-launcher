@@ -42,6 +42,8 @@ dxl_test(test_padmap)
 target_link_libraries(test_padmap PRIVATE dxl_ui)
 dxl_test(test_shell_pick)
 target_link_libraries(test_shell_pick PRIVATE dxl_screens)
+dxl_test(test_shell_choose)
+target_link_libraries(test_shell_choose PRIVATE dxl_screens)
 dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
@@ -49,6 +51,7 @@ target_compile_definitions(test_renderers PRIVATE DXL_RENDERERS="${DXL_ROOT}/dat
 
 dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
+target_compile_definitions(test_desktop PRIVATE DXL_DATA="${DXL_ROOT}/data")
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
 # The GPU probe on this machine's own drivers: skipped with no GPU's of

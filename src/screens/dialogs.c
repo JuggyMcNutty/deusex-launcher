@@ -2,6 +2,7 @@
  * does, and a message. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
+#include "core/log.h"
 #include "core/paths.h"
 #include "platform/fs.h"
 #include "ui/osk.h"
@@ -265,10 +266,13 @@ static void ask(dxl_shell *s, dxl_dialog d, uint32_t id) {
 }
 
 /* The answer kept for the control that asked, which reads it as it is
- * drawn: in the next frame, which comes at once, whatever input does. */
+ * drawn: in the next frame, which comes at once, whatever input does; one
+ * that frame does not draw, gone with its page or its list, never reads
+ * it, and it is dropped as the frame ends (dxl_shell_frame). */
 static void answer(dxl_shell *s, int a) {
     s->answer = a;
     s->answered = 1;
+    s->answered_in = s->ui.frame;
     dxl_shell_close_dialog(s);
     dxl_ui_animate(&s->ui);
 }
@@ -333,6 +337,13 @@ int dxl_shell_answer(dxl_shell *s, uint32_t id) {
     s->answered = 0;
     s->asked_for = 0;
     return s->answer;
+}
+
+void dxl_shell_answer_expire(dxl_shell *s) {
+    if (!s->answered || s->ui.frame <= s->answered_in) return;
+    dxl_log("a dialog's answer for a control no longer drawn: dropped");
+    s->answered = 0;
+    s->asked_for = 0;
 }
 
 static void pick(dxl_shell *s, dxl_rect over, int back) {

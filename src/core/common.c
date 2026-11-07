@@ -133,14 +133,29 @@ void dxl_buf_word(dxl_buf *b, const char *s) {
     dxl_buf_puts(b, s);
 }
 
-/* The length of the UTF-8 character s begins, or 0 for one that is not. */
+/* Its first token, as the engine's import takes one (the original's token
+ * reader, Core.dll 0x10164cb0): a quoted string's text, else the run of
+ * letters, digits, _ and - it begins with. */
 int dxl_text_bool(const char *v) {
     if (!v) return -1;
-    if (!dxl_stricmp(v, "True") || !dxl_stricmp(v, "Yes") || !strcmp(v, "1")) return 1;
-    if (!dxl_stricmp(v, "False") || !dxl_stricmp(v, "No") || !strcmp(v, "0")) return 0;
+    size_t n = 0;
+    if (*v == '"') {
+        const char *end = strchr(++v, '"');
+        if (!end) return -1;
+        n = (size_t)(end - v);
+    } else {
+        while (isalnum((unsigned char)v[n]) || v[n] == '_' || v[n] == '-') n++;
+    }
+    char t[8];
+    if (n >= sizeof t) return -1;
+    memcpy(t, v, n);
+    t[n] = '\0';
+    if (!dxl_stricmp(t, "True") || !dxl_stricmp(t, "Yes") || !strcmp(t, "1")) return 1;
+    if (!dxl_stricmp(t, "False") || !dxl_stricmp(t, "No") || !strcmp(t, "0")) return 0;
     return -1;
 }
 
+/* The length of the UTF-8 character s begins, or 0 for one that is not. */
 static size_t utf8_char(const unsigned char *s) {
     if (s[0] < 0x80) return 1;
     size_t n = s[0] >= 0xf0 && s[0] <= 0xf4 ? 4 : s[0] >= 0xe0 && s[0] <= 0xef ? 3 : s[0] >= 0xc2 && s[0] <= 0xdf ? 2 : 0;

@@ -25,14 +25,12 @@ static void test_no_wizard_when_nothing_matches(void) {
     dxl_decision d = decide("", 1100, 0, 0);
     CHECK_INT(d.action, DXL_ACTION_LAUNCH);
     CHECK_INT(d.screen, DXL_SCREEN_NONE);
-    CHECK(d.caption_key == NULL);
 }
 
 static void test_row1_safe(void) {
     dxl_decision d = decide("-safe", 1100, 0, 0);
     CHECK_INT(d.action, DXL_ACTION_SCREEN);
     CHECK_INT(d.screen, DXL_SCREEN_MAIN_SAFE);
-    CHECK_STR(d.caption_key, "SafeMode");
 }
 
 /* "readini" is an appStrfind match: no dash needed, and it fires from inside
@@ -49,35 +47,26 @@ static void test_row2_first_run(void) {
     dxl_decision d = decide("", 0, 0, 0);
     CHECK_INT(d.action, DXL_ACTION_SCREEN);
     CHECK_INT(d.screen, DXL_SCREEN_RENDERER_FIRST);
-    CHECK_STR(d.caption_key, "FirstTime");
-    CHECK_INT(d.migrate_saves, 1);          /* 0 < 220 */
 
     /* The gate is < 400, so 399 shows it and 400 does not. */
     CHECK_INT(decide("", 399, 0, 0).screen, DXL_SCREEN_RENDERER_FIRST);
     CHECK_INT(decide("", 400, 0, 0).screen, DXL_SCREEN_NONE);
-
-    /* Savegame migration is a separate, lower gate. */
-    CHECK_INT(decide("", 219, 0, 0).migrate_saves, 1);
-    CHECK_INT(decide("", 220, 0, 0).migrate_saves, 0);
 }
 
 static void test_firstrun_flag_forces_the_gate(void) {
     dxl_decision d = decide("-firstrun", 1100, 0, 0);
     CHECK_INT(d.effective_first_run, 0);
     CHECK_INT(d.screen, DXL_SCREEN_RENDERER_FIRST);
-    CHECK_INT(d.migrate_saves, 1);
 }
 
 static void test_row3_changevideo(void) {
     dxl_decision d = decide("-changevideo", 1100, 0, 0);
     CHECK_INT(d.screen, DXL_SCREEN_RENDERER_VIDEO);
-    CHECK_STR(d.caption_key, "Video");
 }
 
 static void test_row4_recovery(void) {
     dxl_decision d = decide("", 1100, 0, 1);
     CHECK_INT(d.screen, DXL_SCREEN_MAIN_RECOVERY);
-    CHECK_STR(d.caption_key, "RecoveryMode");
 }
 
 /* A surviving Running.ini means a crash only if nothing else is live. With a
@@ -103,7 +92,6 @@ static void test_safe_beats_recovery(void) {
 static void test_first_run_beats_changevideo(void) {
     dxl_decision d = decide("-changevideo", 0, 0, 0);
     CHECK_INT(d.screen, DXL_SCREEN_RENDERER_FIRST);
-    CHECK_STR(d.caption_key, "FirstTime");
 }
 
 static void test_changevideo_beats_recovery(void) {
@@ -112,24 +100,14 @@ static void test_changevideo_beats_recovery(void) {
 
 /* --- handoff --- */
 
-static void test_forwards_to_running_instance(void) {
-    dxl_decision d = decide("deusex://host/Map", 1100, 1, 0);
-    CHECK_INT(d.action, DXL_ACTION_FORWARD);
-}
-
-/* A caller that forwarded first and found no one to take it decides on as
- * if nothing were running for forwarding's sake -- but a surviving
- * Running.ini still belongs to the live instance, not to a crash. */
-static void test_forward_tried_decides_on(void) {
-    dxl_policy_input in = { .cmdline = "", .first_run = 1100, .other_instance = 1,
-                            .running_ini_exists = 1, .is_client = 1, .forward_tried = 1 };
-    dxl_decision d;
-    dxl_policy_decide(&in, &d);
+/* A caller that forwarded first, the forwarding being its own (app/run.h),
+ * and found no one to take it decides on -- but a surviving Running.ini
+ * still belongs to the live instance, not to a crash. */
+static void test_other_instance_decides_on(void) {
+    dxl_decision d = decide("", 1100, 1, 1);
     CHECK_INT(d.action, DXL_ACTION_LAUNCH);
     CHECK_INT(d.screen, DXL_SCREEN_NONE);
-    in.cmdline = "-changevideo";
-    dxl_policy_decide(&in, &d);
-    CHECK_INT(d.screen, DXL_SCREEN_RENDERER_VIDEO);
+    CHECK_INT(decide("-changevideo", 1100, 1, 1).screen, DXL_SCREEN_RENDERER_VIDEO);
 }
 
 /* The four bypass tokens must still skip forwarding, or -changevideo aimed at
@@ -140,8 +118,8 @@ static void test_bypass_tokens_skip_forwarding(void) {
     for (size_t i = 0; i < sizeof tokens / sizeof *tokens; i++) {
         dxl_decision d = decide(tokens[i], 1100, 1, 0);
         CHECK_INT(d.skip_handoff, 1);
-        CHECK(d.action != DXL_ACTION_FORWARD);
     }
+    CHECK_INT(decide("deusex://host/Map", 1100, 1, 0).skip_handoff, 0);
     /* changevideo against a live instance opens the screen, not a handoff. */
     CHECK_INT(decide("-changevideo", 1100, 1, 0).screen, DXL_SCREEN_RENDERER_VIDEO);
 }
@@ -163,17 +141,6 @@ static void test_testrendev_exits(void) {
     CHECK_INT(d.screen, DXL_SCREEN_NONE);
 }
 
-/* --- splash --- */
-
-static void test_splash_suppression(void) {
-    CHECK_INT(decide("", 1100, 0, 0).show_splash, 1);
-    CHECK_INT(decide("-log", 1100, 0, 0).show_splash, 0);
-    CHECK_INT(decide("-server", 1100, 0, 0).show_splash, 0);
-    /* TestRenDev is a substring match here, unlike the other two. */
-    CHECK_INT(decide("-testrendev=X", 1100, 0, 0).show_splash, 0);
-    CHECK_INT(decide("TestRenDev", 1100, 0, 0).show_splash, 0);
-}
-
 /* Under -server there is nobody to show a screen to. */
 static void test_server_shows_no_screen(void) {
     dxl_policy_input in = { .cmdline = "-server", .first_run = 0, .is_client = 0 };
@@ -181,15 +148,6 @@ static void test_server_shows_no_screen(void) {
     dxl_policy_decide(&in, &out);
     CHECK_INT(out.action, DXL_ACTION_LAUNCH);
     CHECK_INT(out.screen, DXL_SCREEN_NONE);
-}
-
-static void test_exec_file_captured(void) {
-    dxl_decision d = decide("-exec=startup.txt", 1100, 0, 0);
-    CHECK_STR(d.exec_file, "startup.txt");
-    CHECK_INT(d.action, DXL_ACTION_LAUNCH);
-    /* Cut at a comma, as Parse cuts it (Core.dll 0x10146c96). */
-    dxl_decision cut = decide("-exec=startup.txt,x", 1100, 0, 0);
-    CHECK_STR(cut.exec_file, "startup.txt");
 }
 
 TEST_MAIN_BEGIN
@@ -205,12 +163,9 @@ TEST_MAIN_BEGIN
     RUN(test_safe_beats_recovery);
     RUN(test_first_run_beats_changevideo);
     RUN(test_changevideo_beats_recovery);
-    RUN(test_forwards_to_running_instance);
     RUN(test_bypass_tokens_skip_forwarding);
-    RUN(test_forward_tried_decides_on);
+    RUN(test_other_instance_decides_on);
     RUN(test_consolecommand_exits);
     RUN(test_testrendev_exits);
-    RUN(test_splash_suppression);
     RUN(test_server_shows_no_screen);
-    RUN(test_exec_file_captured);
 TEST_MAIN_END

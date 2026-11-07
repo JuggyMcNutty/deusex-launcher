@@ -72,7 +72,8 @@ FILE *dxl_fs_open_log(const char *path);
  * beside it, synced, given the old file's mode where files have modes (0644
  * for a new one), put in its place, and the folder synced. A crash or a
  * power cut leaves the old file or the new one, never half of either. A
- * link is written through: its target replaced, the link kept. */
+ * link is written through: its target replaced, the link kept. A file this
+ * user may not write is refused, "<path> is read-only". */
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err);
 
 /* The tops of the file system, NULL-terminated: "/" alone here, each

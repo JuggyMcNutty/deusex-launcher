@@ -4,13 +4,20 @@
  * and its version read. Mesa's drivers are then lowered below both
  * (MESA_GL_VERSION_OVERRIDE 4.1, MESA_GLES_VERSION_OVERRIDE 3.1), as an
  * older GPU's are, and neither is offered. Skipped with no GPU's OpenGL ES
- * of Mesa's here. */
+ * of Mesa's here -- no GPU, no EGL, or another maker's driver, which
+ * Mesa's variables do not lower -- as the probe finds on any machine; a
+ * probe that does not report back, a driver having crashed or hung it,
+ * fails. */
 #include "test.h"
 #include "platform/gpu_probe.h"
 
 TEST_MAIN_BEGIN
     dxl_gpu_probe p;
-    if (dxl_gpu_probe_run(&p, 10000) != 0 || !strstr(p.gles_version, "Mesa")) {
+    int rc = dxl_gpu_probe_run(&p, 10000);
+    if (rc != 0) fprintf(stderr, "  the probe did not report back: %s\n", p.note);
+    CHECK_INT(rc, 0);
+    if (rc != 0) return 1;
+    if (!strstr(p.gles_version, "Mesa")) {
         printf("skipped: no GPU's OpenGL ES of Mesa's here\n");
         return 77;
     }

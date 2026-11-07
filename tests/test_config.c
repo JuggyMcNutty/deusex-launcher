@@ -39,12 +39,12 @@ static void scrub(const char *dir) {
 
 static void test_reads_the_gates(void) {
     char *dir = scratch_install("gates");
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
 
     CHECK_INT(dxl_config_first_run(c), 0);
-    CHECK_STR(dxl_config_render_device(c), "GlideDrv.GlideRenderDevice");
-    CHECK_STR(dxl_config_cd_path(c), "..\\");
-    CHECK_STR(dxl_config_game_engine(c), "DeusEx.DeusExGameEngine");
+    CHECK_STR(dxl_ini_get(dxl_config_ini(c), "Engine.Engine", "GameRenderDevice"), "GlideDrv.GlideRenderDevice");
+    CHECK_STR(dxl_ini_get(dxl_config_ini(c), "Engine.Engine", "CdPath"), "..\\");
+    CHECK_STR(dxl_ini_get(dxl_config_ini(c), "Engine.Engine", "GameEngine"), "DeusEx.DeusExGameEngine");
 
     dxl_config_free(c);
     scrub(dir);
@@ -56,7 +56,7 @@ static void test_reads_the_gates(void) {
  * higher value, as the original writes it (bugs.md D.43). */
 static void test_first_run_clamps_up_only(void) {
     char *dir = scratch_install("clamp");
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
 
     dxl_config_clamp_first_run(c, dxl_config_first_run(c));
     CHECK_INT(dxl_config_first_run(c), DXL_FIRSTRUN_CURRENT);
@@ -64,7 +64,7 @@ static void test_first_run_clamps_up_only(void) {
     dxl_config_free(c);
 
     /* Already at or above the ceiling: untouched, and not even dirtied. */
-    c = dxl_config_open(dir, "DeusEx");
+    c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_ini_set_int(dxl_config_ini(c), "FirstRun", "FirstRun", 2000);
     dxl_ini_clean(dxl_config_ini(c));
     dxl_config_clamp_first_run(c, dxl_config_first_run(c));
@@ -73,7 +73,7 @@ static void test_first_run_clamps_up_only(void) {
     dxl_config_free(c);
 
     /* -firstrun's 0 held: 1100 over the 2000. */
-    c = dxl_config_open(dir, "DeusEx");
+    c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_ini_set_int(dxl_config_ini(c), "FirstRun", "FirstRun", 2000);
     dxl_config_clamp_first_run(c, 0);
     CHECK_INT(dxl_config_first_run(c), 1100);
@@ -82,19 +82,19 @@ static void test_first_run_clamps_up_only(void) {
     scrub(dir);
 }
 
-/* The clamp is a write like any other: it marks the config dirty and reaches
+/* The clamp is a write like any other: it marks the ini dirty and reaches
  * the file on save. */
 static void test_first_run_clamp_persists(void) {
     char *dir = scratch_install("persist");
 
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_config_clamp_first_run(c, dxl_config_first_run(c));
-    CHECK_INT(dxl_config_dirty(c), 1);
+    CHECK_INT(dxl_ini_dirty(dxl_config_ini(c)), 1);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
 
-    c = dxl_config_open(dir, "DeusEx");
+    c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     CHECK_INT(dxl_config_first_run(c), 1100);
     dxl_config_free(c);
 
@@ -110,8 +110,8 @@ static void test_untouched_config_is_byte_identical_after_save(void) {
     size_t before_len = 0;
     char *before = slurp(path, &before_len);
 
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
-    CHECK_INT(dxl_config_dirty(c), 0);
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
+    CHECK_INT(dxl_ini_dirty(dxl_config_ini(c)), 0);
     dxl_config_save(c, NULL);
     dxl_config_free(c);
 
@@ -131,7 +131,7 @@ static void test_missing_ini_is_not_fatal(void) {
     snprintf(dir, sizeof dir, "%s/dxl-test-noini-%ld", dxl_test_tmp(), dxl_os_pid());
     dxl_fs_mkdir(dir);
 
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     CHECK(c != NULL);
     CHECK_INT(dxl_config_first_run(c), 0);         /* absent reads as 0 */
     dxl_config_clamp_first_run(c, dxl_config_first_run(c));
@@ -139,7 +139,7 @@ static void test_missing_ini_is_not_fatal(void) {
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
 
-    c = dxl_config_open(dir, "DeusEx");
+    c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     CHECK_INT(dxl_config_first_run(c), DXL_FIRSTRUN_CURRENT);
     dxl_config_free(c);
 
@@ -179,41 +179,45 @@ static void scrub_all(const char *dir) {
 }
 
 /* UE1's Core creates <Game>.ini from Default.ini before the launcher runs.
- * A GOG install copied to the SD card has no DeusEx.ini, so we must too. */
+ * A GOG install copied to the SD card has no DeusEx.ini, so we must too:
+ * Default.ini's, written at the save though nothing changed, and read from
+ * there after. */
 static void test_missing_ini_is_created_from_default(void) {
     char *dir = empty_dir("seed");
     copy_fixture(dir, "Default.ini", "Default.ini");
+    char p[640], def[640];
+    snprintf(p, sizeof p, "%s/DeusEx.ini", dir);
+    snprintf(def, sizeof def, "%s/Default.ini", dir);
 
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
-    CHECK_INT(dxl_config_seeded(c), 1);
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     CHECK(dxl_ini_get(dxl_config_ini(c), "Core.System", "Paths") != NULL);
-    CHECK_INT(dxl_config_dirty(c), 1);
+    CHECK(access(p, F_OK) != 0);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
+    CHECK(access(p, F_OK) == 0);
 
-    c = dxl_config_open(dir, "DeusEx");
-    CHECK_INT(dxl_config_seeded(c), 0);
-    CHECK_STR(dxl_config_game_engine(c), "DeusEx.DeusExGameEngine");
+    remove(def);
+    c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
+    CHECK_STR(dxl_ini_get(dxl_config_ini(c), "Engine.Engine", "GameEngine"), "DeusEx.DeusExGameEngine");
     dxl_config_free(c);
     scrub_all(dir);
 }
 
-/* So is User.ini, from DefUser.ini: the save migration writes its slot
- * names there. */
+/* So is User.ini, from DefUser.ini, written at the save. */
 static void test_missing_user_ini_is_created_from_defuser(void) {
     char *dir = empty_dir("user");
     copy_fixture(dir, "DefUser.ini", "DefUser.ini");
+    char p[640];
+    snprintf(p, sizeof p, "%s/User.ini", dir);
 
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     CHECK(dxl_config_user_ini(c) != NULL);
-    CHECK_INT(dxl_config_dirty(c), 1);
+    CHECK(access(p, F_OK) != 0);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
 
-    char p[640];
-    snprintf(p, sizeof p, "%s/User.ini", dir);
     CHECK(access(p, F_OK) == 0);
     scrub_all(dir);
 }
@@ -223,14 +227,14 @@ static void test_missing_user_ini_is_created_from_defuser(void) {
  * at the save. */
 static void test_missing_user_ini_without_defuser(void) {
     char *dir = empty_dir("nodefuser");
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_ini *user = dxl_config_user_ini(c);
     CHECK(user != NULL);
     if (user) dxl_bindings_set(user, "Joy1", "Jump");
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
-    c = dxl_config_open(dir, "DeusEx");
+    c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     user = dxl_config_user_ini(c);
     CHECK_STR(user ? dxl_ini_get(user, "Engine.Input", "Joy1") : NULL, "Jump");
     dxl_config_free(c);
@@ -240,8 +244,8 @@ static void test_missing_user_ini_without_defuser(void) {
 /* Another process writes the file: a reload sees it. */
 static void test_reload_reads_what_another_wrote(void) {
     char *dir = scratch_install("reload");
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
-    dxl_config *other = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
+    dxl_config *other = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_ini_set_int(dxl_config_ini(other), "D3DDrv.D3DRenderDevice", "DescFlags", 2);
     dxl_err e;
     CHECK_INT(dxl_config_save(other, &e), 0);
@@ -257,17 +261,17 @@ static void test_reload_reads_what_another_wrote(void) {
  * another wrote since (the engine, at its clean end). */
 static void test_saved_is_clean(void) {
     char *dir = scratch_install("clean");
-    dxl_config *c = dxl_config_open(dir, "DeusEx");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_ini_set_int(dxl_config_ini(c), "D3DDrv.D3DRenderDevice", "DescFlags", 1);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
-    CHECK_INT(dxl_config_dirty(c), 0);
-    dxl_config *other = dxl_config_open(dir, "DeusEx");
+    CHECK_INT(dxl_ini_dirty(dxl_config_ini(c)), 0);
+    dxl_config *other = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     dxl_ini_set_int(dxl_config_ini(other), "D3DDrv.D3DRenderDevice", "DescFlags", 2);
     CHECK_INT(dxl_config_save(other, &e), 0);
     dxl_config_free(other);
     CHECK_INT(dxl_config_save(c, &e), 0);
-    dxl_config *after = dxl_config_open(dir, "DeusEx");
+    dxl_config *after = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
     CHECK_INT(dxl_ini_get_int(dxl_config_ini(after), "D3DDrv.D3DRenderDevice", "DescFlags", 0), 2);
     dxl_config_free(after);
     dxl_config_free(c);
@@ -288,17 +292,39 @@ static void test_open_named_files(void) {
 
     dxl_config *c = dxl_config_open_files(sysdir, "DeusEx", "mod.ini", abs_user);
     CHECK_INT(dxl_config_first_run(c), 1100);
-    CHECK(!dxl_config_seeded(c));
+    CHECK_STR(dxl_ini_get(dxl_config_ini(c), "Core.System", "Paths"), "..\\System\\*.u");
     CHECK_STR(dxl_ini_get(dxl_config_user_ini(c), "DeusEx.DeusExPlayer", "Name"), "JC");
     dxl_config_free(c);
 
     c = dxl_config_open_files(sysdir, "DeusEx", "..\\New.ini", NULL);
-    CHECK(dxl_config_seeded(c));
+    CHECK(!scratch_exists(dir, "New.ini"));
     CHECK_INT(dxl_config_first_run(c), 0);
     dxl_err e;
     CHECK_INT(dxl_config_save(c, &e), 0);
     dxl_config_free(c);
     CHECK(scratch_exists(dir, "New.ini"));
+    scratch_remove(dir);
+}
+
+/* Every part of their path in any case, as the engine finds them and
+ * Windows the original's (bugs.md LCORE.9): a mod's ini in a folder of
+ * another case is read, not seeded, and one not there yet is made in that
+ * folder. */
+static void test_named_files_in_any_case(void) {
+    const char *dir = scratch_dir("cfg-case");
+    char sysdir[300];
+    snprintf(sysdir, sizeof sysdir, "%s/System", dir);
+    scratch_write(dir, "System/Default.ini", "[FirstRun]\r\nFirstRun=0\r\n");
+    scratch_write(dir, "mymod/system/mymod.ini", "[FirstRun]\r\nFirstRun=1100\r\n");
+
+    dxl_config *c = dxl_config_open_files(sysdir, "DeusEx", "..\\MyMod\\System\\MyMod.ini",
+                                          "..\\MyMod\\System\\MyModUser.ini");
+    CHECK_INT(dxl_config_first_run(c), 1100);   /* the mod's, not seeded */
+    dxl_ini_set(dxl_config_user_ini(c), "DeusEx.DeusExPlayer", "Name", "JC");
+    dxl_err e;
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    dxl_config_free(c);
+    CHECK(scratch_exists(dir, "mymod/system/MyModUser.ini"));
     scratch_remove(dir);
 }
 
@@ -314,4 +340,5 @@ TEST_MAIN_BEGIN
     RUN(test_reload_reads_what_another_wrote);
     RUN(test_saved_is_clean);
     RUN(test_open_named_files);
+    RUN(test_named_files_in_any_case);
 TEST_MAIN_END

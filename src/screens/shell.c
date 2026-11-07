@@ -304,7 +304,7 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
     s->repoint = v == DXL_VIEW_INSTALL;
     s->repoint_back = 0;
     s->making = 0;
-    s->make_waits = 0;
+    s->make_waits = s->reset_waits = 0;
     if (v == DXL_VIEW_FIRST_RUN) snprintf(s->begin_name, sizeof s->begin_name, "Deus Ex");
     dxl_shell_theme(s);
     dxl_page p = DXL_PAGE_HOME;
@@ -341,9 +341,9 @@ void dxl_shell_go(dxl_shell *s, dxl_page p) {
         s->focus[s->page] = s->ui.focus;
         s->from = s->page;
         if (s->page == DXL_PAGE_SETTINGS) dxl_settings_keep(s);
-        /* A press of Make the profile waiting on the probe goes with its
-         * page, and Settings' Play with -changevideo's Graphics. */
-        s->make_waits = 0;
+        /* A press of Make the profile or a reset waiting on the probe goes
+         * with its page, and Settings' Play with -changevideo's Graphics. */
+        s->make_waits = s->reset_waits = 0;
         s->settings_plays = 0;
     }
     s->page = p;
@@ -597,12 +597,20 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
     if (s->repoint) {
         char id[96];
         dxl_err e;
+        /* Not kept, the profile's install is the one it had, in memory too:
+         * else the next save, whatever made it, would write the other. */
+        const char *had = dxl_profile_get(&ss->profile, "Install");
+        char *was = had ? dxl_xstrdup(had) : NULL;
         dxl_session_remember_install(ss, in, id, sizeof id);
         dxl_profile_set(&ss->profile, "Install", id);
         if (dxl_session_save(ss, &e) != 0) {
+            if (was) dxl_profile_set(&ss->profile, "Install", was);
+            else dxl_ini_remove(ss->profile.ini, DXL_PROFILE_SECTION, "Install");
+            free(was);
             dxl_shell_message(s, "The profile was not changed", "%s", dxl_err_msg(&e));
             return;
         }
+        free(was);
         dxl_log("profile %s: install %s (%s)", ss->profile.id, id, in->root);
         dxl_session_check_install(ss);
         dxl_shell_theme(s);
@@ -805,6 +813,7 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
         break;
     case DXL_PAGE_RECOVERY:
         if (s->engine_ok) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
+        it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Home" };
         break;
     case DXL_PAGE_FIND:
         if (!s->repoint || s->repoint_back) it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Back" };
@@ -831,6 +840,8 @@ static int hints_of(const dxl_shell *s, dxl_hint_item *it) {
             it[n++] = (dxl_hint_item){ DXL_HINT_CONFIRM, "Keep" };
             it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Cancel" };
         } else {
+            /* -changevideo's Graphics plays, as its Play button does. */
+            if (s->settings_plays && s->engine_ok) it[n++] = (dxl_hint_item){ DXL_HINT_PLAY, "Play" };
             it[n++] = (dxl_hint_item){ DXL_HINT_TAB_NEXT, "Next page" };
             it[n++] = (dxl_hint_item){ DXL_HINT_BACK, "Done" };
         }
@@ -944,10 +955,11 @@ void dxl_shell_frame(dxl_shell *s, double now) {
         big_known(s);
     }
     offer_big(s);
-    /* A link's server, handed over: Multiplayer, once nothing is half done. */
+    /* A link's server, handed over: Multiplayer, once nothing is half done
+     * -- a text edited or a key taken too, which the page going would end. */
     if (s->join_link[0] && s->page != DXL_PAGE_SERVERS && s->dialog == DXL_DIALOG_NONE && !s->answered &&
-        !s->repoint && !s->making && s->page != DXL_PAGE_WELCOME && s->page != DXL_PAGE_FIND &&
-        s->page != DXL_PAGE_IMPORT)
+        !ui->text_id && !ui->capture_id && !s->repoint && !s->making && s->page != DXL_PAGE_WELCOME &&
+        s->page != DXL_PAGE_FIND && s->page != DXL_PAGE_IMPORT)
         dxl_shell_go(s, DXL_PAGE_SERVERS);
 
     float m = margin(ui);
@@ -1008,6 +1020,7 @@ void dxl_shell_frame(dxl_shell *s, double now) {
         dxl_dialogs(s, above, 0);
     }
     toasts(s, m);
+    dxl_shell_answer_expire(s);
     dxl_ui_end(ui);
     /* A dialog come up, and play, for the menu's sounds. */
     if (dialog_was == DXL_DIALOG_NONE && s->dialog != DXL_DIALOG_NONE) ui->cues |= DXL_CUE_OPEN;

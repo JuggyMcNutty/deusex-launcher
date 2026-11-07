@@ -5,6 +5,7 @@
 
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 /* The property that matters most: a file in the game's format, loaded and
  * saved untouched, must come back byte-identical -- CRLF, blank lines,
@@ -172,9 +173,27 @@ static void test_bool_spelling(void) {
     CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "Missing", 1), 1);
     dxl_ini_set(ini, "Galaxy.GalaxyAudioSubsystem", "UseCDMusic", "yes");   /* a hand's: as the engine reads it */
     CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "UseCDMusic", 0), 1);
+    /* By its first token, as the engine's import: a value's blank after
+     * it its own, as the line is read. */
+    dxl_ini_set(ini, "Galaxy.GalaxyAudioSubsystem", "UseCDMusic", "False ");
+    CHECK_INT(dxl_ini_get_bool(ini, "Galaxy.GalaxyAudioSubsystem", "UseCDMusic", 1), 0);
     dxl_ini_free(ini);
+    const char *hand = "[A]\r\nx=True \r\n";
+    ini = dxl_ini_parse(hand, strlen(hand));
+    CHECK_INT(dxl_ini_get_bool(ini, "A", "x", 0), 1);
+    dxl_ini_free(ini);
+    CHECK_INT(dxl_text_bool("True,"), 1);
+    CHECK_INT(dxl_text_bool("1.0"), 1);
+    CHECK_INT(dxl_text_bool("\"False\" "), 0);
+    CHECK_INT(dxl_text_bool(" True"), -1);
+    CHECK_INT(dxl_text_bool("Truer"), -1);
 }
 
+/* A line as the original's reader and the engine's take it (bugs.md
+ * LCORE.12): a header a line that begins [ and ends ], else a key up to its
+ * first = and its value after it, nothing trimmed, a game ini's value in
+ * quotes without them (a lone " empty); ; and # begin no comment. Every
+ * line is written back as it was. */
 static void test_comments_and_oddities(void) {
     const char *src =
         "; leading comment\r\n"
@@ -183,19 +202,44 @@ static void test_comments_and_oddities(void) {
         "  spaced = value with spaces  \r\n"
         "empty=\r\n"
         "novalue\r\n"
+        ";key=x\r\n"
+        "#hash=y\r\n"
+        "quoted=\"a b\"\r\n"
+        "lone=\"\r\n"
+        "half=\"open\r\n"
+        "[T] \r\n"
+        "under=S\r\n"
         "[Unclosed\r\n";
     dxl_ini *ini = dxl_ini_parse(src, strlen(src));
 
-    CHECK_STR(dxl_ini_get(ini, "S", "spaced"), "value with spaces");
+    CHECK(dxl_ini_get(ini, "S", "spaced") == NULL);
+    CHECK_STR(dxl_ini_get(ini, "S", "  spaced "), " value with spaces  ");
     CHECK_STR(dxl_ini_get(ini, "S", "empty"), "");
     /* A line with no '=' is not a pair; it is preserved verbatim. */
     CHECK(dxl_ini_get(ini, "S", "novalue") == NULL);
+    CHECK_STR(dxl_ini_get(ini, "S", ";key"), "x");
+    CHECK_STR(dxl_ini_get(ini, "S", "#hash"), "y");
+    CHECK_STR(dxl_ini_get(ini, "S", "quoted"), "a b");
+    CHECK_STR(dxl_ini_get(ini, "S", "lone"), "");
+    CHECK_STR(dxl_ini_get(ini, "S", "half"), "\"open");
+    /* "[T] " is no header: the keys after it are the section's before. */
+    CHECK_INT(dxl_ini_has_section(ini, "T"), 0);
+    CHECK_STR(dxl_ini_get(ini, "S", "under"), "S");
 
     size_t len = 0;
     char *out = dxl_ini_render(ini, &len);
     CHECK_INT(len, strlen(src));
     CHECK(memcmp(out, src, len) == 0);
     free(out);
+    /* The value as it is read, set again, changes nothing. */
+    dxl_ini_set(ini, "S", "quoted", "a b");
+    CHECK_INT(dxl_ini_dirty(ini), 0);
+    dxl_ini_free(ini);
+
+    /* The launcher's own inis keep a value's quotes. */
+    const char *own = "[Profile]\nEngineArgs=\"-a b\"\n";
+    ini = dxl_ini_parse_utf8(own, strlen(own));
+    CHECK_STR(dxl_ini_get(ini, "Profile", "EngineArgs"), "\"-a b\"");
     dxl_ini_free(ini);
 }
 
@@ -496,6 +540,34 @@ static void test_save_is_atomic_and_keeps_the_mode(void) {
     scratch_remove(dir);
 }
 
+/* A read-only ini, a player's way of keeping settings, is not replaced:
+ * the save refuses, as the original's write in place does (bugs.md
+ * LCORE.10). Windows' replace refuses one itself. */
+static void test_save_refuses_read_only(void) {
+#ifndef _WIN32
+    const char *dir = scratch_dir("ini-ro");
+    char *path = scratch_path(dir, "DeusEx.ini");
+    scratch_write(dir, "DeusEx.ini", "[A]\r\nx=1\r\n");
+    chmod(path, 0444);
+    if (access(path, W_OK) != 0) {   /* root writes anything */
+        dxl_ini *ini = dxl_ini_parse("[A]\r\nx=2\r\n", 10);
+        dxl_err e = { 0 };
+        CHECK_INT(dxl_ini_save(ini, path, &e), -1);
+        CHECK(strstr(dxl_err_msg(&e), "read-only") != NULL);
+        dxl_ini_free(ini);
+        size_t len = 0;
+        char *text = slurp(path, &len);
+        CHECK_STR(text, "[A]\r\nx=1\r\n");
+        free(text);
+        struct stat st;
+        CHECK(stat(path, &st) == 0 && (st.st_mode & 0777) == 0444);
+    }
+    chmod(path, 0644);
+    free(path);
+    scratch_remove(dir);
+#endif
+}
+
 /* A CRLF file made LF, as the desktop launcher writes its profiles' inis. */
 static void test_set_eol(void) {
     const char *src = "[A]\r\nx=1\r\n\r\n[B]\r\ny=2";
@@ -552,5 +624,6 @@ TEST_MAIN_BEGIN
     RUN(test_lf_file_stays_lf);
     RUN(test_rewrite_normalises_line_ending);
     RUN(test_save_is_atomic_and_keeps_the_mode);
+    RUN(test_save_refuses_read_only);
     RUN(test_set_eol);
 TEST_MAIN_END

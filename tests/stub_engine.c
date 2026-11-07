@@ -12,9 +12,9 @@
  *               (any other mode prints its words too with DXL_STUB_ARGS set)
  *   env         prints the value of the variable DXL_STUB_ENV names
  *   ready       hello, ready, then prints each line the launcher sends,
- *               exiting 0 at "quit", at "Quit" or SIGTERM, the launcher's
- *               stops the engine takes (its inis written back), or after
- *               DXL_STUB_MS (default 5000)
+ *               exiting 0 at "Quit" (in that case alone, as the engine) or
+ *               SIGTERM, the launcher's stops the engine takes (its inis
+ *               written back), or after DXL_STUB_MS (default 5000)
  *   rewrite     ready's, having written to its --userini as the engine does
  *               at a clean end ([DXL.Stub] Wrote=1), and added an x to the
  *               file DXL_STUB_COUNT names
@@ -246,6 +246,12 @@ int main(int argc, char **argv) {
     if (strcmp(mode, "stubborn") == 0) signal(SIGTERM, SIG_IGN);
     else signal(SIGTERM, on_stop);
     signal(SIGHUP, on_stop);   /* a logout's, as the engine takes it */
+    /* A stop held off while it started, by a test that blocks SIGTERM
+     * across a start it stops at once (test_gamefiles), comes now. */
+    sigset_t term;
+    sigemptyset(&term);
+    sigaddset(&term, SIGTERM);
+    sigprocmask(SIG_UNBLOCK, &term, NULL);
 #endif
     say("ready");
     if (strcmp(mode, "crash") == 0) {
@@ -301,9 +307,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* ready: the launcher's lines, until quit or the time is up. */
+    /* ready: the launcher's lines, until quit or the time is up; an Open
+     * of the longest URL a second start forwards among them. */
     int ms = atoi(env_or("DXL_STUB_MS", "5000"));
-    char pending[2048];
+    char pending[8192];
     size_t have = 0;
     long long start = now_ms();
     for (;;) {
@@ -323,7 +330,9 @@ int main(int argc, char **argv) {
         while ((nl = strchr(pending, '\n')) != NULL) {
             *nl = '\0';
             printf("line: %s\n", pending);
-            if (strcmp(pending, "quit") == 0 || strcmp(pending, "Quit") == 0) return 0;
+            /* The engine's own compare (DXEngine's Engine::OnLauncherLine):
+             * "quit" is a line it does not know. */
+            if (strcmp(pending, "Quit") == 0) return 0;
             memmove(pending, nl + 1, have - (size_t)(nl + 1 - pending) + 1);
             have = strlen(pending);
         }

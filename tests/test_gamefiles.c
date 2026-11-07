@@ -200,6 +200,28 @@ static void test_changed_seen(void) {
     free(dir);
 }
 
+/* The game's folder over every start below: a mark made before the first,
+ * older than anything a run could write, and after the last nothing under
+ * the folder newer than it. */
+static char *game_mark;
+
+static void test_mark_before_the_runs(void) {
+    char *dir = dxl_xstrdup(scratch_dir("gamefiles-mark"));
+    scratch_write(dir, "mark", "");
+    game_mark = scratch_path(dir, "mark");
+    free(dir);
+    dxl_os_sleep_ms(1000);
+}
+
+static void test_game_folder_untouched(void) {
+    CHECK_INT(changed_since(game_mark), 0);
+    char *dir = dxl_path_dirname(game_mark);
+    scratch_remove(dir);
+    free(dir);
+    free(game_mark);
+    game_mark = NULL;
+}
+
 static int run_launcher(const char *game, const char *word) {
     char opt[700];
     snprintf(opt, sizeof opt, "--game=%s", game);
@@ -209,21 +231,21 @@ static int run_launcher(const char *game, const char *word) {
 }
 
 /* A whole start with no window, the stub in the engine's place, in a
- * scratch home: the first run makes the profile from the install and plays;
- * a crash leaves Running.ini, and the next start stops at Recovery, which
- * has no window. Nothing is written to the game's folder. */
+ * scratch home: the first run makes the profile from the install and plays,
+ * the engine started on the profile's files and the game's folder; a crash
+ * leaves Running.ini, and the next start stops at Recovery, which has no
+ * window. */
 static void test_headless_run(void) {
     char *home = dxl_xstrdup(scratch_dir("gamefiles-run"));
-    char *mark = scratch_path(home, "mark");
-    scratch_write(home, "mark", "");
-    dxl_os_sleep_ms(1000);   /* the mark older than anything the run could write */
     dxl_env_set("DXL_HOME", home);
     dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
     char *root = dxl_path_dirname(DXL_GAMEFILES);
 
     dxl_env_set("DXL_STUB", "ready");
     dxl_env_set("DXL_STUB_MS", "200");
+    dxl_env_set("DXL_STUB_ARGS", "1");
     CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_env_set("DXL_STUB_ARGS", NULL);
     dxl_xdg x;
     dxl_xdg_open(&x, NULL);
     dxl_profile p;
@@ -236,7 +258,16 @@ static void test_headless_run(void) {
     CHECK_INT(last.clean, 1);
     /* The engine's line: the profile's files, the game's folder. */
     char *log = dxl_path_join(p.logs_dir, DXL_LASTRUN_LOG);
-    CHECK_INT(dxl_path_exists(log), 1);
+    char *text = slurp(log, NULL);
+    dxl_install in;
+    dxl_install_check(root, &in);
+    char want[4096];
+    snprintf(want, sizeof want, "[%s]\n[--ini=%s]\n[--userini=%s]\n[--userdir=%s]\n", in.root, p.system_ini,
+             p.user_ini, p.engine_dir);
+    if (!text || !strstr(text, want)) fprintf(stderr, "  not in the engine's log:\n%s", want);
+    CHECK(text && strstr(text, want) != NULL);
+    free(text);
+    dxl_install_free(&in);
 
     /* The profile's state folder gone, as a home's state removed: made again
      * with the run's Running.ini. */
@@ -257,8 +288,6 @@ static void test_headless_run(void) {
     CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_NOGAME);
     dxl_env_set("DXL_STUB_FEATURES", NULL);
 
-    CHECK_INT(changed_since(mark), 0);
-
     free(log);
     free(sentinel);
     dxl_profile_free(&p);
@@ -268,7 +297,6 @@ static void test_headless_run(void) {
     dxl_env_set("DXL_STUB_MS", NULL);
     dxl_env_set("DXL_ENGINE", NULL);
     dxl_env_set("DXL_HOME", NULL);
-    free(mark);
     scratch_remove(home);
     free(home);
 }
@@ -556,11 +584,20 @@ static void test_unanswered(void) {
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), 1);
     CHECK_INT(dxl_path_exists(sentinel), 1);
     /* Play at Recovery, the launcher stopped as the game starts: the game,
-     * which does not end cleanly, stopped, and no Recovery after it. */
+     * which does not end cleanly, stopped, and no Recovery after it. The
+     * launcher's SIGTERM, sent at its first wake, may come before the stub
+     * has its handler, which would end it there: SIGTERM blocked across the
+     * run, the stub, which inherits the mask, takes the stop once its
+     * handler is in, however soon it came. */
     unanswered_views = 0;
     play_at_recovery = 1;
     dxl_env_set("DXL_STUB", "crash");
+    sigset_t term, was;
+    sigemptyset(&term);
+    sigaddset(&term, SIGTERM);
+    sigprocmask(SIG_BLOCK, &term, &was);
     CHECK_INT(dxl_run_main(1, argv, &ui, &stop), END_CRASH_STATUS);
+    sigprocmask(SIG_SETMASK, &was, NULL);
     CHECK_INT(unanswered_views, 1);
     CHECK_INT(dxl_path_exists(sentinel), 1);
     dxl_lastrun last;
@@ -766,6 +803,7 @@ TEST_MAIN_BEGIN
     RUN(test_install);
     RUN(test_import_plan);
     RUN(test_changed_seen);
+    RUN(test_mark_before_the_runs);
     RUN(test_headless_run);
     RUN(test_killed_mid_game);
     RUN(test_server_takes_no_handover);
@@ -774,4 +812,5 @@ TEST_MAIN_BEGIN
     RUN(test_first_run_refused);
     RUN(test_relaunch_drops_ini);
     RUN(test_back_home);
+    RUN(test_game_folder_untouched);
 TEST_MAIN_END

@@ -7,7 +7,7 @@
 
 typedef enum {
     LINE_BLANK,
-    LINE_COMMENT,
+    LINE_NONE,   /* neither a header nor a pair: read as nothing, kept */
     LINE_SECTION,
     LINE_PAIR
 } line_kind;
@@ -80,47 +80,37 @@ void dxl_ini_free(dxl_ini *ini) {
     free(ini);
 }
 
-/* Classifies one line's text (terminator already stripped). */
-static void classify(ini_line *l, const char *text, size_t len) {
+/* Classifies one line's text (terminator already stripped) as the
+ * original's reader and DXEngine's take it (FConfigFile::Read, GOG
+ * DeusEx.exe 0x10916780; Package/IniFile.cpp): a header a line that begins
+ * [ and ends ], else a key up to its first = and its value after it,
+ * nothing trimmed, a game ini's value that begins and ends with " (a lone "
+ * too) without them; the launcher's own keep theirs. A line with no =, one
+ * beginning ; or # among them, is none (a line of blanks a blank line). */
+static void classify(ini_line *l, const char *text, size_t len, int game) {
     l->raw = dxl_xstrndup(text, len);
     l->raw_len = len;
 
-    char *scan = dxl_xstrndup(text, len);
-    char *t = dxl_trim(scan);
-
-    if (*t == '\0') {
-        l->kind = LINE_BLANK;
-    } else if (*t == ';' || *t == '#') {
-        l->kind = LINE_COMMENT;
-    } else if (*t == '[') {
-        char *close = strrchr(t, ']');
-        if (close) {
-            l->kind = LINE_SECTION;
-            l->name = dxl_xstrndup(t + 1, (size_t)(close - t - 1));
-            char *n = dxl_trim(l->name);
-            if (n != l->name) memmove(l->name, n, strlen(n) + 1);
-        } else {
-            l->kind = LINE_COMMENT;   /* malformed: preserve, don't interpret */
-        }
+    const char *t = l->raw;   /* up to a NUL */
+    size_t n = strlen(t);
+    const char *eq = strchr(t, '=');
+    if (n >= 2 && t[0] == '[' && t[n - 1] == ']') {
+        l->kind = LINE_SECTION;
+        l->name = dxl_xstrndup(t + 1, n - 2);
+    } else if (eq) {
+        l->kind = LINE_PAIR;
+        l->name = dxl_xstrndup(t, (size_t)(eq - t));
+        const char *v = eq + 1;
+        size_t vn = strlen(v);
+        if (game && vn && v[0] == '"' && v[vn - 1] == '"')
+            l->value = dxl_xstrndup(v + 1, vn > 1 ? vn - 2 : 0);
+        else
+            l->value = dxl_xstrdup(v);
     } else {
-        char *eq = strchr(t, '=');
-        if (eq) {
-            l->kind  = LINE_PAIR;
-            l->name  = dxl_xstrndup(t, (size_t)(eq - t));
-            char *k = dxl_trim(l->name);
-            if (k != l->name) memmove(l->name, k, strlen(k) + 1);
-            /* The value keeps interior and trailing spaces the engine wrote,
-             * but not the padding around '='. Trailing whitespace is already
-             * gone because we trimmed the whole line. */
-            l->value = dxl_xstrdup(eq + 1);
-            char *v = l->value;
-            while (*v == ' ' || *v == '\t') v++;
-            if (v != l->value) memmove(l->value, v, strlen(v) + 1);
-        } else {
-            l->kind = LINE_COMMENT;   /* not a pair; preserve verbatim */
-        }
+        char *scan = dxl_xstrdup(t);
+        l->kind = *dxl_trim(scan) ? LINE_NONE : LINE_BLANK;
+        free(scan);
     }
-    free(scan);
 }
 
 /* ---- the file's text ------------------------------------------------ */
@@ -282,7 +272,7 @@ static dxl_ini *parse(const char *bytes, size_t len, int game) {
         lines_reserve(ini, ini->count + 1);
         ini_line *l = ini->lines + ini->count++;
         memset(l, 0, sizeof *l);
-        classify(l, text + start, end - start);
+        classify(l, text + start, end - start, game);
         l->eol = dxl_xstrdup(eol);
     }
 

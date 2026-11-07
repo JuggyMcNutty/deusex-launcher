@@ -445,8 +445,8 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
     dxl_label(ui, status_r, DXL_FONT_SMALL, line, s->browse_error[0] ? t->warn : t->help, DXL_W_LEFT | DXL_W_MAY_CUT);
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
-    /* A deusex:// link's server: asked about, as it is, then joined once
-     * the player says so. */
+    /* A deusex:// link's server: asked about, as it is, once no text is
+     * being edited, then joined once the player says so. */
     uint32_t link_id = dxl_ui_id(ui, "servers link");
     if (dxl_shell_answer(s, link_id) == 1) {
         char host[256];
@@ -454,7 +454,7 @@ void dxl_page_servers(dxl_shell *s, dxl_rect r) {
         if (address_of(s->link_asked, host, sizeof host, &port)) dxl_shell_join(s, host, port, 0, NULL);
         s->link_asked[0] = '\0';
         return;
-    } else if (s->join_link[0] && s->dialog == DXL_DIALOG_NONE && !s->answered) {
+    } else if (s->join_link[0] && s->dialog == DXL_DIALOG_NONE && !s->answered && !ui->text_id) {
         snprintf(s->link_asked, sizeof s->link_asked, "%s", s->join_link);
         s->join_link[0] = '\0';
         char text[400];

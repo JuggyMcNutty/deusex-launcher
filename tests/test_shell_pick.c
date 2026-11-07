@@ -1,6 +1,7 @@
 /* A pick's answer back in its list (screens/shell.h): by its own place,
  * though two labels are alike, as two controllers of one model are; in a
- * list made again under it, the first of its label. */
+ * list made again under it, the first of its label. An answer its control
+ * does not read the frame after it is given, gone. */
 #include "test.h"
 #include "screens/shell.h"
 
@@ -21,6 +22,35 @@ static void test_picked_at(void) {
     CHECK_INT(dxl_shell_picked_at(&s, -1, pads, 3), -1);
 }
 
+/* An answer as a dialog gives it (dialogs.c), in the kit's frame now. */
+static void answered(uint32_t id, int a) {
+    const char *two[] = { "One", "Two" };
+    dxl_shell_pick(&s, id, "Which", two, 2, 0);
+    s.answer = a;
+    s.answered = 1;
+    s.answered_in = s.ui.frame;
+}
+
+/* Read the frame after, it is its control's; unread by that frame's end --
+ * the control gone with its page or its list -- dropped, and the control
+ * drawn again later reads none (bugs.md LUI.8). */
+static void test_answer_expires(void) {
+    answered(9, 1);
+    dxl_shell_answer_expire(&s);   /* the frame it was given in ends */
+    s.ui.frame++;
+    CHECK_INT(dxl_shell_answer(&s, 9), 1);
+    CHECK_INT(dxl_shell_answer(&s, 9), -1);
+
+    answered(9, 1);
+    dxl_shell_answer_expire(&s);
+    s.ui.frame++;
+    dxl_shell_answer_expire(&s);   /* the next ends, nothing read */
+    CHECK_INT(s.answered, 0);
+    s.ui.frame++;
+    CHECK_INT(dxl_shell_answer(&s, 9), -1);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_picked_at);
+    RUN(test_answer_expires);
 TEST_MAIN_END

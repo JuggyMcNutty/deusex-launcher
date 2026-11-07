@@ -607,7 +607,7 @@ static dxl_view view_of(const dxl_run *r) {
 /* Whether another launcher is live: the one holding the lock this run did
  * not get. A dry run or a printed command takes no lock, so it asks. */
 static int other_instance(dxl_run *r) {
-    if (r->instance) return 0;
+    if (dxl_instance_locked(r->instance)) return 0;
     if (!r->opt.dry && !r->opt.print_command) return 1;
     char *id = dxl_session_instance_id(&r->session);
     int other = dxl_instance_other_running(id);
@@ -620,7 +620,6 @@ static void decide(dxl_run *r) {
         .cmdline = r->words,
         .first_run = dxl_config_first_run(r->config),
         .other_instance = other_instance(r),
-        .forward_tried = 1,
         .running_ini_exists = dxl_sentinel_exists(&r->sentinel),
         .is_client = !dxl_cmd_param(r->words, "server"),
     };
@@ -673,13 +672,16 @@ static void antialias_check(dxl_run *r) {
 /* The instance for the run's words: the lock and the hand-over's channel,
  * but for a dedicated server (-server), which takes no line a second start
  * hands on, as the original's, whose log window is never IsBrowser: the
- * lock alone. Taken again, of the other kind, when a relaunch changes it. */
+ * lock alone. A client beside a launcher that holds the lock takes the
+ * channel alone, as the original's is IsBrowser beside a server too. Taken
+ * again, of the other kind, when a relaunch changes it. */
 static void hold_instance(dxl_run *r) {
     int server = dxl_cmd_param(r->words, "server");
     if (r->instance && dxl_instance_listens(r->instance) == !server) return;
     char *id = dxl_session_instance_id(&r->session);
     dxl_instance_release(r->instance);
     r->instance = server ? dxl_instance_acquire_lock(id) : dxl_instance_acquire(id);
+    if (!r->instance && !server) r->instance = dxl_instance_listen(id);
     free(id);
 }
 
@@ -688,7 +690,7 @@ static void hold_instance(dxl_run *r) {
  * a screen, -consolecommand=, -testrendev= take Running.ini away; not
  * another launcher's, live, which holds the lock. */
 static void end_without_game(dxl_run *r) {
-    if (!r->instance || !r->sentinel.path || !dxl_sentinel_exists(&r->sentinel)) return;
+    if (!dxl_instance_locked(r->instance) || !r->sentinel.path || !dxl_sentinel_exists(&r->sentinel)) return;
     dxl_sentinel_remove(&r->sentinel);
     dxl_log("Running.ini taken away: an end with no game");
 }
@@ -810,7 +812,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
     char *id = dxl_session_instance_id(&r->session);
 
     /* 1. Forwarding, before anything is written. */
-    dxl_policy_input pre = { .cmdline = r->words, .forward_tried = 1 };
+    dxl_policy_input pre = { .cmdline = r->words };
     dxl_decision first;
     dxl_policy_decide(&pre, &first);
     int busy = dxl_instance_other_running(id);
@@ -879,6 +881,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, volatile int *stop
             goto done;
         }
     }
+    /* The profile's: a first run's name change made its sentinel already
+     * (dxl_run_use_profile). */
+    if (r->sentinel.path) dxl_sentinel_free(&r->sentinel);
     dxl_sentinel_init(&r->sentinel, r->session.profile.state_dir);
     dxl_lastrun_load(&r->last, r->session.profile.state_dir);
     if (dxl_profile_exists(&r->session.profile)) r->config = open_config(r);

@@ -40,8 +40,9 @@ const char *dxl_stristr(const char *hay, const char *needle);
 /* In-place whitespace trim; returns a pointer into the original buffer. */
 char *dxl_trim(char *s);
 
-/* A bool as the engine reads one, in its config and its classes': 1 for
- * true, yes or 1 in any case, 0 for false, no or 0, -1 for other text. */
+/* A bool as the engine reads one, in its config and its classes', by its
+ * first token: 1 for true, yes or 1 in any case, 0 for false, no or 0, -1
+ * for other text ("False " is false, "1.0" true, " True" neither). */
 int   dxl_text_bool(const char *v);
 
 /* Text for showing, as UTF-8: in as it is when it is UTF-8, else read as
