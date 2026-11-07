@@ -970,7 +970,5 @@ Changed:
 
 ## Known defects
 
-Each open in Port Ex Machina's
-[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
-
-- **LPORT.6**: the sysroot's packages fetched against no hash.
+None open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md).
