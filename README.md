@@ -66,8 +66,8 @@ with unit tests for each and a live check of every road a player can take
 </table>
 
 Each is the recreation's own drawing, the same to the pixel as the
-original's under Wine on an install without `Help/LogoSmall.bmp`; the logo
-band both draw where it is there is not yet compared (bugs.md MAIN.12; [the
+original's under Wine on an install without `Help/LogoSmall.bmp`; where it
+is there, the logo band both draw is the same to the pixel too ([the
 look](#the-look)).
 
 ## Installing
@@ -94,10 +94,15 @@ The screens are the original's, drawn with SDL2: each control where
 layouts](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/wizard.md#page-layouts)),
 in the colours, fonts and details the original shows under wine.
 `tools/pageshots.c` draws each screen with no display. Beside captures of
-the original, 14 of the 15 match to the pixel, all made without
-`Help/LogoSmall.bmp`, whose band every wizard page shows where the install
-has it, as GOG's and Steam's both do, not yet compared (bugs.md MAIN.12);
-the splash differs only in its picture, which wine shows colour-reduced.
+the original on GOG's install, which has `Help/LogoSmall.bmp`, as Steam's
+does, 12 of the 15 match to the pixel, the logo band too: the static's
+window takes the bitmap's size, its 3-pixel frame inside, and the bitmap is
+shrunk into what is left as wine's `StretchBlt` shrinks it, its default
+mode ANDing the pixels it merges ([`gui.c`](src/gui/gui.c),
+`dxl_bitmap_framed`). The splash differs only in its picture, which wine
+shows colour-reduced; the renderer page, caught once its detection was done,
+and the page after it, which the capture's one device, the software
+renderer, leads to Detail, show other moments of the same pages.
 The Renderer list's scroll bar, there past 8 devices, is drawn in the
 classic look, with no capture to compare it with.
 
@@ -171,12 +176,8 @@ Each adapts the original to desktop Linux, by the owner's choice:
 
 ## Known defects
 
-Each open in Port Ex Machina's
-[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
-
-- **MAIN.12**: the wizard's logo band never compared with the original's;
-  the 14 of 15 pixel matches and the screenshots made without
-  `Help/LogoSmall.bmp`.
+None open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md).
 
 ## The game and the launcher
 

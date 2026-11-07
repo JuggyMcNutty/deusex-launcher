@@ -618,6 +618,69 @@ SDL_Texture *dxl_bitmap(SDL_Renderer *r, const char *path, int *w, int *h) {
     return t;
 }
 
+/* Where each destination pixel's run of source pixels starts on an axis of
+ * n shrunk to m, as GDI's StretchBlt walks one (wine's dibdrv,
+ * calc_1d_stretch_params and shrink_row): a Bresenham line from an error of
+ * 3m - 2n, each source pixel going into the destination pixel it stands at,
+ * which moves on after it while the error is above 0. first[m] is n. */
+static void shrink_axis(int n, int m, int *first) {
+    int err = 3 * m - 2 * n, d = 0;
+    first[0] = 0;
+    for (int s = 0; s < n && d < m; s++) {
+        if (err > 0) {
+            first[++d] = s + 1;
+            err += 2 * m - 2 * n;
+        } else {
+            err += 2 * m;
+        }
+    }
+    first[m] = n;
+}
+
+SDL_Texture *dxl_bitmap_framed(SDL_Renderer *r, const char *path, int frame, int *w, int *h) {
+    SDL_Surface *loaded = path ? SDL_LoadBMP(path) : NULL;
+    if (!loaded) return NULL;
+    /* In the screen's format, as the static's bitmap is a device bitmap:
+     * the stretch works on its pixels' colours, not a palette's indices. */
+    SDL_Surface *s = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_RGB888, 0);
+    if (w) *w = loaded->w;
+    if (h) *h = loaded->h;
+    SDL_FreeSurface(loaded);
+    if (!s) return NULL;
+    int dw = s->w - 2 * frame, dh = s->h - 2 * frame;
+    if (dw < 1 || dh < 1 || dw > s->w || dh > s->h) {
+        SDL_FreeSurface(s);
+        return NULL;
+    }
+    /* The pixels a destination pixel takes ANDed together, channel by
+     * channel: a DC's stretch mode is BLACKONWHITE (STRETCH_ANDSCANS) until
+     * it is set, and the static sets none (STATIC_PaintBitmapfn). */
+    SDL_Surface *out = SDL_CreateRGBSurfaceWithFormat(0, dw, dh, 32, SDL_PIXELFORMAT_RGB888);
+    int *cols = malloc(sizeof *cols * (size_t)(dw + 1)), *rows = malloc(sizeof *rows * (size_t)(dh + 1));
+    SDL_Texture *t = NULL;
+    if (out && cols && rows) {
+        shrink_axis(s->w, dw, cols);
+        shrink_axis(s->h, dh, rows);
+        for (int y = 0; y < dh; y++) {
+            Uint32 *o = (Uint32 *)((Uint8 *)out->pixels + (size_t)y * (size_t)out->pitch);
+            for (int x = 0; x < dw; x++) {
+                Uint32 v = 0xffffffffu;
+                for (int sy = rows[y]; sy < rows[y + 1]; sy++) {
+                    const Uint32 *in = (const Uint32 *)((const Uint8 *)s->pixels + (size_t)sy * (size_t)s->pitch);
+                    for (int sx = cols[x]; sx < cols[x + 1]; sx++) v &= in[sx];
+                }
+                o[x] = v;
+            }
+        }
+        t = SDL_CreateTextureFromSurface(r, out);
+    }
+    free(cols);
+    free(rows);
+    if (out) SDL_FreeSurface(out);
+    SDL_FreeSurface(s);
+    return t;
+}
+
 /* A .int text as SDL takes it: UTF-8, Latin-1 converted (dxl_dialog_open's
  * window title went to SDL_CreateWindow as the .int's bytes). Caller frees. */
 char *dxl_gui_utf8(const char *s) {

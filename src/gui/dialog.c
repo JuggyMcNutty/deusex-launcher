@@ -274,11 +274,25 @@ void dxl_ctl_select(dxl_dialog *d, dxl_ctl *c, int item) {
 
 void dxl_ctl_set_bitmap(dxl_dialog *d, dxl_ctl *c, const char *bmp_path) {
     if (c->bitmap) SDL_DestroyTexture(c->bitmap);
-    c->bitmap = dxl_bitmap(d->ren, bmp_path, &c->bitmap_w, &c->bitmap_h);
-    if (c->bitmap) {
-        int frame = c->kind == DXL_CTL_BITMAP ? 4 : 0;
-        c->rc.w = c->bitmap_w + frame;
-        c->rc.h = c->bitmap_h + frame;
+    if (c->kind == DXL_CTL_BITMAP) {
+        /* The static's window takes the bitmap's size, frame and all, as
+         * wine's sizes one (STATIC_SetBitmap), and draws the bitmap shrunk
+         * into what its 3-pixel modal frame leaves (STATIC_PaintBitmapfn's
+         * StretchBlt): the logo's 500x77 in 494x71. */
+        int bw = 0, bh = 0;
+        c->bitmap = dxl_bitmap_framed(d->ren, bmp_path, 3, &bw, &bh);
+        if (c->bitmap) {
+            c->rc.w = bw;
+            c->rc.h = bh;
+            c->bitmap_w = bw - 6;
+            c->bitmap_h = bh - 6;
+        }
+    } else {
+        c->bitmap = dxl_bitmap(d->ren, bmp_path, &c->bitmap_w, &c->bitmap_h);
+        if (c->bitmap) {
+            c->rc.w = c->bitmap_w;
+            c->rc.h = c->bitmap_h;
+        }
     }
     d->dirty = 1;
 }
@@ -382,9 +396,13 @@ static void draw_ctl(dxl_dialog *d, int i) {
         break;
     }
     case DXL_CTL_BITMAP: {
+        /* WS_EX_DLGMODALFRAME as wine draws it: a raised edge, then a ring
+         * of COLOR_3DFACE, 3 pixels in all; the bitmap, shrunk to fit,
+         * inside. */
         SDL_Rect in = dxl_edge(r, rc, DXL_EDGE_RAISED);
+        dxl_fill(r, in, p->face);
         if (c->bitmap) {
-            SDL_Rect dst = { in.x, in.y, c->bitmap_w, c->bitmap_h };
+            SDL_Rect dst = { in.x + 1, in.y + 1, c->bitmap_w, c->bitmap_h };
             SDL_RenderCopy(r, c->bitmap, NULL, &dst);
         }
         break;
