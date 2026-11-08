@@ -995,6 +995,11 @@ Each open in Port Ex Machina's
   the game's `System`.
 - **LAPP.18**: small test defects: a wait met by the run before's log line,
   round trips unchecked, a shots run that draws nothing passing.
+- **LAPP.19**: `test_vdf`'s depth check gives blocks that never close, so a
+  reader without its depth guard passes.
+- **LAPP.20**: two `dxl-shots` scenes show other than they say: no playable
+  or mod's profile on the Profiles page, and the password server not chosen
+  in the servers-password mouse shots.
 - **LCORE.15**: a `Settings.json` the engine reads but this reader refuses (a
   form feed, a raw control byte, `-.5`, nesting past 64) is moved aside and
   the defaults written at the next save.
@@ -1005,3 +1010,7 @@ Each open in Port Ex Machina's
 - **LCORE.18**: the engine's sections seeded otherwise than the engine reads
   the retail keys: no `NoLighting`, Yes and No taken for bools, an empty
   float the engine's default.
+- **LCORE.19**: `dxl-cli` prints a server's C1 control characters (CSI, OSC)
+  and a master's refusal as they came, which a terminal acts on.
+- **LCORE.20**: a nameless server printed as an empty line by `dxl-cli` and
+  sorted first by name; `dxl-cli` printing nothing until the search ends.
