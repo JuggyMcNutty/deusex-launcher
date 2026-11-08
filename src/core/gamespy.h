@@ -11,7 +11,8 @@
  *                        rules and one for each player, each ending
  *                        \queryid\<id>.<n> -- the last \final\\queryid\
  *                        -- in whatever order they come; asked again, its
- *                        answer has another id
+ *                        answer has the next id, counted from 1 to 100
+ *                        and begun again
  *
  * Nothing here touches a socket (app/browser.h does).
  */
@@ -21,6 +22,9 @@
 #include "core/common.h"
 
 #define DXL_GS_GAME "deusex"
+/* A master server's port: [DeusEx.MenuScreenJoinGame] MasterServerTCPPort's
+ * default, the class's. */
+#define DXL_MASTER_PORT 28900
 
 /* The answer to a master server's challenge for a game: the challenge's
  * six characters through GameSpy's RC4, keyed by the game's secret -- the
@@ -57,7 +61,7 @@ typedef struct {
     int    last;      /* the number of the one with \final\, 0 before it comes */
     int    id;        /* the answer's, -1 before its first packet */
     int    stale;     /* the answer asked over's id, -1 for none */
-    int    asked_again;   /* asked over: an answer with a higher id is the latest ask's */
+    int    asked_again;   /* asked over: an answer a later ask's by its id is the latest ask's */
 } dxl_gs_status;
 
 void dxl_gs_status_init(dxl_gs_status *st);

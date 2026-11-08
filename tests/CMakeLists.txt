@@ -45,6 +45,8 @@ dxl_test(test_shell_pick)
 target_link_libraries(test_shell_pick PRIVATE dxl_screens)
 dxl_test(test_shell_choose)
 target_link_libraries(test_shell_choose PRIVATE dxl_screens)
+dxl_test(test_shell_browse)
+target_link_libraries(test_shell_browse PRIVATE dxl_screens)
 dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
@@ -77,6 +79,9 @@ endforeach()
 # The server browser against a master and servers of its own on 127.0.0.1.
 dxl_test(test_browser)
 target_link_libraries(test_browser PRIVATE dxl_app Threads::Threads)
+# dxl-cli's listing of them, src/cli_main.c built in.
+dxl_test(test_cli)
+target_link_libraries(test_cli PRIVATE dxl_app Threads::Threads)
 
 # The processes the launcher starts and the game's run, with a stand-in for
 # the engine (stub_engine.c) in its place.
@@ -102,6 +107,9 @@ target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gam
                            DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
 add_dependencies(test_gamefiles stub_engine)
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
+# The install's own saves, a test of their own: skipped where it has none.
+add_test(NAME test_gamefiles_saves COMMAND test_gamefiles --saves)
+set_tests_properties(test_gamefiles_saves PROPERTIES SKIP_RETURN_CODE 77)
 
 # Windows' own: the Known Folders, the finder's Windows places, the Start
 # menu's entry and deusex://, the Recycle Bin, the hand-over's pipe.
@@ -124,6 +132,10 @@ dxl_test(test_finder)
 dxl_test(test_desktop)
 target_link_libraries(test_desktop PRIVATE dxl_platform)
 target_compile_definitions(test_desktop PRIVATE DXL_DATA="${DXL_ROOT}/data")
+# The links' handler in the MimeType cache: skipped where the desktop has no
+# update-desktop-database.
+add_test(NAME test_desktop_mime_cache COMMAND test_desktop --mime-cache)
+set_tests_properties(test_desktop_mime_cache PROPERTIES SKIP_RETURN_CODE 77)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_platform)
 
@@ -137,4 +149,6 @@ target_compile_definitions(test_ui_scripts PRIVATE
     DXL_UI_SCRIPTS="${CMAKE_CURRENT_SOURCE_DIR}/ui" DXL_GAME="${DXL_ROOT}/gamefiles")
 target_link_libraries(test_ui_scripts PRIVATE Threads::Threads)
 add_dependencies(test_ui_scripts deusex-launcher dxl-cli stub_engine)
-set_tests_properties(test_ui_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+# Its scripts' waits alone some 200 s of its some 250: room for more, and
+# for a loaded machine.
+set_tests_properties(test_ui_scripts PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)

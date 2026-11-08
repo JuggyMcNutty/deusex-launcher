@@ -81,6 +81,17 @@ static void test_sort_and_filter(void) {
     CHECK(dxl_server_compare(&full, &fast, DXL_SORT_PLAYERS) < 0);
     CHECK(dxl_server_compare(&named, &full, DXL_SORT_NAME) < 0);
     CHECK(dxl_server_compare(&full, &fast, DXL_SORT_NAME) < 0);   /* Mike before zulu, whatever their case */
+    /* One with no name by the address it is shown by: 5.6.7.8 between 1st
+     * and 9th, not first (bugs.md LCORE.20). */
+    dxl_server first, nameless, ninth;
+    answered(&first, "8.8.8.8", 30, 0, "1st");
+    answered(&nameless, "5.6.7.8", 30, 0, "");
+    answered(&ninth, "4.4.4.4", 30, 0, "9th");
+    CHECK(dxl_server_compare(&first, &nameless, DXL_SORT_NAME) < 0);
+    CHECK(dxl_server_compare(&nameless, &ninth, DXL_SORT_NAME) < 0);
+    dxl_server_free(&first);
+    dxl_server_free(&nameless);
+    dxl_server_free(&ninth);
 
     /* What a server says of itself, however wild, orders the same both ways. */
     full.players = 2147483647;
