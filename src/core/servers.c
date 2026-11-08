@@ -109,7 +109,8 @@ int dxl_server_compare(const dxl_server *a, const dxl_server *b, dxl_server_sort
     if (aa) {
         switch (by) {
         case DXL_SORT_PLAYERS: c = order(b->players, a->players); break;
-        case DXL_SORT_NAME: c = dxl_stricmp(a->name, b->name); break;
+        /* By the name shown: a server's own, its address where it has none. */
+        case DXL_SORT_NAME: c = dxl_stricmp(a->name[0] ? a->name : a->address, b->name[0] ? b->name : b->address); break;
         default: c = order(a->ping_ms, b->ping_ms); break;
         }
     }

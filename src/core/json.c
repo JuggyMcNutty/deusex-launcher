@@ -78,8 +78,10 @@ static void fail(reader *r, const char *what) {
     }
 }
 
+/* The engine's blanks (JsonValue.cpp read_whitespace): a form feed is one. */
 static void skip_ws(reader *r) {
-    while (r->p < r->end && (*r->p == ' ' || *r->p == '\t' || *r->p == '\n' || *r->p == '\r'))
+    while (r->p < r->end && (*r->p == ' ' || *r->p == '\t' || *r->p == '\n' || *r->p == '\r' ||
+                             *r->p == '\f'))
         r->p++;
 }
 
@@ -124,15 +126,15 @@ static int hex4(reader *r, unsigned *out) {
     return 1;
 }
 
-/* Called with r->p on the opening quote. Returns a malloc'd string. */
+/* Called with r->p on the opening quote. Returns a malloc'd string. Every
+ * byte but the quote and the backslash stands for itself, a control byte
+ * too, as the engine's reader keeps it (JsonValue.cpp read_string). */
 static char *read_string(reader *r) {
     r->p++;
     dxl_buf b;
     dxl_buf_init(&b);
     while (r->p < r->end && *r->p != '"') {
-        unsigned char c = (unsigned char)*r->p;
-        if (c < 0x20) { fail(r, "control character in string"); break; }
-        if (c != '\\') { dxl_buf_add(&b, r->p, 1); r->p++; continue; }
+        if (*r->p != '\\') { dxl_buf_add(&b, r->p, 1); r->p++; continue; }
 
         r->p++;
         if (r->p >= r->end) break;
@@ -177,30 +179,37 @@ static char *read_string(reader *r) {
 
 static dxl_json *read_value(reader *r);
 
+static void digits(reader *r) {
+    while (r->p < r->end && *r->p >= '0' && *r->p <= '9') r->p++;
+}
+
+/* Called with r->p on a '-' or a digit. A number as the engine's reader
+ * spells one (JsonValue.cpp read_number): an optional '-', digits, an
+ * optional '.' and digits, an optional e or E with an optional sign and
+ * digits, every part optional; its value what strtod makes of that span, as
+ * atof does there: "-.5" is -0.5, "1e" 1, "-" 0. */
 static dxl_json *read_number(reader *r) {
     const char *s = r->p;
-    if (r->p < r->end && *r->p == '-') r->p++;
-    if (r->p >= r->end || *r->p < '0' || *r->p > '9') { fail(r, "bad number"); return NULL; }
-    while (r->p < r->end && ((*r->p >= '0' && *r->p <= '9') || *r->p == '.' ||
-                             *r->p == 'e' || *r->p == 'E' || *r->p == '+' || *r->p == '-'))
+    if (*r->p == '-') r->p++;
+    digits(r);
+    if (r->p < r->end && *r->p == '.') { r->p++; digits(r); }
+    if (r->p < r->end && (*r->p == 'e' || *r->p == 'E')) {
         r->p++;
-    char *spelling = dxl_xstrndup(s, (size_t)(r->p - s));
-    char *endp = NULL;
-    double d = strtod(spelling, &endp);
-    if (!endp || *endp) { free(spelling); fail(r, "bad number"); return NULL; }
+        if (r->p < r->end && (*r->p == '+' || *r->p == '-')) r->p++;
+        digits(r);
+    }
     dxl_json *v = node(DXL_JSON_NUMBER);
-    v->num = d;
-    v->text = spelling;
+    v->text = dxl_xstrndup(s, (size_t)(r->p - s));
+    v->num = strtod(v->text, NULL);
     return v;
 }
 
 static dxl_json *read_container(reader *r, int is_object) {
-    if (++r->depth > 64) { fail(r, "nested too deeply"); return NULL; }
     dxl_json *v = node(is_object ? DXL_JSON_OBJECT : DXL_JSON_ARRAY);
     char close = is_object ? '}' : ']';
     r->p++;
     skip_ws(r);
-    if (r->p < r->end && *r->p == close) { r->p++; r->depth--; return v; }
+    if (r->p < r->end && *r->p == close) { r->p++; return v; }
 
     for (;;) {
         char *key = NULL;
@@ -219,7 +228,7 @@ static dxl_json *read_container(reader *r, int is_object) {
 
         skip_ws(r);
         if (r->p < r->end && *r->p == ',') { r->p++; continue; }
-        if (r->p < r->end && *r->p == close) { r->p++; r->depth--; return v; }
+        if (r->p < r->end && *r->p == close) { r->p++; return v; }
         fail(r, is_object ? "expected ',' or '}'" : "expected ',' or ']'");
         break;
     }
@@ -227,7 +236,7 @@ static dxl_json *read_container(reader *r, int is_object) {
     return NULL;
 }
 
-static dxl_json *read_value(reader *r) {
+static dxl_json *read_one(reader *r) {
     skip_ws(r);
     if (r->p >= r->end) { fail(r, "unexpected end of data"); return NULL; }
     switch (*r->p) {
@@ -243,10 +252,22 @@ static dxl_json *read_value(reader *r) {
     default:
         break;
     }
+    if (*r->p == '-' || (*r->p >= '0' && *r->p <= '9')) return read_number(r);
     if (literal(r, "true"))  { dxl_json *v = node(DXL_JSON_BOOL); v->b = 1; return v; }
     if (literal(r, "false")) { return node(DXL_JSON_BOOL); }
     if (literal(r, "null"))  { return node(DXL_JSON_NULL); }
-    return read_number(r);
+    fail(r, "unexpected character");
+    return NULL;
+}
+
+/* Values nested 512 deep, the document's own the first, as the engine's
+ * reader takes them (JsonValue.cpp read): the recursion's bound. */
+static dxl_json *read_value(reader *r) {
+    if (r->depth == 512) { fail(r, "nested too deeply"); return NULL; }
+    r->depth++;
+    dxl_json *v = read_one(r);
+    r->depth--;
+    return v;
 }
 
 dxl_json *dxl_json_parse(const char *text, size_t len, dxl_err *err) {

@@ -153,6 +153,16 @@ void dxl_gs_status_restart(dxl_gs_status *st) {
     st->asked_again = 1;
 }
 
+/* Whether answer id b is a later ask's than a's: IpServer.u's
+ * UdpServerQuery numbers each query it is asked, whoever asks, from 1 to
+ * 100 and begins again (ReceivedText), so a later ask's is a few on from an
+ * earlier one's, past 100 to 1 too; one more than half the count on is an
+ * earlier ask's. */
+static int later(int a, int b) {
+    int on = ((b - a) % 100 + 100) % 100;
+    return on > 0 && on < 50;
+}
+
 int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
     const char *p = text, *end = text + len, *k, *v;
     size_t kn, vn;
@@ -177,11 +187,10 @@ int dxl_gs_status_add(dxl_gs_status *st, const char *text, size_t len) {
             dxl_buf_add(&pairs, v, vn);
         }
     }
-    /* The answers' ids rise with the server's asks: once asked again, one
-     * above the answer gathered is the latest ask's, the one gathered an
-     * earlier ask's late answer, let go for it; any other id is another
-     * answer's. */
-    int newer = st->asked_again && st->id >= 0 && id > st->id;
+    /* Once asked again, an answer a later ask's than the one gathered is
+     * the latest ask's, the one gathered an earlier ask's late answer, let
+     * go for it; any other id is another answer's. */
+    int newer = st->asked_again && st->id >= 0 && later(st->id, id);
     int other = id == st->stale || (st->id >= 0 && id != st->id && !newer);
     if (number < 1 || number > DXL_GS_PACKETS || other) {
         dxl_buf_free(&pairs);

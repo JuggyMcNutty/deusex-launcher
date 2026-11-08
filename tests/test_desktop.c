@@ -59,10 +59,10 @@ static void test_install(void) {
 }
 
 /* The entry the app ships, installed: deusex:// links its own, a link
- * handed to the launcher as its first word (%u); where the desktop has
- * update-desktop-database, the links' handler in the applications folder's
- * MimeType cache, which xdg-open and GIO read, and gone with the entry. */
-static void test_links(void) {
+ * handed to the launcher as its first word (%u); with mime_cache, the
+ * links' handler in the applications folder's MimeType cache, which
+ * xdg-open and GIO read, and gone with the entry. */
+static void links(int mime_cache) {
     char *home = dxl_xstrdup(scratch_dir("desktop-links"));
     char *share = dxl_path_join(home, "share");
     char *tmpl = dxl_path_join(DXL_DATA, DXL_APP_ID ".desktop.in");
@@ -74,7 +74,7 @@ static void test_links(void) {
     CHECK(text && strstr(text, "\nExec=\"/a b/deusex-launcher\" %u\n") != NULL);
     free(text);
     char *cache = dxl_path_join(share, "applications/mimeinfo.cache");
-    if (system("command -v update-desktop-database >/dev/null 2>&1") == 0) {
+    if (mime_cache) {
         text = slurp(cache, NULL);
         CHECK(text && strstr(text, "\nx-scheme-handler/deusex=" DXL_APP_ID ".desktop;") != NULL);
         free(text);
@@ -82,8 +82,6 @@ static void test_links(void) {
         text = slurp(cache, NULL);
         CHECK(!text || !strstr(text, "x-scheme-handler/deusex="));
         free(text);
-    } else {
-        printf("    (no update-desktop-database here: the MimeType cache not checked)\n");
     }
     free(cache);
     free(path);
@@ -93,8 +91,21 @@ static void test_links(void) {
     free(home);
 }
 
+static void test_links(void) { links(0); }
+static void test_mime_cache(void) { links(1); }
+
 TEST_MAIN_BEGIN
-    RUN(test_exec);
-    RUN(test_install);
-    RUN(test_links);
+    /* --mime-cache: the MimeType cache, a test of its own, skipped where the
+     * desktop has no update-desktop-database to make it. */
+    if (argc > 1 && !strcmp(argv[1], "--mime-cache")) {
+        if (system("command -v update-desktop-database >/dev/null 2>&1") != 0) {
+            printf("skipped: no update-desktop-database here\n");
+            return 77;
+        }
+        RUN(test_mime_cache);
+    } else {
+        RUN(test_exec);
+        RUN(test_install);
+        RUN(test_links);
+    }
 TEST_MAIN_END

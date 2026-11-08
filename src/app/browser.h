@@ -11,10 +11,10 @@
 #define DXL_BROWSER_H
 
 #include "core/common.h"
+#include "core/gamespy.h"
 
 #include <stdatomic.h>
 
-#define DXL_MASTER_PORT  28900
 #define DXL_BROWSE_MAX   256      /* the servers asked, at most */
 
 /* The local network's look, the profile's [DeusEx.DeusExLocalLink]. */

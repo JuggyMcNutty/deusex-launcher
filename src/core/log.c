@@ -51,6 +51,9 @@ void dxl_log(const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(msg, sizeof msg, fmt, ap);
     va_end(ap);
+    /* Others' text among it -- a server's, a master's refusal -- acts on no
+     * terminal the log is shown in. */
+    dxl_text_no_controls(msg, msg, sizeof msg);
 
     if (log_file) {
         fprintf(log_file, "[%s] %s\n", stamp, msg);

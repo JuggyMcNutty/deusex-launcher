@@ -1,4 +1,6 @@
 #include "core/settings.h"
+#include "core/engine_sections.h"
+#include "core/gamespy.h"
 #include "core/renderers.h"
 
 #include <math.h>
@@ -111,22 +113,18 @@ static int decode(const dxl_set_place *p, const char *v, char *out, size_t size)
     switch (p->codec) {
     case DXL_CODEC_BOOL:
     case DXL_CODEC_NOT: {
-        /* User.ini's a class's config, whose import takes no yes or no. */
-        int b = p->store == DXL_STORE_USER ? dxl_class_bool(v) : dxl_text_bool(v);
+        /* The game's inis as the engine and a class's import read them,
+         * with no yes or no; the launcher's own as it reads them. */
+        int game = p->store == DXL_STORE_SYSTEM || p->store == DXL_STORE_USER;
+        int b = game ? dxl_class_bool(v) : dxl_text_bool(v);
         if (b < 0) return 0;
         snprintf(out, size, "%d", p->codec == DXL_CODEC_NOT ? !b : b);
         return 1;
     }
-    case DXL_CODEC_HZ: {
-        const char *hz = strstr(v, "Hz");
-        char num[64];
-        if (!hz || (size_t)(hz - v) >= sizeof num) return 0;
-        memcpy(num, v, (size_t)(hz - v));
-        num[hz - v] = '\0';
-        if (!leading_int(num, &i)) return 0;
+    case DXL_CODEC_HZ:
+        if (!(i = dxl_engine_rate(v))) return 0;
         snprintf(out, size, "%.6g", i / scale_of(p));
         return 1;
-    }
     case DXL_CODEC_INT:
     case DXL_CODEC_WIDTH:
     case DXL_CODEC_HEIGHT:
@@ -138,11 +136,24 @@ static int decode(const dxl_set_place *p, const char *v, char *out, size_t size)
         snprintf(out, size, "%.6g", (unsigned char)i / scale_of(p));
         return 1;
     case DXL_CODEC_FLOAT:
-        if (!leading_float(v, &n)) return 0;
+        /* The game's inis as the engine and a class's import read a float,
+         * any text by strtod, an empty one 0 (bugs.md ENG.11); the
+         * launcher's own with a number. */
+        if (p->store == DXL_STORE_SYSTEM || p->store == DXL_STORE_USER) n = strtod(v, NULL);
+        else if (!leading_float(v, &n)) return 0;
         snprintf(out, size, "%.6g", n / scale_of(p));
         return 1;
     case DXL_CODEC_TEXT:
         snprintf(out, size, "%s", v);
+        return 1;
+    case DXL_CODEC_HOST:
+        snprintf(out, size, "%s", v);
+        return *v != '\0';
+    case DXL_CODEC_PORT:
+        /* UIntProperty::ImportText's: a '+', a blank or no text leaves the
+         * class's default. */
+        if (*v != '-' && (*v < '0' || *v > '9')) return 0;
+        snprintf(out, size, "%d", (int)strtol(v, NULL, 10));
         return 1;
     default:
         return 0;
@@ -257,6 +268,18 @@ int dxl_setting_get(const dxl_stores *st, const dxl_setting *s, char *out, size_
             i++;
             continue;
         }
+        /* A master server: its address's place and its port's, the next,
+         * the class's port where that holds none. */
+        if (s->at[i].codec == DXL_CODEC_HOST && i + 1 < DXL_SET_PLACES && s->at[i + 1].codec == DXL_CODEC_PORT) {
+            char host[400], port[32];
+            if (read_place(st, &s->at[i], host, sizeof host)) {
+                if (!read_place(st, &s->at[i + 1], port, sizeof port)) snprintf(port, sizeof port, "%d", DXL_MASTER_PORT);
+                snprintf(out, size, "%s:%s", host, port);
+                return 1;
+            }
+            i++;
+            continue;
+        }
         if (read_place(st, &s->at[i], out, size)) return 1;
     }
     snprintf(out, size, "%s", s->def ? s->def : "");
@@ -341,11 +364,23 @@ int dxl_setting_set(dxl_stores *st, const dxl_setting *s, const char *value) {
     int rc = 0;
     for (int i = 0; i < DXL_SET_PLACES && s->at[i].store != DXL_STORE_NONE; i++) {
         const char *part = v;
-        char half[32];
+        char half[sizeof v];
         int w = 0, h = 0;
         if (s->at[i].codec == DXL_CODEC_WIDTH || s->at[i].codec == DXL_CODEC_HEIGHT) {
             sscanf(v, "%dx%d", &w, &h);
             snprintf(half, sizeof half, "%d", s->at[i].codec == DXL_CODEC_WIDTH ? w : h);
+            part = half;
+        } else if (s->at[i].codec == DXL_CODEC_HOST || s->at[i].codec == DXL_CODEC_PORT) {
+            /* "<address>:<port>", the port the digits after the last ':';
+             * with none, the address all of it at the class's port. */
+            const char *colon = strrchr(v, ':');
+            int ported = colon && colon[1] && strspn(colon + 1, "0123456789") == strlen(colon + 1);
+            if (s->at[i].codec == DXL_CODEC_HOST)
+                snprintf(half, sizeof half, "%.*s", ported ? (int)(colon - v) : (int)strlen(v), v);
+            else if (ported)
+                snprintf(half, sizeof half, "%s", colon + 1);
+            else
+                snprintf(half, sizeof half, "%d", DXL_MASTER_PORT);
             part = half;
         } else if (s->flags & DXL_SET_RENDERER) {
             /* "Vulkan+CPU": the Type, then CPUDriver */

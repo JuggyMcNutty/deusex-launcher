@@ -146,14 +146,21 @@ static void test_import_plan(void) {
     dxl_env_set("DXL_HOME", NULL);
 }
 
-/* What under dir changed after when, a file or a folder, each said; at
- * most five. The IDA databases beside the game's binaries are not the
- * game's, and an IDA session may write them at any time. */
-static int changed_under(const char *dir, time_t when, int n) {
+/* What is under a folder: each folder by its path, each file by its path,
+ * size and time, sorted. The IDA databases beside the game's binaries are
+ * not the game's: an IDA session writes them, makes and takes away their
+ * companions at any time, and so changes their folder's own time, which is
+ * no file's (bugs.md LAPP.17). */
+typedef struct {
+    char **line;
+    size_t n, cap;
+} tree;
+
+static void tree_walk(const char *dir, tree *t) {
     static const char *const ida[] = { ".i64", ".id0", ".id1", ".id2", ".nam", ".til" };
     DIR *d = opendir(dir);
     struct dirent *e;
-    while (d && n < 5 && (e = readdir(d)) != NULL) {
+    while (d && (e = readdir(d)) != NULL) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
         const char *ext = strrchr(e->d_name, '.');
         int skip = 0;
@@ -162,64 +169,104 @@ static int changed_under(const char *dir, time_t when, int n) {
         char *p = dxl_path_join(dir, e->d_name);
         struct stat st;
         if (stat(p, &st) == 0) {
-            if (st.st_mtime > when) {
-                fprintf(stderr, "  changed: %s\n", p);
-                n++;
+            char line[1200];
+            if (S_ISDIR(st.st_mode)) snprintf(line, sizeof line, "%s/", p);
+            else snprintf(line, sizeof line, "%s %lld %lld", p, (long long)st.st_size, (long long)st.st_mtime);
+            if (t->n == t->cap) {
+                t->cap = t->cap ? t->cap * 2 : 256;
+                t->line = dxl_xrealloc(t->line, t->cap * sizeof *t->line);
             }
-            if (S_ISDIR(st.st_mode)) n = changed_under(p, when, n);
+            t->line[t->n++] = dxl_xstrdup(line);
+            if (S_ISDIR(st.st_mode)) tree_walk(p, t);
         }
         free(p);
     }
     if (d) closedir(d);
+}
+
+static int by_line(const void *a, const void *b) { return strcmp(*(char *const *)a, *(char *const *)b); }
+
+static void tree_take(const char *dir, tree *t) {
+    memset(t, 0, sizeof *t);
+    tree_walk(dir, t);
+    if (t->n) qsort(t->line, t->n, sizeof *t->line, by_line);
+}
+
+static void tree_free(tree *t) {
+    for (size_t i = 0; i < t->n; i++) free(t->line[i]);
+    free(t->line);
+    memset(t, 0, sizeof *t);
+}
+
+/* What differs between two takes of a folder, each said, at most five: a
+ * file or a folder made or taken away, a file written. */
+static int tree_changes(const tree *was, const tree *now) {
+    int n = 0;
+    size_t i = 0, j = 0;
+    while (i < was->n || j < now->n) {
+        int c = i == was->n ? 1 : j == now->n ? -1 : strcmp(was->line[i], now->line[j]);
+        if (!c) {
+            i++, j++;
+            continue;
+        }
+        if (n < 5) fprintf(stderr, "  %s: %s\n", c < 0 ? "was" : "now", c < 0 ? was->line[i] : now->line[j]);
+        n++;
+        if (c < 0) i++;
+        else j++;
+    }
     return n;
 }
 
-/* Every file under the game's folder changed since mark: none may be. */
-static int changed_since(const char *mark) {
-    struct stat st;
-    if (stat(mark, &st) != 0) return 1;
-    char *root = dxl_path_dirname(DXL_GAMEFILES);
-    int n = changed_under(root, st.st_mtime, 0);
-    free(root);
-    return n;
-}
-
-/* The walk sees what changed: a file written in a new folder after the
- * mark, and the folder. */
+/* The walk sees what changed: a file written in a new folder, and the
+ * folder; a file written over and one taken away; not an IDA database's
+ * companion made and taken away, which changes its folder's time alone. */
 static void test_changed_seen(void) {
     char *dir = dxl_xstrdup(scratch_dir("gamefiles-changed"));
-    scratch_write(dir, "mark", "");
-    char *mark = scratch_path(dir, "mark");
-    struct stat st;
-    CHECK_INT(stat(mark, &st), 0);
+    scratch_write(dir, "System/Core.dll", "MZ");
+    scratch_write(dir, "System/Core.u", "pkg");
+    tree was, now;
+    tree_take(dir, &was);
     dxl_os_sleep_ms(1000);
+    scratch_write(dir, "System/Core.dll.id0", "");
+    char *companion = scratch_path(dir, "System/Core.dll.id0");
+    remove(companion);
+    free(companion);
+    tree_take(dir, &now);
+    CHECK_INT(tree_changes(&was, &now), 0);
+    tree_free(&now);
     scratch_write(dir, "new/file", "");
-    CHECK_INT(changed_under(dir, st.st_mtime, 0), 2);
-    free(mark);
+    scratch_write(dir, "System/Core.u", "pkg2");
+    char *gone = scratch_path(dir, "System/Core.dll");
+    remove(gone);
+    free(gone);
+    tree_take(dir, &now);
+    CHECK_INT(tree_changes(&was, &now), 5);   /* new/, new/file, Core.u as it was and is, Core.dll */
+    tree_free(&was);
+    tree_free(&now);
     scratch_remove(dir);
     free(dir);
 }
 
-/* The game's folder over every start below: a mark made before the first,
- * older than anything a run could write, and after the last nothing under
- * the folder newer than it. */
-static char *game_mark;
+/* The game's folder over every start below: taken before the first, the
+ * same after the last. */
+static tree game_was;
 
 static void test_mark_before_the_runs(void) {
-    char *dir = dxl_xstrdup(scratch_dir("gamefiles-mark"));
-    scratch_write(dir, "mark", "");
-    game_mark = scratch_path(dir, "mark");
-    free(dir);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    tree_take(root, &game_was);
+    free(root);
+    CHECK(game_was.n > 0);
     dxl_os_sleep_ms(1000);
 }
 
 static void test_game_folder_untouched(void) {
-    CHECK_INT(changed_since(game_mark), 0);
-    char *dir = dxl_path_dirname(game_mark);
-    scratch_remove(dir);
-    free(dir);
-    free(game_mark);
-    game_mark = NULL;
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    tree now;
+    tree_take(root, &now);
+    CHECK_INT(tree_changes(&game_was, &now), 0);
+    tree_free(&now);
+    tree_free(&game_was);
+    free(root);
 }
 
 static int run_launcher(const char *game, const char *word) {
@@ -374,6 +421,8 @@ static void test_server_takes_no_handover(void) {
     dxl_env_set("DXL_STUB_LINE", "DX.dx -server");
     for (int relaunched = 0; relaunched < 2; relaunched++) {
         dxl_env_set("DXL_STUB", relaunched ? "relaunch" : "ready");
+        /* The run before's log gone, its start not taken for this one's. */
+        remove(log);
         pid_t pid = fork();
         if (pid == 0) _exit(run_launcher(root, relaunched ? NULL : "-server"));
         /* The server's engine up: its start the run's, or the relaunch's. */
@@ -891,6 +940,18 @@ static void test_assets(void) {
     free(bmp);
     free(logo);
 
+    free(root);
+}
+
+/* The install's own saves (gamefiles/Save), as the window reads them: the
+ * first there is, its info and snapshot; then the list, as Continue and the
+ * save browser take it, the newest the latest. With none there, none of it
+ * read: test_gamefiles_saves is skipped (bugs.md LAPP.16). */
+static int saves_read;
+
+static void test_install_saves(void) {
+    dxl_err e;
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
     /* The first save there is, its info and snapshot. */
     char *saves = dxl_path_join(root, "Save");
     DIR *d = opendir(saves);
@@ -912,7 +973,7 @@ static void test_assets(void) {
         free(info);
     }
     if (d) closedir(d);
-    if (!read) printf("    (no save in the install to read)\n");
+    saves_read = read;
     /* Listed as Continue and the save browser list them: each that read
      * above among them, the newest the latest. */
     dxl_saves list;
@@ -933,6 +994,16 @@ TEST_MAIN_BEGIN
     if (access(DXL_GAMEFILES "/Default.ini", R_OK) != 0) {
         printf("skipped: no Deus Ex install in %s\n", DXL_GAMEFILES);
         return 77;
+    }
+    /* --saves: the install's saves alone, a test of their own. */
+    if (argc > 1 && !strcmp(argv[1], "--saves")) {
+        RUN(test_install_saves);
+        if (!saves_read && !dxl_test_failures) {
+            printf("skipped: no save in the install to read\n");
+            return 77;
+        }
+        printf("ok\n");
+        return dxl_test_failures ? 1 : 0;
     }
     RUN(test_roundtrip);
     RUN(test_shipped_bindings);

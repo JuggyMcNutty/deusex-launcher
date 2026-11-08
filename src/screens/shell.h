@@ -339,6 +339,9 @@ typedef struct dxl_shell {
      * dxl_shell_browsed. NULL offscreen, where nothing is asked. */
     void       (*start_browse)(struct dxl_shell *s, const char *master, const char *const *also,
                                const dxl_browse_lan *lan);
+    /* How Profiles checks a profile's install: NULL, dxl_install_check;
+     * dxl-shots' own, its made-up installs of a few bytes good. */
+    int        (*check_install)(const char *root, dxl_install *out);
 
     struct { char text[200]; double at; } toasts[DXL_TOASTS];
     int          toast_count;
