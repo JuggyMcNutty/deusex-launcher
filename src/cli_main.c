@@ -42,7 +42,7 @@ static void usage(FILE *f) {
         "  --print-command  the engine's command line for this profile; nothing is run\n"
         "  --import         a profile made from --game's install, nothing run\n"
         "  --play           play, with no Home screen; a screen that is due is a message\n"
-        "  --probe [--ini]  the Vulkan, OpenGL ES 3.2 and OpenGL 4.2 core this machine's GPU\n"
+        "  --probe [--ini]  the Vulkan, OpenGL ES 3.1 and OpenGL 4.2 core this machine's GPU\n"
         "                   offers, a context of each made and its version read, and Mesa's\n"
         "                   CPU drivers; --ini as the [Probe] section the launcher's window reads\n"
         "  --find           the installs of Deus Ex the first run would find here, but\n"
@@ -80,9 +80,9 @@ static int probe(int as_ini) {
     }
     printf("vulkan     %s\n", p.vulkan ? "yes" : "no");
     if (p.vulkan) printf("  device   %s\n  api      %s\n", p.vulkan_device, p.vulkan_version);
-    /* The GL renderer's two: an OpenGL ES 3.2 context and a 4.2 core one,
+    /* The GL renderer's two: an OpenGL ES 3.1 context and a 4.2 core one,
      * a driver below them shown with its version. */
-    printf("opengl es  %s\n", p.gles ? "yes" : "no: the GL renderer needs OpenGL ES 3.2");
+    printf("opengl es  %s\n", p.gles ? "yes" : "no: the GL renderer needs OpenGL ES 3.1");
     if (p.gles_renderer[0]) printf("  renderer %s\n", p.gles_renderer);
     if (p.gles_version[0]) printf("  version  %s\n", p.gles_version);
     printf("opengl     %s\n", p.gl ? "yes" : "no: the GL renderer needs an OpenGL 4.2 core context");

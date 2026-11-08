@@ -538,7 +538,7 @@ multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
 a first run's engine defaults among them. Its
 Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2,
-OpenGL ES 3.2, and Software, which draws on the CPU and needs nothing of the
+OpenGL ES 3.1, and Software, which draws on the CPU and needs nothing of the
 GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds the GPU's in a
 child process as the page needs them, OpenGL and OpenGL ES each by a
 context made at its version, so a driver below it is not offered, and a
@@ -788,7 +788,7 @@ Home's The engine... chooses another.
 | `--print-command` | the engine's command line for the profile, a shell's (Windows' launcher prints cmd.exe's); nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
-| `--probe` | the Vulkan, OpenGL ES 3.2 and OpenGL 4.2 core this machine's GPU offers, a context of each GL made and its version shown, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
+| `--probe` | the Vulkan, OpenGL ES 3.1 and OpenGL 4.2 core this machine's GPU offers, a context of each GL made and its version shown, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it and printed as it answers: its name (its address where it gives none), map, game, players, ping and address; then those that gave none. Their text and a master's refusal, here and in `launcher.log`, have each control character a terminal acts on (C0's, DEL, C1's CSI and OSC) as `?` |
@@ -869,7 +869,7 @@ ends (`test_process`, which has the engine's refusals and its choice too,
 `test_profile` imports from a fake install made read-only, which it leaves
 as it was, and makes, lists and copies profiles; `test_trash` puts folders
 in a scratch trash; `test_gpu_probe` probes this machine's GPU with Mesa's
-versions set at OpenGL 4.2 and ES 3.2, which it then offers, and lowered
+versions set at OpenGL 4.2 and ES 3.1, which it then offers, and lowered
 below them, which it then does not (skipped where an OpenGL ES context the
 test makes itself is no GPU's of Mesa's; a probe that does not report back
 fails); `test_gamefiles`, on a real install in `gamefiles/`, reads every

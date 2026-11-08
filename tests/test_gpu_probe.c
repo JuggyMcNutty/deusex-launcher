@@ -1,10 +1,10 @@
 /* The GPU probe on this machine's own drivers (platform/gpu_probe.h), in
  * its child: the GL renderer's two APIs offered only at the versions it
- * asks for, an OpenGL 4.2 core context and an OpenGL ES 3.2 one, each made
+ * asks for, an OpenGL 4.2 core context and an OpenGL ES 3.1 one, each made
  * and its version read. Held to what Mesa's drivers are made to offer, not
- * to the probe's own answers (bugs.md LAPP.13): at 4.2 and ES 3.2
+ * to the probe's own answers (bugs.md LAPP.13): at 4.2 and ES 3.1
  * (MESA_GL_VERSION_OVERRIDE, MESA_GLES_VERSION_OVERRIDE) both offered, a
- * context of each made at that version; lowered below them, 4.1 and ES 3.1,
+ * context of each made at that version; lowered below them, 4.1 and ES 3.0,
  * as an older GPU's are, neither. Skipped where an OpenGL ES context this
  * test makes itself is no GPU's of Mesa's -- no GPU, no EGL, or another
  * maker's driver, which Mesa's variables do not move; a probe that does not
@@ -90,16 +90,16 @@ TEST_MAIN_BEGIN
     }
     /* At the versions the GL renderer asks for: both offered. */
     dxl_gpu_probe at;
-    CHECK_INT(probe_at(&at, "4.2", "3.2"), 0);
-    if (!at.gles || !at.gl) fprintf(stderr, "  at 4.2 and ES 3.2: \"%s\", \"%s\"\n", at.gles_version, at.gl_version);
+    CHECK_INT(probe_at(&at, "4.2", "3.1"), 0);
+    if (!at.gles || !at.gl) fprintf(stderr, "  at 4.2 and ES 3.1: \"%s\", \"%s\"\n", at.gles_version, at.gl_version);
     CHECK_INT(at.gles, 1);
-    CHECK(strstr(at.gles_version, "OpenGL ES 3.2") != NULL);
+    CHECK(strstr(at.gles_version, "OpenGL ES 3.1") != NULL);
     CHECK_INT(at.gl, 1);
     CHECK(strncmp(at.gl_version, "4.2", 3) == 0);
     /* Below them: neither, the ES context made at its own version. */
     dxl_gpu_probe low;
-    CHECK_INT(probe_at(&low, "4.1", "3.1"), 0);
-    CHECK(strstr(low.gles_version, "OpenGL ES 3.1") != NULL);
+    CHECK_INT(probe_at(&low, "4.1", "3.0"), 0);
+    CHECK(strstr(low.gles_version, "OpenGL ES 3.0") != NULL);
     CHECK_INT(low.gles, 0);
     CHECK_INT(low.gl, 0);
     CHECK_INT(low.vulkan, p.vulkan);

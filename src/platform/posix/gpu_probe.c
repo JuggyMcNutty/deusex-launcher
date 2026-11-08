@@ -174,7 +174,7 @@ static int context_strings(const egl_fns *f, EGLDisplay dpy, EGLenum api, EGLint
 }
 
 /* OpenGL ES and desktop OpenGL as the engine's GL renderer asks SDL for
- * them, an ES 3.2 context and a 4.2 core one: each offered only with a
+ * them, an ES 3.1 context and a 4.2 core one: each offered only with a
  * context made and its GL_VERSION at that, as Windows' probe asks for 4.2.
  * EGL_CLIENT_APIS alone names a driver of any version. */
 static void probe_egl(dxl_gpu_probe *out) {
@@ -218,7 +218,7 @@ static void probe_egl(dxl_gpu_probe *out) {
                              sizeof out->gles_version, out->gles_renderer, sizeof out->gles_renderer))
             context_strings(&f, dpy, EGL_OPENGL_ES_API, EGL_OPENGL_ES2_BIT, es2, gles_libs, out->gles_version,
                             sizeof out->gles_version, out->gles_renderer, sizeof out->gles_renderer);
-        out->gles = dxl_gl_version_at_least(out->gles_version, 3, 2);
+        out->gles = dxl_gl_version_at_least(out->gles_version, 3, 1);
     }
     /* Desktop OpenGL: a 4.2 core context, or none. */
     if (has_api_word(apis, "OpenGL")) {
