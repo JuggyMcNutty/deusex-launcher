@@ -279,11 +279,12 @@ machine's interfaces; a beacon's answer that begins with its
 `BeaconProduct` (`DeusEx`) and a space names its server's query port, and
 the server is listed as LAN; the beacons are given a second at least, and
 what they answer is read however long the master takes.
-Then the profile's master server,
+Then the profile's master server, as the game's Join Internet asks it:
 `DeusEx.ini`'s `[DeusEx.MenuScreenJoinGame] MasterServerAddress`
-(333networks', which the import writes), over TCP on 28900, its challenge
-answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4 keyed by six
-spaces for Deus Ex, and its list asked for
+(333networks', which the import writes), resolved whole, over TCP at its
+`MasterServerTCPPort` (28900, the class's, where it holds no number), its
+challenge answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4
+keyed by six spaces for Deus Ex, and its list asked for
 ([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server));
 then each server it lists, and each of the profile's favourites
 (`profile.ini`'s `Favourites`, asked whether the master lists them or
@@ -291,11 +292,13 @@ not), for its `\status\`, all at once over UDP: the game's answer, a
 packet each for its basic, info and rules and one for each player, in
 whatever order they come; one not whole a second after its asking -- a
 packet lost, or all of them -- asked again, its answer begun again, three
-times at most, and given up two seconds after the last
-(`src/core/gamespy.c`). Refresh asks them all again.
-Each shows as it answers -- its name, map, game, players and ping, the
-time to its first packet, LAN for one of the local network's -- and, once
-all have, by the sort chosen: ping, players or name; the filter shows them
+times at most, and given up two seconds after the last, the later ask's
+answer known by its id, which the server counts from 1 to 100 and begins
+again (`src/core/gamespy.c`). Refresh asks them all again.
+Each shows as it answers -- its name, or its address where it gives none,
+map, game, players and ping, the time to its first packet, LAN for one of
+the local network's -- and, once all have, by the sort chosen: ping,
+players or the name shown; the filter shows them
 all, those with players, those not full, those with no password, the
 favourites, or those on this network. Beside the one chosen: its address,
 on this network for a LAN server, map, game, players and each player's
@@ -482,7 +485,7 @@ takes (`src/core/settings.c`):
 
 | Kept in | What |
 |---|---|
-| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer, and full screen, which every run sets; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` |
+| `DeusEx.ini` | the engine's sections, `[Engine.DXEngineClient]`, `DXEngineAudioDevice`, `DXEngineRenderDevice`: brightness, decals, moving lights, flashes, detail textures, fog, the volumes and the mixer, and full screen, which every run sets; `[DeusEx.MenuScreenJoinGame] MasterServerAddress` and `MasterServerTCPPort`, the Master server row's address and its port after a colon |
 | `User.ini` | `[Engine.PlayerPawn]`: the field of view, the mouse; `[DeusEx.DeusExPlayer]`: the gameplay and HUD rows and the colour themes; `[DefaultPlayer] Name`; `[Engine.Input]`: the keys, the controller's buttons |
 | the engine folder's `Settings.json` | the renderer, anti-aliasing, lighting, the brightness curve, contrast, colour and gamma, vertical sync, the render scale, bloom, HDR, the textures' LOD bias, screenshots with the brightness; the controller's dead zone, speeds, inverted looking and whether the game reads it |
 | `launcher.ini`, `profile.ini` | the launcher's own: the engine, reduced motion, Home after playing, its renderer, its volumes, the CPU mode; the profile's game, the engine's extra words |
@@ -492,18 +495,23 @@ takes (`src/core/settings.c`):
 (`[WinDrv.WindowsClient]`, `[Galaxy.GalaxyAudioSubsystem]`, the render
 device's), taking its built-in default for a key missing there; a row reads
 the same way, and is written to both, so the two agree. The engine takes its
-built-in default for a value its converters cannot read (`maybe` for a bool,
-a rate without `Hz`), stopping nothing: to a row such text is no value
-either, so it shows that default; so is a `Yes` or a `No` in `User.ini`'s
-bools, its classes' config, whose import takes `True` or `1` and `False` or
-`0` alone. A value is written as the engine writes it
+built-in default for a value its converters cannot read -- for a bool any
+text but `True` or `1` and `False` or `0`, `Yes` and `No` among it, as the
+classes' import in `User.ini` reads them; for a rate any but Galaxy's seven
+names, `8000Hz` to `48000Hz` -- stopping nothing: to a row such text is no
+value either, so it shows that default. A float is read from any text, 0
+where it holds no number, as the engine and the classes' import read it.
+The launcher's own files take a `Yes` or a `No` too, and a float only from a
+number. A value is written as the engine writes it
 (`True`, `0.600000`, `153`, `44100Hz`), and only as the player changes it:
 one outside a slider's range, as the game's console or a hand sets it, shows
 at the slider's end and stays as it is until the slider is moved. Before the
 page opens and before each run, each key of the engine's sections that is
-missing is written, from the retail value where there is one, else the
-engine's default (`src/core/engine_sections.c`), so the engine reads what
-the page shows. A row's default is what is taken with no value kept: the
+missing is written, from the retail value where there is one, read as the
+engine reads it, else the engine's default (`src/core/engine_sections.c`),
+the original's config the engine keeps and has no use for (the client's
+`MipFactor`, D3DDrv's options) among them, so the engine reads what the page
+shows. A row's default is what is taken with no value kept: the
 engine's own, the class's for `User.ini`'s keys, the defaults file's for
 `Settings.json` but its renderer (below).
 
@@ -593,11 +601,13 @@ The changes are in the open files at once, and written as Settings is
 left, by Done or otherwise. The launcher's volumes and reduced motion
 apply at once, its renderer from the window's next opening.
 
-`Settings.json` is read as the engine reads it: a comma before a close, or
-anything after the document, makes it no JSON to either, the engine playing
-on its defaults. One neither can read is written anew the next time the
-launcher writes it, the old one kept beside it as `Settings.json.unreadable`
-and the launcher's log saying why.
+`Settings.json` is read as the engine reads it: a form feed among the
+blanks, a control byte in a string, a number as loose as `-.5` or `1e` and
+values nested 512 deep are read by both; a comma before a close, or anything
+after the document, makes it no JSON to either, the engine playing on its
+defaults. One neither can read is written anew the next time the launcher
+writes it, the old one kept beside it as `Settings.json.unreadable` and the
+launcher's log saying why.
 
 ## The controller
 
@@ -778,8 +788,8 @@ Home's The engine... chooses another.
 | `--probe` | the Vulkan, OpenGL ES and OpenGL this machine offers (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
-| `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it: its name, map, game, players, ping and address |
-| `--lan` | the servers on the local network, found and asked as Multiplayer finds and asks them, each LAN; `DXL_LAN=<host>[:<port>]` asks that one place's beacons, from that port, in place of the network's, and `DXL_LAN=none` no beacon (Multiplayer's too) |
+| `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it and printed as it answers: its name (its address where it gives none), map, game, players, ping and address; then those that gave none. Their text and a master's refusal, here and in `launcher.log`, have each control character a terminal acts on (C0's, DEL, C1's CSI and OSC) as `?` |
+| `--lan` | the servers on the local network, found and asked as Multiplayer finds and asks them, each LAN, printed as `--servers` prints them; `DXL_LAN=<host>[:<port>]` asks that one place's beacons, from that port, in place of the network's, and `DXL_LAN=none` no beacon (Multiplayer's too) |
 
 ## How it is tested
 
@@ -806,7 +816,8 @@ replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
 sentinel, the state folder, every launcher's mark of running, and each
 client's channel of its own, a line going to the newest;
 `test_renderers` the renderers the probe and
-the engine's build offer, and the PowerVR's anti-aliasing lock; `test_xdg`
+the engine's build offer, the probe's answer through its ini and back, and
+the PowerVR's anti-aliasing lock; `test_xdg`
 the XDG folders, the spec's defaults where none is set. `test_settings`
 takes the registry's rows through each codec, both generations of the system
 ini, the next run's words, `Settings.json` and the renderer where it names
@@ -814,22 +825,27 @@ none, the presets and a new profile's defaults; `test_keys` the key names,
 bindings and their reset; `test_bindings` the controller's layouts, labels
 and actions; `test_padcurve` its sticks and triggers as the engine takes
 them; `test_padmap` SDL's mappings, `gamecontrollerdb.txt`, read back by
-SDL, and what the engine is given; `test_shell_pick` a list's choice found
-again in it, two of its labels alike, and an answer whose control is gone
-dropped; `test_shell_choose` a repoint whose save fails, the profile's
-install left as it was, in memory too; `test_engine_sections` the keys
-written; `test_advice` the advice; `test_upkg` the game's packages, on
+SDL, and what the engine is given, SDL held to its pad's make and model as
+`test_ui_input` is to its virtual pads'; `test_shell_pick` a list's choice
+found again in it, two of its labels alike, and an answer whose control is
+gone dropped; `test_shell_choose` a repoint whose save fails, the profile's
+install left as it was, in memory too; `test_shell_browse` the master
+server Multiplayer asks, at the profile's port; `test_engine_sections` the
+keys written, each as the engine reads its retail one; `test_advice` the
+advice; `test_upkg` the game's packages, on
 packages it writes itself and the same broken a thousand ways, read at a
 page's end so that a read past them faults; `test_saves` a profile's saves
 and shots, the saves' infos written as the game writes them
 (`tests/upkg_writer.h`), a snapshot read only when asked for; `test_vdf`
-Steam's KeyValues files,
+Steam's KeyValues files, blocks nested past 32 refused,
 and `test_finder` each of the finder's places, in homes it makes up;
 `test_mods` which folders are mods, their settings and where they are found,
 and their profiles' paths, settings and saves, of mods it makes up;
 `test_gamespy` the master's and the servers' words, the challenge's answer
 against the original's own; `test_servers` a server's answer, the sort, the
 filters (on this network among them), the join URL and the favourites;
+`test_cli` `dxl-cli`'s look, each server printed as it answers, and others'
+text, there and in the log, with no control character a terminal acts on;
 `test_browser` a look at a master and servers of its own on this machine,
 one of them silent, one losing a packet of its first answer, and at beacons
 of its own (`DXL_LAN`): the game's, its server asked and handed over as LAN,
@@ -846,7 +862,8 @@ folder, its link not followed;
 helpers and a scratch sysfs, each CPU mode and the state put back;
 `test_gamefiles`, on a real install in `gamefiles/`, reads every asset the
 window takes from it -- the menu themes, the art, the menu sounds, the title
-music, and the infos and snapshots of any saves it has -- plays the stub
+music (`test_gamefiles_saves` its saves' infos and snapshots, skipped where
+it has none) -- plays the stub
 from a scratch home through a first run, a crash with the profile's state
 folder gone and the Recovery that follows, a launcher killed while it plays,
 a dedicated server, started so or relaunched to, that takes no second
@@ -855,7 +872,9 @@ start's line, and ends with no game after a crash, Recovery quit,
 with Recovery not answered, which leaves it, or a stop before the game,
 which starts none; finds a launcher started beside another live once that
 one has ended, its `Running.ini` no crash, and hands it a later start's
-line; and checks that nothing in the game's folder changed over them all.
+line; and checks that nothing in the game's folder changed over them all,
+no file or folder made, written or taken away, but the IDA databases beside
+the game's binaries.
 
 The window's kit is tested on SDL's software renderer and a surface: focus
 and navigation and what the d-pad's moves reach (`test_ui_focus`), text
@@ -868,8 +887,9 @@ page and dialog, each settings page too, from states it makes up in a
 scratch home, at the Smart Pro's 1280x720 on the big screen, with the
 keyboard, the mouse and four virtual pads, and fails on any diagnostic of
 the kit's: a label cut short, focusables on one another or off the window
-(`test_ui_shots_1280x720big`); with `--out=<dir>` it writes them as PNGs for
-review. On the desktop's display, `DXL_UI_SCRIPT=<file>` gives the window a
+(`test_ui_shots_1280x720big`), and on an `--only=<text>` that no shot's
+name holds; with `--out=<dir>` it writes them as PNGs for review. On the
+desktop's display, `DXL_UI_SCRIPT=<file>` gives the window a
 script of keys, text, controls found by their labels -- given the focus
 where the arrows, a pad's d-pad, reach them, FAILED where they do not --
 virtual controllers,
@@ -880,7 +900,8 @@ home to the game and its clean end, and a crash into Recovery, are run that
 way (a second start's hand-over is `test_play`'s, from a thread).
 `test_ui_scripts` runs `tests/ui/`'s, on a profile made from `gamefiles/`
 in a scratch home, with the stub for the engine and no beacon asked
-(`DXL_LAN=none`), each to its end, and reads what they changed:
+(`DXL_LAN=none`), each to its end and the launcher's exit, whose status it
+checks, and reads what they changed:
 `settings_roundtrip` changes a row of each kind on each page and finds each
 in its file as its reader takes it, a value outside its slider's range as it
 was, no renderer named where none was chosen, and the next run's words on
@@ -909,15 +930,17 @@ makes a profile, duplicates one, renames and deletes the copy, and uses the
 first again; `mods` makes a made-up mod's profile from Mods, and finds its
 paths, its settings and its save in it; `continue` starts the game on the
 latest save from Home, `saves_load` on a save from Saves, `saves_delete`
-deletes one, and `shots` shows a shot whole and deletes it, each finding the
+deletes one, of the saves the test writes alone, none of the install's, and
+`shots` shows a shot whole and deletes it, each finding the
 save's URL on the engine's command line or what was deleted gone;
 `multiplayer` joins the server a master on this machine lists,
 `multiplayer_pad` goes from Sort to Refresh by a pad's d-pad and asks again,
 `multiplayer_address` an address left half typed by a Tab, which joins
 nothing, then typed and joined, `multiplayer_link` the server of a start's
 `deusex://` link once asked, `multiplayer_handover_edit` one a second start
-hands over while a name is edited, asked once the edit is kept, the name
-kept, and `multiplayer_password` a server that asks
+hands over while a name is edited, made once the name is typed, asked once
+the edit is kept, the name kept, and `multiplayer_password` a server that
+asks
 for a password, the engine's and not the log's, each finding it in the
 engine's `--url`; `first_run` and `first_run_defaults` make a profile from
 nothing, a controller connected, with Your profile's choices made and as
@@ -953,42 +976,11 @@ Changed:
 | The setup wizard's pages, Win32 dialogs of a fixed size | A window of pages of its own, laid out in dp, for the keyboard, the mouse and a pad | The handheld's 1280 x 720 screen and its pad |
 | The renderer page, the first run's and `-changevideo`'s: the drivers installed | Settings' Graphics page: the engine's renderers that run here, and its other drawing settings; `-changevideo` opens it, and its Done plays | The engine's renderers are its own; the probe says which run on this machine |
 | Safe mode's eight flags, for a relaunch | Three of them, `-nosound`, `-nohard` (without `-noddraw`'s window, which the device does not show) and `-nojoy`, for the run Play starts next | Of the others, `-no3dsound` and the processor box (MMX, KNI, K6) name what the engine does not use; `-nohard -noddraw`'s window the device does not show, nor does full screen take `-defaultres`'s 640 x 480, and Reset, which deletes the ini and is no flag, is not offered |
-| The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads `TextureDetail` and `SkinDetail`, each texture's mip (`TextureDetail` also leaving the detail textures out below High, as the Detail textures row does), `MinDesiredFrameRate`, the viewport sizes and the sound's (`OutputRate`, `UseReverb`, `LowSoundQuality`; `UseSpatial` and `UseFilter` read and, as the original's, inert); the saves are 1112fm's |
+| The save migration below FirstRun 220; the Detail page | Not carried | Of the Detail page's keys the engine reads `TextureDetail` and `SkinDetail`, each texture's mip (`TextureDetail` also leaving the detail textures out below High, as the Detail textures row does), `MinDesiredFrameRate`, the viewport sizes and the sound's (`OutputRate`, `UseReverb`, `LowSoundQuality`; `UseFilter` read and, as the original's, inert); the saves are 1112fm's |
 | No server browser: the game's menus have one | Multiplayer: the local network's servers, the master's and the favourites, one joined as the game starts; `deusex://` links | A server chosen before the game, with a pad or from a link |
 | A mod started by a shortcut of its own, `INI=` and `USERINI=` naming its inis; its `.int` files in the game's `System` | Mods: a profile of its own for each, its folders first in its paths by their absolute paths; its text read from its folders | A mod in a folder of its own, anywhere, with the game's folder left as it is |
 
 ## Known defects
 
-Each open in Port Ex Machina's
-[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
-
-- **LAPP.14**: `test_ui_scripts` ignores the launcher's exit in 10 of its
-  launches, so an abort or an unclean exit after the script's end passes.
-- **LAPP.15**: `test_ui_scripts` takes some 250 s of its 300 s timeout, its
-  two hand-overs timed by sleeps.
-- **LAPP.16**: `test_ui_scripts` and `test_gamefiles` want the install's
-  saves otherwise: a newer save fails the one, and with none the other
-  passes over its real save checks without a skip.
-- **LAPP.17**: `test_gamefiles` fails while IDA opens or closes a database in
-  the game's `System`.
-- **LAPP.18**: small test defects: a wait met by the run before's log line,
-  round trips unchecked, a shots run that draws nothing passing.
-- **LAPP.19**: `test_vdf`'s depth check gives blocks that never close, so a
-  reader without its depth guard passes.
-- **LAPP.20**: two `dxl-shots` scenes show other than they say: no playable
-  or mod's profile on the Profiles page, and the password server not chosen
-  in the servers-password mouse shots.
-- **LCORE.15**: a `Settings.json` the engine reads but this reader refuses (a
-  form feed, a raw control byte, `-.5`, nesting past 64) is moved aside and
-  the defaults written at the next save.
-- **LCORE.16**: Multiplayer asks the master on port 28900 whatever the
-  profile's `MasterServerTCPPort` says.
-- **LCORE.17**: a server's answer ids taken to rise, where they turn over
-  after 100: past the turn the second ask's answer is refused.
-- **LCORE.18**: the engine's sections seeded otherwise than the engine reads
-  the retail keys: no `NoLighting`, Yes and No taken for bools, an empty
-  float the engine's default.
-- **LCORE.19**: `dxl-cli` prints a server's C1 control characters (CSI, OSC)
-  and a master's refusal as they came, which a terminal acts on.
-- **LCORE.20**: a nameless server printed as an empty line by `dxl-cli` and
-  sorted first by name; `dxl-cli` printing nothing until the search ends.
+None open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md).

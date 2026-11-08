@@ -171,6 +171,19 @@ static void good_install(dxl_install *in, const char *rel, int build) {
     in->ok = 1;
 }
 
+/* An install of the scratch home as the screens see a good one, its files
+ * a few bytes (good_install): for a page that checks it, as Profiles does. */
+static int made_up_check(const char *root, dxl_install *out) {
+    memset(out, 0, sizeof *out);
+    out->root = dxl_xstrdup(root);
+    out->system_dir = dxl_path_join(root, "System");
+    out->build = dxl_gamedb_at(0);
+    snprintf(out->sha1, sizeof out->sha1, "%s", out->build->sha1);
+    out->found = 1;
+    out->ok = 1;
+    return 0;
+}
+
 /* The scratch home: its folders for the browser, a copy of the game's
  * folder the engine would not take (files of a few bytes), and a profile
  * with saves and a log. */
@@ -388,7 +401,8 @@ static void servers(dxl_shell *s, scene sc) {
     dxl_shell_browsed(s, NULL);
     if (sc == SCENE_SERVERS_PASSWORD) {
         /* Its row the focus's, the fourth by ping, once the shot's first
-         * move is made: the third's before it. */
+         * move is made: the third's before it, and the mouse's on it (act's
+         * aim). */
         dxl_list l;
         memset(&l, 0, sizeof l);
         l.id = dxl_ui_id(&s->ui, "servers");
@@ -604,7 +618,10 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
         dxl_shell_go(s, DXL_PAGE_ABOUT);
         break;
     case SCENE_PROFILES: {
-        /* Two more, made up: a mod's, and one whose install has gone. */
+        /* Two more, made up: a mod's, GMDXv10 on the game, and one whose
+         * install has gone. */
+        make_mods(r);
+        char *dir = dxl_path_join(r->session.install.root, "GMDXv10"), *real = dxl_fs_real(dir);
         static const char *const others[][2] = { { "gmdx", "GMDX" }, { "old-copy", "The old copy" } };
         for (int i = 0; i < 2; i++) {
             dxl_profile p;
@@ -613,12 +630,17 @@ static void set_up(scene sc, dxl_run *r, dxl_shell *s) {
             dxl_profile_make_dirs(&p, &e);
             dxl_profile_set(&p, "Name", others[i][1]);
             dxl_profile_set(&p, "Install", i ? "1112fm-11111111" : "1112fm-00000000");
+            if (!i) dxl_profile_set(&p, "Mod", real ? real : dir);
             dxl_profile_save(&p, &e);
             write_file(p.system_ini, "[Engine.Engine]\n");
             dxl_profile_free(&p);
         }
-        /* The install they have, by launcher.ini's list. */
+        free(real);
+        free(dir);
+        /* The install they have, by launcher.ini's list, the game there as
+         * the screens see it (good_install). */
         dxl_ini_set(r->session.ini, "Install.1112fm-00000000", "Path", r->session.install.root);
+        s->check_install = made_up_check;
         dxl_shell_enter(s, r, DXL_VIEW_HOME);
         dxl_shell_go(s, DXL_PAGE_PROFILES);
         break;
@@ -738,8 +760,9 @@ static void events(dxl_shell *s) {
     while (SDL_PollEvent(&e)) dxl_ui_event(&s->ui, &e);
 }
 
-/* The device's first move: the focus to the next, as a player would. */
-static void act(dxl_shell *s, mode m) {
+/* The device's first move: the focus to the next, as a player would; the
+ * mouse's onto aim where it is not 0. */
+static void act(dxl_shell *s, mode m, uint32_t aim) {
     dxl_ui *ui = &s->ui;
     SDL_Event e;
     SDL_zero(e);
@@ -748,11 +771,11 @@ static void act(dxl_shell *s, mode m) {
         e.key.key = SDLK_DOWN;
         dxl_ui_event(ui, &e);
     } else if (m == MODE_MOUSE) {
-        /* The pointer on the second focusable the last frame drew. */
+        /* The pointer on the second focusable the last frame drew, or aim. */
         int top = dxl_focus_top_scope(&ui->cur), seen = 0;
         for (int i = 0; i < ui->cur.count; i++) {
             const dxl_focusable *f = &ui->cur.items[i];
-            if (f->scope != top || seen++ != 1) continue;
+            if (aim ? f->id != aim : (f->scope != top || seen++ != 1)) continue;
             e.type = SDL_EVENT_MOUSE_MOTION;
             e.motion.x = (f->box.x + f->box.w / 2) * ui->scale;
             e.motion.y = (f->box.y + f->box.h / 2) * ui->scale;
@@ -858,7 +881,16 @@ static void shoot(scene sc, int si, mode m) {
         frame(&s, t += 0.05);
     }
     dxl_ui_input_begin(&s.ui);
-    act(&s, m);
+    /* The password server's row, the fourth by ping, the mouse's aim. */
+    uint32_t aim = 0;
+    if (sc == SCENE_SERVERS_PASSWORD) {
+        dxl_list l;
+        memset(&l, 0, sizeof l);
+        l.id = dxl_ui_id(&s.ui, "servers");
+        l.count = s.server_count;
+        aim = dxl_list_row_id(&l, 3);
+    }
+    act(&s, m, aim);
     frame(&s, t += 0.05);
     /* And those the move brought into view. */
     if (s.thumbs || s.shot_whole) {
@@ -983,6 +1015,8 @@ int main(int argc, char **argv) {
             for (int m = 0; m < MODE_COUNT; m++) shoot((scene)sc, si, (mode)m);
     printf("dxl-shots: %d shots, %d with diagnostics, %d written%s%s, %.1f s\n", shots, failures, saved,
            out_dir ? " to " : "", out_dir ? out_dir : "", (SDL_GetTicks() - t0) / 1000.0);
+    /* None drawn is no pass: an --only that names no shot, a size gone. */
+    if (!shots) fprintf(stderr, "dxl-shots: no shot's name holds %s\n", only ? only : "");
 
     if (renderer) {
         dxl_ui_free(&kit);
@@ -992,5 +1026,5 @@ int main(int argc, char **argv) {
     TTF_Quit();
     SDL_Quit();
     if (dxl_fs_remove_tree(home) != 0) fprintf(stderr, "dxl-shots: could not remove %s\n", home);
-    return failures ? 1 : 0;
+    return failures || !shots ? 1 : 0;
 }

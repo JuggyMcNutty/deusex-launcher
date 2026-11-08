@@ -185,14 +185,17 @@ static void test_msaa_broken_on_powervr_only(void) {
 static void test_probe_ini(void) {
     dxl_gpu_probe p = smart_pro(), q;
     snprintf(p.note, sizeof p.note, "a note = with an equals sign");
+    snprintf(p.gles_renderer, sizeof p.gles_renderer, "PowerVR Rogue GE8300");
     char *text = dxl_gpu_probe_to_ini(&p);
     CHECK(strstr(text, "[Probe]") != NULL);
     CHECK_INT(dxl_gpu_probe_from_ini(text, &q), 0);
     CHECK_INT(q.probed, 1);
     CHECK_INT(q.vulkan, p.vulkan);
     CHECK_STR(q.vulkan_device, p.vulkan_device);
+    CHECK_STR(q.vulkan_version, "1.3.225");
     CHECK_INT(q.gles, p.gles);
     CHECK_STR(q.gles_version, p.gles_version);
+    CHECK_STR(q.gles_renderer, "PowerVR Rogue GE8300");
     CHECK_INT(q.gl, p.gl);
     CHECK_STR(q.note, p.note);
     free(text);

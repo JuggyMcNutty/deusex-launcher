@@ -433,6 +433,9 @@ static void test_list_bar(void) {
 
 TEST_MAIN_BEGIN
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
+    /* SDL's controllers those of the virtual pads' makes and models alone:
+     * a pad plugged into the machine moves nothing here. */
+    SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT, "0x045e/0x0b12,0x054c/0x0ce6,0x057e/0x2009");
     if (!SDL_Init(SDL_INIT_GAMEPAD) || !TTF_Init()) {
         fprintf(stderr, "SDL: %s\n", SDL_GetError());
         return 1;

@@ -145,8 +145,15 @@ static int list_mods(int argc, char **argv) {
     return 0;
 }
 
-/* The browser's look, each server on a line as it answers, then all of
- * them by their ping. */
+/* Others' text for the terminal -- a server's, a master's -- its control
+ * characters, C1's too, as '?'. */
+static const char *clean(const char *in, char *out, size_t size) {
+    dxl_text_no_controls(in, out, size);
+    return out;
+}
+
+/* The browser's look: each server's lines as it answers -- all are asked
+ * at once, the nearest answering first -- then those that gave none. */
 typedef struct {
     dxl_server s[DXL_BROWSE_MAX];
     int        count;
@@ -165,24 +172,25 @@ static void listed(void *ctx, const char *address, int port, int lan) {
     }
 }
 
+/* A server's lines: its name, or its address where it gives none, as
+ * Multiplayer titles it; then its map, game, players, ping and address. */
+static void print_answer(const dxl_server *s) {
+    char name[256], map[128], game[128], at[64];
+    printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s%s\n", clean(s->name[0] ? s->name : s->address, name, sizeof name),
+           clean(s->map, map, sizeof map), clean(s->game_type, game, sizeof game), s->players, s->max_players, s->ping_ms,
+           clean(s->address, at, sizeof at), s->port, s->lan ? ", LAN" : "", s->password ? ", password" : "",
+           dxl_server_joinable(s) ? "" : ", not this version");
+    fflush(stdout);
+}
+
 static void answered(void *ctx, const char *address, int port, int ping, const char *status) {
     servers *l = ctx;
     for (int i = 0; i < l->count; i++)
         if (l->s[i].query_port == port && !strcmp(l->s[i].address, address)) {
             dxl_server_take_status(&l->s[i], status);
             l->s[i].ping_ms = ping;
+            print_answer(&l->s[i]);
         }
-}
-
-static int by_ping(const void *a, const void *b) { return dxl_server_compare(a, b, DXL_SORT_PING); }
-
-/* A server's own text for the terminal: its control characters, escapes
- * among them, as '?'. */
-static const char *clean(const char *in, char *out, size_t size) {
-    size_t n = 0;
-    for (; *in && n + 1 < size; in++) out[n++] = (unsigned char)*in < 0x20 || *in == 0x7f ? '?' : *in;
-    out[n] = '\0';
-    return out;
 }
 
 /* master's servers, or (NULL) the local network's. */
@@ -193,22 +201,16 @@ static int list_servers(const char *master) {
     dxl_browse_lan lan;
     dxl_browse_lan_init(&lan, DXL_BEACON_PORT, DXL_BEACON_PRODUCT);
     if (dxl_browse(master, NULL, master ? NULL : &lan, &fns, &l, NULL, &e) != 0) {
-        fprintf(stderr, "%s\n", dxl_err_msg(&e));
+        char why[sizeof e.msg];
+        fprintf(stderr, "%s\n", clean(dxl_err_msg(&e), why, sizeof why));
         return 1;
     }
-    qsort(l.s, (size_t)l.count, sizeof *l.s, by_ping);
     int answers = 0;
     for (int i = 0; i < l.count; i++) {
         const dxl_server *s = &l.s[i];
-        if (s->state != DXL_SERVER_ANSWERED) {
-            printf("%s:%d    no answer\n", s->address, s->port);
-            continue;
-        }
-        answers++;
-        char name[256], map[128], game[128];
-        printf("%s\n    %s, %s, %d/%d, %d ms, %s:%d%s%s%s\n", clean(s->name, name, sizeof name), clean(s->map, map, sizeof map),
-               clean(s->game_type, game, sizeof game), s->players, s->max_players, s->ping_ms, s->address, s->port,
-               s->lan ? ", LAN" : "", s->password ? ", password" : "", dxl_server_joinable(s) ? "" : ", not this version");
+        char at[64];
+        if (s->state == DXL_SERVER_ANSWERED) answers++;
+        else printf("%s:%d    no answer\n", clean(s->address, at, sizeof at), s->port);
     }
     if (master) printf("%d listed by %s, %d answered\n", l.count, master, answers);
     else printf("%d on the local network, %d answered\n", l.count, answers);

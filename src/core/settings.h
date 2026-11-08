@@ -13,8 +13,9 @@
  * reads and write as it does: a value its converters cannot read (a rate
  * without "Hz") is no value, the row showing the engine's default, which
  * it takes for one. Values travel as text in one form: "1"/"0", a number with
- * "%.6g", a choice's own value, "WxH" for a size, text. The rows are
- * core/settings_table.c's; the presets are data too.
+ * "%.6g", a choice's own value, "WxH" for a size, "<address>:<port>" for a
+ * master server, text. The rows are core/settings_table.c's; the presets
+ * are data too.
  */
 #ifndef DXL_SETTINGS_H
 #define DXL_SETTINGS_H
@@ -43,16 +44,21 @@ typedef enum {
 } dxl_store;
 
 typedef enum {
-    DXL_CODEC_BOOL,     /* True / False; reads true, yes or 1 and false, no or 0 in any case, as the engine;
-                         * in User.ini, a class's config, true or 1 and false or 0 alone, as its import */
+    DXL_CODEC_BOOL,     /* True / False; in the game's inis reads true or 1 and false or 0 alone, in any
+                         * case, as the engine and a class's import read them; yes and no too in the
+                         * launcher's own */
     DXL_CODEC_NOT,      /* the same, the value its opposite (NoDynamicLights for dynamic lights) */
     DXL_CODEC_INT,      /* "%d" of the value times scale, cut to a whole; reads the leading number */
     DXL_CODEC_BYTE,     /* the same, 0 to 255: the engine wraps what is past it */
     DXL_CODEC_FLOAT,    /* "%f", the value times scale */
-    DXL_CODEC_HZ,       /* "<n>Hz"; read only with its Hz */
+    DXL_CODEC_HZ,       /* "<n>Hz"; read as the engine reads it, one of Galaxy's seven names */
     DXL_CODEC_TEXT,     /* as it is */
     DXL_CODEC_WIDTH,    /* a size's width, "%d"; its height is the next place's */
     DXL_CODEC_HEIGHT,   /* a size's height */
+    DXL_CODEC_HOST,     /* a master server's address, as it is: the game resolves it whole; its port is the
+                         * next place's */
+    DXL_CODEC_PORT,     /* its port, read as the game's import reads an int: from a '-' or a digit, as far as
+                         * it is a number; none otherwise, the class's 28900 */
     DXL_CODEC_JSON      /* a Settings.json member: its field's own kind */
 } dxl_codec;
 

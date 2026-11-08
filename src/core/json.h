@@ -5,8 +5,10 @@
  * game's ini. It parses that file inside a catch-all: one malformed byte and
  * every setting silently reverts to the engine default, including the 4x MSAA
  * that turns the PowerVR's output to speckle. So this module is strict on
- * output and keeps whatever it does not understand, and refuses what the
- * engine's reader refuses (DXEngine's JsonValue.cpp): a comma before an
+ * output and keeps whatever it does not understand, and reads what the
+ * engine's reader reads (DXEngine's JsonValue.cpp) -- a form feed among the
+ * blanks, a control byte in a string, a number as loose as "-.5" or "1e",
+ * values nested 512 deep -- and refuses what it refuses: a comma before an
  * object's or an array's close, and anything after the one value.
  *
  * Objects keep their members in file order, and members this launcher does

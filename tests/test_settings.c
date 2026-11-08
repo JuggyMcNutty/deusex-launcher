@@ -129,13 +129,14 @@ static void test_codecs(void) {
     memset(&st, 0, sizeof st);
     st.system = parse("[Engine.DXEngineAudioDevice]\nReverseStereo=TRUE\nUseReverb=No\nOutputRate=22050\n"
                       "EffectsChannels=24 channels\nMusicVolume=300\nAmbientFactor=0.5abc\n"
-                      "[Engine.DXEngineClient]\nNoDynamicLights=True\nDecals=false\n");
+                      "[Engine.DXEngineClient]\nNoDynamicLights=True\nDecals=false\nBrightness=\n");
     CHECK_STR(get(&st, "audio.reverse"), "1");          /* TRUE: any case, as the engine reads it */
-    CHECK_STR(get(&st, "audio.reverb"), "0");
+    CHECK_STR(get(&st, "audio.reverb"), "1");           /* No: refused, as the engine refuses it */
     CHECK_STR(get(&st, "audio.rate"), "44100");         /* no Hz: not read */
     CHECK_STR(get(&st, "audio.channels"), "24");        /* the leading number */
     CHECK_STR(get(&st, "audio.music_volume"), "0.172549");   /* a byte: 300 wraps to 44 */
     CHECK_STR(get(&st, "audio.ambient"), "0.5");
+    CHECK_STR(get(&st, "display.brightness"), "0");     /* empty: 0, as the engine reads it */
     CHECK_STR(get(&st, "graphics.dynamic_lights"), "0");
     CHECK_STR(get(&st, "graphics.decals"), "0");
 
@@ -218,7 +219,43 @@ static void test_choices_and_text(void) {
     CHECK_INT(set(&st, "profile.engine_args", "-log -nosound"), 0);
     CHECK_STR(dxl_ini_get(st.profile, "Profile", "EngineArgs"), "-log -nosound");
     CHECK_INT(set(&st, "mp.master", ""), 0);
-    CHECK_STR(get(&st, "mp.master"), "master.333networks.com");
+    CHECK_STR(get(&st, "mp.master"), "master.333networks.com:28900");
+    close_all(&st);
+}
+
+/* The master server as the game's Join Internet takes it: its address
+ * resolved whole, at MasterServerTCPPort, the class's 28900 where that
+ * holds no number its import reads (bugs.md LCORE.16). */
+static void test_master_server(void) {
+    dxl_stores st;
+    open_all(&st);
+    CHECK_INT(set(&st, "mp.master", "master.example.org:28910"), 0);
+    CHECK_STR(dxl_ini_get(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"), "master.example.org");
+    CHECK_STR(dxl_ini_get(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort"), "28910");
+    CHECK_STR(get(&st, "mp.master"), "master.example.org:28910");
+    CHECK_INT(set(&st, "mp.master", "master.example.org"), 0);
+    CHECK_STR(dxl_ini_get(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"), "master.example.org");
+    CHECK_STR(dxl_ini_get(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort"), "28900");
+    CHECK_STR(get(&st, "mp.master"), "master.example.org:28900");
+    /* Ports by hand, as UIntProperty's import reads them. */
+    static const char *const ports[][2] = {
+        { "28910x", "28910" }, { "-1", "-1" }, { "+28910", "28900" }, { " 28910", "28900" }, { "", "28900" },
+        { "none", "28900" },
+    };
+    for (size_t i = 0; i < sizeof ports / sizeof *ports; i++) {
+        dxl_ini_set(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort", ports[i][0]);
+        char want[64];
+        snprintf(want, sizeof want, "master.example.org:%s", ports[i][1]);
+        CHECK_STR(get(&st, "mp.master"), want);
+    }
+    /* An address with a port of its own, by hand: resolved whole, as the
+     * game resolves it, and kept so. */
+    dxl_ini_set(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", "master.example.org:28910");
+    dxl_ini_set(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort", "28900");
+    CHECK_STR(get(&st, "mp.master"), "master.example.org:28910:28900");
+    CHECK_INT(set(&st, "mp.master", get(&st, "mp.master")), 0);
+    CHECK_STR(dxl_ini_get(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerAddress"), "master.example.org:28910");
+    CHECK_STR(dxl_ini_get(st.system, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort"), "28900");
     close_all(&st);
 }
 
@@ -412,6 +449,7 @@ TEST_MAIN_BEGIN
     RUN(test_class_bools);
     RUN(test_numbers);
     RUN(test_choices_and_text);
+    RUN(test_master_server);
     RUN(test_next_run);
     RUN(test_engine_json);
     RUN(test_renderer_unnamed);

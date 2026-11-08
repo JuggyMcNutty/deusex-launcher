@@ -73,6 +73,20 @@ static int launch_with(const char *script, const char *mode, const char *env) {
 
 static int launch(const char *script, const char *mode) { return launch_with(script, mode, ""); }
 
+/* The launcher on script in the background, the stub ready; then, once
+ * the script has run its line marker (its log's "ui script: <marker>"), a
+ * second start with words, as a player's comes while the window is up. 0
+ * when both ended 0. */
+static int launch_then(const char *script, const char *marker, const char *words) {
+    return sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/%s' '%s/deusex-launcher' "
+              ">>'%s/out.txt' 2>&1 & first=$!; i=0; "
+              "until grep -qF 'ui script: %s' '%s/out.txt' || [ $i -ge 600 ]; do sleep 0.1; i=$((i + 1)); done; "
+              "DXL_HOME='%s' %s '%s/deusex-launcher' %s >>'%s/out.txt' 2>&1; second=$?; "
+              "wait $first; first=$?; [ $first -eq 0 ] && [ $second -eq 0 ]",
+              home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, script, app, home, marker, home, home, OUR_PADS, app,
+              words, home);
+}
+
 static char *home_file(const char *rel) {
     size_t n = strlen(home) + strlen(rel) + 2;
     char *p = malloc(n);
@@ -336,7 +350,8 @@ static void test_recovery(void) {
  * controller SDL had no mapping for, kept and handed to the engine. */
 static void test_remap_pad(void) {
     CHECK_INT(fresh_home(), 0);
-    launch_with("remap_pad.script", "env", "DXL_STUB_ENV=SDL_GAMECONTROLLERCONFIG");
+    /* The game never ready, Recovery quit: a stop at a screen, 1. */
+    CHECK_INT(launch_with("remap_pad.script", "env", "DXL_STUB_ENV=SDL_GAMECONTROLLERCONFIG"), 1);
     script_ok();
     profile_files b;
     open_files(&b);
@@ -364,7 +379,7 @@ static void test_remap_pad(void) {
  * the mapping kept; then another cancelled so, nothing more kept. */
 static void test_padwizard_pad_only(void) {
     CHECK_INT(fresh_home(), 0);
-    launch("padwizard_pad_only.script", "ready");
+    CHECK_INT(launch("padwizard_pad_only.script", "ready"), 0);
     script_ok();
     char *db = read_home("data/dxlauncher/gamecontrollerdb.txt");
     CHECK(db && strstr(db, ",A pad of no maker,a:b0,b:b1,x:b2,y:b3,back:b8,guide:b10,start:b9,leftstick:b11,"
@@ -384,7 +399,7 @@ static void test_padwizard_pad_only(void) {
  * ended it again; tried twice, done twice. */
 static void test_pad_test(void) {
     CHECK_INT(fresh_home(), 0);
-    launch("pad_test.script", "ready");
+    CHECK_INT(launch("pad_test.script", "ready"), 0);
     script_ok();
     char *log = read_home("state/dxlauncher/launcher.log");
     /* Home wore the install's art on the way, its music and sounds with it. */
@@ -427,8 +442,9 @@ static void test_engine_and_game(void) {
     dxl_ini_set(li, "Launcher", "Engine", glibc);
     dxl_ini_save(li, ini, NULL);
     dxl_ini_free(li);
-    sh("DXL_HOME='%s' %s DXL_UI_SCRIPT='%s/engine_and_game.script' '%s/deusex-launcher' >>'%s/out.txt' 2>&1", home,
-       OUR_PADS, DXL_UI_SCRIPTS, app, home);
+    CHECK_INT(sh("DXL_HOME='%s' %s DXL_UI_SCRIPT='%s/engine_and_game.script' '%s/deusex-launcher' >>'%s/out.txt' 2>&1",
+                 home, OUR_PADS, DXL_UI_SCRIPTS, app, home),
+              0);
     script_ok();
     char *log = read_home("state/dxlauncher/launcher.log");
     CHECK(strstr(log, "does not start here: it needs glibc 2.99") != NULL);
@@ -529,7 +545,7 @@ static void test_graphics_then_home(void) {
  * renamed and deleted, its four folders gone; the first in use again. */
 static void test_profiles(void) {
     CHECK_INT(fresh_home(), 0);
-    launch("profiles.script", "ready");
+    CHECK_INT(launch("profiles.script", "ready"), 0);
     script_ok();
     char *made = read_home("config/dxlauncher/profiles/mod-test/profile.ini");
     CHECK(strstr(made, "Name=Mod test") != NULL);
@@ -580,7 +596,7 @@ static void test_mods(void) {
         free(dir);
         free(path);
     }
-    launch("mods.script", "ready");
+    CHECK_INT(launch("mods.script", "ready"), 0);
     script_ok();
     char *dir = home_file("data/dxlauncher/mods/TestMod"), *real = realpath(dir, NULL);
     char *made = read_home("config/dxlauncher/profiles/testmod/profile.ini"), want[1200];
@@ -622,10 +638,13 @@ static void started_with(const char *want) {
     free(log);
 }
 
-/* The profile's saves, as the game writes them: Save0010 on Liberty
- * Island, and with newer, a newer one in a lower slot, Save0003. */
+/* The profile's saves, as the game writes them, and no other: not the
+ * install's, which the import copied, whatever it has (bugs.md LAPP.16).
+ * Save0010 on Liberty Island, and with newer, a newer one in a lower
+ * slot, Save0003. */
 static void write_saves(int newer) {
     char *saves = home_file("data/dxlauncher/profiles/default/Save");
+    CHECK_INT(sh("rm -rf '%s' && mkdir -p '%s'", saves, saves), 0);
     dxl_test_save island = { { 2026, 10, 14, 20, 47, 15 }, 10, "NYC - Liberty Island", "NYC - Liberty Island",
                              "01_NYC_UNATCOIsland", 452, 1 };
     CHECK_INT(dxl_test_write_save(saves, "Save0010", &island), 0);
@@ -708,9 +727,10 @@ static void *fake_server(void *p) {
 static void master_here(int port) {
     profile_files f;
     open_files(&f);
-    char at[64];
-    snprintf(at, sizeof at, "127.0.0.1:%d", port);
-    dxl_ini_set(f.sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", at);
+    char at[16];
+    snprintf(at, sizeof at, "%d", port);
+    dxl_ini_set(f.sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", "127.0.0.1");
+    dxl_ini_set(f.sys, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort", at);
     CHECK_INT(dxl_ini_save(f.sys, f.p.system_ini, NULL), 0);
     close_files(&f);
 }
@@ -785,11 +805,7 @@ static void test_multiplayer(void) {
      * first, then Multiplayer asks (bugs.md LUI.8). */
     CHECK_INT(fresh_home(), 0);
     master_here(1);
-    CHECK_INT(sh("DXL_HOME='%s' DXL_ENGINE='%s' DXL_STUB=ready %s DXL_UI_SCRIPT='%s/multiplayer_handover_edit.script' "
-                 "'%s/deusex-launcher' >>'%s/out.txt' 2>&1 & sleep 8; DXL_HOME='%s' %s '%s/deusex-launcher' "
-                 "'deusex://127.0.0.1:7997/' >>'%s/out.txt' 2>&1; wait",
-                 home, DXL_STUB_ENGINE, OUR_PADS, DXL_UI_SCRIPTS, app, home, home, OUR_PADS, app, home),
-              0);
+    CHECK_INT(launch_then("multiplayer_handover_edit.script", "type Waited", "'deusex://127.0.0.1:7997/'"), 0);
     script_ok();
     log = read_home("state/dxlauncher/launcher.log");
     CHECK(strstr(log, "a second start's command line: deusex://127.0.0.1:7997") != NULL);
@@ -820,7 +836,7 @@ static void test_multiplayer(void) {
 static void test_continue(void) {
     CHECK_INT(fresh_home(), 0);
     write_saves(1);
-    launch_with("continue.script", "ready", STARTS_ON_SAVES);
+    CHECK_INT(launch_with("continue.script", "ready", STARTS_ON_SAVES), 0);
     script_ok();
     started_with("--url=?loadgame=3");
 }
@@ -829,10 +845,10 @@ static void test_continue(void) {
 static void test_saves_page(void) {
     CHECK_INT(fresh_home(), 0);
     write_saves(0);
-    launch_with("saves_load.script", "ready", STARTS_ON_SAVES);
+    CHECK_INT(launch_with("saves_load.script", "ready", STARTS_ON_SAVES), 0);
     script_ok();
     started_with("--url=?loadgame=10");
-    launch_with("saves_delete.script", "ready", STARTS_ON_SAVES);
+    CHECK_INT(launch_with("saves_delete.script", "ready", STARTS_ON_SAVES), 0);
     script_ok();
     char *gone = home_file("data/dxlauncher/profiles/default/Save/Save0010");
     CHECK(access(gone, F_OK) != 0);
@@ -867,7 +883,7 @@ static void test_shots_page(void) {
     CHECK_INT(fresh_home(), 0);
     char *shot = home_file("data/dxlauncher/profiles/default/Screenshots/Shot0001.bmp");
     write_bmp(shot);
-    launch("shots.script", "ready");
+    CHECK_INT(launch("shots.script", "ready"), 0);
     script_ok();
     CHECK(access(shot, F_OK) != 0);
     free(shot);

@@ -40,14 +40,19 @@ const char *dxl_stristr(const char *hay, const char *needle);
 /* In-place whitespace trim; returns a pointer into the original buffer. */
 char *dxl_trim(char *s);
 
-/* A bool as the engine reads one in its own config (DeusEx.ini's devices
- * and its sections), by its first token: 1 for true, yes or 1 in any case,
- * 0 for false, no or 0, -1 for other text ("False " is false, "1.0" true,
- * " True" neither). */
+/* The text's first token, as the engine's import takes one (the original's
+ * token reader, Core.dll 0x10164cb0): a quoted string's text, else the run
+ * of letters, digits, _ and - it begins with, none for a blank first; into
+ * t, 0 when it does not fit. */
+int   dxl_first_token(const char *v, char *t, size_t size);
+/* A bool as the launcher reads one in its own files, by its first token:
+ * 1 for true, yes or 1 in any case, 0 for false, no or 0, -1 for other text
+ * ("False " is false, "1.0" true, " True" neither). */
 int   dxl_text_bool(const char *v);
-/* The same as a class's config imports one, User.ini's script classes'
- * (UBoolProperty::ImportText, Core.dll 0x10166380, and the engine's): 1 for
- * true or 1 in any case, 0 for false or 0; yes and no are other text, -1. */
+/* A bool as the game's inis are read, a class's config import and the
+ * engine's own config alike (UBoolProperty::ImportText, Core.dll
+ * 0x10166380; DXEngine's IniProperty.cpp, bugs.md ENG.24): 1 for true or 1
+ * in any case, 0 for false or 0; yes and no are other text, -1. */
 int   dxl_class_bool(const char *v);
 
 /* Text for showing, as UTF-8: in as it is when it is UTF-8, else read as
@@ -61,6 +66,12 @@ void  dxl_text_drop_cut(char *s);
 /* The bytes of the whole UTF-8 character s begins with (1 for ASCII; not
  * overlong, no surrogate, at most U+10FFFF), 0 when none does. */
 size_t dxl_utf8_char(const char *s);
+/* Text for a terminal or a log: each control character a '?' -- C0's, DEL
+ * and C1's, U+0080 to U+009F (or a byte 0x80 to 0x9F of no UTF-8
+ * character), whose CSI and OSC xterm's and VTE's terminals take as ESC [
+ * and ESC ] -- the rest as it is; cut at a whole character to fit size. in
+ * and out may be the same. */
+void  dxl_text_no_controls(const char *in, char *out, size_t size);
 
 /* Growable string, used for building flag strings and file contents. */
 typedef struct {

@@ -173,6 +173,41 @@ static void test_newer_answer_wins(void) {
     dxl_gs_status_free(&st);
 }
 
+/* The server numbers its answers from 1 to 100 and begins again
+ * (IpServer.u's UdpServerQuery): past the turn the later ask's answer, 1,
+ * is still the newer beside the earlier one's late 100, and the late one's
+ * packets after it are let go (bugs.md LCORE.17). */
+static void test_newer_answer_past_the_turn(void) {
+    dxl_gs_status st;
+    dxl_gs_status_init(&st);
+    dxl_gs_status_restart(&st);   /* asked over: nothing had come */
+    char pkt[256];
+    packet(pkt, sizeof pkt, 100, 1, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 0);    /* the first ask's, late: taken */
+    packet(pkt, sizeof pkt, 1, 1, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 1);    /* the second ask's, the next after 100: newer */
+    CHECK_INT(st.id, 1);
+    packet(pkt, sizeof pkt, 100, 2, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), -1);   /* the earlier one's: let go */
+    for (int n = 2; n <= 3; n++) {
+        packet(pkt, sizeof pkt, 1, n, 0);
+        CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 0);
+    }
+    CHECK_INT(dxl_gs_status_whole(&st), 1);
+    dxl_gs_status_free(&st);
+
+    /* The later ask's first, the earlier one's late 99 after it: no newer
+     * answer, another's. */
+    dxl_gs_status_init(&st);
+    dxl_gs_status_restart(&st);
+    packet(pkt, sizeof pkt, 2, 1, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), 0);
+    packet(pkt, sizeof pkt, 99, 1, 0);
+    CHECK_INT(dxl_gs_status_add(&st, pkt, strlen(pkt)), -1);
+    CHECK_INT(st.id, 2);
+    dxl_gs_status_free(&st);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_validate);
     RUN(test_values_and_challenge);
@@ -180,4 +215,5 @@ TEST_MAIN_BEGIN
     RUN(test_status);
     RUN(test_answers_apart);
     RUN(test_newer_answer_wins);
+    RUN(test_newer_answer_past_the_turn);
 TEST_MAIN_END

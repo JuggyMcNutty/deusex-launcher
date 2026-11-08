@@ -355,9 +355,11 @@ const dxl_setting dxl_settings_table[] = {
       .kind = DXL_SET_TEXT, .def = "Player", .chars = "[]()",
       .at = { { DXL_STORE_USER, "DefaultPlayer", "Name", DXL_CODEC_TEXT, 0, 0, 0 } } },
     { .id = "mp.master", .page = "Multiplayer", .label = "Master server",
-      .help = "Where the game's server browser gets its list of servers from.", .kind = DXL_SET_TEXT,
-      .def = "master.333networks.com",
-      .at = { { DXL_STORE_SYSTEM, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", DXL_CODEC_TEXT, 0, 0, 0 } },
+      .help = "Where the game's server browser gets its list of servers from: its address, and its port after a "
+              "colon.",
+      .kind = DXL_SET_TEXT, .def = "master.333networks.com:28900",
+      .at = { { DXL_STORE_SYSTEM, "DeusEx.MenuScreenJoinGame", "MasterServerAddress", DXL_CODEC_HOST, 0, 0, 0 },
+              { DXL_STORE_SYSTEM, "DeusEx.MenuScreenJoinGame", "MasterServerTCPPort", DXL_CODEC_PORT, 0, 0, 0 } },
       .flags = DXL_SET_ADVANCED },
 
     /* ---- Launcher ------------------------------------------------------------- */

@@ -30,7 +30,7 @@ static int describe(dxl_shell *s, const dxl_profile *p, char *out, size_t size) 
     const char *path = dxl_session_install_path(&s->run->session, dxl_profile_get(p, "Install"));
     dxl_install in;
     memset(&in, 0, sizeof in);
-    int ok = path && dxl_install_check(path, &in) == 0;
+    int ok = path && (s->check_install ? s->check_install : dxl_install_check)(path, &in) == 0;
     char game[200], saves[32], last[160];
     if (ok) snprintf(game, sizeof game, "Deus Ex %s (%s)", in.build->version, in.build->edition);
     else snprintf(game, sizeof game, "%.190s", !path ? "no game" : in.problem[0] ? in.problem : "its game is not there");

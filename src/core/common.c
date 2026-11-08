@@ -133,10 +133,7 @@ void dxl_buf_word(dxl_buf *b, const char *s) {
     dxl_buf_puts(b, s);
 }
 
-/* Its first token, as the engine's import takes one (the original's token
- * reader, Core.dll 0x10164cb0): a quoted string's text, else the run of
- * letters, digits, _ and - it begins with; into t, 0 when none fits. */
-static int first_token(const char *v, char *t, size_t size) {
+int dxl_first_token(const char *v, char *t, size_t size) {
     if (!v) return 0;
     size_t n = 0;
     if (*v == '"') {
@@ -154,7 +151,7 @@ static int first_token(const char *v, char *t, size_t size) {
 
 int dxl_text_bool(const char *v) {
     char t[8];
-    if (!first_token(v, t, sizeof t)) return -1;
+    if (!dxl_first_token(v, t, sizeof t)) return -1;
     if (!dxl_stricmp(t, "True") || !dxl_stricmp(t, "Yes") || !strcmp(t, "1")) return 1;
     if (!dxl_stricmp(t, "False") || !dxl_stricmp(t, "No") || !strcmp(t, "0")) return 0;
     return -1;
@@ -162,7 +159,7 @@ int dxl_text_bool(const char *v) {
 
 int dxl_class_bool(const char *v) {
     char t[8];
-    if (!first_token(v, t, sizeof t)) return -1;
+    if (!dxl_first_token(v, t, sizeof t)) return -1;
     if (!dxl_stricmp(t, "True") || !strcmp(t, "1")) return 1;
     if (!dxl_stricmp(t, "False") || !strcmp(t, "0")) return 0;
     return -1;
@@ -215,6 +212,25 @@ void dxl_text_utf8(const char *in, char *out, size_t size) {
         if (o + n >= size) break;
         memcpy(out + o, c, n);
         o += n;
+    }
+    out[o] = '\0';
+}
+
+void dxl_text_no_controls(const char *in, char *out, size_t size) {
+    if (!size) return;
+    size_t o = 0;
+    for (const unsigned char *p = (const unsigned char *)(in ? in : ""); *p;) {
+        size_t n = utf8_char(p);
+        /* A C1 character, or its byte alone in text that is no UTF-8. */
+        int control = *p < 0x20 || *p == 0x7f || (n == 2 && p[0] == 0xc2 && p[1] <= 0x9f) || (!n && *p <= 0x9f);
+        if (!n) n = 1;
+        if (o + (control ? 1 : n) >= size) break;
+        if (control) out[o++] = '?';
+        else {
+            memmove(out + o, p, n);
+            o += n;
+        }
+        p += n;
     }
     out[o] = '\0';
 }
