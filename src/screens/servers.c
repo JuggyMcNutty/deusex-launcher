@@ -1,15 +1,16 @@
 /* Multiplayer: the servers on the local network, as the game's Join LAN
  * screen finds them ([DeusEx.DeusExLocalLink]; app/browser.h), those the
  * profile's master server lists ([DeusEx.MenuScreenJoinGame]
- * MasterServerAddress) and the profile's favourites, in one list, each as
- * it answers -- its name, map, game, players and ping, LAN for one of the
- * local network's -- in the order they came while the look is on, then by
- * the sort chosen; the filter chosen. The one chosen beside them: its
- * players, Join, with its password when it asks for one, and favourite or
- * not. An address typed is joined as it is. */
+ * MasterServerAddress and MasterServerTCPPort) and the profile's
+ * favourites, in one list, each as it answers -- its name, map, game,
+ * players and ping, LAN for one of the local network's -- in the order they
+ * came while the look is on, then by the sort chosen; the filter chosen.
+ * The one chosen beside them: its players, Join, with its password when it
+ * asks for one, and favourite or not. An address typed is joined as it is. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/log.h"
+#include "core/settings.h"
 #include "ui/controls.h"
 #include "ui/draw.h"
 #include "ui/text.h"
@@ -21,7 +22,7 @@
 
 #define ROW_H  54
 #define SIDE_W 360
-#define LIVE_MASTER "master.333networks.com"
+
 /* A server's game port, when an address names none: the game's own. */
 #define GAME_PORT 7790
 
@@ -94,11 +95,15 @@ void dxl_shell_browsed(dxl_shell *s, const char *error) {
             error ? error : "");
 }
 
-/* The profile's master server, as the game takes it. */
-static const char *master_of(dxl_shell *s) {
-    dxl_ini *sys = s->run && s->run->config ? dxl_config_ini(s->run->config) : NULL;
-    const char *m = sys ? dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress") : NULL;
-    return m && *m ? m : LIVE_MASTER;
+/* The profile's master server, as the game's Join Internet asks it
+ * (MenuScreenJoinInternet.Query): its address resolved whole, at its port
+ * -- the Master server row's "<address>:<port>", 333networks' where it
+ * names no address. */
+static void master_of(dxl_shell *s, char *out, size_t size) {
+    dxl_stores st;
+    memset(&st, 0, sizeof st);
+    st.system = s->run && s->run->config ? dxl_config_ini(s->run->config) : NULL;
+    dxl_setting_get(&st, dxl_setting_find("mp.master"), out, size);
 }
 
 void dxl_shell_browse(dxl_shell *s) {
@@ -129,7 +134,8 @@ void dxl_shell_browse(dxl_shell *s) {
         n++;
     }
     also[n] = NULL;
-    const char *master = master_of(s);
+    char master[512];
+    master_of(s, master, sizeof master);
     /* The local network as the game's Join LAN screen asks it. */
     dxl_ini *sys = s->run->config ? dxl_config_ini(s->run->config) : NULL;
     const char *beacon = sys ? dxl_ini_get(sys, "DeusEx.DeusExLocalLink", "ServerBeaconPort") : NULL;

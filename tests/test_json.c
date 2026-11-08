@@ -104,7 +104,8 @@ static void test_rejects_malformed(void) {
     const char *bad[] = {
         "", "{", "{\"a\":}", "{\"a\" 1}", "{\"a\":1,}", "{\"a\":1,,}", "[1,2,]", "[,]", "[1,2",
         "{\"a\":tru}", "{\"a\":1} x", "{\"a\": 1}\n{\"a\": 2}", "{\"a\":\"unterminated}",
-        "{\"a\":01x}",
+        "{\"a\":01x}", "{\"a\": +1}", "{\"a\": .5}", "{\"a\": -x}", "{\"a\": 1e5e5}",
+        "\v{\"a\": 1}",
     };
     for (size_t i = 0; i < sizeof bad / sizeof *bad; i++) {
         dxl_err e;
@@ -112,6 +113,77 @@ static void test_rejects_malformed(void) {
         if (v) fprintf(stderr, "  accepted: %s\n", bad[i]);
         CHECK(v == NULL);
         dxl_json_free(v);
+    }
+}
+
+/* n arrays, one inside the next, the innermost holding inner. */
+static char *nested(int n, const char *inner) {
+    dxl_buf b;
+    dxl_buf_init(&b);
+    for (int i = 0; i < n; i++) dxl_buf_add(&b, "[", 1);
+    dxl_buf_puts(&b, inner);
+    for (int i = 0; i < n; i++) dxl_buf_add(&b, "]", 1);
+    return b.data;
+}
+
+/* What the engine's reader takes (DXEngine's JsonValue.cpp), so the engine
+ * plays the file as it stands: taken here too, not called unreadable and
+ * moved aside, the defaults written over it, at the launcher's next save. */
+static void test_reads_what_the_engine_reads(void) {
+    /* A number as loose as read_number spells it, its value atof's. */
+    static const struct { const char *spelling; double want; } numbers[] = {
+        { "-.5", -0.5 }, { "1e", 1 }, { "2.5E+", 2.5 }, { "-", 0 }, { "1.", 1 }, { "-e5", 0 },
+    };
+    for (size_t i = 0; i < sizeof numbers / sizeof *numbers; i++) {
+        char text[64], written[64];
+        snprintf(text, sizeof text, "{\"GammaOffset\": %s}", numbers[i].spelling);
+        snprintf(written, sizeof written, "\"GammaOffset\": %s\n", numbers[i].spelling);
+        dxl_json *v = parse(text);
+        CHECK(v != NULL);
+        if (!v) continue;
+        CHECK(dxl_json_get_number(v, "GammaOffset", 99) == numbers[i].want);
+        /* Untouched, it is written back as it came. */
+        char *out = dxl_json_render(v);
+        CHECK(strstr(out, written) != NULL);
+        free(out);
+        dxl_json_free(v);
+    }
+
+    /* A tab and a byte 0x01 in a string, as they stand; written escaped, and
+     * read back the same. */
+    dxl_json *v = parse("{\"Type\": \"Vulkan\t\x01\"}");
+    CHECK(v != NULL);
+    if (v) {
+        CHECK_STR(dxl_json_get_string(v, "Type", NULL), "Vulkan\t\x01");
+        char *out = dxl_json_render(v);
+        dxl_json *back = parse(out);
+        CHECK_STR(dxl_json_get_string(back, "Type", NULL), "Vulkan\t\x01");
+        dxl_json_free(back);
+        free(out);
+    }
+    dxl_json_free(v);
+
+    /* Form feeds among the blanks, before, inside and after the document. */
+    v = parse("\f{\f\"a\"\f:\f1\f}\f");
+    CHECK(v != NULL);
+    if (v) CHECK_INT((int)dxl_json_get_number(v, "a", 0), 1);
+    dxl_json_free(v);
+
+    /* Values nested 512 deep, the document the first: 512 arrays, or 511
+     * around a number; one more refused. */
+    static const struct { int arrays; const char *inner; int read; } depths[] = {
+        { 512, "", 1 }, { 513, "", 0 }, { 511, "1", 1 }, { 512, "1", 0 },
+    };
+    for (size_t i = 0; i < sizeof depths / sizeof *depths; i++) {
+        char *text = nested(depths[i].arrays, depths[i].inner);
+        dxl_err e;
+        v = dxl_json_parse(text, strlen(text), &e);
+        if (!v != !depths[i].read)
+            fprintf(stderr, "  %d arrays around \"%s\": %s\n", depths[i].arrays,
+                    depths[i].inner, v ? "read" : dxl_err_msg(&e));
+        CHECK_INT(v != NULL, depths[i].read);
+        dxl_json_free(v);
+        free(text);
     }
 }
 
@@ -167,6 +239,7 @@ TEST_MAIN_BEGIN
     RUN(test_number_spelling);
     RUN(test_string_escapes);
     RUN(test_rejects_malformed);
+    RUN(test_reads_what_the_engine_reads);
     RUN(test_last_member_wins);
     RUN(test_child_creates_and_replaces);
     RUN(test_elements);

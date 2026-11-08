@@ -138,6 +138,9 @@ TEST_MAIN_BEGIN
     RUN(test_guid_crc);
     RUN(test_db_and_engine);
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
+    /* SDL's controllers of the mapped pad's make and model alone: one
+     * plugged into the machine opens nothing here. */
+    SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT, "0x1234/0x5678");
     if (!SDL_Init(SDL_INIT_GAMEPAD)) {
         fprintf(stderr, "SDL: %s\n", SDL_GetError());
         return 1;

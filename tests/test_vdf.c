@@ -60,10 +60,6 @@ static void test_broken(void) {
         CHECK(v == NULL);
         CHECK(e.msg[0] != '\0');
     }
-    /* Nested past what any of Steam's files do. */
-    char deep[400] = "";
-    for (int i = 0; i < 40; i++) strcat(deep, "\"k\" { ");
-    CHECK(parse(deep) == NULL);
     /* A NUL in the text is passed over. */
     const char nul[] = "\"a\" \"b\"\0\"c\" \"d\"";
     dxl_err e;
@@ -99,9 +95,50 @@ static void test_load(void) {
     free(dir);
 }
 
+/* n blocks, one in another, a value in the deepest: each closed when
+ * closed is set, none when it is not. Caller frees. */
+static char *nested(int n, int closed) {
+    size_t len = (size_t)n * 8 + 32;
+    char *t = malloc(len);
+    t[0] = '\0';
+    for (int i = 0; i < n; i++) strcat(t, "\"k\" { ");
+    strcat(t, "\"v\" \"1\" ");
+    for (int i = 0; closed && i < n; i++) strcat(t, "} ");
+    return t;
+}
+
+/* Nested as deep as the reader goes, 32, read; deeper than any of Steam's
+ * files nest, refused for its depth -- blocks that close, which nothing
+ * else refuses, so that a reader without its guard, whose stack a crafted
+ * file would overflow, fails here (bugs.md LAPP.19); and blocks that never
+ * close refused for their depth too, not their end alone. */
+static void test_nested(void) {
+    dxl_err e;
+    e.msg[0] = '\0';
+    char *t = nested(32, 1);
+    dxl_vdf *v = dxl_vdf_parse(t, strlen(t), &e);
+    CHECK(v != NULL);
+    const dxl_vdf *at = v;
+    for (int i = 0; at && i < 32; i++) at = dxl_vdf_get(at, "k");
+    CHECK_STR(dxl_vdf_get_string(at, "v"), "1");
+    dxl_vdf_free(v);
+    free(t);
+    static const struct { int n, closed; } deeper[] = { { 33, 1 }, { 40, 1 }, { 40, 0 } };
+    for (size_t i = 0; i < sizeof deeper / sizeof *deeper; i++) {
+        e.msg[0] = '\0';
+        t = nested(deeper[i].n, deeper[i].closed);
+        v = dxl_vdf_parse(t, strlen(t), &e);
+        CHECK(v == NULL);
+        CHECK(strstr(e.msg, "nested") != NULL);
+        dxl_vdf_free(v);
+        free(t);
+    }
+}
+
 TEST_MAIN_BEGIN
     RUN(test_libraryfolders);
     RUN(test_older_and_odd);
     RUN(test_broken);
+    RUN(test_nested);
     RUN(test_load);
 TEST_MAIN_END
