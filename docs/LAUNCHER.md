@@ -959,5 +959,27 @@ Changed:
 
 ## Known defects
 
-None open in Port Ex Machina's
-[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md).
+Each open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
+
+- **LAPP.14**: `test_ui_scripts` ignores the launcher's exit in 10 of its
+  launches, so an abort or an unclean exit after the script's end passes.
+- **LAPP.15**: `test_ui_scripts` takes some 250 s of its 300 s timeout, its
+  two hand-overs timed by sleeps.
+- **LAPP.16**: `test_ui_scripts` and `test_gamefiles` want the install's
+  saves otherwise: a newer save fails the one, and with none the other
+  passes over its real save checks without a skip.
+- **LAPP.17**: `test_gamefiles` fails while IDA opens or closes a database in
+  the game's `System`.
+- **LAPP.18**: small test defects: a wait met by the run before's log line,
+  round trips unchecked, a shots run that draws nothing passing.
+- **LCORE.15**: a `Settings.json` the engine reads but this reader refuses (a
+  form feed, a raw control byte, `-.5`, nesting past 64) is moved aside and
+  the defaults written at the next save.
+- **LCORE.16**: Multiplayer asks the master on port 28900 whatever the
+  profile's `MasterServerTCPPort` says.
+- **LCORE.17**: a server's answer ids taken to rise, where they turn over
+  after 100: past the turn the second ask's answer is refused.
+- **LCORE.18**: the engine's sections seeded otherwise than the engine reads
+  the retail keys: no `NoLighting`, Yes and No taken for bools, an empty
+  float the engine's default.
