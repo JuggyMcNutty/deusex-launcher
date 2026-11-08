@@ -166,7 +166,7 @@ void dxl_renderers_resolve(dxl_renderer_list *l, const dxl_gpu_probe *probe) {
             else
                 snprintf(r->status, sizeof r->status, "Not available: no %s driver on this device",
                          r->requires == DXL_API_GL     ? "OpenGL 4.2"
-                         : r->requires == DXL_API_GLES ? "OpenGL ES 3.2"
+                         : r->requires == DXL_API_GLES ? "OpenGL ES 3.1"
                                                        : dxl_gfx_api_name(r->requires));
             continue;
         }
