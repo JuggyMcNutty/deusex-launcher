@@ -22,6 +22,7 @@ typedef struct {
     const char *ini;        /* the profile's DeusEx.ini */
     const char *user_ini;   /* its User.ini */
     const char *user_dir;   /* its engine folder */
+    const char *system_dir; /* a mod's own System that it runs from (--system), or NULL */
     const char *url;        /* where to start, or NULL */
     const char *extra;      /* more of the engine's own options, split as a shell would; NULL for none */
     const char *cmdline;    /* the original's command line, or NULL */

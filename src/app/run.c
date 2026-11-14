@@ -271,18 +271,25 @@ static char **engine_argv(const dxl_run *r) {
     dxl_buf_init(&extra);
     if (mine && *mine) dxl_buf_puts(&extra, mine);
     if (env && *env) dxl_buf_word(&extra, env);
+    /* A mod that runs from its own System: the engine takes its paths, its
+     * config files and its text from there (DXEngine's --system); an
+     * engine without the option passes over the word. */
+    const char *mod = dxl_profile_get(p, "Mod");
+    char *system = mod && *mod ? dxl_mod_own_system(mod) : NULL;
     dxl_engine_command c = {
         .engine = r->session.engine,
         .game = r->session.install.root,
         .ini = p->system_ini,
         .user_ini = p->user_ini,
         .user_dir = p->engine_dir,
+        .system_dir = system,
         .url = r->url[0] ? r->url : NULL,
         .extra = extra.data,
         .cmdline = r->words,
     };
     char **argv = dxl_engine_argv(&c);
     dxl_buf_free(&extra);
+    free(system);
     return argv;
 }
 
