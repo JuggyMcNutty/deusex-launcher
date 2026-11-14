@@ -34,6 +34,9 @@ typedef struct {
     char *ini;           /* its own settings; NULL for none */
     char *user_ini;      /* its own controls; NULL for none */
     int   packages;      /* System's packages (.u) */
+    int   own_system;    /* it runs from its System, its own Core.dll there (Transcended's,
+                          * Revision's): its ini's paths are taken from there, and the
+                          * engine is given --system */
     dxl_mod_where where;
 } dxl_mod;
 
@@ -41,6 +44,9 @@ typedef struct {
  * packages in it, or a copy of the game (System's DeusEx.exe). */
 int  dxl_mod_check(const char *dir, dxl_mod *m, dxl_err *err);
 void dxl_mod_free(dxl_mod *m);
+/* A mod folder's own System, which it runs from: its System folder when
+ * that holds its own Core.dll, else NULL. Caller frees. */
+char *dxl_mod_own_system(const char *dir);
 /* to a copy of from, its own strings. */
 void dxl_mod_copy(dxl_mod *to, const dxl_mod *from);
 /* What a mod's where says: "in the game's folder", "in the launcher's mods

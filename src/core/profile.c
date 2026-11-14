@@ -403,7 +403,8 @@ void dxl_profile_defaults(const char *game_system_dir, const dxl_mod *mod, dxl_i
  * for none. */
 static char *mod_save_dir(const char *game_system_dir, const dxl_mod *m, const dxl_ini *mod_ini) {
     const char *v = mod_ini ? dxl_ini_get(mod_ini, "Core.System", "SavePath") : NULL;
-    char *dir = v && *v ? dxl_mod_folder(v, game_system_dir, m) : NULL;
+    /* A mod that runs from its own System has its SavePath from there. */
+    char *dir = v && *v ? dxl_mod_folder(v, m->own_system ? m->system_dir : game_system_dir, m) : NULL;
     if (dir && (!strcmp(dir, m->dir) || !strcmp(dir, m->system_dir))) {
         free(dir);
         dir = NULL;
