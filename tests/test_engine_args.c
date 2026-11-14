@@ -47,6 +47,19 @@ static void test_argv_bare(void) {
     dxl_argv_free(v);
 }
 
+/* A mod's own System after the user ini, as its own word. */
+static void test_argv_system(void) {
+    dxl_engine_command c = {
+        .engine = "e", .game = "g", .ini = "i", .user_ini = "u", .user_dir = "d",
+        .system_dir = "/mods/Transcended/System",
+    };
+    char **v = dxl_engine_argv(&c);
+    CHECK_INT(count(v), 8);
+    CHECK_STR(v[5], "--system=/mods/Transcended/System");
+    CHECK_STR(v[6], "--userdir=d");
+    dxl_argv_free(v);
+}
+
 static void test_quoting(void) {
     char *argv[] = { "a b", "it's", "plain-word_1.txt", "", NULL };
     char *q = dxl_argv_quoted(argv);
@@ -78,6 +91,7 @@ static void test_version(void) {
 TEST_MAIN_BEGIN
     RUN(test_argv);
     RUN(test_argv_bare);
+    RUN(test_argv_system);
     RUN(test_quoting);
     RUN(test_version);
 TEST_MAIN_END

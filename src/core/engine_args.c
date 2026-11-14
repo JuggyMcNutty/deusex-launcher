@@ -33,6 +33,7 @@ char **dxl_engine_argv(const dxl_engine_command *c) {
     push(&w, dxl_xstrdup(c->game));
     push(&w, option("--ini", c->ini));
     push(&w, option("--userini", c->user_ini));
+    if (c->system_dir && *c->system_dir) push(&w, option("--system", c->system_dir));
     push(&w, option("--userdir", c->user_dir));
     if (c->url && *c->url) push(&w, option("--url", c->url));
     if (c->extra && *c->extra) {
