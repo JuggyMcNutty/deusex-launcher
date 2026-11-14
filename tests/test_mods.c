@@ -101,6 +101,39 @@ static void make_all(void) {
     /* Bare: packages and maps, no ini. */
     scratch_write(root, "home/data/dxlauncher/mods/Bare/System/Bare.u", "pkg");
     scratch_write(root, "home/data/dxlauncher/mods/Bare/Maps/Bare.dx", "map");
+
+    /* Laid out as over the game, in folders of their own elsewhere: Overlay,
+     * as The Zodiac's, its System, maps in a folder the game has not
+     * (OverMaps), Textures; Nested, as GMDX's, its ini in a folder's
+     * System, its own System over the game's. */
+    scratch_write(root, "more/Overlay/System/Overlay.u", "pkg");
+    scratch_write(root, "more/Overlay/System/Overlay.ini",
+                  "[Core.System]\r\nPaths=..\\System\\*.u\r\nPaths=..\\OverMaps\\*.dx\r\n"
+                  "Paths=..\\Maps\\*.dx\r\nPaths=..\\Textures\\*.utx\r\n");
+    scratch_write(root, "more/Overlay/OverMaps/O.dx", "map");
+    scratch_write(root, "more/Overlay/Textures/O.utx", "tex");
+    scratch_write(root, "more/Nested/System/NestedCon.u", "pkg");
+    scratch_write(root, "more/Nested/NestedV9/System/NestedV9.u", "pkg");
+    scratch_write(root, "more/Nested/NestedV9/System/nested.ini",
+                  "[Core.System]\r\nPaths=..\\NestedV9\\System\\*.u\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(root, "more/Nested/NestedV9/System/nestedUser.ini", "[Engine.Input]\r\nF1=Nested\r\n");
+    /* Running from a System of their own, their own Core.dll there, a
+     * launcher's <name>Default.ini and <name>DefUser.ini: OwnSys where its
+     * paths are written for it, in the game's Mods folder, as
+     * Transcended's; FarSys anywhere else. */
+    scratch_write(root, "game/Mods/OwnSys/System/Core.dll", "dll");
+    scratch_write(root, "game/Mods/OwnSys/System/OwnSys.u", "pkg");
+    scratch_write(root, "game/Mods/OwnSys/System/OwnSysDefault.ini",
+                  "[Core.System]\r\nSavePath=..\\OSSave\r\nPaths=..\\System\\*.u\r\n"
+                  "Paths=..\\Maps\\*.dx\r\nPaths=..\\..\\..\\System\\*.u\r\n"
+                  "Paths=..\\..\\Shared\\System\\*.u\r\n");
+    scratch_write(root, "game/Mods/OwnSys/System/OwnSysDefUser.ini", "[Engine.Input]\r\nF1=OwnSys\r\n");
+    scratch_write(root, "game/Mods/OwnSys/Maps/OS.dx", "map");
+    scratch_write(root, "game/Mods/OwnSys/OSSave/Save0004/SaveInfo.dxs", "ownsys's");
+    scratch_write(root, "more/FarSys/System/core.DLL", "dll");
+    scratch_write(root, "more/FarSys/System/FarSys.u", "pkg");
+    scratch_write(root, "more/FarSys/System/FarSys.ini",
+                  "[Core.System]\r\nPaths=..\\System\\*.u\r\nPaths=..\\..\\..\\System\\*.u\r\n");
 }
 
 static void test_check(void) {
@@ -471,6 +504,121 @@ static void test_import(void) {
     free(home);
 }
 
+/* Laid out as over the game: each folder its ini names, the mod's own copy
+ * first, by its absolute path, the game's after it where the game has one. */
+static void test_overlay(void) {
+    dxl_mod m;
+    char *d = at("more/Overlay");
+    CHECK_INT(dxl_mod_check(d, &m, NULL), 0);
+    CHECK(m.own_system == 0);
+    dxl_ini *sys = dxl_ini_load(m.ini, NULL);
+    dxl_mod_set_paths(sys, system_dir, &m);
+    const char *v[16];
+    size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
+    CHECK_INT(n, 6);
+    char *a = at("more/Overlay/System/*.u"), *b = at("more/Overlay/OverMaps/*.dx"), *c = at("more/Overlay/Textures/*.utx");
+    if (n == 6) {
+        CHECK_STR(v[0], a);
+        CHECK_STR(v[1], b);
+        CHECK_STR(v[2], c);
+        CHECK_STR(v[3], "..\\System\\*.u");
+        CHECK_STR(v[4], "..\\Maps\\*.dx");
+        CHECK_STR(v[5], "..\\Textures\\*.utx");
+    }
+    free(a); free(b); free(c);
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    free(d);
+
+    /* Its ini in a folder's System, named after the mod, its controls beside
+     * it; its paths its own folders, the game's System after them. */
+    d = at("more/Nested");
+    CHECK_INT(dxl_mod_check(d, &m, NULL), 0);
+    char *want = at("more/Nested/NestedV9/System/nested.ini");
+    CHECK_STR(m.ini, want);
+    free(want);
+    want = at("more/Nested/NestedV9/System/nestedUser.ini");
+    CHECK_STR(m.user_ini, want);
+    free(want);
+    sys = dxl_ini_load(m.ini, NULL);
+    dxl_mod_set_paths(sys, system_dir, &m);
+    n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
+    CHECK_INT(n, 3);
+    a = at("more/Nested/NestedV9/System/*.u");
+    b = at("more/Nested/System/*.u");
+    if (n == 3) {
+        CHECK_STR(v[0], a);
+        CHECK_STR(v[1], b);
+        CHECK_STR(v[2], "..\\System\\*.u");
+    }
+    free(a); free(b);
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    free(d);
+}
+
+/* Running from a System of its own: its paths as that System makes them,
+ * one out of its folder the game's where it is not there; its launcher's
+ * <name>DefUser.ini its controls; its saves by its SavePath from there. */
+static void test_own_system(void) {
+    dxl_mod m;
+    char *d = at("game/Mods/OwnSys");
+    CHECK_INT(dxl_mod_check(d, &m, NULL), 0);
+    CHECK(m.own_system == 1);
+    char *want = at("game/Mods/OwnSys/System/OwnSysDefault.ini");
+    CHECK_STR(m.ini, want);
+    free(want);
+    want = at("game/Mods/OwnSys/System/OwnSysDefUser.ini");
+    CHECK_STR(m.user_ini, want);
+    free(want);
+    want = at("game/Mods/OwnSys/System");
+    char *own = dxl_mod_own_system(d);
+    CHECK_STR(own, want);
+    free(own);
+    free(want);
+    dxl_ini *sys = dxl_ini_load(m.ini, NULL);
+    dxl_mod_set_paths(sys, system_dir, &m);
+    const char *v[16];
+    size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
+    CHECK_INT(n, 4);
+    char *a = at("game/Mods/OwnSys/System/*.u"), *b = at("game/Mods/OwnSys/Maps/*.dx"), *c = at("game/System/*.u");
+    if (n == 4) {
+        CHECK_STR(v[0], a);
+        CHECK_STR(v[1], b);
+        CHECK_STR(v[2], c);
+        CHECK_STR(v[3], "..\\..\\Shared\\System\\*.u");
+    }
+    free(a); free(b); free(c);
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    free(d);
+
+    /* Anywhere else: ..\..\..\System climbs out of it to no folder, the
+     * game's System taken. Core.dll in any case. */
+    d = at("more/FarSys");
+    CHECK_INT(dxl_mod_check(d, &m, NULL), 0);
+    CHECK(m.own_system == 1);
+    sys = dxl_ini_load(m.ini, NULL);
+    dxl_mod_set_paths(sys, system_dir, &m);
+    n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
+    CHECK_INT(n, 2);
+    a = at("more/FarSys/System/*.u");
+    b = at("game/System/*.u");
+    if (n == 2) {
+        CHECK_STR(v[0], a);
+        CHECK_STR(v[1], b);
+    }
+    free(a); free(b);
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    free(d);
+
+    /* A mod that does not: no System of its own to run from. */
+    d = at("game/GameMod");
+    CHECK(dxl_mod_own_system(d) == NULL);
+    free(d);
+}
+
 TEST_MAIN_BEGIN
     make_all();
     RUN(test_check);
@@ -479,6 +627,8 @@ TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
     RUN(test_defaults);
+    RUN(test_overlay);
+    RUN(test_own_system);
     scratch_remove(root);
     free(root);
 TEST_MAIN_END

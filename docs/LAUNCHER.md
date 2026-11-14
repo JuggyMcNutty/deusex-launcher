@@ -210,22 +210,40 @@ A mod's profile is made as the first run makes one
 (`dxl_profile_import_mod`, `src/core/profile.c`), but:
 
 - **`DeusEx.ini`**: the mod's own, when it has one -- a `System` ini with
-  `[Core.System] Paths`, the one named after its folder (or the folder a
-  link of it is to) first, then one with its own `<name>User.ini` beside
-  it, then any but `Default.ini`, then `Default.ini` --, else the game's.
-  Its paths: the mod's folders first, by their absolute paths, then the
-  others as they are. A path is the mod's when it comes to a folder of the
-  mod's, a relative one as the engine resolves it against the game's
-  `System`, in any case; or when it is `..\<the mod's name>\<rest>`, the
-  mod's ini's path for it in the game's folder, where it is not, and the
-  mod has the rest. When none is, the mod's `System`, `Maps`, `Textures`,
-  `Sounds` and `Music` come first. A path whose last part is no pattern
-  (`*` or `?` in it) is kept as it is.
-- **`User.ini`**: the mod's own, beside its settings (`<name>User.ini`,
-  `User.ini` beside a `DeusEx.ini`, else `DefUser.ini`), else the game's.
+  `[Core.System] Paths`, in its `System`, else in a `System` folder of one
+  of its folders (GMDX's `GMDXv9\System`, which its shortcut's `INI=`
+  names): the one named after its folder (or the folder a link of it is
+  to) first, then one with its own `<name>User.ini` beside it, then any but
+  `Default.ini`, then `Default.ini` --, else the game's. Its paths: the
+  mod's folders first, by their absolute paths, then the others as they
+  are. A path is the mod's when it comes to a folder of the mod's, a
+  relative one as the engine resolves it against the game's `System`, in
+  any case; or when it is `..\<the mod's name>\<rest>`, the mod's ini's
+  path for it in the game's folder, where it is not, and the mod has the
+  rest; or, the mod laid out in its folder as its installer lays it over
+  the game (The Zodiac's `ZodiacMaps`, GMDX's `HDTP` and `System`), when it
+  is `..\<folder>\<rest>` and the mod has that folder: its own copy, the
+  game's after it where the game has one. When no path names a folder of
+  the mod's by its place or its name, the mod's `System`, `Maps`,
+  `Textures`, `Sounds` and `Music` that no path gave come after those. A
+  path whose last part is no pattern (`*` or `?` in it) is kept as it is.
+- **A mod that runs from its own `System`**, its own `Core.dll` there
+  (Transcended's `Mods\Transcended`, Revision's): its ini's relative paths
+  are taken from that `System`, as its own launcher starting there takes
+  them -- by their absolute paths where the folder is there, and one that
+  climbs out of the mod's folder to none as the game's folder of its last
+  names (Transcended's `..\..\..\System`, the mod anywhere) --; and the
+  engine is given `--system` naming it, which takes the mod's config files
+  and text from there too
+  ([DXEngine's options](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-it)).
+- **`User.ini`**: the mod's own, beside its settings (`<name>User.ini`; a
+  launcher's `<name>Default.ini`'s `<name>User.ini`, else
+  `<name>DefUser.ini`; `User.ini` beside a `DeusEx.ini`, else
+  `DefUser.ini`), else the game's.
 - **The saves**: those of the mod's own save folder, its ini's `SavePath`
-  when that is a folder in the mod's other than its `System`; none of the
-  game's, and no shots.
+  (from its own `System` for a mod that runs from one) when that is a
+  folder in the mod's other than its `System`; none of the game's, and no
+  shots.
 - **`profile.ini`'s `Mod`**: the mod's folder. A profile whose mod is not
   there says so on Home and Profiles, and does not play.
 
