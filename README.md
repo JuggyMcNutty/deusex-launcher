@@ -42,7 +42,9 @@ through end to end ([where it differs](https://github.com/JuggyMcNutty/DXEngine/
   any, look through the game's screenshots.
 - **Multiplayer**: the game's servers, from the local network and
   333networks' master server; favourites, passwords, an address joined.
-- **Mods**: each played through a profile of its own, its folders first.
+- **Mods**: those with no code of their own, each played through a
+  profile of its own, its folders first
+  ([which play](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#mods)).
 - **Recovery**: after a crash, how the run ended, the end of its log, and
   what to try next: another renderer, a window, the defaults.
 - **The big screen**: full screen, for a television or a handheld PC, on
