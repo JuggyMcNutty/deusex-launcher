@@ -110,6 +110,18 @@ static void test_given_and_known(void) {
     check_item(&l, 1, "played before", "elsewhere/DX");
     dxl_found_list_free(&l);
 
+    /* Its System folder given: the same install, listed once, where it is
+     * known too. */
+    char *system = dxl_path_join(steam, "System");
+    w.given = system;
+    dxl_finder_find(&l, &w);
+    CHECK_INT(l.count, 2);
+    CHECK_STR(l.items[0].source, "the folder given");
+    check_item(&l, 0, "the folder given", ".local/share/Steam/steamapps/common/Deus Ex");
+    check_item(&l, 1, "played before", "elsewhere/DX");
+    dxl_found_list_free(&l);
+    free(system);
+
     w.given = none;
     w.known = NULL;
     dxl_finder_find(&l, &w);
@@ -326,7 +338,8 @@ static void test_prefix_steam(void) {
  * -- a user's, the automounter's /run/media/system -- at a drive's top and
  * two folders down, and where Windows' installers put the game; a folder
  * of them that links to another, and a drive mounted twice, looked in
- * once; what is mounted elsewhere, not at all. */
+ * once; what is mounted elsewhere, and a network file system or an
+ * automount point, not at all. */
 static void test_drives(void) {
     char *home = dxl_xstrdup(scratch_dir("finder-drives"));
     install_at(home, "run-media/me/USB/Games/Deus Ex");
@@ -337,6 +350,13 @@ static void test_drives(void) {
     install_at(home, "run-media/system/Win/SteamLibrary/steamapps/common/Deus Ex");
     install_at(home, "mnt/win/Program Files (x86)/Steam/steamapps/common/Deus Ex");
     install_at(home, "elsewhere/disk/DeusEx");                  /* mounted, but not for drives */
+    /* A network file system's and an automounter's: passed over. */
+    install_at(home, "run-media/me/NAS/DeusEx");
+    install_at(home, "mnt/share/DeusEx");
+    install_at(home, "mnt/ssh/DeusEx");
+    install_at(home, "mnt/auto/DeusEx");
+    /* A network one mounted inside a drive that is walked: not entered. */
+    install_at(home, "run-media/me/USB/nas/DeusEx");
     char *run = dxl_path_join(home, "run-media"), *media_link = dxl_path_join(home, "media"),
          *mnt = dxl_path_join(home, "mnt"), *empty = dxl_path_join(home, "home");
     dxl_path_mkdirs(empty);
@@ -352,8 +372,13 @@ static void test_drives(void) {
              "45 29 8:3 / %s/run-media/system/Win rw shared:5 - ntfs3 /dev/sda3 rw\n"
              "46 29 8:3 / %s/run-media/system/Win rw shared:5 - ntfs3 /dev/sda3 rw\n"
              "47 29 8:4 / %s/mnt/win rw shared:6 - ntfs3 /dev/sda4 rw\n"
-             "48 29 8:5 / %s/elsewhere/disk rw shared:7 - ext4 /dev/sda5 rw\n",
-             home, home, home, home, home, home, home, home);
+             "48 29 8:5 / %s/elsewhere/disk rw shared:7 - ext4 /dev/sda5 rw\n"
+             "49 29 0:60 / %s/run-media/me/NAS rw shared:8 - nfs4 nas:/games rw\n"
+             "50 29 0:61 / %s/mnt/share rw shared:9 - cifs //nas/games rw\n"
+             "51 29 0:62 / %s/mnt/ssh rw shared:10 - fuse.sshfs me@far:/ rw\n"
+             "52 29 0:63 / %s/mnt/auto rw shared:11 - autofs systemd-1 rw\n"
+             "53 41 0:64 / %s/run-media/me/USB/nas rw shared:12 - nfs4 nas:/more rw\n",
+             home, home, home, home, home, home, home, home, home, home, home, home, home);
 
     dxl_found_list l;
     dxl_finder_where w;

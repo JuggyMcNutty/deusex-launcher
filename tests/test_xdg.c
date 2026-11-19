@@ -1,8 +1,11 @@
 #include "test.h"
 #include "core/xdg.h"
+#include "platform/fs.h"
 #include "platform/os.h"
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void clear_env(void) {
     dxl_env_set("DXL_HOME", NULL);
@@ -56,6 +59,19 @@ static void test_scratch_home(void) {
     CHECK_STR(x.data, "/tmp/fresh/data/dxlauncher");
     CHECK_STR(x.state, "/tmp/fresh/state/dxlauncher");
     CHECK_STR(x.cache, "/tmp/fresh/cache/dxlauncher");
+    dxl_xdg_free(&x);
+    /* A relative one, from the working folder. */
+    dxl_env_set("DXL_HOME", "scratch/home");
+    char *cwd = dxl_fs_cwd();
+    CHECK(cwd != NULL);
+    CHECK_INT(dxl_xdg_open(&x, NULL), 0);
+    if (cwd) {
+        char want[4200];
+        snprintf(want, sizeof want, "%s%sscratch/home/config/dxlauncher", cwd,
+                 cwd[strlen(cwd) - 1] == '/' ? "" : "/");
+        CHECK_STR(x.config, want);
+        free(cwd);
+    }
     dxl_xdg_free(&x);
     clear_env();
 }
