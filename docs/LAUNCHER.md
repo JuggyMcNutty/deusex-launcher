@@ -68,7 +68,10 @@ permissions to keep (exFAT, FAT) refusing that is no failure. A file the
 launcher may not write, a read-only one, is not replaced: its save fails,
 `<file> is read-only`, as the original's write in place does; to root too
 where its every write bit is off, as Windows' read-only attribute holds
-for an administrator.
+for an administrator. One file's failure stops no other's save: `User.ini`
+is written whatever `DeusEx.ini`'s save did, the profile's file whatever
+`launcher.ini`'s did, and Settings says which file was not written, as the
+game reads the files and a change that is in none is not kept.
 
 The launcher's own folder is where `deusex-launcher` is: the engine beside
 it (`DXEngine`, its `.pk3`), `THIRD-PARTY.md` with the notices it names
@@ -147,7 +150,11 @@ writing nothing there:
   (`[DeusEx.MenuScreenJoinGame] MasterServerAddress=master0.gamespy.com`)
   given 333networks', `master.333networks.com`.
 - **The saves** (every folder of the game's save folder but `Current`) and
-  the shots (`System/Shot*.bmp`) copied. `main`'s launcher's files in
+  the shots (`System/Shot*.bmp`) copied. A save folder or a shot the
+  profile's folders hold already -- a data folder an earlier profile of the
+  id left, its config folder removed to start afresh -- is the profile's
+  own and is kept as it is, the game's of that name not copied into or over
+  it; the first run says how many were kept. `main`'s launcher's files in
   `System` (its `DeusEx`, `run-game.sh`, `Running.ini`) are not read.
 
 `dxl-cli --dry-run --game=<dir>` says what it would make, before anything
@@ -1018,10 +1025,6 @@ Each open in Port Ex Machina's
   profile is already gone.
 - **LAPP.29**: a write killed half-way leaves a temporary file beside the
   ini, never swept; very long trash paths are cut unchecked.
-- **LCORE.24**: a profile made over a data folder still there gets the
-  game's old saves copied over its own, a mixed save.
-- **LCORE.25**: one ini that cannot be written stops the others being saved,
-  and the player is not told.
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays, and stops at its first native.
 - **LCORE.29**: a System folder given on the command line or in the system's
