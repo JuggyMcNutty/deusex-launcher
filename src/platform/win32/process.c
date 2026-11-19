@@ -112,8 +112,17 @@ static int start(char *const argv[], const wchar_t *env, const char *workdir, HA
         dxl_err_set(err, "cannot run %s: no attribute list", argv[0]);
         return -1;
     }
-    UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherit, ninherit * sizeof *inherit, NULL,
-                              NULL);
+    /* A list refused would pass on every handle that is inheritable: the
+     * start fails instead; with none to pass on, none is (bugs.md
+     * LPORT.19). */
+    if (ninherit && !UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherit,
+                                               ninherit * sizeof *inherit, NULL, NULL)) {
+        char why[256];
+        dxl_err_set(err, "cannot run %s: no handle list (%s)", argv[0], dxl_win_error(GetLastError(), why, sizeof why));
+        DeleteProcThreadAttributeList(list);
+        free(list);
+        return -1;
+    }
     STARTUPINFOEXW si;
     memset(&si, 0, sizeof si);
     si.StartupInfo.cb = sizeof si;
@@ -123,7 +132,7 @@ static int start(char *const argv[], const wchar_t *env, const char *workdir, HA
     si.StartupInfo.hStdError = err_h;
     si.lpAttributeList = list;
     wchar_t *app = dxl_w(argv[0], 1), *line = command_line(argv), *dir = workdir && *workdir ? dxl_w(workdir, 1) : NULL;
-    if (CreateProcessW(app, line, NULL, NULL, TRUE,
+    if (CreateProcessW(app, line, NULL, NULL, ninherit > 0,
                        CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT | CREATE_NO_WINDOW,
                        (LPVOID)env, dir, &si.StartupInfo, pi)) {
         rc = 0;

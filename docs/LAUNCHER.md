@@ -1154,8 +1154,6 @@ Each open in Port Ex Machina's
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
 - **LPORT.15**: the programs carry no icon of their own.
-- **LPORT.19**: a failed handle list at a program's start goes unchecked; a
-  file of 2 GiB or more is taken as missing.
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
 - **D.94**: a start whose window cannot open plays nothing, even where the

@@ -48,12 +48,14 @@ function(dxl_check_abi target)
 endfunction()
 
 # The platform's code: POSIX's, or on Windows win32's, with the UCRT's
-# localtime_r (mingw-w64's, for POSIX's thread-safe calls) and the resource
-# compiler for the programs' manifest and version.
+# localtime_r (mingw-w64's, for POSIX's thread-safe calls), its 64-bit stat
+# (mingw-w64's default is a 32-bit size, which fails for a file of 2 GiB or
+# more: bugs.md LPORT.19) and the resource compiler for the programs'
+# manifest and version.
 if(WIN32)
     set(DXL_OS win32)
     set(DXL_PLACES src/core/finder_places_win32.c)
-    add_compile_definitions(_POSIX_THREAD_SAFE_FUNCTIONS=200112L)
+    add_compile_definitions(_POSIX_THREAD_SAFE_FUNCTIONS=200112L _FILE_OFFSET_BITS=64)
     enable_language(RC)
 else()
     set(DXL_OS posix)
