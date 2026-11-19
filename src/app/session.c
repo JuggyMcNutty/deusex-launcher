@@ -67,16 +67,22 @@ void dxl_session_close(dxl_session *s) {
 }
 
 int dxl_session_save(dxl_session *s, dxl_err *err) {
+    /* launcher.ini and the profile's file, each whatever the other's did;
+     * the first failure is the one told. */
+    int rc = 0;
+    dxl_err second;
     if (dxl_ini_dirty(s->ini) || !dxl_path_exists(s->ini_path)) {
         if (dxl_path_mkdirs(s->xdg.config) != 0) {
             dxl_err_set(err, "cannot create %s", s->xdg.config);
-            return -1;
+            rc = -1;
+        } else if (dxl_ini_save(s->ini, s->ini_path, err) != 0) {
+            rc = -1;
         }
-        if (dxl_ini_save(s->ini, s->ini_path, err) != 0) return -1;
     }
-    if (dxl_profile_exists(&s->profile) && dxl_ini_dirty(s->profile.ini))
-        return dxl_profile_save(&s->profile, err);
-    return 0;
+    if (dxl_profile_exists(&s->profile) && dxl_ini_dirty(s->profile.ini) &&
+        dxl_profile_save(&s->profile, rc == 0 ? err : &second) != 0)
+        rc = -1;
+    return rc;
 }
 
 static void install_section(const char *id, char *out, size_t size) {

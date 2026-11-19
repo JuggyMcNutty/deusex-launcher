@@ -100,13 +100,18 @@ typedef struct {
     char saves_from[512];    /* the game's save folder */
     int  saves;              /* its saves, as the Saves page lists them (core/saves.h), to copy or copied */
     int  shots;              /* System/Shot*.bmp */
+    int  saves_kept;         /* save folders the profile had already: left as they were, the game's of that name not copied */
+    int  shots_kept;         /* shots it had already, likewise */
     int  master_replaced;    /* GameSpy's dead master server given 333networks' */
     int  bindings_folded;    /* [Extension.InputExt]'s keys, the original's, put in [Engine.Input] */
 } dxl_import;
 
 /* Makes the profile's inis from the files of the game's System folder, and
  * copies its saves (never Current) and shots; with dry set, only fills r.
- * Nothing is written to the game's folder. */
+ * Nothing is written to the game's folder. A save folder or a shot the
+ * profile's own folders hold already -- a data folder left by an earlier
+ * profile of the id -- is kept as it is and counted (saves_kept,
+ * shots_kept): the game's of that name is not copied into or over it. */
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err);
 /* A mod's profile, made as dxl_profile_import makes one but from the mod's

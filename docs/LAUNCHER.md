@@ -58,7 +58,11 @@ A file is written whole or not at all, the icon's PNGs too: to a new file
 beside it, flushed, then moved over it
 (`dxl_path_write_atomic`, `MoveFileExW`); a symbolic link is written
 through, the file it leads to replaced, or made there when it is not there
-yet, and the link kept. Windows' files have no mode to keep.
+yet, and the link kept. Windows' files have no mode to keep. One file's
+failure stops no other's save: `User.ini` is written whatever `DeusEx.ini`'s
+save did, the profile's file whatever `launcher.ini`'s did, and Settings
+says which file was not written, as the game reads the files and a change
+that is in none is not kept.
 
 The launcher's own folder is where `deusex-launcher.exe` is: the engine
 beside it (`DXEngine.exe`, its `.pk3`, OpenAL Soft's `OpenAL32.dll`),
@@ -129,7 +133,11 @@ writing nothing there:
   size would switch the display's mode; one chosen after, in the game's
   Screen Resolution or Settings' Full screen size, is kept.
 - **The saves** (every folder of the game's save folder but `Current`) and
-  the shots (`System/Shot*.bmp`) copied. `main`'s launcher's files in
+  the shots (`System/Shot*.bmp`) copied. A save folder or a shot the
+  profile's folders hold already -- a data folder an earlier profile of the
+  id left, its config folder removed to start afresh -- is the profile's
+  own and is kept as it is, the game's of that name not copied into or over
+  it; the first run says how many were kept. `main`'s launcher's files in
   `System` (its `DeusEx`, `run-game.sh`, `Running.ini`) are not read.
 
 `dxl-cli --dry-run --game=<dir>` says what it would make, before anything
@@ -1044,10 +1052,6 @@ Each open in Port Ex Machina's
   is, so a moved copy keeps a dead entry and calls it its own.
 - **LAPP.29**: a write killed half-way leaves a temporary file beside the
   ini, never swept; very long trash paths are cut unchecked.
-- **LCORE.24**: a profile made over a data folder still there gets the
-  game's old saves copied over its own, a mixed save.
-- **LCORE.25**: one ini that cannot be written stops the others being saved,
-  and the player is not told.
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays, and stops at its first native.
 - **LCORE.29**: a System folder given on the command line or in the system's

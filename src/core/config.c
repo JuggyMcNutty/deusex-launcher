@@ -121,9 +121,14 @@ void dxl_config_reload(dxl_config *c) {
 }
 
 int dxl_config_save(dxl_config *c, dxl_err *err) {
-    if (file_save(&c->base, err) != 0) return -1;
-    if (file_save(&c->user, err) != 0) return -1;
-    return 0;
+    /* Each file whatever the other's did: a DeusEx.ini that cannot be
+     * written -- read-only, as players keep one the game is not to rewrite
+     * -- does not leave User.ini's keys unwritten. The first failure is
+     * the one told. */
+    dxl_err second;
+    int base = file_save(&c->base, err);
+    int user = file_save(&c->user, base == 0 ? err : &second);
+    return base != 0 || user != 0 ? -1 : 0;
 }
 
 const char *dxl_config_path(const dxl_config *c) { return c->base.path; }
