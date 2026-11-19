@@ -570,7 +570,9 @@ void dxl_shell_folder_picked(dxl_shell *s, const char *path) {
     if (s->pick_for == DXL_BROWSE_MOD) {
         dxl_mod m;
         dxl_err e;
-        if (dxl_mod_check(path, &m, &e) == 0) {
+        /* As the launcher's own browser takes it: the mod's System folder
+         * for the mod (bugs.md LUI.21). */
+        if (dxl_mod_chosen(path, &m, &e) == 0) {
             dxl_shell_mod_shown(s, &m);
             dxl_mod_free(&m);
         } else {

@@ -245,7 +245,8 @@ is a copy of the game (its `System/DeusEx.exe`).
   after the mod; Back leaves the one in use as it was. Made, it is the one
   in use.
 - **Browse...** and **The system's dialog...**: a mod's folder anywhere
-  else, listed while the launcher runs, and by its profile from then on.
+  else, listed while the launcher runs, and by its profile from then on;
+  its `System` folder shown instead is taken for the mod's, by either.
 - **The mods folder**: the launcher's, in Explorer.
 
 A mod's profile is made as the first run makes one
@@ -1150,8 +1151,6 @@ Each open in Port Ex Machina's
   its first native.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **LUI.21**: the system's folder dialog for a mod does not take a `System`
-  folder for the mod's own, as the launcher's browser does.
 - **LPORT.15**: the programs carry no icon of their own.
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
