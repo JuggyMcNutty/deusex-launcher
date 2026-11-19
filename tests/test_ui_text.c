@@ -131,6 +131,43 @@ static void test_big_scale(void) {
     offscreen_close(&o, &tv);
 }
 
+/* The window's smallest, 960 x 600 dp, held within the room its screen
+ * leaves: 1366x768 at 125% with a 40 px taskbar and a 39 px title bar,
+ * 1080p at 175%, the launcher at twice its size on 1080p -- the dp made
+ * smaller; a room it fits, or none known, the scale as it was. The kit's
+ * scale is held to it. */
+static void test_fit_scale(void) {
+    float k = dxl_ui_fit_scale(1.25f, 1366, 768 - 40 - 39, 960, 600);
+    CHECK(fabsf(k - 689 / 600.0f) < 0.0001f);
+    CHECK(600 * k <= 689 && 960 * k <= 1366);
+    CHECK(fabsf(dxl_ui_fit_scale(1.75f, 1920, 1080 - 48 - 54, 960, 600) - 978 / 600.0f) < 0.0001f);
+    CHECK(fabsf(dxl_ui_fit_scale(2, 1920, 1040, 960, 600) - 1040 / 600.0f) < 0.0001f);
+    CHECK(fabsf(dxl_ui_fit_scale(1, 1920, 1040, 960, 600) - 1) < 0.0001f);
+    CHECK(fabsf(dxl_ui_fit_scale(1.5f, 0, 0, 960, 600) - 1.5f) < 0.0001f);
+    /* A narrow room: its width the bound. */
+    CHECK(fabsf(dxl_ui_fit_scale(2, 1280, 1400, 960, 600) - 1280 / 960.0f) < 0.0001f);
+
+    offscreen o;
+    static dxl_ui kit;
+    if (offscreen_open(&o, &kit, 1366, 689, 1.25f)) {
+        CHECK(0);
+        return;
+    }
+    kit.fit_scale = k;
+    dxl_ui_input_begin(&kit);
+    dxl_ui_begin(&kit, 1.0);
+    CHECK(fabsf(kit.scale - k) < 0.0001f);
+    CHECK(kit.h >= 600 - 0.01f);
+    dxl_ui_end(&kit);
+    /* Held only where it is under the scale. */
+    kit.fit_scale = 2;
+    dxl_ui_input_begin(&kit);
+    dxl_ui_begin(&kit, 1.1);
+    CHECK(fabsf(kit.scale - 1.25f) < 0.0001f);
+    dxl_ui_end(&kit);
+    offscreen_close(&o, &kit);
+}
+
 /* The typewriter: 220 characters a second from its start; whole once a key
  * comes after it began, and under reduced motion. */
 static void test_typed(dxl_ui *ui) {
@@ -178,5 +215,6 @@ TEST_MAIN_BEGIN
     offscreen_close(&o, &ui);
     RUN(test_scale);
     RUN(test_big_scale);
+    RUN(test_fit_scale);
     TTF_Quit();
 TEST_MAIN_END

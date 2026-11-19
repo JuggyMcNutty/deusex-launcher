@@ -310,6 +310,65 @@ static void test_repeat_after_idle(void) {
     dxl_ui_input_begin(&ui);
 }
 
+/* Two pads: one holds the stick down, the other's stick drifts near the
+ * middle -- the first's repeat goes on, as with one pad. One holds the
+ * d-pad down, the other presses down and lets go: one move more, and the
+ * first's repeat goes on. A pad unplugged while it holds stops its repeat. */
+static void test_two_pads(void) {
+    SDL_JoystickID one = pad(0x045e, 0x0b12, "Xbox Series X Controller");
+    SDL_JoystickID two = pad(0x054c, 0x0ce6, "DualSense Wireless Controller");
+    SDL_Joystick *j1 = SDL_GetJoystickFromID(one), *j2 = SDL_GetJoystickFromID(two);
+    CHECK(j1 && j2);
+    double t = clock_s + 1;
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualAxis(j1, SDL_GAMEPAD_AXIS_LEFTY, 30000);
+    pump();
+    dxl_ui_begin(&ui, t);
+    CHECK_INT(ui.in.nav[DXL_DIR_DOWN], 1);
+    dxl_ui_end(&ui);
+    int moves = 0;
+    for (int i = 1; i <= 100; i++) {
+        /* The other's drift, an event every few frames. */
+        if (i % 5 == 0) {
+            SDL_SetJoystickVirtualAxis(j2, SDL_GAMEPAD_AXIS_LEFTX, (Sint16)((i / 5) % 2 ? 600 : 0));
+            pump();
+        }
+        dxl_ui_input_begin(&ui);
+        dxl_ui_begin(&ui, t + i * 0.01);
+        moves += ui.in.nav[DXL_DIR_DOWN];
+        dxl_ui_end(&ui);
+    }
+    CHECK(moves >= 7 && moves <= 9);
+    SDL_SetJoystickVirtualAxis(j1, SDL_GAMEPAD_AXIS_LEFTY, 0);
+    pump();
+    CHECK_INT(downs(t, 101, 150), 0);
+
+    t += 2;
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualButton(j1, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
+    pump();
+    dxl_ui_begin(&ui, t);
+    CHECK_INT(ui.in.nav[DXL_DIR_DOWN], 1);
+    dxl_ui_end(&ui);
+    dxl_ui_input_begin(&ui);
+    SDL_SetJoystickVirtualButton(j2, SDL_GAMEPAD_BUTTON_DPAD_DOWN, true);
+    pump();
+    SDL_SetJoystickVirtualButton(j2, SDL_GAMEPAD_BUTTON_DPAD_DOWN, false);
+    pump();
+    dxl_ui_begin(&ui, t + 0.01);
+    CHECK_INT(ui.in.nav[DXL_DIR_DOWN], 1);
+    dxl_ui_end(&ui);
+    moves = downs(t, 2, 100);
+    CHECK(moves >= 7 && moves <= 9);
+    SDL_DetachVirtualJoystick(one);
+    pump();
+    CHECK_INT(downs(t, 101, 150), 0);
+    SDL_DetachVirtualJoystick(two);
+    pump();
+    clock_s = t + 2;
+    dxl_ui_input_begin(&ui);
+}
+
 /* A slot capturing takes a trigger pulled past half, as the game presses
  * it. With the pads another's (the mapping wizard's), a held stick stops
  * repeating: its letting go is not seen. */
@@ -448,6 +507,7 @@ TEST_MAIN_BEGIN
     RUN(test_pads);
     RUN(test_repeat);
     RUN(test_repeat_after_idle);
+    RUN(test_two_pads);
     RUN(test_trigger_and_pads_off);
     RUN(test_list);
     RUN(test_list_bar);

@@ -96,6 +96,22 @@ typedef struct {
     int            rc;
 } make_job;
 
+/* One folder of the browser's read, in its worker (dxl_browser_read): a
+ * folder on a network mount that does not answer holds it, not the window,
+ * which lets go of it for another or as it closes; freed by the last of the
+ * two to let go (bugs.md LUI.17). */
+typedef struct {
+    SDL_Mutex     *lock;
+    SDL_AtomicInt  refs;
+    int            quiet, done;
+    Uint32         event;
+    char          *dir;
+    int            hidden;
+    char          *real;
+    char         **names;
+    int            count;
+} list_job;
+
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
@@ -108,6 +124,13 @@ struct dxl_window {
     int            audio_up;       /* SDL's audio subsystem, up with the window */
     Uint32         wake_event, pick_event;
     double         opened;
+    /* The window's smallest as last set (minimum): the points a dp, the
+     * display's scale and the launcher's size's or less, so that it fits
+     * the room the work area leaves past the frame; the kit's px a dp held
+     * to that (0 none); set again for a display of another scale
+     * (min_stale). */
+    float          min_k, fit;
+    int            room_w, room_h, min_stale;
     int            cursor_hidden;
     int            diags;          /* the kit's diagnostics last logged */
     float          min_scale;      /* the launcher's size (UIScale) its smallest is set for */
@@ -134,8 +157,10 @@ struct dxl_window {
      * browser's. */
     find_job      *find;
     browse_job    *browse;
-    /* Your profile's import, in its worker; NULL for none. */
+    /* Your profile's import, in its worker; NULL for none. The folder
+     * browser's read. */
     make_job      *make;
+    list_job      *list;
 
     /* The system's folder dialog's answer, from its thread. */
     SDL_Mutex     *pick_lock;
@@ -672,6 +697,94 @@ static void make_stop(dxl_window *w) {
     dxl_log("the profile's copy: given up, the window closing");
 }
 
+/* ---- the folder browser's read -------------------------------------------- */
+
+static void list_unref(list_job *j) {
+    if (SDL_AddAtomicInt(&j->refs, -1) != 1) return;
+    for (int i = 0; i < j->count; i++) free(j->names[i]);
+    free(j->names);
+    free(j->real);
+    free(j->dir);
+    SDL_DestroyMutex(j->lock);
+    free(j);
+}
+
+static int SDLCALL list_main(void *p) {
+    list_job *j = p;
+    char *real, **names;
+    int count;
+    dxl_browser_read(j->dir, j->hidden, &real, &names, &count);
+    SDL_LockMutex(j->lock);
+    j->real = real;
+    j->names = names;
+    j->count = count;
+    j->done = 1;
+    if (!j->quiet) {
+        SDL_Event e;
+        SDL_zero(e);
+        e.type = j->event;
+        SDL_PushEvent(&e);
+    }
+    SDL_UnlockMutex(j->lock);
+    list_unref(j);
+    return 0;
+}
+
+/* The window's read let go of: left to end, telling no one. */
+static void list_drop(dxl_window *w) {
+    list_job *j = w->list;
+    if (!j) return;
+    w->list = NULL;
+    SDL_LockMutex(j->lock);
+    j->quiet = 1;
+    SDL_UnlockMutex(j->lock);
+    list_unref(j);
+}
+
+static int start_list(dxl_shell *s, const char *dir, int hidden) {
+    dxl_window *w = s->window;
+    list_drop(w);
+    list_job *j = dxl_xmalloc(sizeof *j);
+    memset(j, 0, sizeof *j);
+    j->lock = SDL_CreateMutex();
+    j->event = w->job_event;
+    j->dir = dxl_xstrdup(dir);
+    j->hidden = hidden;
+    SDL_SetAtomicInt(&j->refs, 2);
+    SDL_Thread *t = j->lock ? SDL_CreateThread(list_main, "dxl-list", j) : NULL;
+    if (!t) {
+        dxl_log("no thread for the folder's list (%s): it is read now", SDL_GetError());
+        SDL_SetAtomicInt(&j->refs, 1);
+        list_unref(j);
+        return -1;
+    }
+    SDL_DetachThread(t);
+    w->list = j;
+    return 0;
+}
+
+/* The folder read, to the browser. */
+static void list_collect(dxl_window *w) {
+    list_job *j = w->list;
+    if (!j) return;
+    SDL_LockMutex(j->lock);
+    int done = j->done;
+    char *real = j->real, **names = j->names;
+    int count = j->count;
+    if (done) {
+        j->real = NULL;
+        j->names = NULL;
+        j->count = 0;
+    }
+    SDL_UnlockMutex(j->lock);
+    if (!done) return;
+    char *dir = dxl_xstrdup(j->dir);
+    int hidden = j->hidden;
+    list_drop(w);
+    dxl_browser_listed(&w->shell, dir, hidden, real, names, count);
+    free(dir);
+}
+
 /* ---- the app menu's entry ------------------------------------------------- */
 
 static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
@@ -744,33 +857,76 @@ static float points_per_dp(dxl_window *w, float user_scale) {
     return scale / density * (user_scale > 0 ? user_scale : 1);
 }
 
-/* Its smallest, 960 x 600 dp at the launcher's size, within the display. */
+/* Its smallest, 960 x 600 dp at the launcher's size, within the display's
+ * work area and the window's frame round it: where that does not fit -- a
+ * short screen, a large display scale or launcher size -- the dp made
+ * smaller, the kit's scale held to it (bugs.md LUI.15). The frame is what
+ * SDL knows of it: Windows' at once, X11's once the window is mapped,
+ * none on Wayland, where the compositor places the window. */
 static void minimum(dxl_window *w, float user_scale, int *minw, int *minh) {
     SDL_Rect usable;
     if (!SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w->window), &usable))
         usable = (SDL_Rect){ 0, 0, 1920, 1080 };
+    int top = 0, left = 0, bottom = 0, right = 0;
+    if (!SDL_GetWindowBordersSize(w->window, &top, &left, &bottom, &right)) top = left = bottom = right = 0;
+    w->room_w = usable.w - left - right;
+    w->room_h = usable.h - top - bottom;
     float k = points_per_dp(w, user_scale);
-    *minw = (int)(SMALLEST_W * k);
-    *minh = (int)(SMALLEST_H * k);
-    if (*minw > usable.w) *minw = usable.w;
-    if (*minh > usable.h) *minh = usable.h;
+    float fit = dxl_ui_fit_scale(k, (float)w->room_w, (float)w->room_h, SMALLEST_W, SMALLEST_H);
+    float density = SDL_GetWindowPixelDensity(w->window);
+    w->fit = fit < k ? fit * (density > 0 ? density : 1) : 0;
+    *minw = (int)(SMALLEST_W * fit);
+    *minh = (int)(SMALLEST_H * fit);
     SDL_SetWindowMinimumSize(w->window, *minw, *minh);
     w->min_scale = user_scale;
+    w->min_k = fit;
+}
+
+/* On a display of another scale or another work area: the smallest set
+ * again, and a window not maximized nor full screen kept at its size in dp
+ * where its points per dp changed -- Windows keeps its pixels, which at
+ * 100% from 200% would be twice the size -- within its smallest and the
+ * room (bugs.md LUI.16). */
+static void refit(dxl_window *w, float user_scale) {
+    float was = w->min_k;
+    int minw, minh;
+    minimum(w, user_scale, &minw, &minh);
+    if (w->big || (SDL_GetWindowFlags(w->window) & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_FULLSCREEN))) return;
+    int ww = 0, wh = 0;
+    SDL_GetWindowSize(w->window, &ww, &wh);
+    int nw = ww, nh = wh;
+    if (was > 0 && (w->min_k > was * 1.001f || w->min_k < was * 0.999f)) {
+        nw = (int)((float)ww * w->min_k / was + 0.5f);
+        nh = (int)((float)wh * w->min_k / was + 0.5f);
+    }
+    if (nw > w->room_w) nw = w->room_w;
+    if (nh > w->room_h) nh = w->room_h;
+    if (nw < minw) nw = minw;
+    if (nh < minh) nh = minh;
+    if (nw != ww || nh != wh) {
+        dxl_log("window: %dx%d for this display, from %dx%d", nw, nh, ww, wh);
+        /* About its centre, which keeps it on the display that holds most
+         * of it: sized from its corner, a window astride two displays of
+         * other scales could cross back and be sized again each frame. */
+        int x = 0, y = 0;
+        int placed = SDL_GetWindowPosition(w->window, &x, &y);
+        SDL_SetWindowSize(w->window, nw, nh);
+        if (placed) SDL_SetWindowPosition(w->window, x + (ww - nw) / 2, y + (wh - nh) / 2);
+    }
 }
 
 /* Its first size: the layout's 1280 x 720 dp, or what it had when it last
- * closed (launcher.ini's [Window]), within the display. */
+ * closed (launcher.ini's [Window]), within the room the display's work area
+ * leaves, never under its smallest, which fits it. */
 static void size_window(dxl_window *w) {
     SDL_DisplayID d = SDL_GetDisplayForWindow(w->window);
     const char *ui_scale = dxl_ini_get(w->run->session.ini, "Launcher", "UIScale");
     float user_scale = ui_scale ? (float)atof(ui_scale) : 1;
     if (user_scale < 0.5f || user_scale > 3) user_scale = 1;
-    float k = points_per_dp(w, user_scale);
-    SDL_Rect usable;
-    if (!SDL_GetDisplayUsableBounds(d, &usable)) usable = (SDL_Rect){ 0, 0, 1920, 1080 };
-    int maxw = (int)(usable.w * 0.94f), maxh = (int)(usable.h * 0.94f);
     int minw, minh;
     minimum(w, user_scale, &minw, &minh);
+    float k = w->min_k;
+    int maxw = (int)((float)w->room_w * 0.94f), maxh = (int)((float)w->room_h * 0.94f);
     int ww = (int)(FIRST_W * k), wh = (int)(FIRST_H * k);
     const dxl_ini *ini = w->run->session.ini;
     int kw = dxl_ini_get_int(ini, "Window", "Width", 0), kh = dxl_ini_get_int(ini, "Window", "Height", 0);
@@ -817,6 +973,8 @@ static void close_window(dxl_window *w, dxl_run *r) {
     browse_drop(w);
     if (w->shell.browsing) w->shell.browsed = 0;
     w->shell.browsing = 0;
+    /* And the folder browser's read, left to end on its own. */
+    list_drop(w);
     /* The sound goes with the window: the game opens its own. */
     dxl_audio_close(w->shell.audio);
     w->shell.audio = NULL;
@@ -966,6 +1124,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->audio_given = 0;
     s->window = w;
     s->pick_folder = pick_folder;
+    s->start_list = start_list;
     s->desktop = desktop;
     s->start_probe = start_probe;
     s->start_find = start_find;
@@ -1000,6 +1159,8 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         dxl_log("the big screen: off, by the desktop");
     } else if (e->type == SDL_EVENT_GAMEPAD_REMOVED) {
         dxl_shell_toast(s, "A controller was disconnected.");
+    } else if (e->type == SDL_EVENT_WINDOW_DISPLAY_CHANGED || e->type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) {
+        w->min_stale = 1;
     } else if (e->type == w->wake_event) {
         take_lines(w);
     } else if (e->type == w->pick_event) {
@@ -1009,6 +1170,7 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         find_collect(w);
         browse_collect(w);
         make_collect(w);
+        list_collect(w);
     }
 }
 
@@ -1053,11 +1215,16 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
             }
         }
         if (w->stop && *w->stop) s->ui.in.quit = 1;
-        /* The launcher's size changed on Settings: its smallest with it. */
-        if (s->ui.user_scale != w->min_scale) {
+        /* The launcher's size changed on Settings: its smallest with it;
+         * the window on another display, its size too. */
+        if (w->min_stale) {
+            refit(w, s->ui.user_scale);
+            w->min_stale = 0;
+        } else if (s->ui.user_scale != w->min_scale) {
             int minw, minh;
             minimum(w, s->ui.user_scale, &minw, &minh);
         }
+        s->ui.fit_scale = w->fit;
         cursor(w);
         Uint64 t0 = SDL_GetTicksNS();
         SDL_SetRenderDrawColor(w->renderer, 0, 0, 0, 255);

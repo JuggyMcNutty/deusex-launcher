@@ -58,12 +58,60 @@ static int has_up(const char *dir) {
 /* The folder above dir: its own, or above a root, the roots' list. */
 static char *above(const char *dir) { return is_root(dir) ? dxl_xstrdup("") : dxl_path_dirname(dir); }
 
-/* The folders in dir, sorted; the roots for "". */
-static void list(dxl_browser *b, const char *dir) {
+void dxl_browser_read(const char *dir, int hidden, char **real, char ***names, int *count) {
+    char *r = dxl_fs_real(dir);
+    *real = r ? r : dxl_xstrdup(dir);
+    *names = NULL;
+    *count = 0;
+    DIR *d = opendir(*real);
+    if (!d) return;
+    int cap = 0;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (e->d_name[0] == '.' && !hidden) continue;
+        /* A folder, or a link to one. */
+        char *p = dxl_path_join(*real, e->d_name);
+        int folder = dxl_path_is_dir(p);
+        free(p);
+        if (!folder) continue;
+        if (*count == cap) {
+            cap = cap ? cap * 2 : 32;
+            *names = dxl_xrealloc(*names, sizeof **names * cap);
+        }
+        (*names)[(*count)++] = dxl_xstrdup(e->d_name);
+    }
+    closedir(d);
+    if (*count) qsort(*names, *count, sizeof **names, by_name);
+}
+
+void dxl_browser_listed(dxl_shell *s, const char *dir, int hidden, char *real, char **names, int count) {
+    dxl_browser *b = &s->browser;
+    if (s->dialog != DXL_DIALOG_BROWSER || !b->reading || !b->dir || strcmp(b->dir, dir) != 0 || b->hidden != hidden) {
+        for (int i = 0; i < count; i++) free(names[i]);
+        free(names);
+        free(real);
+        return;
+    }
+    free(b->dir);
+    b->dir = real;
+    b->names = names;
+    b->count = count;
+    b->reading = 0;
+    dxl_ui_animate(&s->ui);
+}
+
+/* The folders in dir, sorted; the roots for "". A folder's own read by the
+ * window's worker where there is one: the dialog says it reads it until it
+ * is done, and goes elsewhere or closes meanwhile, as a network mount that
+ * does not answer holds the worker, not the window (bugs.md LUI.17). */
+static void list(dxl_shell *s, const char *dir) {
+    dxl_browser *b = &s->browser;
     int hidden = b->hidden;
     char *keep = dxl_xstrdup(dir);
     dxl_browser_free(b);
     b->hidden = hidden;
+    b->reading = 0;
     if (!keep[0]) {
         b->dir = keep;
         char **roots = dxl_fs_roots();
@@ -74,36 +122,20 @@ static void list(dxl_browser *b, const char *dir) {
         dxl_fs_roots_free(roots);
         return;
     }
-    char *real = dxl_fs_real(keep);
-    b->dir = real ? real : dxl_xstrdup(keep);
-    free(keep);
-    DIR *d = opendir(b->dir);
-    if (!d) return;
-    int cap = 0;
-    struct dirent *e;
-    while ((e = readdir(d))) {
-        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
-        if (e->d_name[0] == '.' && !b->hidden) continue;
-        /* A folder, or a link to one. */
-        char *p = dxl_path_join(b->dir, e->d_name);
-        int folder = dxl_path_is_dir(p);
-        free(p);
-        if (!folder) continue;
-        if (b->count == cap) {
-            cap = cap ? cap * 2 : 32;
-            b->names = dxl_xrealloc(b->names, sizeof *b->names * cap);
-        }
-        b->names[b->count++] = dxl_xstrdup(e->d_name);
+    if (s->start_list && s->start_list(s, keep, hidden) == 0) {
+        b->dir = keep;
+        b->reading = 1;
+        return;
     }
-    closedir(d);
-    if (b->count) qsort(b->names, b->count, sizeof *b->names, by_name);
+    dxl_browser_read(keep, hidden, &b->dir, &b->names, &b->count);
+    free(keep);
 }
 
 void dxl_browser_open(dxl_shell *s, const char *dir, int mode) {
     s->browser.note[0] = '\0';
     s->browser.mode = mode;
     char *top = dir && *dir ? NULL : first_root();
-    list(&s->browser, top ? top : dir);
+    list(s, top ? top : dir);
     free(top);
     if (s->dialog == DXL_DIALOG_NONE) s->dialog_return = s->ui.focus;
     s->dialog = DXL_DIALOG_BROWSER;
@@ -112,7 +144,7 @@ void dxl_browser_open(dxl_shell *s, const char *dir, int mode) {
 /* Into another folder: the list from its top. */
 static void go_to(dxl_shell *s, dxl_list *l, const char *dir) {
     s->browser.note[0] = '\0';
-    list(&s->browser, dir);
+    list(s, dir);
     *dxl_ui_value(&s->ui, l->id, 0) = 0;
     l->count = s->browser.count + has_up(s->browser.dir);
     dxl_list_focus(&s->ui, l, 0);
@@ -194,12 +226,14 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     if (!b->count) {
         dxl_rect empty = dxl_inset(in, 16);
         empty.y += up ? 40 : 0;
-        dxl_label(ui, (dxl_rect){ empty.x, empty.y, empty.w, 24 }, DXL_FONT_SMALL, "No folders in it.", t->help,
-                  DXL_W_LEFT);
+        dxl_label(ui, (dxl_rect){ empty.x, empty.y, empty.w, 24 }, DXL_FONT_SMALL,
+                  b->reading ? "Reading the folder..." : "No folders in it.", t->help, DXL_W_LEFT);
     }
 
     float bw = (buttons.w - 3 * 10) / 4;
-    int ok = dxl_button(ui, "browser use", dxl_cut_left(&buttons, bw), "Use this folder", DXL_W_PRIMARY);
+    /* Not while it is read: the folder is checked on this thread. */
+    int ok = dxl_button(ui, "browser use", dxl_cut_left(&buttons, bw), "Use this folder",
+                        DXL_W_PRIMARY | (b->reading ? DXL_W_DISABLED : 0));
     dxl_cut_left(&buttons, 10);
     int home = dxl_button(ui, "browser home", dxl_cut_left(&buttons, bw), "Home folder", 0);
     dxl_cut_left(&buttons, 10);
@@ -225,7 +259,7 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     } else if (dots) {
         b->hidden = !b->hidden;
         char *keep = dxl_xstrdup(b->dir);
-        list(b, keep);
+        list(s, keep);
         free(keep);
     } else if (cancel || back) {
         dxl_shell_close_dialog(s);
