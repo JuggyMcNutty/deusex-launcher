@@ -412,7 +412,10 @@ handed to a game that plays.
    none, as the original's server, whose log window is never `IsBrowser`: a
    second start, finding no pipe, plays beside it at once with a pipe of its
    own, as the original's client, so a third start hands its command line
-   to that one.
+   to that one. A launcher run as administrator refuses its pipe, and may
+   refuse its mark, to one that is not: a mark refused is held all the
+   same, and the second start plays beside it, `launcher.log` saying the one
+   running was started as administrator.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -926,7 +929,8 @@ registry's, read from a key of the test's own in theirs (`DXL_FINDER_KEYS`);
 of its own (`DXL_START_MENU`) and `deusex://`, each gone again;
 `test_trash_win32` the Recycle Bin, several at once all or none;
 `test_instance_win32` the hand-over's pipe: a line while it waits and after
-one, a start that says nothing, one come and gone before its first wait.
+one, a start that says nothing, one come and gone before its first wait, a
+mark and a pipe that refuse the start.
 `test_ini`
 loads and saves an ini in the game's format byte for byte (CR LF, blank
 lines, repeated keys; 8-bit text Latin-1 and UTF-16 kept, as the engine
@@ -1144,8 +1148,6 @@ Each open in Port Ex Machina's
   moved.
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
-- **LPORT.13**: a launcher run as administrator may not be seen by a second
-  start.
 - **LPORT.14**: a profile partly recycled is reported as nothing taken; the
   Recycle Bin's question has no owner window.
 - **LPORT.15**: the programs carry no icon of their own.

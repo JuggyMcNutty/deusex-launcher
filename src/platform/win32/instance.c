@@ -56,6 +56,18 @@ static void pipe_name(const char *id, int n, wchar_t *out, size_t size) {
     swprintf(out, size, L"\\\\.\\pipe\\deusex-launcher.%08lx.%d", id_hash(id), n);
 }
 
+/* Whether the mark of that name is held: one that opens, or one whose
+ * DACL refuses this process, a launcher's run as administrator to one that
+ * is not (bugs.md LPORT.13); not held only where no mutex has the name. */
+static int held(const wchar_t *name) {
+    HANDLE m = OpenMutexW(SYNCHRONIZE, FALSE, name);
+    if (m) {
+        CloseHandle(m);
+        return 1;
+    }
+    return GetLastError() == ERROR_ACCESS_DENIED;
+}
+
 /* This launcher's mark: the mutex of the first number past every one held,
  * so that of two launchers held the later's is the higher, as the forward
  * takes it; past the last, the first number no launcher holds. Made here,
@@ -65,16 +77,14 @@ static HANDLE take_mark(const char *id, int *n) {
     for (int i = 0; i < MARKS; i++) {
         wchar_t name[64];
         mark_name(id, i, name, 64);
-        HANDLE m = OpenMutexW(SYNCHRONIZE, FALSE, name);
-        if (m) {
-            CloseHandle(m);
-            from = i + 1;
-        }
+        if (held(name)) from = i + 1;
     }
     for (int k = 0; k < MARKS; k++) {
         int i = (from + k) % MARKS;
         wchar_t name[64];
         mark_name(id, i, name, 64);
+        /* NULL for one held that refuses this process (ERROR_ACCESS_DENIED)
+         * or a name another object has (ERROR_INVALID_HANDLE): the next. */
         HANDLE m = CreateMutexW(NULL, FALSE, name);
         if (!m) continue;
         if (GetLastError() != ERROR_ALREADY_EXISTS) {
@@ -206,11 +216,7 @@ int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
         if (dxl_instance_locked(inst) && inst->mark == i) continue;
         wchar_t name[64];
         mark_name(id, i, name, 64);
-        HANDLE m = OpenMutexW(SYNCHRONIZE, FALSE, name);
-        if (m) {
-            CloseHandle(m);
-            return 1;
-        }
+        if (held(name)) return 1;
     }
     return 0;
 }
@@ -253,7 +259,13 @@ int dxl_instance_forward(const char *id, const char *message, int timeout_ms, dx
         if (h != INVALID_HANDLE_VALUE) break;
         ULONGLONG now = GetTickCount64();
         if (now >= deadline || (!busy[0] && (e != ERROR_FILE_NOT_FOUND || now - start >= NO_PIPE_MS))) {
-            dxl_err_set(err, "handoff failed: %s", dxl_win_error(e, why, sizeof why));
+            /* A pipe that refuses this process: a launcher's run as
+             * administrator, which one that is not cannot reach. */
+            if (e == ERROR_ACCESS_DENIED)
+                dxl_err_set(err, "handoff failed: the launcher running was started as administrator (%s)",
+                            dxl_win_error(e, why, sizeof why));
+            else
+                dxl_err_set(err, "handoff failed: %s", dxl_win_error(e, why, sizeof why));
             return -1;
         }
         /* The newest between two senders: wait for it, a little at a time. */

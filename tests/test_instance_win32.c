@@ -1,13 +1,16 @@
 /* The hand-over's pipe on Windows (platform/win32/instance.c): a second
  * start's line read whenever it comes -- while the primary waits, after a
  * line before, before the primary's first wait (bugs.md LPORT.7) -- one that
- * says nothing passed over, and no wait woken with nothing to read. */
+ * says nothing passed over, and no wait woken with nothing to read; a mark
+ * and a pipe that refuse this process, as an elevated launcher's refuse one
+ * that is not, taken as held and named (bugs.md LPORT.13). */
 #include "test.h"
 #include "platform/instance.h"
 #include "platform/os.h"
 #include "platform/wait.h"
 #include "platform/win32/internal.h"
 
+#include <sddl.h>
 #include <wchar.h>
 
 static char g_id[256];
@@ -113,10 +116,68 @@ static void test_before_the_first_wait(void) {
     dxl_instance_release(inst);
 }
 
+/* The mark's and the pipe's names, as instance.c makes them. */
+static unsigned long id_hash(const char *id) {
+    unsigned long h = 2166136261UL;
+    for (const unsigned char *p = (const unsigned char *)id; *p; p++) {
+        h ^= *p;
+        h *= 16777619UL;
+    }
+    return h & 0xffffffffUL;
+}
+
+/* Mark 0 and its pipe made with a DACL that grants no one anything, as an
+ * elevated launcher's default one grants nothing to a launcher that is not
+ * elevated: the mark held all the same, the hand-over's failure naming an
+ * administrator's launcher. */
+static void test_refused(void) {
+    char id[300];
+    snprintf(id, sizeof id, "%s-refused", g_id);
+    wchar_t mark[64], pipe[64];
+    swprintf(mark, 64, L"Local\\deusex-launcher.%08lx.0", id_hash(id));
+    swprintf(pipe, 64, L"\\\\.\\pipe\\deusex-launcher.%08lx.0", id_hash(id));
+    PSECURITY_DESCRIPTOR sd = NULL;
+    CHECK(ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P", SDDL_REVISION_1, &sd, NULL));
+    SECURITY_ATTRIBUTES sa = { sizeof sa, sd, FALSE };
+
+    HANDLE m = CreateMutexW(&sa, FALSE, mark);
+    CHECK(m != NULL);
+    HANDLE o = OpenMutexW(SYNCHRONIZE, FALSE, mark);
+    if (o) {
+        CloseHandle(o);
+        printf("  a mutex's DACL is not enforced here: the refused mark not tried\n");
+    } else {
+        CHECK_INT(GetLastError(), ERROR_ACCESS_DENIED);
+        CHECK_INT(dxl_instance_other_running(NULL, id), 1);
+        dxl_instance *inst = dxl_instance_acquire_lock(id);
+        CHECK(dxl_instance_locked(inst));
+        CHECK_INT(dxl_instance_other_running(inst, id), 1);
+        dxl_instance_release(inst);
+    }
+
+    HANDLE p = CreateNamedPipeW(pipe, PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1,
+                                0, DXL_HANDOFF_MAX, 0, &sa);
+    CHECK(p != INVALID_HANDLE_VALUE);
+    HANDLE c = CreateFileW(pipe, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    if (c != INVALID_HANDLE_VALUE) {
+        CloseHandle(c);
+        printf("  a pipe's DACL is not enforced here: the refused pipe not tried\n");
+    } else {
+        CHECK_INT(GetLastError(), ERROR_ACCESS_DENIED);
+        dxl_err e;
+        CHECK_INT(dxl_instance_forward(id, "line", 1000, &e), -1);
+        CHECK(strstr(dxl_err_msg(&e), "administrator") != NULL);
+    }
+    if (p != INVALID_HANDLE_VALUE) CloseHandle(p);
+    if (m) CloseHandle(m);
+    LocalFree(sd);
+}
+
 TEST_MAIN_BEGIN
     snprintf(g_id, sizeof g_id, "%s/dxl-instance-%ld", dxl_test_tmp(), dxl_os_pid());
     dxl_instance_test_made = made;
     RUN(test_lines);
     RUN(test_nothing_said);
     RUN(test_before_the_first_wait);
+    RUN(test_refused);
 TEST_MAIN_END

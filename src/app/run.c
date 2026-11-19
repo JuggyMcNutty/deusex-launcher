@@ -919,8 +919,8 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
     snprintf(handed, handed_size, "%s%s%s%s%s", r->opt.join ? r->opt.join : "", r->opt.join && r->words[0] ? " " : "",
              r->words, r->opt.big_screen && (r->words[0] || r->opt.join) ? " " : "",
              r->opt.big_screen ? "--big-screen" : "");
-    int forwarded = !r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy &&
-                    dxl_instance_forward(id, handed, HANDOFF_TIMEOUT_MS, &e) == 0;
+    int tried = !r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff && busy;
+    int forwarded = tried && dxl_instance_forward(id, handed, HANDOFF_TIMEOUT_MS, &e) == 0;
     free(handed);
     if (forwarded) {
         fprintf(stderr, "the launcher already running took this command line\n");
@@ -929,6 +929,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
     }
     open_log(r, busy);
     dxl_log("Init: command line: %s", r->words);
+    /* Why the launcher running did not take the line: this start plays
+     * beside it. */
+    if (tried) dxl_log("%s: this start goes on beside the launcher running", dxl_err_msg(&e));
     if (!r->opt.dry && !r->opt.print_command) {
         hold_instance(r);
         /* The launcher that runs, its own from here: a console borrowed to
