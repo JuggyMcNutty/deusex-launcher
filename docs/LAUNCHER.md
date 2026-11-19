@@ -917,7 +917,9 @@ Home's The engine... chooses another.
 ## How it is tested
 
 `scripts/dx.sh test` runs the host tests side by side, all but
-`test_ui_scripts` with no display. `test_ini` loads and saves an ini in the
+`test_ui_scripts` with no display, each with a runtime folder of its own
+(`XDG_RUNTIME_DIR`, set in `tests/test.h`), removed as it ends: a test's
+launchers leave no lock or channel in the user's. `test_ini` loads and saves an ini in the
 game's format byte for byte (CR LF, blank lines, repeated keys; 8-bit text
 Latin-1 and UTF-16 kept, as the engine reads and writes them, and a path
 past Latin-1 written UTF-16; the text to its first NUL; each line read as
