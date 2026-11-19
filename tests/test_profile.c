@@ -4,6 +4,7 @@
 #include "core/ini.h"
 #include "core/paths.h"
 #include "core/profile.h"
+#include "core/saves.h"
 #include "platform/os.h"
 #include "platform/fs.h"
 
@@ -326,6 +327,7 @@ static void test_import_recased(void) {
     scratch_write(g, "system/deusex.ini", "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n");
     scratch_write(g, "system/defuser.ini", "[Engine.Input]\r\nF1=X\r\n");
     scratch_write(g, "SAVE/Save0003/SaveInfo.dxs", "recased");
+    scratch_write(g, "SAVE/save0004/saveinfo.dxs", "recased");
     char *home = dxl_xstrdup(scratch_dir("profile-recased-home"));
     dxl_env_set("DXL_HOME", home);
     dxl_xdg x;
@@ -340,7 +342,9 @@ static void test_import_recased(void) {
      * answers to the ini's. */
     CHECK(strstr(r.saves_from, "/SAVE") != NULL);
 #endif
-    CHECK_INT(r.saves, 1);
+    /* Both are saves: a slot's folder counts in any case, as it lists. */
+    CHECK_INT(r.saves, 2);
+    CHECK_INT(dxl_saves_count(p.save_dir), 2);
     char *f = dxl_path_join(p.save_dir, "Save0003/SaveInfo.dxs");
     CHECK_INT(dxl_path_exists(f), 1);
     free(f);

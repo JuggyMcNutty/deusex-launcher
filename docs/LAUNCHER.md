@@ -304,8 +304,10 @@ A mod's profile is made as the first run makes one
 
 A profile's saves are its `Save` folder's, the engine's `SavePath`: each
 `SaveNNNN` under the engine's own name for slot NNNN, and `QuickSave`, the
-quick save, slot -1 (`src/core/saves.c`). Each is read from its
-`SaveInfo.dxs`, the game's `DeusExSaveInfo` (`src/core/upkg_assets.c`):
+quick save, slot -1 (`src/core/saves.c`). A folder and its `SaveInfo.dxs`
+are found in any letter case, as the engine finds them: a copy of the game
+recased by its unpacker has `save0003` and `saveinfo.dxs`. Each is read from
+its `SaveInfo.dxs`, the game's `DeusExSaveInfo` (`src/core/upkg_assets.c`):
 what it says, where and when it was made, how long the game had been
 played, its snapshot; the newest first, one whose info does not read last.
 
@@ -1102,8 +1104,6 @@ Each open in Port Ex Machina's
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.
 - **LCORE.40**: the pad presets bind no button to the laser sight.
-- **LCORE.43**: the saves of a copy of the game recased by its unpacker,
-  their folders and files in lower case, are imported and listed nowhere.
 - **LCORE.44**: Duplicate leaves the new profile's files behind when it
   fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has

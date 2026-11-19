@@ -1,11 +1,12 @@
 /* A profile's saves: the folders of its Save folder (the engine's SavePath)
  * that the engine loads -- SaveNNNN, slot NNNN, as the engine names one
  * ("Save%04d"), and QuickSave, the quick save, slot -1 -- each with its
- * SaveInfo.dxs read (core/upkg_assets.h), by that name alone, as the
- * engine opens it: when it was made, what it says, where. Current, the
- * mission in progress, is no save. Newest first, as
- * the game's own Load Game lists them; one whose SaveInfo does not read
- * after them all.
+ * SaveInfo.dxs read (core/upkg_assets.h): when it was made, what it says,
+ * where. A folder and its info are found in any case, as the engine finds
+ * them (a copy recased by its unpacker has save0003 and saveinfo.dxs); of
+ * two folders of one slot, the one the engine opens. Current, the mission
+ * in progress, is no save. Newest first, as the game's own Load Game lists
+ * them; one whose SaveInfo does not read after them all.
  *
  * A save is started on with the engine's start URL ?loadgame=N (DXEngine's
  * NATIVES.md, the command line), when its --version has loadgame-url.
@@ -40,8 +41,8 @@ int  dxl_saves_count(const char *dir);
 /* The newest one that reads: what Continue loads. NULL for none. */
 const dxl_save *dxl_saves_latest(const dxl_saves *s);
 
-/* The slot of a folder's name, as the engine names its folders: 1, or 0
- * for a name that is not one of them. */
+/* The slot of a folder's name, as the engine names its folders, in any
+ * case: 1, or 0 for a name that is not one of them. */
 int  dxl_save_slot_of(const char *folder, int *slot);
 /* Its start URL: "?loadgame=N". */
 void dxl_save_url(int slot, char *out, size_t size);

@@ -9,20 +9,28 @@
 #include <string.h>
 #include <time.h>
 
+/* The engine's name for a slot's folder. */
+static void slot_folder(int slot, char *out, size_t size) {
+    if (slot == DXL_SAVE_QUICK) snprintf(out, size, "QuickSave");
+    else snprintf(out, size, "Save%04d", slot);
+}
+
 int dxl_save_slot_of(const char *folder, int *slot) {
-    if (!strcmp(folder, "QuickSave")) {
+    /* In any case, as the engine finds a slot's folder and Windows the
+     * original's: a copy recased by its unpacker has save0003. */
+    if (!dxl_stricmp(folder, "QuickSave")) {
         *slot = DXL_SAVE_QUICK;
         return 1;
     }
-    if (strncmp(folder, "Save", 4) != 0 || folder[4] < '0' || folder[4] > '9') return 0;
+    if (dxl_strnicmp(folder, "Save", 4) != 0 || folder[4] < '0' || folder[4] > '9') return 0;
     char *end;
     errno = 0;
     long n = strtol(folder + 4, &end, 10);
     if (*end || errno || n < 0 || n > 999999) return 0;
     /* Only the engine's own name for it: Save0010, not Save010. */
     char again[24];
-    snprintf(again, sizeof again, "Save%04ld", n);
-    if (strcmp(again, folder) != 0) return 0;
+    slot_folder((int)n, again, sizeof again);
+    if (dxl_stricmp(again, folder) != 0) return 0;
     *slot = (int)n;
     return 1;
 }
@@ -47,7 +55,8 @@ static int newest_first(const void *a, const void *b) {
     return x->slot > y->slot ? -1 : x->slot < y->slot ? 1 : 0;
 }
 
-int dxl_saves_list(const char *dir, dxl_saves *out, dxl_err *err) {
+/* The saves in dir, each one's info read when read_info asks. */
+static int scan(const char *dir, int read_info, dxl_saves *out, dxl_err *err) {
     memset(out, 0, sizeof *out);
     DIR *d = dir ? opendir(dir) : NULL;
     if (!d) {
@@ -61,42 +70,55 @@ int dxl_saves_list(const char *dir, dxl_saves *out, dxl_err *err) {
         int slot;
         if (!dxl_save_slot_of(e->d_name, &slot)) continue;
         char *folder = dxl_path_join(dir, e->d_name);
-        int is_dir = dxl_path_is_dir(folder);
-        /* Its info by the name the engine opens, no other case. */
-        char *info = is_dir ? dxl_path_join(folder, "SaveInfo.dxs") : NULL;
-        free(folder);
-        if (!is_dir) continue;
-        if (out->count == cap) {
-            cap = cap ? cap * 2 : 16;
-            out->items = dxl_xrealloc(out->items, (size_t)cap * sizeof *out->items);
+        if (!dxl_path_is_dir(folder)) {
+            free(folder);
+            continue;
         }
-        dxl_save *s = &out->items[out->count++];
+        /* Two folders of one slot, their names differing in case alone
+         * (a file system that keeps case): one save, the folder the engine
+         * opens, which is the one of its own spelling, else the first met. */
+        dxl_save *s = NULL;
+        for (int i = 0; i < out->count && !s; i++)
+            if (out->items[i].slot == slot) s = &out->items[i];
+        if (s) {
+            char own[24];
+            slot_folder(slot, own, sizeof own);
+            if (strcmp(own, e->d_name) != 0) {
+                free(folder);
+                continue;
+            }
+            dxl_saveinfo_free(&s->info);
+        } else {
+            if (out->count == cap) {
+                cap = cap ? cap * 2 : 16;
+                out->items = dxl_xrealloc(out->items, (size_t)cap * sizeof *out->items);
+            }
+            s = &out->items[out->count++];
+        }
         memset(s, 0, sizeof *s);
         s->slot = slot;
         snprintf(s->folder, sizeof s->folder, "%.23s", e->d_name);
+        /* Its info in any case, as the engine finds it. */
+        char *info = read_info ? dxl_path_resolve_ci(folder, "SaveInfo.dxs") : NULL;
         dxl_err e2;
         s->readable = info && dxl_saveinfo_read(info, 0, &s->info, &e2) == 0;
         if (!s->readable) memset(&s->info, 0, sizeof s->info);
         free(info);
-    }
-    closedir(d);
-    if (out->count > 1) qsort(out->items, (size_t)out->count, sizeof *out->items, newest_first);
-    return 0;
-}
-
-int dxl_saves_count(const char *dir) {
-    DIR *d = dir ? opendir(dir) : NULL;
-    if (!d) return 0;
-    int n = 0;
-    struct dirent *e;
-    while ((e = readdir(d)) != NULL) {
-        int slot;
-        if (!dxl_save_slot_of(e->d_name, &slot)) continue;
-        char *folder = dxl_path_join(dir, e->d_name);
-        n += dxl_path_is_dir(folder);
         free(folder);
     }
     closedir(d);
+    if (read_info && out->count > 1) qsort(out->items, (size_t)out->count, sizeof *out->items, newest_first);
+    return 0;
+}
+
+int dxl_saves_list(const char *dir, dxl_saves *out, dxl_err *err) { return scan(dir, 1, out, err); }
+
+int dxl_saves_count(const char *dir) {
+    dxl_saves s;
+    dxl_err e;
+    if (scan(dir, 0, &s, &e) != 0) return 0;
+    int n = s.count;
+    dxl_saves_free(&s);
     return n;
 }
 
