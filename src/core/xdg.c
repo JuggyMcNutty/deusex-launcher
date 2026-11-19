@@ -11,8 +11,21 @@
 int dxl_xdg_open(dxl_xdg *x, dxl_err *err) {
     memset(x, 0, sizeof *x);
     const char *home = getenv("DXL_HOME");
-    if (home && dxl_fs_is_absolute(home)) {
-        char *scratch = dxl_fs_path(home);
+    if (home && *home) {
+        /* A relative one from the working folder, as a shell's paths are:
+         * the engine is given its folders by their absolute paths. */
+        char *given = dxl_fs_path(home), *scratch = given;
+        if (!dxl_fs_is_absolute(given)) {
+            char *cwd = dxl_fs_cwd();
+            if (!cwd) {
+                dxl_err_set(err, "DXL_HOME=%s is relative, and the working folder is not known", home);
+                free(given);
+                return -1;
+            }
+            scratch = dxl_path_join(cwd, given);
+            free(cwd);
+            free(given);
+        }
         char *config = dxl_path_join(scratch, "config");
         char *state = dxl_path_join(scratch, "state");
         char *cache = dxl_path_join(scratch, "cache");

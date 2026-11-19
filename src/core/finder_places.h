@@ -8,6 +8,8 @@
 
 #include "core/finder.h"
 
+#define DXL_FINDER_SKIP_MAX 64
+
 typedef struct {
     const char        *home, *config, *data, *wineprefix, *mounts;
     const char *const *media;
@@ -17,6 +19,8 @@ typedef struct {
     const atomic_int  *stop;
     char              *seen[DXL_FOUND_MAX];   /* the folders listed, as they really are */
     int                seen_count;
+    char              *skip[DXL_FINDER_SKIP_MAX];   /* folders no walk enters or asks about: network mounts and automounters' */
+    int                skip_count;
 } finder;
 
 /* ---- the looking (core/finder.c) ---------------------------------------- */

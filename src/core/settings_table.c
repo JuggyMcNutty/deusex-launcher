@@ -218,7 +218,8 @@ const dxl_setting dxl_settings_table[] = {
       .kind = DXL_SET_NUMBER, .min = -2, .max = 2, .step = 0.25, .format = "%+.2f", .shown_scale = 1, .def = "-0.5",
       .at = { JSON(DXL_ES_LOD_BIAS) }, .flags = DXL_SET_ADVANCED },
     { .id = "graphics.detail_textures", .page = "Graphics", .label = "Detail textures",
-      .help = "The fine grain the game lays over near walls and floors, as its Direct3D renderer drew it.",
+      .help = "The fine grain the game lays over near walls and floors, as its Direct3D renderer drew it; "
+              "drawn only while the game's own World Texture Detail is High.",
       .kind = DXL_SET_BOOL,
       .def = "1", .at = { RENDER("DetailTextures", DXL_CODEC_BOOL) } },
     { .id = "graphics.volumetric", .page = "Graphics", .label = "Volumetric lighting",
