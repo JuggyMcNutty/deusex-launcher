@@ -339,7 +339,11 @@ static void test_import_recased(void) {
     char *system_dir = scratch_path(g, "system");
     dxl_import r;
     CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, NULL), 0);
+#ifndef _WIN32
+    /* The folder's own spelling, found past the ini's; Windows' file system
+     * answers to the ini's. */
     CHECK(strstr(r.saves_from, "/SAVE") != NULL);
+#endif
     CHECK_INT(r.saves, 1);
     char *f = dxl_path_join(p.save_dir, "Save0003/SaveInfo.dxs");
     CHECK_INT(dxl_path_exists(f), 1);
