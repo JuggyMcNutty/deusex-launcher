@@ -258,7 +258,8 @@ is a copy of the game (its `System/DeusEx.exe`).
   after the mod; Back leaves the one in use as it was. Made, it is the one
   in use.
 - **Browse...**: a mod's folder anywhere else, listed while the launcher
-  runs, and by its profile from then on.
+  runs, and by its profile from then on; its `System` folder shown instead
+  is taken for the mod's.
 
 A mod's profile is made as the first run makes one
 (`dxl_profile_import_mod`, `src/core/profile.c`), but:

@@ -164,13 +164,7 @@ static void use(dxl_shell *s) {
     if (b->mode == DXL_BROWSE_MOD) {
         dxl_mod m;
         dxl_err e;
-        int ok = dxl_mod_check(b->dir, &m, &e) == 0;
-        if (!ok && dxl_stricmp(dxl_path_basename(b->dir), "System") == 0) {
-            char *up = dxl_path_dirname(b->dir);
-            ok = dxl_mod_check(up, &m, NULL) == 0;
-            free(up);
-        }
-        if (ok) {
+        if (dxl_mod_chosen(b->dir, &m, &e) == 0) {
             dxl_shell_close_dialog(s);
             dxl_shell_mod_shown(s, &m);
             dxl_mod_free(&m);
