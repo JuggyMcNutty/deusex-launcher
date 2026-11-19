@@ -991,6 +991,7 @@ int main(void) {
         printf("skipped: no display\n");
         return 77;
     }
+    dxl_test_runtime();   /* its launchers' locks and channels in a folder of the test's */
     char exe[600];
     snprintf(exe, sizeof exe, "%s/System/DeusEx.exe", DXL_GAME);
     if (access(exe, F_OK) != 0) {
