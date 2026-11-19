@@ -10,6 +10,13 @@
 # The backends are built against the headers of Debian bookworm arm64's
 # packages in deps/sysroots/linux-aarch64 (port.sh), whose libraries give
 # them the names to open.
+#
+# Every program is linked for pages of 64 KiB, the largest an aarch64 kernel
+# uses (RHEL's and its kin's), its load segments aligned and congruent at
+# it: the SDK's linker aligns at 16 KiB, which a kernel of 64 KiB pages may
+# fail to map. Harmless at 4 KiB and 16 KiB pages. scripts/check-abi.sh
+# refuses any less (bugs.md LPORT.11).
+set(DXL_PORT_LINK_OPTIONS "LINKER:-z,max-page-size=65536")
 if(CMAKE_CROSSCOMPILING)
     set(DXL_PORT_SYSROOT      "${DXL_ROOT}/deps/sysroots/linux-aarch64")
     set(DXL_PORT_GLIBC_MAX    2.28)

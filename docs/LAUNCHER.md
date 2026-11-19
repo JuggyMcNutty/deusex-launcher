@@ -1152,8 +1152,6 @@ Each open in Port Ex Machina's
   moved.
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
-- **LPORT.11**: the programs are linked for pages of 16 KiB, so a kernel of
-  64 KiB pages may not start them.
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
 - **D.90**: the engine needs OpenAL Soft installed, which a stock Ubuntu

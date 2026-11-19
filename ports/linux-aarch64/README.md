@@ -56,8 +56,10 @@ gives it a scratch home, `build/linux-aarch64/fresh-home`.
 The glibc 2.28 ceiling keeps the cross-built programs off newer glibc
 symbols, so they load on a distro with glibc 2.28 or later
 ([why 2.28](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/AGENTS.md#decided)),
-on a kernel of 4 or 16 KiB pages
-([the known defects](../../docs/LAUNCHER.md#known-defects));
+on a kernel of 4, 16 or 64 KiB pages: every program, the launcher's
+(`port.cmake`) and the engine (`toolchain-cxx.cmake`), is linked for pages
+of 64 KiB, the largest an aarch64 kernel uses, and `scripts/check-abi.sh`
+fails one with a load segment aligned under it;
 the window opens the device's own X11 or Wayland, and its ALSA,
 PulseAudio or PipeWire, at run time. The engine, cross-built, holds to the
 same ceiling: what it links is the SDK's own or buster's, whose glibc is

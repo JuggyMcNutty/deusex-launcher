@@ -11,7 +11,8 @@
 # glibc than the SDK's, which GNU ld rejects); and SDL2, port.sh's, built in
 # from deps/prefix/linux-aarch64. At run time the device's own libraries are
 # used. libstdc++ and libgcc are linked statically: the device's may be
-# older than GCC 13's.
+# older than GCC 13's. Linked for pages of 64 KiB, as the launcher's
+# programs are (port.cmake).
 if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
     return()
 endif()
@@ -42,7 +43,7 @@ set(A64_INCLUDE "-idirafter ${A64_SYSROOT}/usr/include -idirafter ${A64_SYSROOT}
 set(CMAKE_C_FLAGS_INIT   "${A64_INCLUDE}")
 set(CMAKE_CXX_FLAGS_INIT "${A64_INCLUDE}")
 # The SDK's libraries before Debian's, which hold what the SDK lacks.
-set(A64_LINK "-static-libstdc++ -static-libgcc -L${A64_SDK_ROOT}/usr/lib64 -L${A64_MULTI} -Wl,-rpath-link,${A64_SDK_ROOT}/usr/lib64:${A64_MULTI}")
+set(A64_LINK "-static-libstdc++ -static-libgcc -Wl,-z,max-page-size=65536 -L${A64_SDK_ROOT}/usr/lib64 -L${A64_MULTI} -Wl,-rpath-link,${A64_SDK_ROOT}/usr/lib64:${A64_MULTI}")
 set(CMAKE_EXE_LINKER_FLAGS_INIT    "${A64_LINK}")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "${A64_LINK}")
 
