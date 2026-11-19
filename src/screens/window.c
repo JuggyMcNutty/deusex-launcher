@@ -92,6 +92,22 @@ typedef struct {
     int            rc;
 } make_job;
 
+/* One folder of the browser's read, in its worker (dxl_browser_read): a
+ * folder on a network mount that does not answer holds it, not the window,
+ * which lets go of it for another or as it closes; freed by the last of the
+ * two to let go (bugs.md LUI.17). */
+typedef struct {
+    SDL_Mutex     *lock;
+    SDL_AtomicInt  refs;
+    int            quiet, done;
+    Uint32         event;
+    char          *dir;
+    int            hidden;
+    char          *real;
+    char         **names;
+    int            count;
+} list_job;
+
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
@@ -129,8 +145,10 @@ struct dxl_window {
      * browser's. */
     find_job      *find;
     browse_job    *browse;
-    /* Your profile's import, in its worker; NULL for none. */
+    /* Your profile's import, in its worker; NULL for none. The folder
+     * browser's read. */
     make_job      *make;
+    list_job      *list;
 };
 
 /* The launcher's id, its window's to SDL. */
@@ -605,6 +623,94 @@ static void make_stop(dxl_window *w) {
     dxl_log("the profile's copy: given up, the window closing");
 }
 
+/* ---- the folder browser's read -------------------------------------------- */
+
+static void list_unref(list_job *j) {
+    if (SDL_AddAtomicInt(&j->refs, -1) != 1) return;
+    for (int i = 0; i < j->count; i++) free(j->names[i]);
+    free(j->names);
+    free(j->real);
+    free(j->dir);
+    SDL_DestroyMutex(j->lock);
+    free(j);
+}
+
+static int SDLCALL list_main(void *p) {
+    list_job *j = p;
+    char *real, **names;
+    int count;
+    dxl_browser_read(j->dir, j->hidden, &real, &names, &count);
+    SDL_LockMutex(j->lock);
+    j->real = real;
+    j->names = names;
+    j->count = count;
+    j->done = 1;
+    if (!j->quiet) {
+        SDL_Event e;
+        SDL_zero(e);
+        e.type = j->event;
+        SDL_PushEvent(&e);
+    }
+    SDL_UnlockMutex(j->lock);
+    list_unref(j);
+    return 0;
+}
+
+/* The window's read let go of: left to end, telling no one. */
+static void list_drop(dxl_window *w) {
+    list_job *j = w->list;
+    if (!j) return;
+    w->list = NULL;
+    SDL_LockMutex(j->lock);
+    j->quiet = 1;
+    SDL_UnlockMutex(j->lock);
+    list_unref(j);
+}
+
+static int start_list(dxl_shell *s, const char *dir, int hidden) {
+    dxl_window *w = s->window;
+    list_drop(w);
+    list_job *j = dxl_xmalloc(sizeof *j);
+    memset(j, 0, sizeof *j);
+    j->lock = SDL_CreateMutex();
+    j->event = w->job_event;
+    j->dir = dxl_xstrdup(dir);
+    j->hidden = hidden;
+    SDL_SetAtomicInt(&j->refs, 2);
+    SDL_Thread *t = j->lock ? SDL_CreateThread(list_main, "dxl-list", j) : NULL;
+    if (!t) {
+        dxl_log("no thread for the folder's list (%s): it is read now", SDL_GetError());
+        SDL_SetAtomicInt(&j->refs, 1);
+        list_unref(j);
+        return -1;
+    }
+    SDL_DetachThread(t);
+    w->list = j;
+    return 0;
+}
+
+/* The folder read, to the browser. */
+static void list_collect(dxl_window *w) {
+    list_job *j = w->list;
+    if (!j) return;
+    SDL_LockMutex(j->lock);
+    int done = j->done;
+    char *real = j->real, **names = j->names;
+    int count = j->count;
+    if (done) {
+        j->real = NULL;
+        j->names = NULL;
+        j->count = 0;
+    }
+    SDL_UnlockMutex(j->lock);
+    if (!done) return;
+    char *dir = dxl_xstrdup(j->dir);
+    int hidden = j->hidden;
+    list_drop(w);
+    dxl_browser_listed(&w->shell, dir, hidden, real, names, count);
+    free(dir);
+}
+
 /* ---- the window ---------------------------------------------------------- */
 
 /* launcher.ini kept as the session left it -- the profile and the installs
@@ -627,6 +733,8 @@ static void close_window(dxl_window *w, dxl_run *r) {
     browse_drop(w);
     if (w->shell.browsing) w->shell.browsed = 0;
     w->shell.browsing = 0;
+    /* And the folder browser's read, left to end on its own. */
+    list_drop(w);
     /* The sound goes with the window: the game opens its own. */
     dxl_audio_close(w->shell.audio);
     w->shell.audio = NULL;
@@ -759,6 +867,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->start_browse = start_browse;
     s->start_make = start_make;
     s->cancel_make = cancel_make;
+    s->start_list = start_list;
     return 0;
 }
 
@@ -792,6 +901,7 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         find_collect(w);
         browse_collect(w);
         make_collect(w);
+        list_collect(w);
     }
 }
 

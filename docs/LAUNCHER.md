@@ -136,7 +136,11 @@ each folder in spruceOS's `Roms/PORTS`, the Smart Pro's card's. A
 Windows Steam in a prefix gives its libraries too, its list's Windows
 paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
 any letter case; a network path (`\\server\share`) is passed over.
-Another is shown by the launcher's folder browser, which a pad works.
+Another is shown by the launcher's folder browser, which a pad works. It
+reads each folder in a worker of the window's, saying it reads until it is
+done, so a network mount that does not answer holds the worker alone: the
+folder above, Home folder and Cancel go on working, and Use this folder
+waits for the folder's list.
 `dxl-cli` makes the profile from
 `--game=<dir>`'s install. A game's `System` folder, shown or named, is
 taken for the game it is in. Either way the profile is made from the
@@ -314,8 +318,10 @@ played, its snapshot; the newest first, one whose info does not read last.
 - **Screenshots**, from Home: the profile's `Screenshots` folder's pictures,
   the engine's `ShotNNNN.bmp` and those the import copied, BMPs and PNGs,
   newest first (`src/core/shotlist.c`), as a gallery of thumbnails read off
-  the window's thread (`src/ui/thumbs.c`), the one chosen beside it with
-  when it was taken and its size. Show, or Enter or a click on one, shows
+  the window's thread (`src/ui/thumbs.c`), their textures held to 64 MB,
+  those of tiles scrolled past let go of the least lately seen first, and
+  read again when they come back; the one chosen beside it with when it
+  was taken and its size. Show, or Enter or a click on one, shows
   it whole, Previous and Next stepping through them; Delete... deletes it
   for good, once asked.
 
@@ -503,7 +509,9 @@ mouse: the pointer focuses what it moves onto (not what the window, coming
 up or changing size, puts under it), a click chooses, the wheel scrolls a
 list and a list's scroll bar drags by its thumb or pages by its track, the
 back button goes back. A pad: the d-pad or the left stick moves (held, again
-350 ms after the frame that took it and then every 90), its confirm button
+350 ms after the frame that took it and then every 90; while one pad holds,
+another's presses move once and its stick and its letting go end nothing),
+its confirm button
 chooses and its back button goes back -- south and east, or on a Nintendo
 pad, whose A is east, east and south -- its shoulders change tabs, and Start
 plays, on `-changevideo`'s Graphics too; a view that scrolls (the log) takes
@@ -611,6 +619,10 @@ run here shows as it is, "(not on this machine)" after it. The row is
 `Type`, written only as a renderer is chosen; where none is, it shows the
 one the engine takes by `DeusEx.ini`'s `GameRenderDevice`, the software
 renderer for `SoftDrv.SoftwareRenderDevice`, else Vulkan.
+With Software chosen, the help of Anti-aliasing, Bloom, Bloom strength and
+the preset says that the software renderer draws neither multisampling nor
+bloom, which it leaves out
+([the software device](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-software-device)).
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -907,7 +919,8 @@ gone dropped; `test_shell_choose` a repoint whose save fails, the profile's
 install left as it was, in memory too; `test_shell_make` the worker's
 import handed to Your profile, made, cancelled and failed;
 `test_shell_browse` the master server Multiplayer asks, at the profile's
-port; `test_engine_sections` the
+port; `test_shell_folders` the folder browser's list, read at once or handed
+to the window's worker, an answer for a folder left since dropped; `test_engine_sections` the
 keys written, each as the engine reads its retail one; `test_advice` the
 advice; `test_upkg` the game's packages, on
 packages it writes itself and the same broken a thousand ways, read at a
@@ -1089,17 +1102,11 @@ Each open in Port Ex Machina's
   fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **LUI.11**: screenshot thumbnails are kept until the window closes, so a
-  long gallery holds much memory.
 - **LUI.12**: Long names and server texts can be cut in the middle of a
   character.
 - **LUI.13**: a server's host name with no dot never joins.
 - **LUI.14**: a favourite is asked at the game port + 1, which need not be
   its query port.
-- **LUI.17**: the folder browser freezes the window on a network mount that
-  does not answer.
-- **LUI.18**: with two pads, one pad's stick jitter breaks the other's held
-  direction.
 - **LPORT.11**: the programs are linked for pages of 16 KiB, so a kernel of
   64 KiB pages may not start them.
 - **LPORT.16**: a failed CPU restore after a game is reported as done and

@@ -131,6 +131,7 @@ typedef struct {
     int    hidden;       /* those whose names start with a dot listed too */
     int    mode;         /* DXL_BROWSE_* */
     char   note[400];    /* why the folder last tried is not what is wanted */
+    int    reading;      /* dir read by the window's worker (start_list), its folders not here yet */
 } dxl_browser;
 
 #define DXL_TOASTS 4
@@ -339,6 +340,10 @@ typedef struct dxl_shell {
      * offscreen, where the profile is made at once. cancel_make stops it. */
     int        (*start_make)(struct dxl_shell *s);
     void       (*cancel_make)(struct dxl_shell *s);
+    /* The window's: the browser's folder read in its worker, the folders
+     * handed in with dxl_browser_listed; 0 when the worker took it. NULL
+     * offscreen, where it is read at once. */
+    int        (*start_list)(struct dxl_shell *s, const char *dir, int hidden);
     int          copying;         /* the worker copies: the page shows how far, and Cancel */
     int          copy_files, copy_files_total;
     long long    copy_bytes, copy_bytes_total;
@@ -574,6 +579,13 @@ void dxl_shell_answer_expire(dxl_shell *s);
  * pad's back the dialog takes. */
 void dxl_browser_open(dxl_shell *s, const char *dir, int mode);
 void dxl_browser_free(dxl_browser *b);
+/* dir's folders and links to folders, sorted, those whose names start with
+ * a dot with hidden; *real dir as the file system names it. On any thread:
+ * a folder on a network mount that does not answer holds its caller. */
+void dxl_browser_read(const char *dir, int hidden, char **real, char ***names, int *count);
+/* start_list's answer, on the window's thread: taken, real and names with
+ * it, where the browser still reads dir so; else freed. */
+void dxl_browser_listed(dxl_shell *s, const char *dir, int hidden, char *real, char **names, int count);
 void dxl_dialogs(dxl_shell *s, dxl_rect r, int back);
 
 #endif

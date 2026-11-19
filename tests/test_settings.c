@@ -378,6 +378,33 @@ static void test_no_msaa(void) {
     close_all(&st);
 }
 
+/* The software renderer: Anti-aliasing's, Bloom's and the presets' help
+ * say it draws neither, the renderer named in Settings.json or taken by
+ * the system ini; another renderer, or another row, adds nothing. */
+static void test_renderer_note(void) {
+    dxl_stores st;
+    open_all(&st);
+    const char *rows[] = { DXL_ANTIALIAS_ROW, "graphics.bloom", "graphics.bloom_amount", "graphics.preset" };
+    CHECK_INT(set(&st, "graphics.renderer", "Vulkan"), 0);
+    for (size_t i = 0; i < sizeof rows / sizeof *rows; i++) CHECK(dxl_setting_renderer_note(&st, row(rows[i])) == NULL);
+    CHECK_INT(set(&st, "graphics.renderer", "Software"), 0);
+    for (size_t i = 0; i < sizeof rows / sizeof *rows; i++) {
+        const char *note = dxl_setting_renderer_note(&st, row(rows[i]));
+        CHECK(note && strstr(note, "software renderer"));
+    }
+    CHECK(strstr(dxl_setting_renderer_note(&st, row(DXL_ANTIALIAS_ROW)), "multisampling") != NULL);
+    CHECK(strstr(dxl_setting_renderer_note(&st, row("graphics.bloom")), "bloom") != NULL);
+    CHECK(dxl_setting_renderer_note(&st, row("graphics.lod_bias")) == NULL);
+    CHECK(dxl_setting_renderer_note(&st, row("display.vsync")) == NULL);
+    close_all(&st);
+
+    /* No Type in Settings.json: the system ini's software device. */
+    open_all(&st);
+    dxl_ini_set(st.system, "Engine.Engine", "GameRenderDevice", "SoftDrv.SoftwareRenderDevice");
+    CHECK(dxl_setting_renderer_note(&st, row("graphics.bloom")) != NULL);
+    close_all(&st);
+}
+
 /* Back to the defaults: what a new profile has (the install's Default.ini
  * as the import seeds it, its DefUser.ini), a page at a time; with none,
  * the rows' own. */
@@ -457,6 +484,7 @@ TEST_MAIN_BEGIN
     RUN(test_next_run);
     RUN(test_engine_json);
     RUN(test_renderer_unnamed);
+    RUN(test_renderer_note);
     RUN(test_presets);
     RUN(test_no_msaa);
     RUN(test_reset);
