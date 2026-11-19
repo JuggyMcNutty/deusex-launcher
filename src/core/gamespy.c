@@ -108,6 +108,30 @@ int dxl_gs_challenge(const char *text, char out[7]) {
     return 1;
 }
 
+/* a.b.c.d, each part 0 to 255, and nothing else: what a master's list
+ * carries. Anything else in an \ip\ would reach the join URL as it is. */
+static int dotted(const char *s) {
+    int parts = 0;
+    while (*s) {
+        int v = 0, n = 0;
+        for (; *s >= '0' && *s <= '9' && n < 4; s++, n++) v = v * 10 + (*s - '0');
+        if (!n || n > 3 || v > 255) return 0;
+        parts++;
+        if (*s == '.') {
+            if (!*++s) return 0;
+        } else if (*s) {
+            return 0;
+        }
+    }
+    return parts == 4;
+}
+
+static int port_digits(const char *s) {
+    int port = 0, n = 0;
+    for (; *s >= '0' && *s <= '9' && n < 6; s++, n++) port = port * 10 + (*s - '0');
+    return (*s || !n || port > 65535) ? 0 : port;
+}
+
 int dxl_gs_list(const char *text, dxl_gs_ip_fn fn, void *ctx) {
     const char *p = text, *end = text + strlen(text), *k, *v;
     size_t kn, vn;
@@ -125,8 +149,8 @@ int dxl_gs_list(const char *text, dxl_gs_ip_fn fn, void *ctx) {
         char *colon = strrchr(at, ':');
         if (!colon) continue;
         *colon = '\0';
-        int port = atoi(colon + 1);
-        if (port <= 0 || port > 65535 || !at[0]) continue;
+        int port = port_digits(colon + 1);
+        if (port <= 0 || !dotted(at)) continue;
         if (fn) fn(ctx, at, port);
         count++;
     }

@@ -144,6 +144,21 @@ static void test_set_with_its_own_strings(void) {
     dxl_ini_free(ini);
 }
 
+/* A value is one line: a line break in it would write a second line, a key
+ * of its own (bugs.md LCORE.26). */
+static void test_value_is_one_line(void) {
+    dxl_ini *ini = dxl_ini_parse("[Profile]\nName=a\n", 17);
+    CHECK(ini != NULL);
+    dxl_ini_set(ini, "Profile", "Favourites", "1.2.3.4\nEngineArgs=--system=/tmp/evil:7790");
+    dxl_ini_set(ini, "Profile", "Other\rKey", "v");
+    size_t len = 0;
+    char *out = dxl_ini_render(ini, &len);
+    CHECK_STR(out, "[Profile]\nName=a\nFavourites=1.2.3.4\nOther=v\n");
+    CHECK(dxl_ini_get(ini, "Profile", "EngineArgs") == NULL);
+    free(out);
+    dxl_ini_free(ini);
+}
+
 static void test_new_key_and_section(void) {
     dxl_ini *ini = dxl_ini_parse("[A]\r\nx=1\r\n", 10);
     CHECK(ini != NULL);
@@ -681,6 +696,7 @@ TEST_MAIN_BEGIN
     RUN(test_set_preserves_everything_else);
     RUN(test_noop_set_is_not_dirty);
     RUN(test_set_with_its_own_strings);
+    RUN(test_value_is_one_line);
     RUN(test_new_key_and_section);
     RUN(test_bool_spelling);
     RUN(test_comments_and_oddities);
