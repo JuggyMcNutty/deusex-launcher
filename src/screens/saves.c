@@ -70,7 +70,7 @@ static SDL_Texture *snapshot_of(dxl_shell *s, const dxl_save *sv) {
     if (s->save_snap_read || !ui->renderer) return s->save_snap;
     s->save_snap_read = 1;
     char *dir = dxl_save_path(s->run->session.profile.save_dir, sv);
-    char *path = dxl_path_join(dir, "SaveInfo.dxs");
+    char *path = dxl_path_resolve_ci(dir, "SaveInfo.dxs");   /* in any case, as the list reads it */
     dxl_saveinfo info;
     dxl_err e;
     if (path && dxl_saveinfo_read(path, 1, &info, &e) == 0) {
