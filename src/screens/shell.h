@@ -339,6 +339,16 @@ typedef struct dxl_shell {
      * dxl_shell_browsed. NULL offscreen, where nothing is asked. */
     void       (*start_browse)(struct dxl_shell *s, const char *master, const char *const *also,
                                const dxl_browse_lan *lan);
+    /* The window's: Your profile's import in its worker, into a profile of
+     * its own -- the session's is the window's alone meanwhile, and takes
+     * its place once it is done -- its progress put in copy_*, its end
+     * handed in with dxl_shell_copied; 0 when the worker took it. NULL
+     * offscreen, where the profile is made at once. cancel_make stops it. */
+    int        (*start_make)(struct dxl_shell *s);
+    void       (*cancel_make)(struct dxl_shell *s);
+    int          copying;         /* the worker copies: the page shows how far, and Cancel */
+    int          copy_files, copy_files_total;
+    long long    copy_bytes, copy_bytes_total;
     /* How Profiles checks a profile's install: NULL, dxl_install_check;
      * dxl-shots' own, its made-up installs of a few bytes good. */
     int        (*check_install)(const char *root, dxl_install *out);
@@ -470,6 +480,11 @@ void dxl_shell_find(dxl_shell *s);
 void dxl_shell_found(dxl_shell *s, const dxl_found *f);
 void dxl_shell_found_all(dxl_shell *s);
 void dxl_page_import(dxl_shell *s, dxl_rect r);
+/* start_make's end, on the window's thread: profile, made and done the
+ * import's, error its failure's (NULL for none; cancelled when Cancel
+ * stopped it). The profile made, as Make makes it at once, or nothing. */
+void dxl_shell_copied(dxl_shell *s, dxl_profile *profile, dxl_made *made, const dxl_import *done, const char *error,
+                      int cancelled);
 void dxl_page_recovery(dxl_shell *s, dxl_rect r);
 void dxl_page_recovery_enter(dxl_shell *s);
 void dxl_page_about(dxl_shell *s, dxl_rect r);

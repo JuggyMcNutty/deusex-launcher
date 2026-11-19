@@ -54,15 +54,18 @@ as UTF-8 is read as that UTF-8 at the next run. The engine never touches its own
 `%LOCALAPPDATA%\DXEngine`: an engine whose `--version` lacks `userdir` is
 refused.
 
-A file is written whole or not at all, the icon's PNGs too: to a new file
-beside it, flushed, then moved over it
+A file the launcher writes is written whole or not at all, the icon's PNGs
+too: to a new file beside it, flushed, then moved over it
 (`dxl_path_write_atomic`, `MoveFileExW`); a symbolic link is written
 through, the file it leads to replaced, or made there when it is not there
 yet, and the link kept. Windows' files have no mode to keep. One file's
 failure stops no other's save: `User.ini` is written whatever `DeusEx.ini`'s
 save did, the profile's file whatever `launcher.ini`'s did, and Settings
 says which file was not written, as the game reads the files and a change
-that is in none is not kept.
+that is in none is not kept. A file it copies is copied in place, not
+flushed: Duplicate's engine files ([Profiles](#profiles)); the import's
+saves and shots are each copied whole or not at all
+([the first run](#the-first-run)).
 
 The launcher's own folder is where `deusex-launcher.exe` is: the engine
 beside it (`DXEngine.exe`, its `.pk3`, OpenAL Soft's `OpenAL32.dll`),
@@ -137,8 +140,29 @@ writing nothing there:
   profile's folders hold already -- a data folder an earlier profile of the
   id left, its config folder removed to start afresh -- is the profile's
   own and is kept as it is, the game's of that name not copied into or over
-  it; the first run says how many were kept. `main`'s launcher's files in
+  it; the first run says how many were kept. Each save folder and shot is
+  copied under a temporary name, `.dxl-copy-` before its own, which
+  neither the Saves page nor the engine lists, and renamed to its own once
+  whole; one an import cut short left is taken away as the next begins.
+  Windows has no call that syncs a volume's whole without the
+  administrator's rights, and the copy is not synced: a power cut soon
+  after can leave a save's files empty. `main`'s launcher's files in
   `System` (its `DeusEx`, `run-game.sh`, `Running.ini`) are not read.
+
+An import that fails, or a `profile.ini` that cannot be written, takes away
+what it made and nothing else: the folders it created, the saves and shots
+it copied, an ini it wrote, one that was there before put back as it was.
+A link of the player's own among them -- a save folder linked to another
+drive, an ini linked into a folder of dotfiles -- stays, the file written
+through it alone taken away. Its message says why (`No space left on
+device`).
+
+Your profile says how large the copy is. Make the profile runs the import
+in a worker of the window's, the window live meanwhile, into a profile of
+the worker's own that becomes the session's once it is done: the page says
+"Copying saves: n of m files" and the megabytes, with Cancel, which stops
+the copy and takes away what it made; closing the window does too, and
+waits for the worker. `dxl-cli` makes it at once.
 
 `dxl-cli --dry-run --game=<dir>` says what it would make, before anything
 is made. `--game=<dir>` on a profile that has one points it at that install
@@ -883,7 +907,8 @@ what the engine is given, SDL held to its pad's make and model as
 found again in
 it, two of its labels alike, and an answer whose control is gone dropped;
 `test_shell_choose` a repoint whose save fails, the profile's install left as
-it was, in memory too; `test_shell_browse` the master server Multiplayer
+it was, in memory too; `test_shell_make` the worker's import handed to Your
+profile, made, cancelled and failed; `test_shell_browse` the master server Multiplayer
 asks, at the profile's port; `test_engine_sections` the keys written, each
 as the engine reads its retail one;
 `test_advice` the advice; `test_upkg` the game's packages, on packages it
@@ -913,8 +938,10 @@ the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`).
 `test_profile` imports from a fake install, read-only on POSIX, which it
-leaves as it was, and makes, lists and copies profiles; `test_trash` puts
-folders in a scratch trash; `test_gamefiles`, on a real install in
+leaves as it was, and makes, lists and copies profiles; an import that
+fails on a save it cannot read (on POSIX), one cancelled, one after another
+killed half-way and a profile whose `profile.ini` cannot be written;
+`test_trash` puts folders in a scratch trash; `test_gamefiles`, on a real install in
 `gamefiles/`, reads every asset the window takes from it -- the menu themes,
 the art, the menu sounds, the title music (`test_gamefiles_saves` its saves'
 infos and snapshots, skipped where it has none) -- plays the stub from a
@@ -1062,8 +1089,6 @@ Each open in Port Ex Machina's
   not by the engine.
 - **LCORE.33**: Detail textures draw nothing unless the game's World Texture
   Detail is High, and the row does not say so.
-- **LCORE.34**: a profile that fails to be made leaves its files behind, and
-  the error gives no reason.
 - **LCORE.35**: Profiles lists at most 32 profiles, chosen in the folder's
   order.
 - **LCORE.36**: a game with no sound device plays silent with no advice, and
@@ -1076,8 +1101,6 @@ Each open in Port Ex Machina's
   resets a good Settings.json; a very long binding is cut when unbound.
 - **LCORE.42**: Very long imported bindings are cut; the save count told is
   not the folders copied.
-- **LUI.9**: making a profile copies every save with the window frozen, no
-  progress and no cancel.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
 - **LUI.11**: screenshot thumbnails are kept until the window closes, so a

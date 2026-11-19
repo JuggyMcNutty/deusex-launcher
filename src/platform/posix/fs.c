@@ -195,6 +195,21 @@ int dxl_fs_set_mtime(const char *path, long when) {
     return utimes(path, tv);
 }
 
+int dxl_fs_sync_all(const char *path) {
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return -1;
+#ifdef __linux__
+    int rc = syncfs(fd);
+#else
+    sync();
+    int rc = 0;
+#endif
+    int e = errno;
+    close(fd);
+    errno = e;
+    return rc;
+}
+
 int dxl_fs_remove_tree(const char *path) {
     struct stat st;
     if (lstat(path, &st) != 0) return errno == ENOENT ? 0 : -1;

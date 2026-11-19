@@ -41,17 +41,21 @@ long dxl_path_size(const char *p);
  * scan. Caller frees. */
 char *dxl_path_resolve_ci(const char *dir, const char *leaf);
 
-/* mkdir -p. Returns 0 if the directory exists afterwards. */
+/* mkdir -p. Returns 0 if the directory exists afterwards, else -1 with
+ * errno. */
 int  dxl_path_mkdirs(const char *p);
 
 /* Copies a file byte for byte, replacing to. A failed copy removes the
- * partial destination rather than leaving half a config behind. */
+ * partial destination rather than leaving half a config behind; its error
+ * says why (strerror: "No space left on device"). */
 int  dxl_path_copy(const char *from, const char *to, dxl_err *err);
 
 /* Copies the files of a folder into another, made if missing, and its
- * folders' in turn; a file already there is replaced. Counts the files
- * copied into *copied (may be NULL). */
-int  dxl_path_copy_dir(const char *from, const char *to, int *copied, dxl_err *err);
+ * folders' in turn; a file already there is replaced. each (may be NULL)
+ * is told each file's size as it is copied: non-zero from it stops the
+ * copy, "the copy was cancelled". */
+int  dxl_path_copy_dir(const char *from, const char *to, int (*each)(void *ctx, long size), void *ctx,
+                       dxl_err *err);
 
 /* Seconds since the epoch the file was last changed; -1 when it is not
  * there. */

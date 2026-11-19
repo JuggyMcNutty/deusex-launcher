@@ -480,6 +480,13 @@ static int remove_w(const wchar_t *w) {
     return RemoveDirectoryW(w) ? 0 : -1;
 }
 
+/* A volume is flushed whole only through a handle on the volume itself,
+ * which needs the administrator: nothing done. */
+int dxl_fs_sync_all(const char *path) {
+    (void)path;
+    return 0;
+}
+
 int dxl_fs_remove_tree(const char *path) {
     wchar_t *w = dxl_w(path, 1);
     int rc = remove_w(w);

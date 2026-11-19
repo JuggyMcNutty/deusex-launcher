@@ -81,6 +81,12 @@ FILE *dxl_fs_open_log(const char *path);
  * ("<path> is read-only"). */
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err);
 
+/* Every file written on the file system path is on put on its disk, where
+ * the platform has one call for the whole (Linux's syncfs): a copy of many
+ * files synced at once, not each. 0, or -1 with errno; 0 and nothing done
+ * where there is no such call (Windows). */
+int dxl_fs_sync_all(const char *path);
+
 /* The tops of the file system, NULL-terminated: "/" alone here, each
  * drive's on Windows. Caller frees with dxl_fs_roots_free. */
 char **dxl_fs_roots(void);
