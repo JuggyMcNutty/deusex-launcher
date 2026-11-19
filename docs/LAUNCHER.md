@@ -1114,8 +1114,6 @@ Each open in Port Ex Machina's
   fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **LPORT.11**: the programs are linked for pages of 16 KiB, so a kernel of
-  64 KiB pages may not start them.
 - **LPORT.17**: whether a game stalled by spruceOS's low-battery popup goes
   on once it is gone, whether the shutdown at 1% leaves the engine time to
   write the profile's inis, and what sleep and the MENU button do to a

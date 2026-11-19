@@ -102,7 +102,9 @@ The engine links `libstdc++` and `libgcc` statically (~1 MB): the SDK's `libstdc
 the device's sysroot alone: the SDK's sysroot has glib and fontconfig, which DXWidgets would
 otherwise link. `scripts/check-abi.sh --max 2.28` runs on every build of both and fails on any
 reference above 2.28: the launcher's build runs it because `port.cmake` sets
-`DXL_PORT_GLIBC_MAX`, and `scripts/engine.sh build` runs it on the engine.
+`DXL_PORT_GLIBC_MAX`, and `scripts/engine.sh build` runs it on the engine. It fails a load
+segment aligned under 64 KiB too: every program is linked for pages of that size (`port.cmake`,
+`toolchain-cxx.cmake`), as linux-aarch64's are, harmless at the device's 4 KiB.
 
 [`fetch-sysroot.sh`](fetch-sysroot.sh) (run by `deps`) copies the device's own libraries into
 `deps/sysroots/trimui-smartpro/lib` -- SDL2, OpenAL, EGL, GLESv2, the Vulkan loader, ALSA, zlib,

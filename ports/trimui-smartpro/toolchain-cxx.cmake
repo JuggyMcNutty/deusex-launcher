@@ -13,7 +13,8 @@
 # libopenal needs) stat, lstat and fstat64 at GLIBC_2.33. The device has
 # them; the SDK's 2.28 does not, so the link ignores what shared libraries
 # leave undefined. The engine's own references stay at or below 2.28
-# (scripts/check-abi.sh).
+# (scripts/check-abi.sh). Linked for pages of 64 KiB, as the launcher's
+# programs are (port.cmake).
 
 set(CMAKE_SYSTEM_NAME      Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
@@ -38,9 +39,9 @@ set(CMAKE_SYSROOT "${TRIMUI_TOOLCHAIN}/aarch64-godot-linux-gnu/sysroot")
 set(CMAKE_C_FLAGS_INIT   "-mcpu=cortex-a53")
 set(CMAKE_CXX_FLAGS_INIT "-mcpu=cortex-a53")
 set(CMAKE_EXE_LINKER_FLAGS_INIT
-    "-static-libstdc++ -static-libgcc -L${TRIMUI_SYSROOT}/lib -Wl,-rpath-link,${TRIMUI_SYSROOT}/lib -Wl,--unresolved-symbols=ignore-in-shared-libs")
+    "-static-libstdc++ -static-libgcc -Wl,-z,max-page-size=65536 -L${TRIMUI_SYSROOT}/lib -Wl,-rpath-link,${TRIMUI_SYSROOT}/lib -Wl,--unresolved-symbols=ignore-in-shared-libs")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT
-    "-static-libstdc++ -static-libgcc -L${TRIMUI_SYSROOT}/lib -Wl,-rpath-link,${TRIMUI_SYSROOT}/lib -Wl,--unresolved-symbols=ignore-in-shared-libs")
+    "-static-libstdc++ -static-libgcc -Wl,-z,max-page-size=65536 -L${TRIMUI_SYSROOT}/lib -Wl,-rpath-link,${TRIMUI_SYSROOT}/lib -Wl,--unresolved-symbols=ignore-in-shared-libs")
 
 # Device headers/libs (SDL2, EGL, GLES, OpenAL, Vulkan loader) come from
 # the device sysroot; never from the host.

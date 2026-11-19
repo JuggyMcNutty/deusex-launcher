@@ -5,6 +5,11 @@
 # device's libraries. The device's sysroot (fetch-sysroot.sh) gives the GPU
 # probe its Vulkan and EGL headers, and SDL3 the name of the ALSA library it
 # opens.
+# Every program is linked for pages of 64 KiB, as linux-aarch64's are, the
+# SDK the same and its linker's 16 KiB the luck of each build's layout on a
+# kernel of larger pages: harmless at the device's 4 KiB, and one rule for
+# every aarch64 program scripts/check-abi.sh reads (bugs.md LPORT.11).
+set(DXL_PORT_LINK_OPTIONS "LINKER:-z,max-page-size=65536")
 set(DXL_PORT_SYSROOT      "${DXL_ROOT}/deps/sysroots/trimui-smartpro")
 set(DXL_PORT_GLIBC_MAX    2.28)
 set(DXL_PORT_INCLUDE_DIRS "${DXL_PORT_SYSROOT}/include")
