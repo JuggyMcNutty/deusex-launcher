@@ -89,6 +89,15 @@ static void test_parts(void) {
     CHECK_STR(dxl_key_binding(user, "C"), "");
     dxl_key_unbind(user, "Space", "Fire");
     CHECK_STR(dxl_key_binding(user, "Space"), "Jump");
+    /* One command taken off a binding longer than any buffer: the rest of
+     * it written back whole. */
+    char longer[1200];
+    snprintf(longer, sizeof longer, "Duck|Say %0700d|Jump", 7);
+    dxl_key_bind(user, "V", longer);
+    dxl_key_unbind(user, "V", "Duck");
+    CHECK_INT((int)strlen(dxl_key_binding(user, "V")), (int)strlen(longer) - 5);
+    CHECK(strncmp(dxl_key_binding(user, "V"), "Say 000", 7) == 0);
+    CHECK(strstr(dxl_key_binding(user, "V"), "|Jump") != NULL);
     dxl_ini_free(user);
 }
 

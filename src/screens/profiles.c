@@ -33,7 +33,10 @@ static int describe(dxl_shell *s, const dxl_profile *p, char *out, size_t size) 
     int ok = path && (s->check_install ? s->check_install : dxl_install_check)(path, &in) == 0;
     char game[200], saves[32], last[160];
     if (ok) snprintf(game, sizeof game, "Deus Ex %s (%s)", in.build->version, in.build->edition);
-    else snprintf(game, sizeof game, "%.190s", !path ? "no game" : in.problem[0] ? in.problem : "its game is not there");
+    else {
+        const char *why = !path ? "no game" : in.problem[0] ? in.problem : "its game is not there";
+        snprintf(game, sizeof game, "%.*s", dxl_utf8_fit(why, 190), why);
+    }
     if (path) dxl_install_free(&in);
     /* A mod's profile: its mod, on the game. */
     const char *mod = dxl_profile_get(p, "Mod");
@@ -41,7 +44,7 @@ static int describe(dxl_shell *s, const dxl_profile *p, char *out, size_t size) 
         dxl_mod m;
         if (dxl_mod_check(mod, &m, NULL) == 0) {
             char on[200];
-            snprintf(on, sizeof on, "%.60s on %.130s", m.name, game);
+            snprintf(on, sizeof on, "%.*s on %.*s", dxl_utf8_fit(m.name, 60), m.name, dxl_utf8_fit(game, 130), game);
             snprintf(game, sizeof game, "%s", on);
             dxl_mod_free(&m);
         } else {
@@ -65,7 +68,8 @@ static int describe(dxl_shell *s, const dxl_profile *p, char *out, size_t size) 
         snprintf(last, sizeof last, l.clean ? "last played %s" : "its last run did not end cleanly, %s",
                  date[0] == ' ' ? date + 1 : date);
     }
-    snprintf(out, size, "%.150s  \xc2\xb7  %s  \xc2\xb7  %.100s", game, saves, last);
+    snprintf(out, size, "%.*s  \xc2\xb7  %s  \xc2\xb7  %.*s", dxl_utf8_fit(game, 150), game, saves,
+             dxl_utf8_fit(last, 100), last);
     return ok;
 }
 
@@ -78,7 +82,15 @@ static void load(dxl_shell *s, const char *id) {
              id ? id : s->profile_sel < s->profile_count ? s->profiles[s->profile_sel].id : ss->profile.id);
     static char ids[DXL_PROFILES_MAX][DXL_PROFILE_ID_MAX + 1];
     size_t n = dxl_profiles_list(&ss->xdg, ids, DXL_PROFILES_MAX);
-    if (n > DXL_PROFILES_MAX) n = DXL_PROFILES_MAX;
+    if (n > DXL_PROFILES_MAX) {
+        /* The first by id, and the one in use always: after them all by
+         * id when it is not among them, so in the last row. */
+        n = DXL_PROFILES_MAX;
+        int listed = 0;
+        for (size_t i = 0; i < n; i++) listed |= !strcmp(ids[i], ss->profile.id);
+        if (!listed && dxl_profile_exists(&ss->profile))
+            snprintf(ids[n - 1], sizeof ids[n - 1], "%.64s", ss->profile.id);
+    }
     s->profile_count = 0;
     s->profile_sel = 0;
     for (size_t i = 0; i < n; i++) {
@@ -87,7 +99,8 @@ static void load(dxl_shell *s, const char *id) {
         int k = s->profile_count++;
         snprintf(s->profiles[k].id, sizeof s->profiles[k].id, "%.64s", ids[i]);
         const char *name = dxl_profile_get(&p, "Name");
-        snprintf(s->profiles[k].name, sizeof s->profiles[k].name, "%.95s", name && *name ? name : ids[i]);
+        const char *shown = name && *name ? name : ids[i];
+        snprintf(s->profiles[k].name, sizeof s->profiles[k].name, "%.*s", dxl_utf8_fit(shown, 95), shown);
         s->profiles[k].ok = describe(s, &p, s->profiles[k].detail, sizeof s->profiles[k].detail);
         s->profiles[k].active = !strcmp(ids[i], ss->profile.id);
         if (!strcmp(ids[i], keep)) s->profile_sel = k;
@@ -108,7 +121,10 @@ static void start_new(dxl_shell *s) {
     dxl_session *ss = &s->run->session;
     char name[96], id[DXL_PROFILE_ID_MAX + 1];
     snprintf(name, sizeof name, "Deus Ex %d", s->profile_count + 1);
-    dxl_profile_new_id(&ss->xdg, name, id, sizeof id);
+    if (dxl_profile_new_id(&ss->xdg, name, id, sizeof id) != 0) {
+        dxl_shell_message(s, "No new profile", "Every id for a profile named %s is taken.", name);
+        return;
+    }
     snprintf(s->making_before, sizeof s->making_before, "%s", ss->profile.id);
     dxl_err e;
     if (dxl_run_use_profile(s->run, id, &e) != 0) {
@@ -272,7 +288,7 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         start_new(s);
     } else if (b_copy && sel >= 0) {
         char name[110], id[DXL_PROFILE_ID_MAX + 1];
-        snprintf(name, sizeof name, "%.80s (copy)", s->profiles[sel].name);
+        snprintf(name, sizeof name, "%.*s (copy)", dxl_utf8_fit(s->profiles[sel].name, 80), s->profiles[sel].name);
         dxl_err e;
         if (dxl_session_copy_profile(ss, s->profiles[sel].id, name, id, sizeof id, &e) != 0) {
             dxl_shell_message(s, "Not duplicated", "%s", dxl_err_msg(&e));

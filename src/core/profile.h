@@ -69,15 +69,16 @@ int  dxl_profile_count_saves(const dxl_profile *p);
  * Caller frees each. */
 void dxl_profile_folders(const dxl_profile *p, char *out[4]);
 
-/* The ids of the profiles made in the launcher's folders, sorted, at most
- * max into ids; returns how many there are. */
+/* The ids of the profiles made in the launcher's folders, sorted, the
+ * first max of them into ids; returns how many there are. */
 size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], size_t max);
 
 /* A new profile's id from its name: its letters and digits, lower case, a
  * '-' for each run of anything else ("Deus Ex 2" deus-ex-2), "profile" for
  * none; "-2", "-3"... after it when any of a profile's four folders of it
- * is there already. */
-void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size);
+ * is there already. 0, or -1 when "-999" is taken too, out then none to
+ * use. */
+int dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size);
 
 /* to made a copy of from's settings -- profile.ini, the two inis with to's
  * own SavePath and CachePath, the engine folder's Settings.json and a
@@ -98,9 +99,9 @@ typedef struct {
     char user_from[512];     /* User.ini's */
     char engine_from[512];   /* where the engine's own sections came from; "" for none */
     char saves_from[512];    /* the game's save folder */
-    int  saves;              /* its saves, as the Saves page lists them (core/saves.h), to copy or copied */
+    int  saves;              /* its saves the Saves page lists (core/saves.h) of the folders to copy or copied */
     int  shots;              /* System/Shot*.bmp */
-    int  saves_kept;         /* save folders the profile had already: left as they were, the game's of that name not copied */
+    int  saves_kept;         /* saves, likewise, the profile had already: left as they were, the game's of that name not copied */
     int  shots_kept;         /* shots it had already, likewise */
     int  master_replaced;    /* GameSpy's dead master server given 333networks' */
     int  bindings_folded;    /* [Extension.InputExt]'s keys, the original's, put in [Engine.Input] */

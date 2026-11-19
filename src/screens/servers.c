@@ -68,6 +68,9 @@ void dxl_shell_server_listed(dxl_shell *s, const char *address, int port, int la
     v = &s->servers[s->server_count++];
     dxl_server_init(v, address, port);
     v->lan = lan;
+    /* A favourite asked at its own query port: its game's, before it says. */
+    int game = dxl_favourite_game_port(favourites_of(s), address, port);
+    if (game) v->port = game;
 }
 
 void dxl_shell_server_answered(dxl_shell *s, const char *address, int port, int ping, const char *status) {
@@ -119,17 +122,18 @@ void dxl_shell_browse(dxl_shell *s) {
         s->browsed = 1;
         return;
     }
-    /* The favourites by their query ports, the next after the game's. */
+    /* The favourites by their query ports: each its own, or the next after
+     * the game's. */
     char *list = dxl_xstrdup(favourites_of(s));
     const char *also[65];
     char ports[64][96];
     int n = 0;
     char *save = NULL;
     for (char *w = strtok_r(list, " ", &save); w && n < 64; w = strtok_r(NULL, " ", &save)) {
-        char *colon = strrchr(w, ':');
-        if (!colon) continue;
-        *colon = '\0';
-        snprintf(ports[n], sizeof ports[n], "%s:%d", w, atoi(colon + 1) + 1);
+        char host[64];
+        int game, query = dxl_favourite_parse(w, host, sizeof host, &game);
+        if (!query) continue;
+        snprintf(ports[n], sizeof ports[n], "%s:%d", host, query);
         also[n] = ports[n];
         n++;
     }
@@ -216,7 +220,8 @@ static dxl_rgba describe(const dxl_shell *s, const dxl_server *v, int favourite,
         return v->state == DXL_SERVER_SILENT ? t->warn : t->help;
     }
     snprintf(title, tsize, "%s", v->name[0] ? v->name : v->address);
-    snprintf(detail, dsize, "%.60s  \xc2\xb7  %.40s  \xc2\xb7  %d/%d  \xc2\xb7  %d ms%s%s%s%s", v->map, v->game_type, v->players,
+    snprintf(detail, dsize, "%.*s  \xc2\xb7  %.*s  \xc2\xb7  %d/%d  \xc2\xb7  %d ms%s%s%s%s", dxl_utf8_fit(v->map, 60),
+             v->map, dxl_utf8_fit(v->game_type, 40), v->game_type, v->players,
              v->max_players, v->ping_ms, v->lan ? "  \xc2\xb7  LAN" : "", v->password ? "  \xc2\xb7  password" : "",
              favourite ? "  \xc2\xb7  a favourite" : "", dxl_server_joinable(v) ? "" : "  \xc2\xb7  another version");
     return dxl_server_joinable(v) ? t->help : t->warn;
@@ -254,7 +259,7 @@ static int choice(dxl_shell *s, uint32_t id, dxl_rect r, const char *what, const
 /* v a favourite, or not one any more: the profile's list, kept. */
 static void toggle_favourite(dxl_shell *s, const dxl_server *v, const char *fav, int favourite) {
     dxl_session *ss = &s->run->session;
-    char *list = dxl_favourite_toggle(fav, v->address, v->port);
+    char *list = dxl_favourite_toggle(fav, v->address, v->port, v->query_port);
     dxl_profile_set(&ss->profile, "Favourites", list);
     dxl_err e;
     if (dxl_profile_save(&ss->profile, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));

@@ -24,12 +24,19 @@ static int number(const char *status, const char *key, int fallback) {
 }
 
 /* A text the packet carries, for showing: UTF-8 as it is, else the game's
- * Latin-1 made UTF-8 (a DXEngine server sends its 8-bit text as it is), cut
- * at a whole character. Whether the key was there. */
+ * Latin-1 made UTF-8 (a DXEngine server sends its 8-bit text as it is), its
+ * control characters each a '?' as dxl-cli shows them (a line break would
+ * break a row's line), cut at a whole character. */
+static void shown(const char *raw, char *out, size_t size) {
+    dxl_text_utf8(raw, out, size);
+    dxl_text_no_controls(out, out, size);
+}
+
+/* That of a key of the packet. Whether the key was there. */
 static int text(const char *status, const char *key, char *out, size_t size) {
     char raw[512];
     int had = dxl_gs_value(status, key, raw, sizeof raw);
-    dxl_text_utf8(raw, out, size);
+    shown(raw, out, size);
     return had;
 }
 
@@ -91,7 +98,7 @@ int dxl_server_rule(const dxl_server *s, int i, char *key, size_t key_size, char
         if (!k[0] || not_a_rule(k)) continue;
         if (n++ == i) {
             snprintf(key, key_size, "%s", k);
-            dxl_text_utf8(v, value, value_size);
+            shown(v, value, value_size);
             return 1;
         }
     }
@@ -174,31 +181,75 @@ int dxl_server_link(const char *link, char *out, size_t size) {
     return 1;
 }
 
+int dxl_favourite_parse(const char *word, char *host, size_t size, int *port) {
+    char w[128];
+    if (!word || strlen(word) >= sizeof w) return 0;
+    snprintf(w, sizeof w, "%s", word);
+    char *game = strchr(w, ':');
+    if (!game) return 0;
+    *game++ = '\0';
+    char *query = strchr(game, ':');
+    if (query) *query++ = '\0';
+    int g = dxl_server_port_of(game), q = query ? dxl_server_port_of(query) : g + 1;
+    if (!g || q <= 0 || q > 65535 || strlen(w) >= size || !dxl_server_host_ok(w)) return 0;
+    snprintf(host, size, "%s", w);
+    *port = g;
+    return q;
+}
+
+/* Whether a word of the list, n bytes, is address:port's: want, then its
+ * end or its query port. */
+static int is_favourite(const char *w, size_t len, const char *want, size_t n) {
+    return len >= n && !strncmp(w, want, n) && (len == n || w[n] == ':');
+}
+
 int dxl_favourite_has(const char *list, const char *address, int port) {
     if (!list || !address) return 0;
     char want[96];
     snprintf(want, sizeof want, "%s:%d", address, port);
     size_t n = strlen(want);
-    for (const char *p = list; (p = strstr(p, want)); p += n)
-        if ((p == list || p[-1] == ' ') && (p[n] == ' ' || !p[n])) return 1;
+    for (const char *p = list; *p;) {
+        size_t len = strcspn(p, " ");
+        if (is_favourite(p, len, want, n)) return 1;
+        p += len;
+        while (*p == ' ') p++;
+    }
     return 0;
 }
 
-char *dxl_favourite_toggle(const char *list, const char *address, int port) {
+int dxl_favourite_game_port(const char *list, const char *address, int query) {
+    char *copy = dxl_xstrdup(list ? list : ""), *save = NULL, host[64];
+    int found = 0, port = 0;
+    for (char *w = strtok_r(copy, " ", &save); w && !found; w = strtok_r(NULL, " ", &save))
+        if (dxl_favourite_parse(w, host, sizeof host, &port) == query && address && !strcmp(host, address))
+            found = port;
+    free(copy);
+    return found;
+}
+
+char *dxl_favourite_toggle(const char *list, const char *address, int port, int query) {
     char want[96];
     snprintf(want, sizeof want, "%s:%d", address, port);
+    size_t n = strlen(want);
     int had = dxl_favourite_has(list, address, port);
     /* What is no address is no word of the list: it would go into the
      * profile's file as it is. */
     if (!had && (!dxl_server_host_ok(address) || port <= 0 || port > 65535)) return dxl_xstrdup(list ? list : "");
     dxl_buf b;
     dxl_buf_init(&b);
-    /* Every word but this one, then this one when it was not there. */
+    /* Every word but this one, then this one when it was not there, its
+     * query port after it where that is not the next after the game's. */
     char *copy = dxl_xstrdup(list ? list : "");
     char *save = NULL;
     for (char *w = strtok_r(copy, " ", &save); w; w = strtok_r(NULL, " ", &save))
-        if (strcmp(w, want) != 0) dxl_buf_word(&b, w);
+        if (!is_favourite(w, strlen(w), want, n)) dxl_buf_word(&b, w);
     free(copy);
-    if (!had) dxl_buf_word(&b, want);
+    if (!had && query > 0 && query <= 65535 && query != port + 1) {
+        char with[112];
+        snprintf(with, sizeof with, "%s:%d", want, query);
+        dxl_buf_word(&b, with);
+    } else if (!had) {
+        dxl_buf_word(&b, want);
+    }
     return b.data ? b.data : dxl_xstrdup("");
 }

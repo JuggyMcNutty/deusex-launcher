@@ -66,12 +66,23 @@ void  dxl_text_drop_cut(char *s);
 /* The bytes of the whole UTF-8 character s begins with (1 for ASCII; not
  * overlong, no surrogate, at most U+10FFFF), 0 when none does. */
 size_t dxl_utf8_char(const char *s);
+/* How many of s's bytes, max at most, end on a whole UTF-8 character: a
+ * cut for "%.*s" that leaves none broken (a byte of no UTF-8 character
+ * counted alone). */
+int   dxl_utf8_fit(const char *s, int max);
 /* Text for a terminal or a log: each control character a '?' -- C0's, DEL
  * and C1's, U+0080 to U+009F (or a byte 0x80 to 0x9F of no UTF-8
  * character), whose CSI and OSC xterm's and VTE's terminals take as ESC [
  * and ESC ] -- the rest as it is; cut at a whole character to fit size. in
  * and out may be the same. */
 void  dxl_text_no_controls(const char *in, char *out, size_t size);
+
+/* A number's text in the C locale's spelling, '.' its decimal point,
+ * whatever locale a library in the process has set (a shell extension in
+ * Windows' folder dialog): strtod's reading, and snprintf's writing of
+ * numbers alone, no text (bugs.md LCORE.41). */
+double dxl_strtod_c(const char *s, char **end);
+int    dxl_snprintf_c(char *out, size_t size, const char *fmt, ...);
 
 /* Growable string, used for building flag strings and file contents. */
 typedef struct {
