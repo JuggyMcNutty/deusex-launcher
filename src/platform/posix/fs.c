@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 size_t dxl_fs_root_len(const char *path) { return path && path[0] == '/' ? 1 : 0; }
@@ -98,6 +99,33 @@ static char *link_end(const char *path) {
     return NULL;
 }
 
+/* The temporaries of name's, .<name>.dxl-XXXXXX -- a name of the launcher's
+ * own, which no other program's temporary nor a player's backup of the file
+ * bears -- that a write killed between its mkostemp and its rename left in
+ * dir, swept once a minute old: a live
+ * write's lasts a moment (bugs.md LAPP.29). */
+static void sweep_stale(const char *dir, const char *name) {
+    DIR *d = opendir(dir);
+    if (!d) return;
+    size_t n = strlen(name);
+    time_t now = time(NULL);
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        const char *s = e->d_name;
+        if (s[0] != '.' || strncmp(s + 1, name, n) != 0 || strncmp(s + 1 + n, ".dxl-", 5) != 0) continue;
+        const char *x = s + n + 6;
+        if (strlen(x) != 6) continue;
+        int letters = 1;
+        for (int i = 0; i < 6; i++)
+            if (!strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", x[i])) letters = 0;
+        struct stat st;
+        if (letters && fstatat(dirfd(d), s, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISREG(st.st_mode) &&
+            now - st.st_mtime > 60)
+            unlinkat(dirfd(d), s, 0);
+    }
+    closedir(d);
+}
+
 int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err *err) {
     /* A linked file (a dotfiles repository's) is written where it points:
      * the rename would put a file in the link's place, its target stale.
@@ -127,7 +155,7 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
     char *dir = dxl_path_dirname(path);
     size_t n = strlen(dir) + strlen(dxl_path_basename(path)) + 16;
     char *tmp = dxl_xmalloc(n);
-    snprintf(tmp, n, "%s/.%s.XXXXXX", dir, dxl_path_basename(path));
+    snprintf(tmp, n, "%s/.%s.dxl-XXXXXX", dir, dxl_path_basename(path));
 
     int rc = -1;
     int fd = mkostemp(tmp, O_CLOEXEC);
@@ -149,7 +177,7 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
     int ok = left == 0 && keep_mode(fd, mode) == 0 && fsync(fd) == 0;
     ok = close(fd) == 0 && ok;
     if (!ok) {
-        dxl_err_set(err, "cannot write %s: %s", tmp, strerror(errno));
+        dxl_err_set(err, "cannot write %s: %s", path, strerror(errno));
         unlink(tmp);
         goto out;
     }
@@ -165,6 +193,7 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
         fsync(dfd);
         close(dfd);
     }
+    sweep_stale(dir, dxl_path_basename(path));
     rc = 0;
 out:
     free(tmp);

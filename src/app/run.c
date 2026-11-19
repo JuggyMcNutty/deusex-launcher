@@ -149,6 +149,27 @@ static int needs_library(const char *errs, char *what, size_t size) {
     return 1;
 }
 
+/* The loader's first line that is its fault's: not a notice that a preload
+ * was ignored ("ERROR: ld.so: object '...' from LD_PRELOAD cannot be
+ * preloaded (...): ignored."), which under Steam, whose LD_PRELOAD names
+ * its 32-bit overlay too, every 64-bit program prints first, whatever else
+ * it says (bugs.md LAPP.24). */
+static void first_fault(const char *errs, char *line, size_t size) {
+    static const char notice[] = "ERROR: ld.so: object ", ignored[] = ": ignored.";
+    line[0] = '\0';
+    for (const char *at = errs; *at;) {
+        size_t n = strcspn(at, "\n");
+        int skip = n >= sizeof notice - 1 + sizeof ignored - 1 && !strncmp(at, notice, sizeof notice - 1) &&
+                   !strncmp(at + n - (sizeof ignored - 1), ignored, sizeof ignored - 1);
+        if (!skip) {
+            snprintf(line, size, "%.*s", (int)n, at);
+            return;
+        }
+        at += n;
+        if (*at) at++;
+    }
+}
+
 int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
                      size_t size) {
     memset(v, 0, sizeof *v);
@@ -162,7 +183,7 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
     int status = 0;
     dxl_err e;
     int rc = dxl_run_capture(argv, VERSION_TIMEOUT_MS, out, sizeof out, errs, sizeof errs, &status, &e);
-    if (rc == DXL_RUN_TIMED_OUT && !errs[0]) {
+    if (rc == DXL_RUN_TIMED_OUT) {
         snprintf(brief, brief_size, "gives no answer");
         snprintf(why, size, "%s gave no answer to --version in %d seconds: refusing it.", engine,
                  VERSION_TIMEOUT_MS / 1000);
@@ -170,7 +191,7 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
     }
     if (dxl_engine_version_parse(out, v) != 0) {
         char need[96], line[300];
-        snprintf(line, sizeof line, "%.*s", (int)strcspn(errs, "\n"), errs);
+        first_fault(errs, line, sizeof line);
         if (needs_version(errs, need, sizeof need) && !strncmp(need, "GLIBC_", 6)) {
 #ifdef __GLIBC__
             const char *here = gnu_get_libc_version();
@@ -1088,7 +1109,10 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
     }
 
 done:
-    if (r->message[0] && !r->opt.dry) fprintf(stderr, "%s\n", r->message);
+    if (r->message[0] && !r->opt.dry) {
+        fprintf(stderr, "%s\n", r->message);
+        if (ui && ui->stopped) ui->stopped(ui->ctx, r->message);
+    }
     dxl_log("Exit (%d)", rc);
     dxl_log_close();
     if (r->instance) dxl_instance_release(r->instance);

@@ -4,7 +4,7 @@
  * makes one (The game, then Your profile, its Back the way out), or of a
  * mod, from Mods (screens/mods.c); one's settings duplicated, not its
  * saves; one renamed; one deleted -- its four folders, for good, once
- * asked, never the one in use. The rows are the profiles; the buttons
+ * asked, its settings last, never the one in use. The rows are the profiles; the buttons
  * beside them act on the one chosen, the row last focused. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
@@ -255,7 +255,9 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         char name[96];
         snprintf(name, sizeof name, "%s", s->profiles[sel].name);
         if (dxl_session_delete_profile(ss, s->profiles[sel].id, &e) != 0) {
-            dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
+            dxl_shell_message(s, "Not all deleted", "%s. What could be deleted is gone; the profile and the rest "
+                              "of it are kept.", dxl_err_msg(&e));
+            load(s, ss->profile.id);
         } else {
             dxl_shell_toast(s, "%s is deleted.", name);
             load(s, ss->profile.id);

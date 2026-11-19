@@ -54,7 +54,7 @@ target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/da
 target_compile_definitions(test_renderers PRIVATE DXL_RENDERERS="${DXL_ROOT}/data/renderers.ini")
 
 dxl_test(test_delete)
-target_link_libraries(test_delete PRIVATE dxl_platform)
+target_link_libraries(test_delete PRIVATE dxl_app)
 # The Smart Pro's CPU modes and its game hook, run as the launcher runs it.
 dxl_test(test_cpumode)
 target_link_libraries(test_cpumode PRIVATE dxl_platform)

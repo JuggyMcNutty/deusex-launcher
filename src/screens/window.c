@@ -109,6 +109,7 @@ struct dxl_window {
     int            big, big_decided;   /* the big screen, decided as the window first opens */
     dxl_uiscript  *script;         /* DXL_UI_SCRIPT's input, or NULL */
     char          *words_before;   /* the command line as it was before a run's own words */
+    char           failed[300];    /* why the window last did not open, or "" */
 
     /* The thread that waits on a second start's line and on signals. */
     SDL_Thread    *listener;
@@ -650,6 +651,15 @@ static int full_screen(dxl_window *w) {
     return (SDL_GetWindowFlags(w->window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 
+/* A window that does not open: why, on stderr and in launcher.log, and
+ * kept for the run's stop (stopped). */
+static int no_window(dxl_window *w, const char *what) {
+    snprintf(w->failed, sizeof w->failed, "DXLauncher %s: %s", what, SDL_GetError());
+    fprintf(stderr, "%s\n", w->failed);
+    dxl_log("%s", w->failed);
+    return -1;
+}
+
 static int open_window(dxl_window *w, dxl_run *r) {
     dxl_shell *s = &w->shell;
     if (w->window) return 0;
@@ -659,13 +669,9 @@ static int open_window(dxl_window *w, dxl_run *r) {
          * signals are the launcher's own (dxl_window_wake). */
         SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
         SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
-        if (!SDL_Init(SDL_INIT_VIDEO)) {
-            fprintf(stderr, "DXLauncher has no window: %s\n", SDL_GetError());
-            dxl_log("no window: %s", SDL_GetError());
-            return -1;
-        }
+        if (!SDL_Init(SDL_INIT_VIDEO)) return no_window(w, "has no window");
         if (!TTF_Init()) {
-            fprintf(stderr, "DXLauncher has no fonts: %s\n", SDL_GetError());
+            no_window(w, "has no fonts");
             SDL_Quit();
             return -1;
         }
@@ -677,10 +683,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     if (!w->pads) w->pads = dxl_pad_mappings(r, 1);
     w->window = SDL_CreateWindow("DXLauncher", FIRST_W, FIRST_H,
                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
-    if (!w->window) {
-        fprintf(stderr, "DXLauncher has no window: %s\n", SDL_GetError());
-        return -1;
-    }
+    if (!w->window) return no_window(w, "has no window");
     /* The Smart Pro's screen is the big screen alone: the panel, no desktop. */
     if (!w->big_decided) {
         w->big = 1;
@@ -706,7 +709,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
         w->renderer = SDL_CreateRenderer(w->window, SDL_SOFTWARE_RENDERER);
     }
     if (!w->renderer) {
-        fprintf(stderr, "DXLauncher has no renderer: %s\n", SDL_GetError());
+        no_window(w, "has no renderer");
         SDL_DestroyWindow(w->window);
         w->window = NULL;
         return -1;
@@ -727,7 +730,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     /* The handheld's own pad is the way in: its hints from the first frame. */
     s->ui.mode = DXL_INPUT_PAD;
     if (rc != 0) {
-        fprintf(stderr, "DXLauncher cannot draw: %s\n", SDL_GetError());
+        no_window(w, "cannot draw");
         dxl_ui_detach(&s->ui);
         SDL_DestroyRenderer(w->renderer);
         SDL_DestroyWindow(w->window);
@@ -736,6 +739,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
         return -1;
     }
     w->kit = 1;
+    w->failed[0] = '\0';
     dxl_log("window: the %s renderer%s, %dx%d px at %.2f px a dp", SDL_GetRendererName(w->renderer),
             w->vsync ? ", VSync" : "", s->ui.w_px, s->ui.h_px, s->ui.scale);
     SDL_ShowWindow(w->window);
@@ -927,9 +931,24 @@ void dxl_window_free(dxl_window *w) {
     free(w);
 }
 
+/* The run stopped short: why, in a box of the system's, which needs
+ * neither the fonts nor a renderer of the launcher's, for a player who
+ * started it from the desktop and has no terminal to read; with the reason
+ * the window did not open, where it did not. None for a UI script's run,
+ * which has no one to answer it. */
+static void stopped(void *ctx, const char *message) {
+    dxl_window *w = ctx;
+    if (w->script) return;
+    char text[900];
+    snprintf(text, sizeof text, "%s%s%s", message, w->failed[0] ? "\n\n" : "", w->failed);
+    if (!SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DXLauncher", text, NULL))
+        dxl_log("no message box: %s", SDL_GetError());
+}
+
 void dxl_window_ui(dxl_window *w, dxl_run_ui *ui) {
     ui->ctx = w;
     ui->view = view;
     ui->before_play = before_play;
     ui->after_play = after_play;
+    ui->stopped = stopped;
 }

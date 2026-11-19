@@ -249,9 +249,10 @@ int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
     dxl_profile_folders(&p, dirs);
     dxl_profile_free(&p);
     int rc = 0;
-    /* Its settings first: a profile whose folders could not all go is no
-     * profile any more, its saves and shots left as they are. */
-    for (int i = 0; i < 4 && rc == 0; i++)
+    /* Its settings, profile.ini among them, last: a folder that cannot all
+     * go stops the delete with the profile still there, what of it is left
+     * kept (bugs.md LAPP.27). */
+    for (int i = 3; i >= 0 && rc == 0; i--)
         if (dxl_path_exists(dirs[i])) rc = dxl_delete(dirs[i], err);
     if (rc == 0) dxl_log("profile %s: deleted", id);
     else dxl_log("profile %s: %s", id, dxl_err_msg(err));

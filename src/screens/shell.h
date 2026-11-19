@@ -439,6 +439,8 @@ void dxl_page_home(dxl_shell *s, dxl_rect r);
 void dxl_page_home_enter(dxl_shell *s);
 void dxl_page_welcome(dxl_shell *s, dxl_rect r);
 void dxl_page_find(dxl_shell *s, dxl_rect r);
+/* What The game says of the profile's game, before a repoint. */
+void dxl_page_find_repoint_line(const dxl_shell *s, char *out, size_t size);
 void dxl_page_find_enter(dxl_shell *s);
 /* The finder asked for, the game page's list emptied for what it finds:
  * the places core/finder.h has, with --game's folder and launcher.ini's

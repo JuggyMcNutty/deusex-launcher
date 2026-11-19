@@ -62,8 +62,10 @@ which the harness's runs read: an engine whose `--version` lacks
 
 A file the launcher writes is written whole or not at all: to a new file
 beside it, synced, then renamed over it
-(`dxl_path_write_atomic`); a link is written through, its target replaced,
-or made where the link points when it is not there yet, and the link kept;
+(`dxl_path_write_atomic`), one that a write killed before its rename left
+there swept by the file's next write once a minute old; a link is written
+through, its target replaced, or made where the link points when it is not
+there yet, and the link kept;
 one that cannot be followed, a loop, is refused. It keeps the mode the old
 one had, set only where the new one's differs; a filesystem with no
 permissions to keep (exFAT, FAT) refusing that is no failure. A file the
@@ -192,7 +194,9 @@ from then on, as Settings' Launcher page's The game's folder does, and
 Home's The game's folder... when the install is not there to play: The
 game, the one chosen its install from then on, and back to the page it came
 from. A profile whose install is not there to play (moved or deleted) opens
-on The game.
+on The game; one whose install's folder `launcher.ini`, which alone keeps
+it, has no more (deleted, or the profiles copied without it) opens there
+saying so, to choose the game again.
 
 ## Profiles
 
@@ -215,8 +219,10 @@ marked; its buttons act on the one chosen, the row last focused:
   files -- and none of its saves, shots or logs (`dxl_profile_copy`).
 - **Name**, under the list: the chosen one's, edited in place.
 - **Delete...**: the chosen one's four folders deleted for good, once
-  asked, its settings first (`src/platform/posix/delete.c`): the Smart Pro
-  has no trash to put them back from. Never the one in use.
+  asked, its settings last (`src/platform/posix/delete.c`): the Smart Pro
+  has no trash to put them back from. A folder that cannot all go stops it,
+  the profile and what is left of it kept, and says so. Never the one in
+  use.
 
 ## Mods
 
@@ -416,7 +422,9 @@ whose `INI=` and `USERINI=` it could carry, nor handed to a game that plays.
 5. **The engine** asked what it can do (`--version`), and started: or
    refused, saying why -- not there, one this system cannot start (a glibc
    newer than its own, a library it lacks: the loader's words, which the
-   launcher keeps), no DXEngine, or one without `userdir`.
+   launcher keeps, past a notice that it ignored a preload, as Steam's
+   32-bit overlay is in every 64-bit program), one that gives no answer in
+   5 s, no DXEngine, or one without `userdir`.
 6. **The end**: the inis read again, as the engine left them. A clean end
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
    runs at once a `RELAUNCH` the engine passed on, as the original's
@@ -432,7 +440,10 @@ The launcher's own options start with `--` (`--game=`, `--profile=`,
 which reaches the engine whole in `--cmdline`. Exit codes: the game's own
 status, or 1 for a stop at a screen, 2 for an option it does not know, 3
 for a screen that is due with no window (`dxl-cli`'s, or a window that
-does not open), 4 for no install or engine to play.
+does not open), 4 for no install or engine to play. A start that stops
+short says why on stderr and in `launcher.log`, and `deusex-launcher` in a
+message box of the system's too, with why its window did not open where it
+did not, for a player who started it from the desktop.
 
 ## The window
 
@@ -1054,16 +1065,6 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LAPP.22**: a logout or shutdown signals the engine twice, killing it
-  before it saves its settings.
-- **LAPP.23**: a start that fails with no window up says why only in the
-  terminal and the log.
-- **LAPP.25**: with the launcher's own settings file lost, every profile
-  says it has no game.
-- **LAPP.27**: a delete that fails part-way says "Not deleted" after the
-  profile is already gone.
-- **LAPP.29**: a write killed half-way leaves a temporary file beside the
-  ini, never swept; very long trash paths are cut unchecked.
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.

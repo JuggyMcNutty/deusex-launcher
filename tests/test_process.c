@@ -449,6 +449,22 @@ static void test_engine_check(void) {
            "x: error while loading shared libraries: libSDL2-2.0.so.0: cannot open shared object file: No such file");
     CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
     CHECK_STR(brief, "needs libSDL2-2.0.so.0");
+    /* Under Steam the loader first says it ignored the 32-bit overlay: the
+     * fault quoted is the line after it, and an engine that gives no answer
+     * is named so whatever is on stderr (bugs.md LAPP.24). */
+#define OVERLAY "ERROR: ld.so: object '/s/ubuntu12_32/gameoverlayrenderer.so' from LD_PRELOAD cannot be " \
+                "preloaded (wrong ELF class: ELFCLASS32): ignored."
+    dxl_env_set("DXL_STUB_VERSION_ERR", OVERLAY "\nx: symbol lookup error: x: undefined symbol: SDL_Foo");
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK_STR(brief, "does not start");
+    CHECK(strstr(why, "(its exit 127): x: symbol lookup error: x: undefined symbol: SDL_Foo") != NULL);
+    CHECK(strstr(why, "ld.so") == NULL);
+    dxl_env_set("DXL_STUB_VERSION_ERR", OVERLAY);
+    dxl_env_set("DXL_STUB_VERSION_SLOW", "1");
+    CHECK_INT(dxl_engine_check(DXL_STUB_ENGINE, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK_STR(brief, "gives no answer");
+    dxl_env_set("DXL_STUB_VERSION_SLOW", NULL);
+#undef OVERLAY
     dxl_env_set("DXL_STUB_VERSION_ERR", NULL);
 #endif
 

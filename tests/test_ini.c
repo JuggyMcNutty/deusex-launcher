@@ -9,6 +9,11 @@
 
 #ifdef _WIN32
 #include "platform/win32/internal.h"
+#include <sys/utime.h>
+#include <time.h>
+#else
+#include <sys/time.h>
+#include <time.h>
 #endif
 
 /* The property that matters most: a file in the game's format, loaded and
@@ -670,6 +675,60 @@ static void test_save_through_a_link_to_nowhere(void) {
     scratch_remove(dir);
 }
 
+/* A temporary a write killed before its rename left beside the ini is swept
+ * by the next save once it is a minute old, a newer one, perhaps a live
+ * write's, kept (bugs.md LAPP.29). */
+static void test_save_sweeps_stale_temporaries(void) {
+    const char *dir = scratch_dir("ini-stale");
+    char *path = scratch_path(dir, "DeusEx.ini");
+#ifdef _WIN32
+    /* Windows' temporaries: .<name>.<process>.<n>. */
+#define STALE ".DeusEx.ini.4242.7"
+#define FRESH ".DeusEx.ini.4242.8"
+#define OTHER ".User.ini.4242.9"
+#else
+#define STALE ".DeusEx.ini.dxl-Ab12Cd"
+#define FRESH ".DeusEx.ini.dxl-Ef34Gh"
+#define OTHER ".User.ini.dxl-Ij56Kl"
+#endif
+/* Not the launcher's: a player's own backup, another program's temporary. */
+#define THEIRS ".DeusEx.ini.backup"
+#define RSYNCS ".DeusEx.ini.Xy12Zw"
+    scratch_write(dir, STALE, "[A]\r\n");
+    scratch_write(dir, FRESH, "[A]\r\n");
+    scratch_write(dir, OTHER, "[A]\r\n");
+    scratch_write(dir, THEIRS, "[A]\r\n");
+    scratch_write(dir, RSYNCS, "[A]\r\n");
+    const char *old[] = { STALE, OTHER, THEIRS, RSYNCS };
+    for (int i = 0; i < 4; i++) {
+        char *p = scratch_path(dir, old[i]);
+#ifdef _WIN32
+        struct _utimbuf then = { time(NULL) - 120, time(NULL) - 120 };
+        CHECK_INT(_utime(p, &then), 0);
+#else
+        struct timeval then[2] = { { time(NULL) - 120, 0 }, { time(NULL) - 120, 0 } };
+        CHECK_INT(utimes(p, then), 0);
+#endif
+        free(p);
+    }
+    dxl_ini *ini = dxl_ini_parse("[A]\r\nx=1\r\n", 10);
+    dxl_err e = { 0 };
+    CHECK_INT(dxl_ini_save(ini, path, &e), 0);
+    dxl_ini_free(ini);
+    CHECK(!scratch_exists(dir, STALE));
+    CHECK(scratch_exists(dir, FRESH));
+    CHECK(scratch_exists(dir, OTHER));
+    CHECK(scratch_exists(dir, THEIRS));
+    CHECK(scratch_exists(dir, RSYNCS));
+#undef STALE
+#undef FRESH
+#undef OTHER
+#undef THEIRS
+#undef RSYNCS
+    free(path);
+    scratch_remove(dir);
+}
+
 /* A CRLF file made LF, as the desktop launcher writes its profiles' inis. */
 static void test_set_eol(void) {
     const char *src = "[A]\r\nx=1\r\n\r\n[B]\r\ny=2";
@@ -729,5 +788,6 @@ TEST_MAIN_BEGIN
     RUN(test_save_is_atomic_and_keeps_the_mode);
     RUN(test_save_refuses_read_only);
     RUN(test_save_through_a_link_to_nowhere);
+    RUN(test_save_sweeps_stale_temporaries);
     RUN(test_set_eol);
 TEST_MAIN_END
