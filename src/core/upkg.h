@@ -60,6 +60,11 @@ int  dxl_upkg_load(dxl_upkg *p, const char *path, dxl_err *err);
 /* The same from bytes, copied. */
 int  dxl_upkg_parse(dxl_upkg *p, const void *data, size_t size, dxl_err *err);
 void dxl_upkg_free(dxl_upkg *p);
+/* The GUID in the header of the package at path, as DXEngine's
+ * Package::GetGuidString writes it (32 upper-case hex digits), its header
+ * alone read: from version 68 the one after the tables' counts, before it
+ * the last of its heritage. -1 for a file that is no package or has none. */
+int  dxl_upkg_guid(const char *path, char out[33]);
 
 /* The name of index i; "" for one out of range. */
 const char *dxl_upkg_name(const dxl_upkg *p, int32_t i);

@@ -380,8 +380,9 @@ const char *dxl_shell_tilde(const char *path, char *buf, size_t size) {
 }
 
 void dxl_shell_ask_engine(dxl_shell *s) {
-    if (s->engine_asked || !s->run) return;
+    if (!s->run || (s->engine_asked && s->engine_by_packages == s->run->session.install.by_packages)) return;
     s->engine_asked = 1;
+    s->engine_by_packages = s->run->session.install.by_packages;
     dxl_engine_version v;
     s->engine_ok = dxl_run_engine_check(&s->run->session, &v, s->engine_brief, sizeof s->engine_brief,
                                         s->engine_problem, sizeof s->engine_problem) == 0;

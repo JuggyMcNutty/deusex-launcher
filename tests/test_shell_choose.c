@@ -65,7 +65,28 @@ static void test_repoint_not_kept(void) {
     repoint_not_kept("repoint-none", NULL);
 }
 
+/* The engine asked again for an install of the other kind: one known by
+ * its packages wants game-by-packages, which the stub engine lacks, and a
+ * stock one again does not (bugs.md D.89). */
+static void test_engine_by_packages(void) {
+    static dxl_run r;
+    memset(&r, 0, sizeof r);
+    dxl_shell_init(&s, "test");
+    s.run = &r;
+    r.session.engine = DXL_STUB_ENGINE;
+    dxl_shell_ask_engine(&s);
+    CHECK_INT(s.engine_ok, 1);
+    r.session.install.by_packages = 1;
+    dxl_shell_ask_engine(&s);
+    CHECK_INT(s.engine_ok, 0);
+    CHECK(strstr(s.engine_brief, "without game-by-packages") != NULL);
+    r.session.install.by_packages = 0;
+    dxl_shell_ask_engine(&s);
+    CHECK_INT(s.engine_ok, 1);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_repoint_not_kept);
     RUN(test_repoint_unknown);
+    RUN(test_engine_by_packages);
 TEST_MAIN_END

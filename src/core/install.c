@@ -2,6 +2,7 @@
 #include "core/install.h"
 #include "core/paths.h"
 #include "core/sha1.h"
+#include "core/upkg.h"
 #include "platform/fs.h"
 
 #include <stdio.h>
@@ -18,6 +19,26 @@ static const char *const required[] = {
 static void add_missing(dxl_install *in, const char *what) {
     size_t n = strlen(in->missing);
     snprintf(in->missing + n, sizeof in->missing - n, "%s%s", n ? ", " : "", what);
+}
+
+/* Whether each of 1112fm's packages (core/gamedb.h) is there with one of
+ * its GUIDs, its header alone read; else the first that is not, and how,
+ * into why. */
+static int packages_1112fm(const char *system_dir, char *why, size_t size) {
+    static const char *const files[] = { "Core.u", "Engine.u", "DeusEx.u" };
+    for (size_t i = 0; i < sizeof files / sizeof *files; i++) {
+        char *p = dxl_path_resolve_ci(system_dir, files[i]);
+        char guid[33];
+        int got = p && dxl_upkg_guid(p, guid) == 0;
+        if (!got || !dxl_gamedb_package_known(files[i], guid)) {
+            snprintf(why, size, "System/%s %s", files[i],
+                     !p ? "is not there" : !got ? "is no package" : "is not 1112fm's either");
+            free(p);
+            return 0;
+        }
+        free(p);
+    }
+    return 1;
 }
 
 static int check(const char *root, dxl_install *out) {
@@ -46,12 +67,25 @@ static int check(const char *root, dxl_install *out) {
     }
 
     out->build = dxl_gamedb_find(out->sha1);
+    /* An exe of no hash the engine knows, beside 1112fm's packages: the
+     * game, taken with a warning, as the engine takes it; the exe is never
+     * run (bugs.md D.89). */
+    char why[96] = "";
+    if (!out->build && packages_1112fm(out->system_dir, why, sizeof why)) {
+        out->build = dxl_gamedb_by_packages();
+        out->by_packages = 1;
+    }
     if (!out->build) {
         snprintf(out->problem, sizeof out->problem,
-                 "System/DeusEx.exe is not a build the engine plays (SHA1 %s): it wants 1112fm",
-                 out->sha1[0] ? out->sha1 : "unreadable");
+                 "System/DeusEx.exe is not a stock 1112fm one (SHA1 %s), and %s: the engine wants 1112fm",
+                 out->sha1[0] ? out->sha1 : "unreadable", why);
     } else if (out->missing[0]) {
         snprintf(out->problem, sizeof out->problem, "files missing: %s", out->missing);
+    } else if (out->by_packages) {
+        snprintf(out->problem, sizeof out->problem,
+                 "System/DeusEx.exe is not a stock one (SHA1 %s), the game's packages 1112fm's: it plays, "
+                 "the exe never run; Steam's Verify or GOG's repair puts the stock one back",
+                 out->sha1[0] ? out->sha1 : "unreadable");
     } else if (!out->build->current) {
         snprintf(out->problem, sizeof out->problem,
                  "Deus Ex %s (%s): the engine is made against 1112fm, so this build may not play as it should",

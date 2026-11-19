@@ -50,5 +50,8 @@ int dxl_engine_has(const dxl_engine_version *v, const char *feature);
 /* What the launcher needs of the engine: its own folder, so that it never
  * touches ~/.config/DXEngine, which the harness's runs read. */
 #define DXL_ENGINE_NEEDS "userdir"
+/* What it needs to play a game known by its packages, its DeusEx.exe of
+ * no hash the engine lists (core/install.h). */
+#define DXL_ENGINE_BY_PACKAGES "game-by-packages"
 
 #endif

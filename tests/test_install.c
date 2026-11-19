@@ -5,6 +5,8 @@
 #include "platform/fs.h"
 #include "core/paths.h"
 
+#include <stdint.h>
+
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
@@ -24,6 +26,32 @@ static void write_files(const char *g) {
     scratch_write(g, "System/Default.ini", "x");
     scratch_write(g, "System/DefUser.ini", "x");
     scratch_write(g, "maps/DX.dx", "x");
+}
+
+/* A package's header alone, of version 68: its tag, version, flags, the
+ * tables' counts and offsets (none), its GUID, as four little-endian
+ * words, and no generations. */
+static void write_package(const char *g, const char *rel, const uint32_t guid[4]) {
+    uint32_t words[15] = { 0x9E2A83C1u, 68, 1, 0, 0, 0, 0, 0, 0, guid[0], guid[1], guid[2], guid[3], 0, 0 };
+    unsigned char b[sizeof words];
+    for (size_t i = 0; i < sizeof words / sizeof *words; i++)
+        for (int k = 0; k < 4; k++) b[i * 4 + k] = (unsigned char)(words[i] >> (8 * k));
+    char *p = scratch_path(g, rel);
+    FILE *f = fopen(p, "wb");
+    if (f) { fwrite(b, 1, sizeof b, f); fclose(f); }
+    free(p);
+}
+
+/* 1112fm's Core.u, Engine.u and DeusEx.u (core/gamedb.c), in the case a
+ * copy can leave them; other, one of them another build's. */
+static void write_packages(const char *g, int other) {
+    static const uint32_t core[4] = { 0xBFC9A4E4u, 0x44E3B749u, 0xB688A995u, 0x29BD75C1u };
+    static const uint32_t engine[4] = { 0x51EA2E91u, 0x4B953003u, 0x5CB94784u, 0xFF411102u };
+    static const uint32_t deusex[4] = { 0xCADECA6Bu, 0x4EB3B7FFu, 0x1F0CB592u, 0x21ECCC8Eu };
+    static const uint32_t another[4] = { 1, 2, 3, 4 };
+    write_package(g, "System/core.u", core);
+    write_package(g, "System/Engine.u", engine);
+    write_package(g, "System/DeusEx.u", other ? another : deusex);
 }
 
 /* No System/DeusEx.exe: not an install at all. */
@@ -72,10 +100,64 @@ static void test_unknown_build(void) {
     CHECK(in.build == NULL);
     CHECK_STR(in.sha1, "a9993e364706816aba3e25717850c26c9cd0d89d");
     CHECK_STR(in.missing, "");
-    CHECK(strstr(in.problem, "not a build the engine plays") != NULL);
+    CHECK(strstr(in.problem, "is not a stock 1112fm one (SHA1 a9993e") != NULL);
+    CHECK(strstr(in.problem, "System/Core.u is no package") != NULL);
+    CHECK_INT(in.by_packages, 0);
     char id[64];
     dxl_install_id(&in, id, sizeof id);
     CHECK(strncmp(id, "unknown-", 8) == 0 && strlen(id) == 16);
+    dxl_install_free(&in);
+    scratch_remove(g);
+    free(g);
+}
+
+/* An exe of no hash the engine knows beside 1112fm's packages (another
+ * launcher's in the stock one's place, a patched or a localized one):
+ * playable, 1112fm, with a warning that names the exe (bugs.md D.89). */
+static void test_unknown_exe_1112fm_packages(void) {
+    char *g = dxl_xstrdup(scratch_dir("install-bypackages"));
+    write_files(g);
+    write_packages(g, 0);
+    scratch_write(g, "System/DeusEx.exe", "abc");
+    dxl_install in;
+    CHECK_INT(dxl_install_check(g, &in), 0);
+    CHECK_INT(in.ok, 1);
+    CHECK_INT(in.by_packages, 1);
+    CHECK(in.build == dxl_gamedb_by_packages());
+    if (in.build) { CHECK_STR(in.build->version, "1112fm"); CHECK_INT(in.build->current, 1); }
+    CHECK_STR(in.sha1, "a9993e364706816aba3e25717850c26c9cd0d89d");
+    CHECK(strstr(in.problem, "System/DeusEx.exe is not a stock one (SHA1 a9993e") != NULL);
+    CHECK(strstr(in.problem, "packages 1112fm's") != NULL);
+    char id[64];
+    dxl_install_id(&in, id, sizeof id);
+    CHECK(strncmp(id, "1112fm-", 7) == 0);
+    dxl_install_free(&in);
+
+    /* One file missing beside them: named, as with a known exe. */
+    char *ui = scratch_path(g, "System/DeusExUI.u");
+    remove(ui);
+    free(ui);
+    CHECK_INT(dxl_install_check(g, &in), -1);
+    CHECK_INT(in.by_packages, 1);
+    CHECK_STR(in.problem, "files missing: System/DeusExUI.u");
+    dxl_install_free(&in);
+    scratch_remove(g);
+    free(g);
+}
+
+/* An exe of no hash the engine knows beside packages of another build:
+ * refused, the message saying which package is not 1112fm's. */
+static void test_unknown_exe_other_packages(void) {
+    char *g = dxl_xstrdup(scratch_dir("install-otherpackages"));
+    write_files(g);
+    write_packages(g, 1);
+    scratch_write(g, "System/DeusEx.exe", "abc");
+    dxl_install in;
+    CHECK_INT(dxl_install_check(g, &in), -1);
+    CHECK_INT(in.ok, 0);
+    CHECK_INT(in.by_packages, 0);
+    CHECK(in.build == NULL);
+    CHECK(strstr(in.problem, "System/DeusEx.u is not 1112fm's either") != NULL);
     dxl_install_free(&in);
     scratch_remove(g);
     free(g);
@@ -91,6 +173,15 @@ static void test_missing(void) {
     CHECK_INT(dxl_install_check(g, &in), -1);
     CHECK_STR(in.missing, "System/Engine.u, System/Extension.u, System/DeusEx.u, System/DeusExUI.u, "
                           "System/Default.ini, System/DefUser.ini");
+    dxl_install_free(&in);
+    /* An exe of no hash the engine knows and no packages: refused, the
+     * first package not there named. */
+    char *core = scratch_path(g, "System/Core.u");
+    remove(core);
+    free(core);
+    CHECK_INT(dxl_install_check(g, &in), -1);
+    CHECK(in.build == NULL);
+    CHECK(strstr(in.problem, "and System/Core.u is not there: the engine wants 1112fm") != NULL);
     dxl_install_free(&in);
     scratch_remove(g);
     free(g);
@@ -158,6 +249,8 @@ TEST_MAIN_BEGIN
     RUN(test_not_an_install);
     RUN(test_recased);
     RUN(test_unknown_build);
+    RUN(test_unknown_exe_1112fm_packages);
+    RUN(test_unknown_exe_other_packages);
     RUN(test_missing);
     RUN(test_system_folder);
     RUN(test_large_file);
