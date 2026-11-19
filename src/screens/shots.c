@@ -70,9 +70,9 @@ static void picture(dxl_shell *s, dxl_thumbs *set, const char *path, dxl_rect r)
     SDL_RenderTexture(ui->renderer, tex, NULL, &px);
 }
 
-static void size_text(long bytes, char *out, size_t n) {
-    if (bytes >= 1024L * 1024) snprintf(out, n, "%.1f MB", (double)bytes / (1024.0 * 1024.0));
-    else snprintf(out, n, "%ld KB", (bytes + 1023) / 1024);
+static void size_text(long long bytes, char *out, size_t n) {
+    if (bytes >= 1024LL * 1024) snprintf(out, n, "%.1f MB", (double)bytes / (1024.0 * 1024.0));
+    else snprintf(out, n, "%lld KB", (bytes + 1023) / 1024);
 }
 
 /* The one chosen, whole: the page's but for a row of buttons under it. */

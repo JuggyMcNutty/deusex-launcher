@@ -35,7 +35,7 @@ int dxl_shots_list(const char *dir, dxl_shots *out, dxl_err *err) {
     while ((e = readdir(d)) != NULL) {
         if (!dxl_shot_name_ok(e->d_name) || strlen(e->d_name) >= sizeof out->items[0].name) continue;
         char *path = dxl_path_join(dir, e->d_name);
-        long size = dxl_path_size(path);
+        long long size = dxl_path_size(path);
         if (dxl_path_is_dir(path) || size <= 0) {
             free(path);
             continue;

@@ -33,7 +33,7 @@ const char *dxl_path_basename(const char *p);
 int  dxl_path_exists(const char *p);
 int  dxl_path_is_dir(const char *p);
 /* Size in bytes, or -1. Mirrors GFileManager->FileSize. */
-long dxl_path_size(const char *p);
+long long dxl_path_size(const char *p);
 
 /* Resolves <dir>/<leaf> case-insensitively: returns the real path if an entry
  * matching leaf (ignoring case) exists, else NULL. A hit by the name the
@@ -54,7 +54,7 @@ int  dxl_path_copy(const char *from, const char *to, dxl_err *err);
  * folders' in turn; a file already there is replaced. each (may be NULL)
  * is told each file's size as it is copied: non-zero from it stops the
  * copy, "the copy was cancelled". */
-int  dxl_path_copy_dir(const char *from, const char *to, int (*each)(void *ctx, long size), void *ctx,
+int  dxl_path_copy_dir(const char *from, const char *to, int (*each)(void *ctx, long long size), void *ctx,
                        dxl_err *err);
 
 /* Seconds since the epoch the file was last changed; -1 when it is not

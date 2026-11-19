@@ -62,10 +62,10 @@ int dxl_path_is_dir(const char *p) {
     return p && stat(p, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
-long dxl_path_size(const char *p) {
+long long dxl_path_size(const char *p) {
     struct stat st;
     if (!p || stat(p, &st) != 0 || !S_ISREG(st.st_mode)) return -1;
-    return (long)st.st_size;
+    return (long long)st.st_size;
 }
 
 char *dxl_path_resolve_ci(const char *dir, const char *leaf) {
@@ -135,7 +135,7 @@ int dxl_path_mkdirs(const char *p) {
     return rc;
 }
 
-int dxl_path_copy_dir(const char *from, const char *to, int (*each)(void *ctx, long size), void *ctx,
+int dxl_path_copy_dir(const char *from, const char *to, int (*each)(void *ctx, long long size), void *ctx,
                       dxl_err *err) {
     DIR *d = opendir(from);
     if (!d) {
