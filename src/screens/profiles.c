@@ -3,8 +3,8 @@
  * is used from now on; a new one made from an install, as the first run
  * makes one (The game, then Your profile, its Back the way out), or of a
  * mod, from Mods (screens/mods.c); one's settings duplicated, not its
- * saves; one renamed; one deleted -- its four folders to the desktop's
- * trash, never the one in use. The rows are the profiles; the buttons
+ * saves; one renamed; one deleted -- its folders to the desktop's trash,
+ * its downloads deleted, never the one in use. The rows are the profiles; the buttons
  * beside them act on the one chosen, the row last focused. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
@@ -253,10 +253,12 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         dxl_err e;
         char name[96];
         snprintf(name, sizeof name, "%s", s->profiles[sel].name);
-        if (dxl_session_delete_profile(ss, s->profiles[sel].id, &e) != 0) {
+        int gone = dxl_session_delete_profile(ss, s->profiles[sel].id, &e);
+        if (gone < 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
         } else {
-            dxl_shell_toast(s, "%s is in the trash.", name);
+            if (gone > 0) dxl_shell_message(s, "In the trash, but for its cache", "%s is in the trash; %s.", name, dxl_err_msg(&e));
+            else dxl_shell_toast(s, "%s is in the trash.", name);
             load(s, ss->profile.id);
         }
         return;

@@ -72,9 +72,13 @@ static void test_install(void) {
     CHECK_STR(command, "");
 
     dxl_err err;
-    CHECK_INT(dxl_desktop_installed(home), 0);
+    CHECK_INT(dxl_desktop_installed(home, program), DXL_DESKTOP_NONE);
     CHECK_INT(dxl_desktop_install(home, NULL, program, &err), 0);
-    CHECK_INT(dxl_desktop_installed(home), 1);
+    CHECK_INT(dxl_desktop_installed(home, program), DXL_DESKTOP_OURS);
+    /* Another copy's shortcut is not this one's (bugs.md LAPP.28). */
+    char *other = scratch_path(dir, "elsewhere/deusex-launcher.exe");
+    CHECK_INT(dxl_desktop_installed(home, other), DXL_DESKTOP_OTHER);
+    free(other);
     char *entry = dxl_desktop_entry_path(home);
     char *big = dxl_path_join(menu, "DXLauncher (big screen).lnk");
     CHECK(strstr(entry, "/menu/DXLauncher.lnk") != NULL);
@@ -103,7 +107,7 @@ static void test_install(void) {
     CHECK_STR(command, want);
 
     CHECK_INT(dxl_desktop_remove(home, &err), 0);
-    CHECK_INT(dxl_desktop_installed(home), 0);
+    CHECK_INT(dxl_desktop_installed(home, program), DXL_DESKTOP_NONE);
     CHECK_INT(dxl_path_exists(big), 0);
     CHECK_INT(dxl_path_exists(ico), 0);
     CHECK(!scratch_exists(dir, "home/icons/16.png"));

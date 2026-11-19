@@ -107,6 +107,26 @@ static dxl_rgba describe(const dxl_shell *s, const dxl_found *f, char *out, size
     return in->found ? t->warn : t->bad;
 }
 
+/* The profile's game: gone, the one it had and why; one the launcher has no
+ * record of, its install known by an id whose folder only launcher.ini
+ * keeps, lost with it (bugs.md LAPP.25); or the one it plays, which another
+ * chosen here takes the place of. */
+void dxl_page_find_repoint_line(const dxl_shell *s, char *out, size_t size) {
+    const dxl_install *was = &s->run->session.install;
+    const char *id = dxl_profile_get(&s->run->session.profile, "Install");
+    char shown[1024];
+    if (s->repoint_back && was->ok)
+        snprintf(out, size, "The profile plays the game in %s. A folder chosen here is its game from now on.",
+                 dxl_shell_tilde(was->root, shown, sizeof shown));
+    else if (!was->root && id && *id)
+        snprintf(out, size, "The launcher has lost where the profile's game is: its own settings file, "
+                 "launcher.ini, kept it and has it no more. Choose the game again.");
+    else
+        snprintf(out, size, "The profile's game is not there to play: %s%s%s.",
+                 was->root ? dxl_shell_tilde(was->root, shown, sizeof shown) : "it has none",
+                 was->problem[0] ? ", " : "", was->problem);
+}
+
 void dxl_page_find(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
@@ -116,17 +136,9 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
     dxl_rect buttons = button_row(&in);
 
     if (s->repoint) {
-        /* The profile's game: gone, the one it had and why; or the one it
-         * plays, which another chosen here takes the place of. */
         const dxl_install *was = &s->run->session.install;
-        char shown[1024], line[1600];
-        if (s->repoint_back && was->ok)
-            snprintf(line, sizeof line, "The profile plays the game in %s. A folder chosen here is its game "
-                     "from now on.", dxl_shell_tilde(was->root, shown, sizeof shown));
-        else
-            snprintf(line, sizeof line, "The profile's game is not there to play: %s%s%s.",
-                     was->root ? dxl_shell_tilde(was->root, shown, sizeof shown) : "it has none",
-                     was->problem[0] ? ", " : "", was->problem);
+        char line[1600];
+        dxl_page_find_repoint_line(s, line, sizeof line);
         float h = dxl_paragraph(ui, in, DXL_FONT_BODY, line, s->repoint_back && was->ok ? t->text : t->warn);
         dxl_cut_top(&in, h + 10);
     }

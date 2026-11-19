@@ -103,6 +103,9 @@ typedef struct {
     /* The window down before the game, and back after it. */
     void (*before_play)(void *ctx, dxl_run *r);
     void (*after_play)(void *ctx, dxl_run *r);
+    /* The run stopped short, saying why (dxl_run's message), after it is on
+     * stderr and in the log. NULL for none. */
+    void (*stopped)(void *ctx, const char *message);
 } dxl_run_ui;
 
 /* argv as main() has it; stop, set by a signal, stops the game. Returns the

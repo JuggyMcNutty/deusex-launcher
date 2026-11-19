@@ -340,6 +340,47 @@ static char *link_end(const char *path) {
     return NULL;
 }
 
+/* The temporaries of name's, .<name>.<process>.<n>, that a write killed
+ * before its move left in dir, swept once a minute old: a live write's
+ * lasts a moment (bugs.md LAPP.29). */
+static void sweep_stale(const char *dir, const char *name) {
+    size_t n = strlen(dir) + strlen(name) + 8, len = strlen(name);
+    char *pattern = dxl_xmalloc(n);
+    snprintf(pattern, n, "%s/.%s.*", dir, name);
+    wchar_t *wpattern = dxl_w(pattern, 1);
+    free(pattern);
+    WIN32_FIND_DATAW found;
+    HANDLE h = FindFirstFileW(wpattern, &found);
+    free(wpattern);
+    if (h == INVALID_HANDLE_VALUE) return;
+    FILETIME now_ft;
+    GetSystemTimeAsFileTime(&now_ft);
+    ULONGLONG now = ((ULONGLONG)now_ft.dwHighDateTime << 32) | now_ft.dwLowDateTime;
+    do {
+        char *leaf = dxl_u8(found.cFileName, 1);
+        /* The pattern matches the short names too: the long one checked,
+         * the two numbers after the name. */
+        const char *x = leaf + len + 2;
+        int ours = leaf[0] == '.' && !_strnicmp(leaf + 1, name, len) && leaf[len + 1] == '.' && *x;
+        int dots = 0;
+        for (const char *p = x; ours && *p; p++) {
+            if (*p == '.') dots++;
+            else if (*p < '0' || *p > '9') ours = 0;
+        }
+        ULONGLONG at = ((ULONGLONG)found.ftLastWriteTime.dwHighDateTime << 32) | found.ftLastWriteTime.dwLowDateTime;
+        if (ours && dots == 1 && !(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+            now - at > 60ULL * 10000000ULL) {
+            char *path = dxl_path_join(dir, leaf);
+            wchar_t *w = dxl_w(path, 1);
+            DeleteFileW(w);
+            free(w);
+            free(path);
+        }
+        free(leaf);
+    } while (FindNextFileW(h, &found));
+    FindClose(h);
+}
+
 /* A temporary file beside it, made new (CREATE_NEW), written whole, synced
  * (FlushFileBuffers), then moved over it, which on one volume replaces it
  * at once. Windows' files have no modes to keep. */
@@ -388,7 +429,7 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
     if (ok == 0 && !e) e = GetLastError();
     CloseHandle(h);
     if (!ok) {
-        dxl_err_set(err, "cannot write %s: %s", tmp, dxl_win_error(e, why, sizeof why));
+        dxl_err_set(err, "cannot write %s: %s", path, dxl_win_error(e, why, sizeof why));
         DeleteFileW(wt);
         goto out;
     }
@@ -398,6 +439,7 @@ int dxl_fs_write_atomic(const char *path, const void *data, size_t len, dxl_err 
         DeleteFileW(wt);
         goto out;
     }
+    sweep_stale(dir, dxl_path_basename(path));
     rc = 0;
 out:
     free(wt);

@@ -724,6 +724,16 @@ static int not_answered(void *ctx, dxl_run *r, dxl_view which) {
     return which == DXL_VIEW_RECOVERY && play_at_recovery ? 1 : DXL_VIEW_UNANSWERED;
 }
 
+/* The run's stop as the window hears it, for its message box (bugs.md
+ * LAPP.23). */
+static char stopped_message[512];
+static int stopped_calls;
+static void note_stopped(void *ctx, const char *message) {
+    (void)ctx;
+    stopped_calls++;
+    snprintf(stopped_message, sizeof stopped_message, "%s", message);
+}
+
 /* The run's stop, set as the game is about to start, as the window goes
  * for it: after the start's own checks. */
 static atomic_int unanswered_stop;
@@ -755,17 +765,22 @@ static void test_unanswered(void) {
     CHECK_INT(dxl_path_exists(sentinel), 1);
     dxl_env_set("DXL_STUB", "ready");
 
-    dxl_run_ui ui = { .view = not_answered };
+    dxl_run_ui ui = { .view = not_answered, .stopped = note_stopped };
     char *argv[] = { "deusex-launcher", NULL };
     atomic_int *stop = &unanswered_stop;
     *stop = 0;
     unanswered_views = play_at_recovery = 0;
+    stopped_calls = 0;
     CHECK_INT(dxl_run_main(1, argv, &ui, stop), DXL_RUN_EXIT_SCREEN);
     CHECK_INT(unanswered_views, 1);
     CHECK_INT(dxl_path_exists(sentinel), 1);
+    /* Its why to the window too, which shows it with none open. */
+    CHECK_INT(stopped_calls, 1);
+    CHECK_STR(stopped_message, "Recovery is due and there is no window for it");
     *stop = 1;
     CHECK_INT(dxl_run_main(1, argv, &ui, stop), 1);
     CHECK_INT(dxl_path_exists(sentinel), 1);
+    CHECK_INT(stopped_calls, 1);
     /* Play at Recovery, the launcher stopped as the game starts: the game,
      * which does not end cleanly, stopped, and no Recovery after it. On
      * POSIX the launcher's SIGTERM, sent at its first wake, may come before

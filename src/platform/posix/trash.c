@@ -33,16 +33,20 @@ int dxl_trash_can(const char *path, const char *data_home) {
     return same;
 }
 
-/* path, its bytes outside the unreserved ones and '/' escaped as a URL's. */
-static void url_escape(const char *path, char *out, size_t size) {
+/* path, its bytes outside the unreserved ones and '/' escaped as a URL's.
+ * 0, or -1 for one too long for out, which a cut Path= would put back
+ * elsewhere (bugs.md LAPP.29). */
+static int url_escape(const char *path, char *out, size_t size) {
     size_t n = 0;
-    for (const unsigned char *p = (const unsigned char *)path; *p && n + 4 < size; p++) {
+    const unsigned char *p = (const unsigned char *)path;
+    for (; *p && n + 4 < size; p++) {
         if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || strchr("/-._~", *p))
             out[n++] = (char)*p;
         else
             n += (size_t)snprintf(out + n, size - n, "%%%02X", *p);
     }
     out[n] = '\0';
+    return *p ? -1 : 0;
 }
 
 /* The path, absolute: its folder resolved, its last name as it is, so that
@@ -70,16 +74,27 @@ int dxl_trash(const char *path, const char *data_home, char *trashed, size_t tra
         free(abs);
         return -1;
     }
+    char escaped[4096], when[32];
+    if (url_escape(abs, escaped, sizeof escaped) != 0) {
+        dxl_err_set(err, "a path too long for the trash: %s", abs);
+        free(abs);
+        return -1;
+    }
     char *dir = trash_dir(data_home);
     const char *base = dxl_path_basename(abs);
-    char name[512], info[1024], to[1024];
+    char name[512], info[4096], to[4096];
     int fd = -1;
-    /* The name reserved by its .trashinfo, made alone. */
+    /* The name reserved by its .trashinfo, made alone; a path cut short
+     * would name another place, outside the trash's files (bugs.md
+     * LAPP.29). */
     for (int n = 1; n < 1000 && fd < 0; n++) {
         if (n == 1) snprintf(name, sizeof name, "%s", base);
         else snprintf(name, sizeof name, "%s.%d", base, n);
-        snprintf(info, sizeof info, "%s/info/%s.trashinfo", dir, name);
-        snprintf(to, sizeof to, "%s/files/%s", dir, name);
+        if (snprintf(info, sizeof info, "%s/info/%s.trashinfo", dir, name) >= (int)sizeof info ||
+            snprintf(to, sizeof to, "%s/files/%s", dir, name) >= (int)sizeof to) {
+            errno = ENAMETOOLONG;
+            break;
+        }
         if (dxl_path_exists(to)) continue;
         fd = open(info, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
         if (fd < 0 && errno != EEXIST) break;
@@ -90,8 +105,6 @@ int dxl_trash(const char *path, const char *data_home, char *trashed, size_t tra
         free(abs);
         return -1;
     }
-    char escaped[4096], when[32];
-    url_escape(abs, escaped, sizeof escaped);
     time_t now = time(NULL);
     struct tm tm;
     localtime_r(&now, &tm);
@@ -115,10 +128,14 @@ int dxl_trash(const char *path, const char *data_home, char *trashed, size_t tra
 
 int dxl_trash_undo(const char *data_home, const char *name, const char *path, dxl_err *err) {
     char *dir = dxl_path_join(data_home, "Trash");
-    char from[1024], info[1024];
-    snprintf(from, sizeof from, "%s/files/%s", dir, name);
-    snprintf(info, sizeof info, "%s/info/%s.trashinfo", dir, name);
+    char from[4096], info[4096];
+    int cut = snprintf(from, sizeof from, "%s/files/%s", dir, name) >= (int)sizeof from ||
+              snprintf(info, sizeof info, "%s/info/%s.trashinfo", dir, name) >= (int)sizeof info;
     free(dir);
+    if (cut) {
+        dxl_err_set(err, "cannot put %s back: its path in the trash is too long", name);
+        return -1;
+    }
     if (dxl_path_exists(path) || rename(from, path) != 0) {
         dxl_err_set(err, "cannot put %s back at %s: %s", from, path, dxl_path_exists(path) ? "it is there" : strerror(errno));
         return -1;

@@ -110,9 +110,25 @@ int dxl_desktop_remove(const char *data_home, dxl_err *err) {
     return rc;
 }
 
-int dxl_desktop_installed(const char *data_home) {
+int dxl_desktop_installed(const char *data_home, const char *program) {
     char *path = dxl_desktop_entry_path(data_home);
-    int there = dxl_path_exists(path);
+    FILE *f = fopen(path, "rb");
     free(path);
-    return there;
+    if (!f) return DXL_DESKTOP_NONE;
+    /* The entry's own Exec, the first, before an action's group: program's
+     * when it starts with program's Exec, a word's end after it. */
+    char *exec = dxl_desktop_exec(program);
+    size_t n = strlen(exec);
+    char line[4096];
+    int ours = 0;
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '[' && strncmp(line, "[Desktop Entry]", 15) != 0) break;
+        if (strncmp(line, "Exec=", 5) == 0) {
+            ours = strncmp(line + 5, exec, n) == 0 && strchr(" \r\n", line[5 + n]) != NULL;
+            break;
+        }
+    }
+    fclose(f);
+    free(exec);
+    return ours ? DXL_DESKTOP_OURS : DXL_DESKTOP_OTHER;
 }

@@ -228,9 +228,30 @@ int dxl_desktop_remove(const char *data_home, dxl_err *err) {
     return 0;
 }
 
-int dxl_desktop_installed(const char *data_home) {
+int dxl_desktop_installed(const char *data_home, const char *program) {
     char *p = dxl_desktop_entry_path(data_home);
-    int there = dxl_path_exists(p);
+    if (!dxl_path_exists(p)) {
+        free(p);
+        return DXL_DESKTOP_NONE;
+    }
+    /* The shortcut's target, as the shell reads it back: program's, the
+     * letter case aside, or another's. */
+    int state = DXL_DESKTOP_OTHER;
+    HRESULT co = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    IShellLinkW *link = NULL;
+    IPersistFile *file = NULL;
+    if (SUCCEEDED(CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkW, (void **)&link))) {
+        wchar_t *where = dxl_w(p, 1), *want = dxl_w(program, 1), target[1024] = L"";
+        HRESULT hr = link->lpVtbl->QueryInterface(link, &IID_IPersistFile, (void **)&file);
+        if (SUCCEEDED(hr)) hr = file->lpVtbl->Load(file, where, STGM_READ);
+        if (SUCCEEDED(hr)) hr = link->lpVtbl->GetPath(link, target, 1024, NULL, 0);
+        if (SUCCEEDED(hr) && _wcsicmp(target, want) == 0) state = DXL_DESKTOP_OURS;
+        if (file) file->lpVtbl->Release(file);
+        link->lpVtbl->Release(link);
+        free(where);
+        free(want);
+    }
+    if (SUCCEEDED(co)) CoUninitialize();
     free(p);
-    return there;
+    return state;
 }

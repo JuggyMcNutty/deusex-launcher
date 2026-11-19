@@ -140,7 +140,7 @@ target_compile_definitions(test_desktop PRIVATE DXL_DATA="${DXL_ROOT}/data")
 add_test(NAME test_desktop_mime_cache COMMAND test_desktop --mime-cache)
 set_tests_properties(test_desktop_mime_cache PROPERTIES SKIP_RETURN_CODE 77)
 dxl_test(test_trash)
-target_link_libraries(test_trash PRIVATE dxl_platform)
+target_link_libraries(test_trash PRIVATE dxl_app)
 
 # The window through its own loop, scripts of input (tests/ui/) driving it,
 # the stub engine in the engine's place: on the desktop's display, skipped
