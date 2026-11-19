@@ -69,6 +69,8 @@ add_test(NAME test_desktop_mime_cache COMMAND test_desktop --mime-cache)
 set_tests_properties(test_desktop_mime_cache PROPERTIES SKIP_RETURN_CODE 77)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_app)
+dxl_test(test_startup)
+target_link_libraries(test_startup PRIVATE dxl_platform)
 # The GPU probe on this machine's own drivers: skipped with no GPU's of
 # Mesa's, whose versions it lowers.
 dxl_test(test_gpu_probe)
