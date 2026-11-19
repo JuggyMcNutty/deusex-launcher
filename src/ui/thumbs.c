@@ -13,6 +13,7 @@ typedef struct {
     SDL_Surface *pic;        /* READ: the fitted picture, until it is a texture */
     SDL_Texture *tex;        /* the window's thread's alone */
     int          w, h;
+    unsigned     seen;       /* the update after which it was last asked for */
 } thumb;
 
 struct dxl_thumbs {
@@ -26,7 +27,13 @@ struct dxl_thumbs {
     thumb         *items;
     int            count, cap;
     SDL_Renderer  *renderer;     /* the textures' */
+    unsigned       tick;         /* the updates so far */
+    size_t         budget;       /* the bytes of textures kept, at most */
 };
+
+/* The textures a set keeps: some 200 of a gallery's tiles, and shots read
+ * past and not asked for again let go of, the least lately seen first. */
+#define BUDGET ((size_t)64 << 20)
 
 static int find(const dxl_thumbs *t, const char *path) {
     for (int i = 0; i < t->count; i++)
@@ -104,6 +111,7 @@ dxl_thumbs *dxl_thumbs_new(int w, int h) {
     memset(t, 0, sizeof *t);
     t->box_w = w;
     t->box_h = h;
+    t->budget = BUDGET;
     t->lock = SDL_CreateMutex();
     t->more = SDL_CreateCondition();
     t->done = SDL_CreateCondition();
@@ -156,7 +164,36 @@ void dxl_thumbs_want(dxl_thumbs *t, const char *path) {
         it->state = QUEUED;
         SDL_SignalCondition(t->more);
     }
+    t->items[find(t, path)].seen = t->tick;
     SDL_UnlockMutex(t->lock);
+}
+
+void dxl_thumbs_set_budget(dxl_thumbs *t, size_t bytes) {
+    if (t) t->budget = bytes;
+}
+
+/* Over its budget: the textures not asked for since the last update let go
+ * of, the least lately seen first, each picture forgotten whole, to be read
+ * again when asked again. One asked for since -- a tile on the screen -- is
+ * kept whatever it costs. Under the lock. */
+static void evict(dxl_thumbs *t) {
+    size_t held = 0;
+    for (int i = 0; i < t->count; i++)
+        if (t->items[i].tex) held += (size_t)t->items[i].w * (size_t)t->items[i].h * 4;
+    while (held > t->budget) {
+        int oldest = -1;
+        for (int i = 0; i < t->count; i++) {
+            const thumb *it = &t->items[i];
+            if (it->tex && it->seen != t->tick && (oldest < 0 || it->seen < t->items[oldest].seen)) oldest = i;
+        }
+        if (oldest < 0) break;
+        thumb *it = &t->items[oldest];
+        held -= (size_t)it->w * (size_t)it->h * 4;
+        SDL_DestroyTexture(it->tex);
+        free(it->path);
+        memmove(it, it + 1, (size_t)(t->count - oldest - 1) * sizeof *it);
+        t->count--;
+    }
 }
 
 void dxl_thumbs_clear(dxl_thumbs *t) {
@@ -197,6 +234,8 @@ int dxl_thumbs_update(dxl_thumbs *t, SDL_Renderer *r) {
         for (int i = 0; i < t->count; i++)
             if (t->items[i].state == QUEUED) SDL_SignalCondition(t->more);
     }
+    evict(t);
+    t->tick++;
     SDL_UnlockMutex(t->lock);
     return pending;
 }

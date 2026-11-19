@@ -108,6 +108,7 @@ typedef struct dxl_ui {
     dxl_theme       theme;
     float           scale;       /* px per dp */
     float           user_scale;
+    float           fit_scale;   /* px per dp at most, so the window's smallest fits its screen; 0 none */
     int             big;         /* the big screen: scale by dxl_ui_big_scale, not the display's and the player's */
     int             w_px, h_px;
     float           w, h;        /* the window in dp */
@@ -298,6 +299,9 @@ void dxl_clip_pop(dxl_ui *ui);
  * dp an eighth larger -- the screen 640 dp tall -- and never narrower than
  * its smallest, 960 dp. */
 float    dxl_ui_big_scale(int w, int h);
+/* The points a dp may take for w_dp x h_dp to fit a room of room_w x
+ * room_h points: k, or less where that does not fit; k for a room unknown. */
+float    dxl_ui_fit_scale(float k, float room_w, float room_h, float w_dp, float h_dp);
 /* The kit on the big screen or off it, measured again at once: its fonts
  * opened at the scale it draws at. */
 void     dxl_ui_set_big(dxl_ui *ui, int on);

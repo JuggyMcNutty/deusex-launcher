@@ -1,7 +1,8 @@
 /* Pictures read off the window's thread (ui/thumbs.h): a shot of the
  * game's size, a BMP and a PNG, made to fit a gallery's box and a whole
  * one's; a file that does not read; the set cleared and asked again; the
- * textures made again for another renderer. */
+ * textures made again for another renderer; the textures held to a
+ * budget. */
 #include "test.h"
 #include "scratch.h"
 #include "ui/thumbs.h"
@@ -95,6 +96,70 @@ static void test_fit(void) {
     scratch_remove(dir);
 }
 
+/* Over the budget: the texture least lately asked for goes, read again
+ * when asked again; those asked for since the last update -- the tiles on
+ * the screen -- stay, over the budget or not. */
+static void test_budget(void) {
+    const char *dir = scratch_dir("thumbs-budget");
+    char *a = scratch_path(dir, "Shot0001.bmp"), *b = scratch_path(dir, "Shot0002.bmp"),
+         *c = scratch_path(dir, "Shot0003.bmp");
+    picture(a, 64, 36);
+    picture(b, 64, 36);
+    picture(c, 64, 36);
+    SDL_Surface *target = SDL_CreateSurface(64, 64, SDL_PIXELFORMAT_XRGB8888);
+    SDL_Renderer *r = SDL_CreateSoftwareRenderer(target);
+    dxl_thumbs *set = dxl_thumbs_new(64, 36);
+    CHECK(set && r);
+    const size_t one = 64 * 36 * 4;
+    dxl_thumbs_set_budget(set, 2 * one);
+
+    /* A frame each: a, then b, then c, the gallery scrolled. */
+    dxl_thumbs_want(set, a);
+    dxl_thumbs_wait(set, r);
+    dxl_thumbs_want(set, b);
+    dxl_thumbs_wait(set, r);
+    dxl_thumbs_want(set, c);
+    dxl_thumbs_wait(set, r);
+    CHECK(dxl_thumbs_get(set, a, NULL, NULL, NULL) == NULL);
+    CHECK(dxl_thumbs_get(set, b, NULL, NULL, NULL) != NULL);
+    CHECK(dxl_thumbs_get(set, c, NULL, NULL, NULL) != NULL);
+    /* a scrolled back to: read again, and b, the least lately seen, goes. */
+    dxl_thumbs_want(set, a);
+    dxl_thumbs_want(set, c);
+    dxl_thumbs_wait(set, r);
+    int w = 0;
+    CHECK(dxl_thumbs_get(set, a, NULL, &w, NULL) != NULL);
+    CHECK_INT(w, 64);
+    CHECK(dxl_thumbs_get(set, b, NULL, NULL, NULL) == NULL);
+    CHECK(dxl_thumbs_get(set, c, NULL, NULL, NULL) != NULL);
+
+    /* Three on the screen at once, a budget of one: all three kept. */
+    dxl_thumbs_set_budget(set, one);
+    dxl_thumbs_want(set, a);
+    dxl_thumbs_want(set, b);
+    dxl_thumbs_want(set, c);
+    dxl_thumbs_wait(set, r);
+    CHECK(dxl_thumbs_get(set, a, NULL, NULL, NULL) != NULL);
+    CHECK(dxl_thumbs_get(set, b, NULL, NULL, NULL) != NULL);
+    CHECK(dxl_thumbs_get(set, c, NULL, NULL, NULL) != NULL);
+    /* Off the screen the next frame: two go, the one asked for stays. */
+    dxl_thumbs_want(set, b);
+    dxl_thumbs_update(set, r);
+    CHECK(dxl_thumbs_get(set, a, NULL, NULL, NULL) == NULL);
+    CHECK(dxl_thumbs_get(set, b, NULL, NULL, NULL) != NULL);
+    CHECK(dxl_thumbs_get(set, c, NULL, NULL, NULL) == NULL);
+    CHECK_INT(dxl_thumbs_busy(set), 0);
+
+    dxl_thumbs_free(set);
+    SDL_DestroyRenderer(r);
+    SDL_DestroySurface(target);
+    free(a);
+    free(b);
+    free(c);
+    scratch_remove(dir);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_fit);
+    RUN(test_budget);
 TEST_MAIN_END

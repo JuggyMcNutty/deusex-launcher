@@ -179,4 +179,10 @@ void              dxl_preset_apply(dxl_stores *st, const dxl_preset *p);
  * no_msaa, its anti-aliasing is not looked at. */
 const dxl_preset *dxl_preset_matching(const dxl_stores *st);
 
+/* What a row's help adds for the renderer the stores hold: with the
+ * software one, which draws no multisampling and no bloom (DXEngine's
+ * NATIVES.md, The software device), Anti-aliasing's, Bloom's and the
+ * presets' say so; NULL for any other row or renderer. */
+const char *dxl_setting_renderer_note(const dxl_stores *st, const dxl_setting *s);
+
 #endif
