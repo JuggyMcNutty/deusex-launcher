@@ -43,6 +43,10 @@ typedef struct {
 /* dir as a mod: 0 and m filled, else -1 and why: no System folder, no
  * packages in it, or a copy of the game (System's DeusEx.exe). */
 int  dxl_mod_check(const char *dir, dxl_mod *m, dxl_err *err);
+/* A folder the player points at, as a mod: dir, or the folder above when
+ * dir is the mod's own System folder, as the game's folder is taken by its
+ * System. 0 and m filled, else -1 and why dir itself is none. */
+int  dxl_mod_chosen(const char *dir, dxl_mod *m, dxl_err *err);
 void dxl_mod_free(dxl_mod *m);
 /* A mod folder's own System, which it runs from: its System folder when
  * that holds its own Core.dll, else NULL. Caller frees. */
