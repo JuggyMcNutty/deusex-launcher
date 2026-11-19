@@ -1114,8 +1114,11 @@ Each open in Port Ex Machina's
   moved.
 - **LPORT.11**: the programs are linked for pages of 16 KiB, so a kernel of
   64 KiB pages may not start them.
-- **LPORT.17**: the low-battery popup stalls the game, and nothing warns the
-  player.
+- **LPORT.17**: whether a game stalled by spruceOS's low-battery popup goes
+  on once it is gone, whether the shutdown at 1% leaves the engine time to
+  write the profile's inis, and what sleep and the MENU button do to a
+  game, are unread; the player is told to
+  [save before the battery runs low](../README.md#download).
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
 - **D.91**: the profiles and saves live inside the app's folder, so deleting

@@ -101,6 +101,10 @@ folder in a PC's card reader:
    that `/mnt/SDCARD/Roms/PORTS/DeusEx/System/DeusEx.exe` is there.
 3. Start Deus Ex from spruceOS's apps.
 
+**Save before the battery runs low.** spruceOS's low-battery warning takes
+the screen and stalls the game, and at 1% spruceOS shuts the handheld down
+with the game running: what is not saved is lost.
+
 This repository's releases tagged `trimui-smartpro-<date>-<commit>` have the
 launcher alone.
 
