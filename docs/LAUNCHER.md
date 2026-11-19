@@ -904,7 +904,9 @@ database in the finder, the GPU probe of Mesa's CPU drivers and its
 `test_gpu_probe`, which no Windows build has), then the same cross-built for
 Windows, under Proton's wine (Port Ex Machina's `scripts/wine.sh`, CMake's
 emulator), each side by side, all but the host's `test_ui_scripts` with no
-display. Under Wine run all of them but the POSIX ones, `test_xdg`,
+display, each of the host's with a runtime folder of its own
+(`XDG_RUNTIME_DIR`, set in `tests/test.h`), removed as it ends: a test's
+launchers leave no lock or channel in the user's. Under Wine run all of them but the POSIX ones, `test_xdg`,
 `test_finder`, `test_desktop`, `test_desktop_mime_cache`, `test_trash` and
 `test_ui_scripts`, `test_gamefiles` there without its two that fork a
 launcher (one killed mid-game, a dedicated server that takes no hand-over)
