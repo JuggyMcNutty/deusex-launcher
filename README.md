@@ -12,8 +12,9 @@ controller.
        alt="Home: the game's logo and buttons, the profile, its latest save">
 </p>
 
-**You need your own copy of Deus Ex, version 1112fm** (1002f, the first
-release, runs with a warning). None of the game's files are included.
+**You need your own copy of Deus Ex, version 1112fm**, GOG's or Steam's
+(1002f, the first release, runs with a warning). None of the game's files are
+included.
 DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
@@ -97,6 +98,12 @@ x86_64 Linux with glibc 2.28 or newer, OpenAL Soft (`libopenal.so.1`:
 Debian's and Ubuntu's `libopenal1`, Fedora's `openal-soft`, Arch's `openal`)
 and PipeWire or PulseAudio. This repository's releases tagged
 `linux-x86_64-<date>-<commit>` have the launcher alone.
+
+To update, unpack the new one over the old: the profiles, their settings and
+saves are not in its folder
+([where everything lives](docs/LAUNCHER.md#where-everything-lives)). To
+remove it, take it off the app menu with About's button, delete its
+`DXLauncher` folder, then the folders that page names.
 
 ## Building
 
