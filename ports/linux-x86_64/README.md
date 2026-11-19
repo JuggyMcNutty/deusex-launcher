@@ -57,8 +57,8 @@ The engine also starts on its own, straight into a map
 |---|---|
 | `toolchain.cmake` | the SDK's GCC against `deps/sysroots/linux-x86_64`, libstdc++ and libgcc linked statically: a native build, not a cross one, so the programs and the tests run here too |
 | `port.cmake` | with the toolchain, the 2.28 ceiling, and SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends opened at run time; a build with the machine's own compiler (one with sanitizers) runs where it is built, with no ceiling |
-| `engine.cmake` | the engine with the SDL3 and X11 display backends, not SDL2: DXWidgets builds one SDL backend, SDL3's when both are on, the one the launcher asks for at run time. Not the engine's own Wayland window: it needs waylandpp, which the SDK lacks, and SDL3's Wayland is the one the launcher's runs use |
-| `port.sh` | `deps`: the SDK; the sysroot -- the SDK's, hard-linked, its `.pc` files pointed at the lib64 folder its libraries are in, and on it Debian bookworm's headers of what SDL's backends and the GPU probe open at run time (Wayland, xkbcommon, libdecor, PipeWire, libusb, GBM, XScreenSaver, XTest, glvnd, Vulkan) and buster's glvnd and OpenAL Soft, which the engine links, buster's glibc being 2.28; the engine's SDL3, the launcher's version, static, its backends opened at run time, into `deps/prefix/linux-x86_64`. `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh` |
+| `engine.cmake` | the engine with the SDL3 and X11 display backends, not SDL2: DXWidgets builds one SDL backend, SDL3's when both are on, the one the launcher asks for at run time. Not the engine's own Wayland window: it needs waylandpp, which the SDK lacks, and SDL3's Wayland is the one the launcher's runs use. OpenAL Soft built from the engine's own copy (`DXE_BUNDLE_OPENAL`) and shipped beside it |
+| `port.sh` | `deps`: the SDK; the sysroot -- the SDK's, hard-linked, its `.pc` files pointed at the lib64 folder its libraries are in, and on it Debian bookworm's headers of what SDL's backends and the GPU probe open at run time (Wayland, xkbcommon, libdecor, PipeWire, libusb, GBM, XScreenSaver, XTest, glvnd, Vulkan) and buster's glvnd, which the engine links, buster's glibc being 2.28; the engine's SDL3, the launcher's version, static, its backends opened at run time, into `deps/prefix/linux-x86_64`. `run` starts the staged launcher on `gamefiles/`, in a scratch home with `--fresh`. The engine's files staged are `DXEngine`, `DXEngine.pk3` and `libopenal.so.1`, with OpenAL Soft's licence in `licenses/` |
 
 Beside them, at the branch's root: the port's preset in `CMakePresets.json`,
 with the toolchain file, and its block in `CMakeLists.txt` with the
@@ -69,7 +69,7 @@ with the toolchain file, and its block in `CMakeLists.txt` with the
 - AlmaLinux 8.10 (glibc 2.28), in a container: `dxl-cli` runs and
   `deusex-launcher --dry-run` decides, with nothing but the C library; the
   engine answers `--version` with the distro's own X11, D-Bus, GLib,
-  fontconfig, glvnd and OpenAL Soft packages.
+  fontconfig and glvnd packages.
 - Arch Linux, KDE Plasma on Wayland, AMD GPU (Mesa's RADV and radeonsi),
   the window on SDL3's OpenGL renderer: `scripts/dx.sh run linux-x86_64
   --fresh`, driven by a UI script, goes through the first run on
@@ -109,8 +109,12 @@ On any distribution with glibc 2.28 or newer, whatever the glibc of the
 machine that built it. The launcher needs only the C library, its window
 and sound the machine's own X11 or Wayland, ALSA, PulseAudio or PipeWire,
 opened when found; the engine links the distribution's X11 (with Xi and Xext),
-D-Bus, GLib and GIO, fontconfig, FreeType, glvnd's EGL and OpenGL, and OpenAL
-Soft (`libopenal.so.1`). An engine built with the machine's own
+D-Bus, GLib and GIO, fontconfig, FreeType and glvnd's EGL and OpenGL. Its
+sound library, OpenAL Soft, is its own: `libopenal.so.1`, built from the
+engine's copy at glibc 2.28 and shipped beside it, which the engine finds by
+its run path, the folder it is in, so a desktop with no OpenAL Soft plays
+(an `LD_LIBRARY_PATH` of the player's still comes first). An engine built
+with the machine's own
 compiler instead runs only on a glibc as new as its builder's: the launcher
 refuses it where it cannot start, and says so ("needs glibc 2.44, this
 system has 2.43").

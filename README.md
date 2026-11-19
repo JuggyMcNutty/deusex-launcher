@@ -94,9 +94,9 @@ Take `DX-linux-x86_64.tar.gz` from
 [Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
 DXLauncher with DXEngine. Unpack it anywhere and run `deusex-launcher` in
 its `DXLauncher` folder; its About page adds it to the app menu. It runs on
-x86_64 Linux with glibc 2.28 or newer, OpenAL Soft (`libopenal.so.1`:
-Debian's and Ubuntu's `libopenal1`, Fedora's `openal-soft`, Arch's `openal`)
-and PipeWire or PulseAudio. This repository's releases tagged
+x86_64 Linux with glibc 2.28 or newer and PipeWire, PulseAudio or ALSA: the
+engine's sound library, OpenAL Soft, comes with it. This repository's
+releases tagged
 `linux-x86_64-<date>-<commit>` have the launcher alone.
 
 To update, unpack the new one over the old: the profiles, their settings and

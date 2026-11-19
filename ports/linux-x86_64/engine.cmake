@@ -16,5 +16,9 @@ set(ENABLE_SDL2    OFF CACHE BOOL "" FORCE)
 set(ENABLE_SDL3    ON  CACHE BOOL "" FORCE)
 set(ENABLE_X11     ON  CACHE BOOL "" FORCE)
 set(ENABLE_WAYLAND OFF CACHE BOOL "" FORCE)
+# OpenAL Soft built from the engine's own copy and shipped beside it as
+# libopenal.so.1 (port.sh stages it), so that a desktop with none plays: a
+# stock Ubuntu's.
+set(DXE_BUNDLE_OPENAL ON CACHE BOOL "" FORCE)
 # For editors: DXEngine/compile_commands.json can point here.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "" FORCE)

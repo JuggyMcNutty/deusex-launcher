@@ -1,6 +1,9 @@
 # Desktop Linux on x86_64 -- sourced by scripts/dx.sh. See README.md.
 PORT_DESC="Desktop Linux, x86_64, glibc 2.28 or newer: DXLauncher, the desktop's own launcher"
 PORT_ENGINE=1
+# With the engine its OpenAL Soft, built from the engine's own copy
+# (engine.cmake) and found by the engine's run path, the folder it is in.
+PORT_ENGINE_FILES="DXEngine DXEngine.pk3 libopenal.so.1"
 
 # The toolchain: Godot's Buildroot SDK, GCC 13.2 on glibc 2.28, pinned by
 # our own SHA256 (its release publishes none). toolchain.cmake names it.
@@ -13,12 +16,11 @@ X64_SDK_SHA256=b89f173b1f2f2f35f3090bc4efad732f1c0c1c1206e5480cfcb141977010bc94
 # whose headers SDL3's backends and the GPU probe are built
 # against, the libraries opened at run time by name, and glvnd's headers;
 # buster's glvnd libraries, EGL and GL, under the names bookworm's headers'
-# links give, and its OpenAL Soft, which the engine links: buster's glibc is
-# 2.28, so they link against the SDK's. A file of Debian's put over one of the SDK's replaces
-# it in the copy alone.
+# links give: buster's glibc is 2.28, so they link against the SDK's. A file
+# of Debian's put over one of the SDK's replaces it in the copy alone.
 x64_sysroot() {
     local sdk="$DX_DEPS/toolchains/$X64_SDK/x86_64-godot-linux-gnu/sysroot"
-    local sys="$DX_DEPS/sysroots/linux-x86_64" recipe="linux-x86_64 sysroot 5 ($X64_SDK)"
+    local sys="$DX_DEPS/sysroots/linux-x86_64" recipe="linux-x86_64 sysroot 6 ($X64_SDK)"
     if [ "$(cat "$sys/.dx-recipe" 2>/dev/null)" = "$recipe" ]; then
         say "sysroot present: $sys"
         return 0
@@ -32,8 +34,7 @@ x64_sysroot() {
         libusb-1.0-0-dev libusb-1.0-0 libgbm-dev libgbm1 libffi-dev libffi8 libvulkan-dev \
         libglvnd-dev libegl-dev libgl-dev libgles-dev libglx-dev libopengl-dev
     say "fetching Debian buster amd64 packages ..."
-    dx_fetch_debs "$tmp/buster" buster amd64 libglvnd0 libegl1 libgl1 libglx0 libgles2 libopengl0 \
-        libopenal1 libopenal-dev libsndio7.0 libbsd0
+    dx_fetch_debs "$tmp/buster" buster amd64 libglvnd0 libegl1 libgl1 libglx0 libgles2 libopengl0
     rm -rf "$sys"; mkdir -p "$(dirname "$sys")"
     cp -al "$sdk" "$sys"
     # The SDK's libraries are in usr/lib64, where its .pc files say usr/lib:
@@ -78,6 +79,15 @@ x64_sdl3() {
     printf '%s\n' "$recipe" > "$prefix/.dx-sdl3"
     rm -rf "$tmp"
     say "SDL3 $ver built: $prefix"
+}
+
+# OpenAL Soft's licence (LGPL) beside its library, in licenses/, as
+# THIRD-PARTY.md says.
+port_stage() {
+    [ ! -f "$APP/libopenal.so.1" ] || {
+        mkdir -p "$APP/licenses"
+        cp "$DX_ENGINE/Thirdparty/openal-soft/COPYING" "$APP/licenses/OpenAL-Soft-COPYING.txt"
+    }
 }
 
 port_deps() {
