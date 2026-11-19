@@ -27,15 +27,19 @@ static void test_slots(void) {
     CHECK(dxl_save_slot_of("Save0000", &slot) && slot == 0);
     CHECK(dxl_save_slot_of("Save12345", &slot) && slot == 12345);
     CHECK(dxl_save_slot_of("QuickSave", &slot) && slot == DXL_SAVE_QUICK);
-    /* Not a folder the engine loads: another name for a number, another
-     * case, the mission in progress. */
+    /* In any case, as the engine finds a slot's folder: a recased copy's. */
+    slot = 99;
+    CHECK(dxl_save_slot_of("save0010", &slot) && slot == 10);
+    CHECK(dxl_save_slot_of("SAVE0003", &slot) && slot == 3);
+    CHECK(dxl_save_slot_of("quicksave", &slot) && slot == DXL_SAVE_QUICK);
+    /* Not a folder the engine loads: another name for a number, the
+     * mission in progress. */
     CHECK(!dxl_save_slot_of("Save010", &slot));
-    CHECK(!dxl_save_slot_of("save0010", &slot));
+    CHECK(!dxl_save_slot_of("save010", &slot));
     CHECK(!dxl_save_slot_of("Save00a1", &slot));
     CHECK(!dxl_save_slot_of("Save", &slot));
     CHECK(!dxl_save_slot_of("Save-001", &slot));
     CHECK(!dxl_save_slot_of("Current", &slot));
-    CHECK(!dxl_save_slot_of("quicksave", &slot));
     char url[32];
     dxl_save_url(10, url, sizeof url);
     CHECK_STR(url, "?loadgame=10");
@@ -55,18 +59,15 @@ static void test_list(void) {
     write_info(dir, "Save010", 10, newest, "Not one", "Nowhere", 1);
     write_info(dir, "Current", -2, newest, "Not one", "Nowhere", 1);
     scratch_write(dir, "Save0004", "a file");
-    /* An info by another case of its name: not one the engine opens, where
-     * names keep their case (on Windows, whose names take any, it opens it). */
-#ifdef _WIN32
-    const int listed = 4;
-#else
+    /* A save as a copy recased by its unpacker has it, its folder and its
+     * info in lower case: listed and read, as the engine lists it. */
     const int listed = 5;
-    write_info(dir, "Save0011", 11, newest, "Lower case", "Nowhere", 1);
-    char *was = scratch_path(dir, "Save0011/SaveInfo.dxs"), *lower = scratch_path(dir, "Save0011/saveinfo.dxs");
+    static const int oldest[6] = { 2026, 9, 1, 9, 0, 0 };
+    write_info(dir, "save0011", 11, oldest, "Lower case", "Nowhere", 1);
+    char *was = scratch_path(dir, "save0011/SaveInfo.dxs"), *lower = scratch_path(dir, "save0011/saveinfo.dxs");
     rename(was, lower);
     free(was);
     free(lower);
-#endif
     char *empty = scratch_path(dir, "Save0007");
     dxl_fs_mkdir(empty);
     free(empty);
@@ -84,12 +85,12 @@ static void test_list(void) {
         CHECK_STR(s.items[2].folder, "Save0003");
         CHECK_STR(s.items[2].info.description, "Before the statue");
         CHECK_STR(s.items[2].info.location, "NYC - Liberty Island");
-        CHECK_STR(s.items[3].folder, "Save0007");
-        CHECK_INT(s.items[3].readable, 0);
-        if (listed == 5) {
-            CHECK_STR(s.items[4].folder, "Save0011");
-            CHECK_INT(s.items[4].readable, 0);
-        }
+        CHECK_STR(s.items[3].folder, "save0011");
+        CHECK_INT(s.items[3].slot, 11);
+        CHECK_INT(s.items[3].readable, 1);
+        CHECK_STR(s.items[3].info.description, "Lower case");
+        CHECK_STR(s.items[4].folder, "Save0007");
+        CHECK_INT(s.items[4].readable, 0);
         /* The list leaves the snapshot unread: Save0010's, which its info
          * holds. */
         CHECK(s.items[1].info.snapshot.rgba == NULL);
@@ -106,7 +107,7 @@ static void test_list(void) {
         char text[64];
         dxl_save_when(&s.items[1], text, sizeof text);
         CHECK_STR(text, "14 October 2026, 20:47");
-        dxl_save_when(&s.items[3], text, sizeof text);
+        dxl_save_when(&s.items[4], text, sizeof text);
         CHECK_STR(text, "");
         dxl_save_played(&s.items[1], text, sizeof text);
         CHECK_STR(text, "1 h 05 min");
@@ -130,6 +131,30 @@ static void test_list(void) {
     CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
     CHECK(s.count > 0);
     if (s.count > 0) CHECK_STR(s.items[0].folder, "Save0010");
+    dxl_saves_free(&s);
+    /* Two folders of one slot, where names keep their case: one save, the
+     * folder of the engine's own spelling, which is the one it opens,
+     * whichever the folder gives first; where names take any case the two
+     * are one folder. */
+    write_info(dir, "save0020", 20, older, "The other spelling", "Nowhere", 1);
+    write_info(dir, "Save0020", 20, older, "The engine's spelling", "Nowhere", 1);
+    write_info(dir, "Save0021", 21, older, "The engine's spelling", "Nowhere", 1);
+    write_info(dir, "save0021", 21, older, "The other spelling", "Nowhere", 1);
+    char *third = scratch_path(dir, "SAVE0021");
+    int keeps_case = !dxl_path_exists(third);
+    free(third);
+    CHECK_INT(dxl_saves_list(dir, &s, &e), 0);
+    int twenty = 0, twenty_one = 0;
+    for (int i = 0; i < s.count; i++) {
+        if (s.items[i].slot != 20 && s.items[i].slot != 21) continue;
+        *(s.items[i].slot == 20 ? &twenty : &twenty_one) += 1;
+        if (!keeps_case) continue;
+        CHECK_STR(s.items[i].info.description, "The engine's spelling");
+        CHECK_STR(s.items[i].folder, s.items[i].slot == 20 ? "Save0020" : "Save0021");
+    }
+    CHECK_INT(twenty, 1);
+    CHECK_INT(twenty_one, 1);
+    CHECK_INT(dxl_saves_count(dir), s.count);
     dxl_saves_free(&s);
     char *gone = scratch_path(dir, "not-there");
     CHECK_INT(dxl_saves_list(gone, &s, &e), 0);
