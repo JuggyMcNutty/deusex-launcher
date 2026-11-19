@@ -72,16 +72,30 @@ void dxl_page_settings_enter(dxl_shell *s) {
 void dxl_settings_keep(dxl_shell *s) {
     if (!s->settings_open) return;
     snprintf(s->next_run, sizeof s->next_run, "%s", s->stores.next_run);
+    /* What could not be written is said, not logged alone: the game reads
+     * the files, so a change that is in none of them is not kept. */
     dxl_err e;
-    if (s->run->config && dxl_config_save(s->run->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    char unsaved[sizeof e.msg] = "";
+    if (s->run->config && dxl_config_save(s->run->config, &e) != 0) {
+        dxl_log("warning: %s", dxl_err_msg(&e));
+        snprintf(unsaved, sizeof unsaved, "%s", dxl_err_msg(&e));
+    }
     dxl_engine_settings *es = s->engine_settings;
     if (es && dxl_es_dirty(es)) {
-        if (dxl_es_save(es, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
-        else if (dxl_es_kept(es))
+        if (dxl_es_save(es, &e) != 0) {
+            dxl_log("warning: %s", dxl_err_msg(&e));
+            if (!unsaved[0]) snprintf(unsaved, sizeof unsaved, "%s", dxl_err_msg(&e));
+        } else if (dxl_es_kept(es))
             dxl_log("%s could not be read (%s): kept as %s, and written anew", dxl_es_path(es), dxl_es_problem(es),
                     dxl_es_kept(es));
     }
-    if (dxl_session_save(&s->run->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    if (dxl_session_save(&s->run->session, &e) != 0) {
+        dxl_log("warning: %s", dxl_err_msg(&e));
+        if (!unsaved[0]) snprintf(unsaved, sizeof unsaved, "%s", dxl_err_msg(&e));
+    }
+    if (unsaved[0])
+        dxl_shell_message(s, "Not all was saved", "%s. What that file holds is as it was: a change kept nowhere "
+                          "else is not kept.", unsaved);
     dxl_es_free(s->engine_settings);
     s->engine_settings = NULL;
     memset(&s->stores, 0, sizeof s->stores);

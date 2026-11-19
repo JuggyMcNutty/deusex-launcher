@@ -301,7 +301,7 @@ static int is_shot(const char *name) {
 
 /* The saves to carry over: every folder of the game's but Current, the
  * level the player is in, which the engine makes again from a save. */
-static int each_save(const char *save_dir, const char *to, dxl_err *err) {
+static int each_save(const char *save_dir, const char *to, int *kept, dxl_err *err) {
     DIR *d = opendir(save_dir);
     if (!d) return 0;
     int n = 0;
@@ -312,9 +312,17 @@ static int each_save(const char *save_dir, const char *to, dxl_err *err) {
         if (dxl_path_is_dir(src) && !dxl_fs_is_link(src)) {   /* a linked folder is no save's */
             if (to) {
                 char *dst = dxl_path_join(to, e->d_name);
-                int rc = dxl_path_copy_dir(src, dst, NULL, err);
+                /* A save the profile has already is its own, the later:
+                 * never copied into, its files mixed with the game's. */
+                int there = dxl_path_exists(dst);
+                int rc = there ? 0 : dxl_path_copy_dir(src, dst, NULL, err);
                 free(dst);
                 if (rc != 0) { free(src); closedir(d); return -1; }
+                if (there) {
+                    if (kept) (*kept)++;
+                    free(src);
+                    continue;
+                }
             }
             n++;
         }
@@ -324,7 +332,7 @@ static int each_save(const char *save_dir, const char *to, dxl_err *err) {
     return n;
 }
 
-static int each_shot(const char *system_dir, const char *to, dxl_err *err) {
+static int each_shot(const char *system_dir, const char *to, int *kept, dxl_err *err) {
     DIR *d = opendir(system_dir);
     if (!d) return 0;
     int n = 0;
@@ -334,6 +342,12 @@ static int each_shot(const char *system_dir, const char *to, dxl_err *err) {
         if (to) {
             char *src = dxl_path_join(system_dir, e->d_name);
             char *dst = dxl_path_join(to, e->d_name);
+            if (dxl_path_exists(dst)) {   /* the profile's own of that name: kept */
+                if (kept) (*kept)++;
+                free(src);
+                free(dst);
+                continue;
+            }
             int rc = dxl_path_copy(src, dst, err);
             /* Taken when the game wrote it, as Screenshots dates and orders
              * a shot: the copy keeps the time. */
@@ -486,7 +500,7 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     saves = mod ? mod_save_dir(game_system_dir, mod, mod->ini ? sys : NULL) : game_save_dir(game_system_dir, sys);
     copy_str(r->saves_from, sizeof r->saves_from, saves);
     r->saves = dxl_saves_count(saves);
-    r->shots = mod ? 0 : each_shot(game_system_dir, NULL, NULL);
+    r->shots = mod ? 0 : each_shot(game_system_dir, NULL, NULL, NULL);
     if (mod) dxl_mod_set_paths(sys, game_system_dir, mod);
     const char *master = dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
     r->master_replaced = master && dxl_stricmp(master, DEAD_MASTER) == 0;
@@ -510,8 +524,10 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     if (dxl_profile_make_dirs(p, err) != 0) goto out;
     if (dxl_ini_save(sys, p->system_ini, err) != 0) goto out;
     if (dxl_ini_save(usr, p->user_ini, err) != 0) goto out;
-    if (saves && each_save(saves, p->save_dir, err) < 0) goto out;
-    if (!mod && each_shot(game_system_dir, p->shots_dir, err) < 0) goto out;
+    if (saves && each_save(saves, p->save_dir, &r->saves_kept, err) < 0) goto out;
+    if (!mod && each_shot(game_system_dir, p->shots_dir, &r->shots_kept, err) < 0) goto out;
+    r->saves -= r->saves_kept < r->saves ? r->saves_kept : r->saves;
+    r->shots -= r->shots_kept < r->shots ? r->shots_kept : r->shots;
     rc = 0;
 out:
     dxl_ini_free(sys);

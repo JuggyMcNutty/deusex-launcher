@@ -391,6 +391,22 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
                      done.saves ? saves : shots, mod ? "mod's" : "game's");
         else
             snprintf(s->note, sizeof s->note, "The profile is made.");
+        if (done.saves_kept || done.shots_kept) {
+            /* What its folders held already, from an earlier profile of
+             * the id: its own, not the game's of those names. */
+            char kept[96] = "";
+            if (done.saves_kept)
+                snprintf(kept, sizeof kept, done.saves_kept == 1 ? "1 save" : "%d saves", done.saves_kept);
+            if (done.shots_kept) {
+                size_t k = strlen(kept);
+                snprintf(kept + k, sizeof kept - k, done.shots_kept == 1 ? "%s1 screenshot" : "%s%d screenshots",
+                         k ? " and " : "", done.shots_kept);
+            }
+            size_t n = strlen(s->note);
+            snprintf(s->note + n, sizeof s->note - n, " %s it had from before %s kept as %s.", kept,
+                     done.saves_kept + done.shots_kept == 1 ? "was" : "were",
+                     done.saves_kept + done.shots_kept == 1 ? "it was" : "they were");
+        }
         if (software) {
             size_t n = strlen(s->note);
             snprintf(s->note + n, sizeof s->note - n, " It draws on the software renderer: no GPU driver was found.");
