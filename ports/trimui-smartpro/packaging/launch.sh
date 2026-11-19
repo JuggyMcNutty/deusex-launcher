@@ -5,7 +5,13 @@
 # source the helpers, keep the device awake, run, then clear the console the
 # app scribbled on. MainUI is not killed here -- the App launcher owns that,
 # and killing it ourselves leaves the menu in a bad state on return.
-. /mnt/SDCARD/spruce/scripts/helperFunctions.sh
+#
+# Nothing here calls the helpers; what they export (their LD_LIBRARY_PATH
+# among it, kept below) reaches the launcher and the engine, so they are
+# sourced where they are, as port-hooks.sh does: sh ends at a . of a
+# missing file, and a spruceOS that moves them would start nothing.
+HELPERS=/mnt/SDCARD/spruce/scripts/helperFunctions.sh
+[ -f "$HELPERS" ] && . "$HELPERS"
 
 APPDIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$APPDIR" || exit 1

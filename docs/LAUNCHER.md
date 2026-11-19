@@ -1115,8 +1115,6 @@ Each open in Port Ex Machina's
   64 KiB pages may not start them.
 - **LPORT.17**: the low-battery popup stalls the game, and nothing warns the
   player.
-- **LPORT.20**: the app's start script stops in silence if spruceOS moves
-  its helpers.
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
 - **D.91**: the profiles and saves live inside the app's folder, so deleting
