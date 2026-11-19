@@ -4,6 +4,7 @@
 #define DXL_TEST_H
 
 #include "platform/fs.h"
+#include "platform/os.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -43,7 +44,8 @@ extern const char *dxl_test_current;
 
 #define TEST_MAIN_BEGIN int dxl_test_failures = 0; \
                         const char *dxl_test_current = "(none)"; \
-                        int main(int argc, char **argv) { (void)argc; (void)argv;
+                        int main(int argc, char **argv) { (void)argc; (void)argv; \
+                            dxl_test_runtime();
 #define TEST_MAIN_END   if (dxl_test_failures) { \
                             fprintf(stderr, "%d check(s) failed\n", dxl_test_failures); \
                             return 1; \
@@ -56,6 +58,57 @@ static inline const char *dxl_test_tmp(void) {
     static char *tmp;
     if (!tmp) tmp = dxl_fs_temp_dir();
     return tmp;
+}
+
+#ifndef _WIN32
+/* The test's runtime folder and the process that made it: a child forked
+ * from a test leaves it be. */
+static inline char *dxl_test_runtime_dir(void) {
+    static char dir[300];
+    return dir;
+}
+
+static inline void dxl_test_runtime_leave(void) {
+    char *dir = dxl_test_runtime_dir(), mine[32];
+    snprintf(mine, sizeof mine, "-%ld", dxl_os_pid());
+    size_t n = strlen(dir), m = strlen(mine);
+    if (n > m && !strcmp(dir + n - m, mine)) dxl_fs_remove_tree(dir);
+}
+#endif
+
+/* The runtime folder ($XDG_RUNTIME_DIR), where a launcher keeps its lock
+ * and its channels (platform/posix/instance.c): the test's own, made at
+ * its start and removed as it ends, so a run leaves no file in the user's
+ * (bugs.md X.18). The desktop's own sockets in the user's stay found, each
+ * by its full path, for a launcher a test starts with a window: Wayland's,
+ * the session bus, PipeWire's, PulseAudio's. Nothing on Windows, whose
+ * marks are no files. */
+static inline void dxl_test_runtime(void) {
+#ifndef _WIN32
+    char real[256] = "", path[300];
+    const char *was = getenv("XDG_RUNTIME_DIR"), *wayland = getenv("WAYLAND_DISPLAY");
+    if (was && strlen(was) < sizeof real) strcpy(real, was);
+    if (real[0]) {
+        if (wayland && *wayland && wayland[0] != '/') {
+            snprintf(path, sizeof path, "%s/%.40s", real, wayland);
+            dxl_env_set("WAYLAND_DISPLAY", path);
+        }
+        if (!getenv("DBUS_SESSION_BUS_ADDRESS")) {
+            snprintf(path, sizeof path, "unix:path=%s/bus", real);
+            dxl_env_set("DBUS_SESSION_BUS_ADDRESS", path);
+        }
+        if (!getenv("PIPEWIRE_RUNTIME_DIR")) dxl_env_set("PIPEWIRE_RUNTIME_DIR", real);
+        if (!getenv("PULSE_SERVER")) {
+            snprintf(path, sizeof path, "unix:%s/pulse/native", real);
+            dxl_env_set("PULSE_SERVER", path);
+        }
+    }
+    char *dir = dxl_test_runtime_dir();
+    snprintf(dir, 300, "%s/dxl-run-%ld", dxl_test_tmp(), dxl_os_pid());
+    dxl_fs_mkdir(dir);
+    dxl_env_set("XDG_RUNTIME_DIR", dir);
+    atexit(dxl_test_runtime_leave);
+#endif
 }
 
 /* Absolute path to tests/fixtures, passed in by CMake. */
