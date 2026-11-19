@@ -102,6 +102,7 @@ int (*dxl_profile_link)(const char *target, const char *link) = dxl_fs_link_dir;
 
 static int make_dir(const char *path, const char *id, dxl_made *m, dxl_err *err);
 static void made_add(dxl_made *m, const char *path, char *old, size_t old_len, int had);
+static int write_ini(const dxl_ini *ini, const char *path, dxl_made *m, dxl_err *err);
 
 /* The folders, and the link, each made recorded in m (may be NULL). */
 static int make_dirs(dxl_profile *p, dxl_made *m, dxl_err *err) {
@@ -225,17 +226,26 @@ int dxl_profile_copy(const dxl_profile *from, dxl_profile *to, dxl_err *err) {
     }
     dxl_ini *sys = dxl_ini_load(from->system_ini, err), *usr = sys ? dxl_ini_load(from->user_ini, err) : NULL;
     int rc = -1;
+    /* What the copy makes, taken away again where it fails half-way, as an
+     * import's is: no folder or file of a profile that is none is left
+     * (bugs.md LCORE.44). */
+    dxl_made made = { 0 };
     if (!sys || !usr) goto out;
     dxl_ini_set(sys, "Core.System", "SavePath", to->save_dir);
     dxl_ini_set(sys, "Core.System", "CachePath", to->cache_dir);
-    if (dxl_profile_make_dirs(to, err) != 0) goto out;
-    if (dxl_ini_save(sys, to->system_ini, err) != 0 || dxl_ini_save(usr, to->user_ini, err) != 0) goto out;
+    if (make_dirs(to, &made, err) != 0) goto out;
+    if (write_ini(sys, to->system_ini, &made, err) != 0 || write_ini(usr, to->user_ini, &made, err) != 0) goto out;
     DIR *d = opendir(from->engine_dir);
     struct dirent *e;
     while (d && (e = readdir(d))) {
         if (e->d_name[0] == '.' || !engine_file_kept(e->d_name)) continue;
         char *a = dxl_path_join(from->engine_dir, e->d_name), *b = dxl_path_join(to->engine_dir, e->d_name);
-        int c = dxl_path_is_dir(a) ? 0 : dxl_path_copy(a, b, err);
+        int c = 0;
+        if (!dxl_path_is_dir(a)) {
+            int was = dxl_path_exists(b);
+            c = dxl_path_copy(a, b, err);
+            if (c == 0 && !was) made_add(&made, b, NULL, 0, 0);
+        }
         free(a);
         free(b);
         if (c != 0) {
@@ -247,9 +257,11 @@ int dxl_profile_copy(const dxl_profile *from, dxl_profile *to, dxl_err *err) {
     /* profile.ini last: what makes it a profile. */
     dxl_ini *meta = dxl_ini_load_utf8(from->ini_path, err);
     if (!meta) goto out;
-    rc = dxl_ini_save(meta, to->ini_path, err);
+    rc = write_ini(meta, to->ini_path, &made, err);
     dxl_ini_free(meta);
 out:
+    if (rc != 0) dxl_profile_unmake(&made);
+    else dxl_made_free(&made);
     dxl_ini_free(sys);
     dxl_ini_free(usr);
     return rc;
