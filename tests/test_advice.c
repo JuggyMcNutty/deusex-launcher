@@ -21,6 +21,11 @@ static void test_known(void) {
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_INSTALL);
     l = run(1, 0, 0, "Could not open DXEngine.pk3");
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_APP);
+    /* A native the engine lacks: a mod with native code of its own. */
+    l = run(1, 0, 0, "Script execution error: Unknown native function SomeMod.DoIt");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "native code") != NULL);
+    l = run(1, 0, 0, "Script execution error: Runaway loop detected (over 10000000 iterations)");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "native code") == NULL);
 }
 
 static void test_ends(void) {

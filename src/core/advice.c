@@ -21,6 +21,10 @@ static const struct {
       { "A package the game needs is not in its folder: the install is incomplete. Check it, or show the "
         "launcher another copy.",
         DXL_FIX_INSTALL } },
+    { "Script execution error: Unknown native function",
+      { "The game called native code the engine does not have. A mod with native code of its own -- a DLL of "
+        "its own beside its packages -- does not play on DXEngine; the game itself, and a mod without, do.",
+        DXL_FIX_NONE } },
     { "Could not open DXEngine.pk3",
       { "The engine's own files are not beside it in the launcher's folder: stage or install DXLauncher "
         "again.",

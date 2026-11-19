@@ -280,8 +280,24 @@ static const char *newer(const char *a, const char *b) {
     return dxl_path_mtime(b) > dxl_path_mtime(a) ? b : a;
 }
 
+/* rel against dir as the engine resolves a SavePath: "." and ".." by the
+ * text, then each name in any case (DXEngine's Package/PackageManager.cpp,
+ * ScanPaths). Caller frees. */
+static char *resolve_any_case(const char *dir, const char *rel) {
+    char *cur = dxl_xstrdup(dir), *copy = dxl_xstrdup(rel);
+    for (char *save = NULL, *part = strtok_r(copy, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+        if (!strcmp(part, ".")) continue;
+        char *next = !strcmp(part, "..") ? dxl_path_dirname(cur) : dxl_path_resolve_ci(cur, part);
+        if (!next) next = dxl_path_join(cur, part);
+        free(cur);
+        cur = next;
+    }
+    free(copy);
+    return cur;
+}
+
 /* The game's save folder: SavePath of the ini the profile is made from,
- * relative to System as the engine resolves it. */
+ * relative to System as the engine resolves it, in any case. */
 static char *game_save_dir(const char *system_dir, const dxl_ini *sys_ini) {
     const char *v = dxl_ini_get(sys_ini, "Core.System", "SavePath");
     char *rel = dxl_path_from_ini(v && *v ? v : "../Save");
@@ -291,6 +307,11 @@ static char *game_save_dir(const char *system_dir, const dxl_ini *sys_ini) {
     } else {
         char *joined = dxl_path_join(system_dir, rel);
         dir = dxl_fs_real(joined);
+        if (!dir) {
+            free(joined);
+            joined = resolve_any_case(system_dir, rel);
+            dir = dxl_fs_real(joined);
+        }
         if (!dir) dir = joined;
         else free(joined);
     }

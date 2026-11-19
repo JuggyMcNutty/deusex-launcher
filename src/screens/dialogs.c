@@ -148,12 +148,7 @@ static void use(dxl_shell *s) {
         return;
     }
     dxl_install in;
-    if (dxl_install_check(b->dir, &in) != 0 && !in.found && dxl_stricmp(dxl_path_basename(b->dir), "System") == 0) {
-        char *up = dxl_path_dirname(b->dir);
-        dxl_install_free(&in);
-        dxl_install_check(up, &in);
-        free(up);
-    }
+    dxl_install_check(b->dir, &in);
     if (in.ok) {
         dxl_shell_close_dialog(s);
         dxl_shell_choose(s, &in);

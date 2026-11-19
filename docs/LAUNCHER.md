@@ -28,7 +28,7 @@ user's own folders, Windows' Known Folders
 roaming folder, as its inis name this machine's paths, and the player's
 own in `Saved Games\DXLauncher`. `DXL_HOME=<dir>` puts all four under one
 folder, a scratch home, each with a `dxlauncher` folder in it, as on every
-platform (`src/core/xdg.h`):
+platform, a relative one taken from the working folder (`src/core/xdg.h`):
 
 | Folder | What is in it |
 |---|---|
@@ -48,8 +48,9 @@ names the mod's folders before them, by their absolute paths
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
 writes them back, their text as the engine reads it: a byte a character,
 Latin-1, a UTF-16 file kept UTF-16, and one holding a character past
-Latin-1, a path under such a home, written UTF-16; the launcher's own inis
-are UTF-8. A `SavePath`, `CachePath` or `Paths` an earlier launcher wrote
+Latin-1, a path under such a home, written UTF-16, the text ending at its
+first NUL, what is past it neither read nor written back; the launcher's
+own inis are UTF-8. A `SavePath`, `CachePath` or `Paths` an earlier launcher wrote
 as UTF-8 is read as that UTF-8 at the next run. The engine never touches its own folder,
 `%LOCALAPPDATA%\DXEngine`: an engine whose `--version` lacks `userdir` is
 refused.
@@ -112,7 +113,8 @@ folder in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library.
 No folder is walked down blindly: a drive's is too deep to.
 Another is shown by the launcher's folder browser, which a pad works, or
 by the system's folder dialog. `dxl-cli` makes the profile from
-`--game=<dir>`'s install. Either way the profile is made from the
+`--game=<dir>`'s install. A game's `System` folder, shown or named, is
+taken for the game it is in. Either way the profile is made from the
 install by `dxl_profile_import` (`src/core/profile.c`), reading it and
 writing nothing there:
 
@@ -135,7 +137,8 @@ writing nothing there:
   desktop's size (`FullscreenViewportX` and `Y` 0), where the install's
   size would switch the display's mode; one chosen after, in the game's
   Screen Resolution or Settings' Full screen size, is kept.
-- **The saves** (every folder of the game's save folder but `Current`) and
+- **The saves** (every folder of the game's save folder but `Current`, that
+  folder its `SavePath` in any case, as the engine finds it) and
   the shots (`System/Shot*.bmp`) copied. A save folder or a shot the
   profile's folders hold already -- a data folder an earlier profile of the
   id left, its config folder removed to start afresh -- is the profile's
@@ -579,7 +582,10 @@ Defaults... does it for a page or for all.
 drew it: detail textures, and no multisampling or bloom), Enhanced (4x
 multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
-a first run's engine defaults among them. Its
+a first run's engine defaults among them. Detail textures, a preset's or
+the row's, are drawn only while the game's own World Texture Detail is
+High, as the original's Render.dll hands them over, which the row's help
+says. Its
 Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2,
 and Software, which draws on the CPU and needs nothing of the GPU
 (`data/renderers.ini`); `dxl-cli --probe --ini` finds the GPU's in a child
@@ -810,7 +816,9 @@ end of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
 crash, and for the errors it knows -- OpenAL not started, a package or the
-engine's `.pk3` not found, a folder the engine finds no game in, a save
+engine's `.pk3` not found, a folder the engine finds no game in, a native
+the engine does not have (a script error's reason read with its line: a mod
+with native code of its own, which does not play), a save
 it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
@@ -868,8 +876,8 @@ one, a start that says nothing, one come and gone before its first wait.
 `test_ini`
 loads and saves an ini in the game's format byte for byte (CR LF, blank
 lines, repeated keys; 8-bit text Latin-1 and UTF-16 kept, as the engine
-reads and writes them, and a path past Latin-1 written UTF-16; each line
-read as the original's reader takes it; a symbolic link written where it
+reads and writes them, and a path past Latin-1 written UTF-16; the text to
+its first NUL; each line read as the original's reader takes it; a symbolic link written where it
 leads, made there when it is not there yet, where Windows lets the test
 make one, in its developer mode), and
 `test_json` `Settings.json`, the members it does not know kept in their
@@ -1080,15 +1088,8 @@ Each open in Port Ex Machina's
 - **LAPP.29**: a write killed half-way leaves a temporary file beside the
   ini, never swept; very long trash paths are cut unchecked.
 - **LCORE.27**: a mod with native code of its own is offered as one that
-  plays, and stops at its first native.
-- **LCORE.29**: a System folder given on the command line or in the system's
-  folder dialog is refused, where the launcher's own browser takes it.
-- **LCORE.31**: a relative scratch home is ignored without a word, the real
-  folders used.
-- **LCORE.32**: an ini with a NUL byte is read past it by the launcher and
-  not by the engine.
-- **LCORE.33**: Detail textures draw nothing unless the game's World Texture
-  Detail is High, and the row does not say so.
+  plays; that it does not is said only on Recovery, once it has stopped at
+  its first native.
 - **LCORE.35**: Profiles lists at most 32 profiles, chosen in the folder's
   order.
 - **LCORE.36**: a game with no sound device plays silent with no advice, and

@@ -12,8 +12,11 @@
  * including comments, blank lines and whatever spacing the original had.
  * Only lines we actually change get regenerated. A UTF-8 byte-order mark (an
  * editor's), which the engine's reader takes as text, losing the section
- * after it, is not kept, the file marked for a save that drops it. A NUL in
- * a line ends what is read of it, not what is written.
+ * after it, is not kept, the file marked for a save that drops it. A NUL
+ * ends a game ini's text, as the engine and the original read it: what is
+ * past it is neither read nor written back, the cut logged. In one of the
+ * launcher's own inis it ends what is read of its line, not what is
+ * written.
  *
  * Text is UTF-8 in memory. A game ini (dxl_ini_load, _parse, _new) is read
  * as the original's Core and DXEngine read one (appLoadFileToString

@@ -12,8 +12,9 @@
  *
  * A variable that is empty or not an absolute path counts as unset, as the
  * spec has it. DXL_HOME, when set, puts all four under it ($DXL_HOME/config,
- * data, state and cache): a scratch home for a first run from nothing, and
- * the tests'. Nothing is ever written to the game's folder.
+ * data, state and cache; a relative one from the working folder): a scratch
+ * home for a first run from nothing, and the tests'. Nothing is ever written
+ * to the game's folder.
  */
 #ifndef DXL_XDG_H
 #define DXL_XDG_H

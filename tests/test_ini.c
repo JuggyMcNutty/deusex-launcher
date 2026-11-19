@@ -323,7 +323,7 @@ static void test_overlay(void) {
 /* A game ini in UTF-16 reads as the engine and the original read it, and is
  * kept: unmarked, written back as it was while a character needs UTF-16, a
  * byte a character once none does (bugs.md LCORE.8). Big-endian too; an odd
- * size is none, its bytes Latin-1. A NUL in a line is written back. */
+ * size is none, its bytes Latin-1. */
 static void test_utf16_kept(void) {
     const char src[] = "\xff\xfe[\0A\0]\0\r\0\n\0x\0=\0\xe9\0\x20\x20\r\0\n\0";
     dxl_ini *ini = dxl_ini_parse(src, sizeof src - 1);
@@ -355,10 +355,26 @@ static void test_utf16_kept(void) {
     CHECK(dxl_ini_get(ini, "A", "x") == NULL);
     dxl_ini_free(ini);
 
-    const char nul[] = "[A]\r\nx=1\r\nju\0nk\r\n";
+    /* A game ini's text ends at its first NUL, as the engine reads it: the
+     * section past it unread, and not written back; UTF-16's too. The
+     * launcher's own reads past it, the line written whole. */
+    const char nul[] = "[A]\r\nx=1\r\nju\0nk\r\n[B]\r\nMusicVolume=10\r\n";
     ini = dxl_ini_parse(nul, sizeof nul - 1);
     CHECK_STR(dxl_ini_get(ini, "A", "x"), "1");
+    CHECK(dxl_ini_get(ini, "B", "MusicVolume") == NULL);
     CHECK_INT(dxl_ini_dirty(ini), 0);
+    out = dxl_ini_render(ini, &len);
+    CHECK_INT(len, 12);
+    CHECK(memcmp(out, "[A]\r\nx=1\r\nju", 12) == 0);
+    free(out);
+    dxl_ini_free(ini);
+    const char nul16[] = "\xff\xfe[\0A\0]\0\n\0x\0=\0" "1\0\n\0\0\0[\0B\0]\0\n\0y\0=\0" "2\0\n\0";
+    ini = dxl_ini_parse(nul16, sizeof nul16 - 1);
+    CHECK_STR(dxl_ini_get(ini, "A", "x"), "1");
+    CHECK(dxl_ini_get(ini, "B", "y") == NULL && dxl_ini_get(ini, "A", "y") == NULL);
+    dxl_ini_free(ini);
+    ini = dxl_ini_parse_utf8(nul, sizeof nul - 1);
+    CHECK_STR(dxl_ini_get(ini, "B", "MusicVolume"), "10");
     out = dxl_ini_render(ini, &len);
     CHECK_INT(len, sizeof nul - 1);
     CHECK(memcmp(out, nul, len) == 0);

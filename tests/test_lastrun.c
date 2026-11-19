@@ -101,6 +101,16 @@ static void test_log(void) {
     CHECK(tail && strncmp(tail, "Launching", 9) == 0);
     free(tail);
 
+    /* A script's error: its heading and what went wrong, as one line. */
+    scratch_write(dir, "logs/script.log",
+                  "[] Game: Deus Ex\nDXEngine error: Script execution error:\r\n\r\n"
+                  "Unknown native function SomeMod.DoIt\r\n\r\nCall stack:\r\n\r\nSomeMod.Tick line 4\r\n"
+                  "  log: one\n");
+    char *script = scratch_path(dir, "logs/script.log");
+    CHECK_INT(dxl_lastrun_error_line(script, err, sizeof err), 1);
+    CHECK_STR(err, "Script execution error: Unknown native function SomeMod.DoIt");
+    free(script);
+
     /* Rotation: the last log becomes the previous one. */
     char *fresh = dxl_lastrun_rotate(logs);
     CHECK_STR(fresh, log);
