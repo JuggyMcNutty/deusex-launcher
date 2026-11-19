@@ -479,6 +479,21 @@ static void test_profiles(void) {
     CHECK_INT(dxl_profile_count_saves(&b), 0);
     /* Made already: not again. */
     CHECK_INT(dxl_profile_copy(&a, &b, NULL), -1);
+    /* A copy that fails half-way leaves nothing of the new profile: here
+     * the source's profile.ini, read last, is not there (bugs.md LCORE.44). */
+    dxl_profile half;
+    dxl_profile_open(&half, &x, "half", NULL);
+    char *meta = dxl_xstrdup(a.ini_path), *aside = scratch_path(game, "profile.ini.aside");
+    CHECK_INT(rename(meta, aside), 0);
+    CHECK_INT(dxl_profile_copy(&a, &half, NULL), -1);
+    CHECK_INT(dxl_path_exists(half.dir), 0);
+    CHECK_INT(dxl_path_exists(half.save_dir), 0);
+    CHECK_INT(dxl_path_exists(half.state_dir), 0);
+    CHECK_INT(dxl_path_exists(half.cache_dir), 0);
+    CHECK_INT(rename(aside, meta), 0);
+    free(meta);
+    free(aside);
+    dxl_profile_free(&half);
 
     char ids[4][DXL_PROFILE_ID_MAX + 1];
     CHECK_INT((int)dxl_profiles_list(&x, ids, 4), 2);
