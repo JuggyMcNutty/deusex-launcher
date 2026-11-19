@@ -1082,6 +1082,10 @@ Each open in Port Ex Machina's
   resets a good Settings.json; a very long binding is cut when unbound.
 - **LCORE.42**: Very long imported bindings are cut; the save count told is
   not the folders copied.
+- **LCORE.43**: the saves of a copy of the game recased by its unpacker,
+  their folders and files in lower case, are imported and listed nowhere.
+- **LCORE.44**: Duplicate leaves the new profile's files behind when it
+  fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
 - **LUI.11**: screenshot thumbnails are kept until the window closes, so a
