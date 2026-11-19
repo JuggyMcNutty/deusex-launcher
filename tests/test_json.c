@@ -242,7 +242,10 @@ static void test_read_error(void) {
     dxl_path_mkdirs(dir);
     dxl_err e;
     CHECK(dxl_json_load(dir, &e) == NULL);
+#ifndef _WIN32
+    /* Windows refuses a folder at the open, a failure of another name. */
     CHECK(strstr(dxl_err_msg(&e), "read error") != NULL);
+#endif
     rmdir(dir);
     free(dir);
 }
