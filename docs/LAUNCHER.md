@@ -222,7 +222,8 @@ marked; its buttons act on the one chosen, the row last focused:
 - **Duplicate**: a new profile with the chosen one's settings, keys and
   controller -- `profile.ini`, the inis with its own `SavePath` and
   `CachePath`, the engine folder's `Settings.json` and a class's config
-  files -- and none of its saves, shots or logs (`dxl_profile_copy`).
+  files -- and none of its saves, shots or logs (`dxl_profile_copy`); one
+  that fails half-way takes away what it made.
 - **Name**, under the list: the chosen one's, edited in place.
 - **Delete...**: the chosen one's four folders deleted for good, once
   asked, its settings last (`src/platform/posix/delete.c`): the Smart Pro
@@ -1111,8 +1112,6 @@ Each open in Port Ex Machina's
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.
-- **LCORE.44**: Duplicate leaves the new profile's files behind when it
-  fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
 - **LPORT.17**: whether a game stalled by spruceOS's low-battery popup goes
