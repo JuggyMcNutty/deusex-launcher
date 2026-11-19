@@ -137,6 +137,27 @@ void dxl_server_join_url(const char *host, int port, int lan, const char *passwo
              password && *password ? password : "");
 }
 
+int dxl_server_host_ok(const char *host) {
+    if (!host || !host[0]) return 0;
+    size_t n = 0;
+    for (const char *p = host; *p; p++, n++) {
+        char c = *p;
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' ||
+              c == '_'))
+            return 0;
+    }
+    return n <= 253;
+}
+
+int dxl_server_port_of(const char *s) {
+    if (!s) return 0;
+    int port = 0, n = 0;
+    for (; *s >= '0' && *s <= '9' && n < 6; s++, n++) port = port * 10 + (*s - '0');
+    return (*s || !n || port > 65535) ? 0 : port;
+}
+
+int dxl_server_link_like(const char *arg) { return arg && dxl_strnicmp(arg, "deusex:", 7) == 0; }
+
 int dxl_server_link(const char *link, char *out, size_t size) {
     if (!link || dxl_strnicmp(link, "deusex://", 9) != 0) return 0;
     char host[256];
@@ -146,9 +167,9 @@ int dxl_server_link(const char *link, char *out, size_t size) {
     int port = 7790;
     if (colon) {
         *colon = '\0';
-        port = atoi(colon + 1);
+        port = dxl_server_port_of(colon + 1);
     }
-    if (!host[0] || port <= 0 || port > 65535) return 0;
+    if (!dxl_server_host_ok(host) || port <= 0) return 0;
     snprintf(out, size, "%s:%d", host, port);
     return 1;
 }
@@ -167,6 +188,9 @@ char *dxl_favourite_toggle(const char *list, const char *address, int port) {
     char want[96];
     snprintf(want, sizeof want, "%s:%d", address, port);
     int had = dxl_favourite_has(list, address, port);
+    /* What is no address is no word of the list: it would go into the
+     * profile's file as it is. */
+    if (!had && (!dxl_server_host_ok(address) || port <= 0 || port > 65535)) return dxl_xstrdup(list ? list : "");
     dxl_buf b;
     dxl_buf_init(&b);
     /* Every word but this one, then this one when it was not there. */

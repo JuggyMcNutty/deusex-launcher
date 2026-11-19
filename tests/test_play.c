@@ -3,6 +3,7 @@
 #include "ends.h"
 #include "app/play.h"
 #include "app/run.h"
+#include "core/cmdline.h"
 #include "platform/instance.h"
 #include "platform/os.h"
 
@@ -196,7 +197,7 @@ static void test_line_outlived(void) {
  * thread's, as another process's would be, the launcher's loop free to read
  * each: on Windows a sender waits for the one before it to be read. */
 static char forward_id[64];
-static int forward_rc[3];
+static int forward_rc[4];
 static char longest[DXL_HANDOFF_MAX + 1];
 static pthread_t forwarder;
 static void *forward_main(void *p) {
@@ -206,6 +207,8 @@ static void *forward_main(void *p) {
     forward_rc[1] = dxl_instance_forward(forward_id, "deusex://10.0.0.5:7780/ --big-screen", 1000, NULL);
     /* The longest line a second start hands on: its URL whole. */
     forward_rc[2] = dxl_instance_forward(forward_id, longest, 1000, NULL);
+    /* What begins as a link and is none: brought to the front, not opened. */
+    forward_rc[3] = dxl_instance_forward(forward_id, "deusex://:0?INI=/home/player/.profile -log", 1000, NULL);
     return NULL;
 }
 static void forward_on_ready(void *ctx) {
@@ -228,17 +231,20 @@ static void test_forwarded(void) {
     };
     dxl_play_result r;
     memset(longest, 'x', DXL_HANDOFF_MAX);
-    forward_rc[0] = forward_rc[1] = forward_rc[2] = -1;
+    forward_rc[0] = forward_rc[1] = forward_rc[2] = forward_rc[3] = -1;
     dxl_play(&req, &r);
     pthread_join(forwarder, NULL);
     CHECK_INT(forward_rc[0], 0);
     CHECK_INT(forward_rc[1], 0);
     CHECK_INT(forward_rc[2], 0);
+    CHECK_INT(forward_rc[3], 0);
     CHECK_INT(r.clean, 1);
     char *text = slurp(log, NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 127.0.0.1:7790\n") != NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 10.0.0.5:7780\n") != NULL);
     CHECK(text && strstr(text, "too-early") == NULL);
+    CHECK(text && strstr(text, "INI=") == NULL);
+    CHECK(text && strstr(text, "Open deusex") == NULL);
     char *want = dxl_xmalloc(DXL_HANDOFF_MAX + 16);
     snprintf(want, DXL_HANDOFF_MAX + 16, "line: Open %s\n", longest);
     CHECK(text && strstr(text, want) != NULL);
@@ -302,6 +308,23 @@ static void test_parse_link(void) {
     CHECK_INT(opt.big_screen, 1);
     CHECK(words && strstr(words, "deusex://") == NULL);
     CHECK(words && strstr(words, "-nosound") != NULL);
+    free(words);
+
+    /* What begins as a link and is none -- no host, a port of 0 or past
+     * 65535, no slashes -- is passed over: never a word of the original's,
+     * where its ?INI= and USERINI= would name the inis (bugs.md LAPP.21). */
+    char *bad[] = { "deusex-launcher", "deusex://?INI=/home/player/.profile", "deusex://:0?x,USERINI=\\\\evil@80\\s\\u.ini",
+                    "DeusEx:host:99999?INI=y", "-nosound", NULL };
+    words = NULL;
+    CHECK_INT(dxl_run_parse(5, bad, &opt, &words, NULL), 0);
+    CHECK(opt.join == NULL);
+    CHECK(opt.refused != NULL);
+    CHECK(words && strstr(words, "INI=") == NULL);
+    CHECK(words && strstr(words, "deusex") == strstr(words, "deusex-launcher"));
+    CHECK(words && strstr(words, "-nosound") != NULL);
+    char value[64];
+    CHECK_INT(dxl_cmd_value(words, "INI", DXL_PARSE_INI, value, sizeof value), 0);
+    CHECK_INT(dxl_cmd_value(words, "USERINI", DXL_PARSE_INI, value, sizeof value), 0);
     free(words);
 }
 

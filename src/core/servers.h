@@ -65,13 +65,29 @@ int dxl_server_shown(const dxl_server *s, const dxl_server_filter *f, const char
  * LAN speed), then the password, when there is one. */
 void dxl_server_join_url(const char *host, int port, int lan, const char *password, char *out, size_t size);
 
+/* Whether a host is one to hand on: a name or a dotted address of letters,
+ * digits, '.', '-' and '_' alone, so that nothing of it can be a URL's
+ * option, a path or a second line. */
+int dxl_server_host_ok(const char *host);
+
+/* A port's text: digits alone, 1 to 65535; 0 for anything else. */
+int dxl_server_port_of(const char *text);
+
 /* A deusex://host[:port][/] link as host:port, its port the game's 7790
- * when it names none, into out; 0 when it is no such link. */
+ * when it names none, into out; 0 when it is no such link: no host, a
+ * host dxl_server_host_ok refuses, a port that is no number from 1 to
+ * 65535. */
 int dxl_server_link(const char *link, char *out, size_t size);
+
+/* Whether an argument begins as a link (deusex:, in any case), one
+ * dxl_server_link takes or not: never a word of the original's command
+ * line, whose INI= and USERINI= it could carry. */
+int dxl_server_link_like(const char *arg);
 
 /* The profile's favourites ([Profile] Favourites): "a.b.c.d:port" words,
  * the game's ports. Whether one is there; the list with one put in or
- * taken out, the caller's to free. */
+ * taken out, the caller's to free: an address dxl_server_host_ok refuses,
+ * or a port that is none, is not put in. */
 int   dxl_favourite_has(const char *list, const char *address, int port);
 char *dxl_favourite_toggle(const char *list, const char *address, int port);
 
