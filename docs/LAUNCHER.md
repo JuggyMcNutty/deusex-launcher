@@ -1102,6 +1102,10 @@ Each open in Port Ex Machina's
   resets a good Settings.json; a very long binding is cut when unbound.
 - **LCORE.42**: Very long imported bindings are cut; the save count told is
   not the folders copied.
+- **LCORE.43**: the saves of a copy of the game recased by its unpacker,
+  their folders and files in lower case, are imported and listed nowhere.
+- **LCORE.44**: Duplicate leaves the new profile's files behind when it
+  fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
 - **LUI.11**: screenshot thumbnails are kept until the window closes, so a
@@ -1119,6 +1123,8 @@ Each open in Port Ex Machina's
   does not answer.
 - **LUI.18**: with two pads, one pad's stick jitter breaks the other's held
   direction.
+- **LUI.21**: the system's folder dialog for a mod does not take a `System`
+  folder for the mod's own, as the launcher's browser does.
 - **LPORT.12**: a Saved Games folder that cannot be reached moves the
   launcher's data elsewhere without a word.
 - **LPORT.13**: a launcher run as administrator may not be seen by a second
