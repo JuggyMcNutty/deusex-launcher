@@ -31,9 +31,13 @@ static void test_install(void) {
     char *tmpl = dxl_path_join(home, "data/entry.desktop.in");
     char *share = dxl_path_join(home, "share");
     dxl_err err;
-    CHECK_INT(dxl_desktop_installed(share), 0);
+    CHECK_INT(dxl_desktop_installed(share, "/a b/deusex-launcher"), DXL_DESKTOP_NONE);
     CHECK_INT(dxl_desktop_install(share, tmpl, "/a b/deusex-launcher", &err), 0);
-    CHECK_INT(dxl_desktop_installed(share), 1);
+    CHECK_INT(dxl_desktop_installed(share, "/a b/deusex-launcher"), DXL_DESKTOP_OURS);
+    /* Another copy's entry is not this one's (bugs.md LAPP.28). */
+    CHECK_INT(dxl_desktop_installed(share, "/elsewhere/deusex-launcher"), DXL_DESKTOP_OTHER);
+    CHECK_INT(dxl_desktop_installed(share, "/a b/deusex-launcher2"), DXL_DESKTOP_OTHER);
+    CHECK_INT(dxl_desktop_installed(share, "/a"), DXL_DESKTOP_OTHER);
     char *path = dxl_desktop_entry_path(share);
     CHECK(strstr(path, "/applications/io.github.juggymcnutty.DXLauncher.desktop") != NULL);
     FILE *f = fopen(path, "r");
@@ -47,7 +51,7 @@ static void test_install(void) {
     char *icon = dxl_desktop_icon_path(share, 64);
     CHECK(strstr(icon, "/icons/hicolor/64x64/apps/io.github.juggymcnutty.DXLauncher.png") != NULL);
     CHECK_INT(dxl_desktop_remove(share, &err), 0);
-    CHECK_INT(dxl_desktop_installed(share), 0);
+    CHECK_INT(dxl_desktop_installed(share, "/a b/deusex-launcher"), DXL_DESKTOP_NONE);
     CHECK_INT(dxl_desktop_remove(share, &err), 0);   /* nothing to remove: fine */
     CHECK(dxl_desktop_install(share, "/nonexistent/template", "/x", &err) != 0);
     free(icon);
@@ -73,6 +77,8 @@ static void links(int mime_cache) {
     CHECK(text && strstr(text, "\nMimeType=x-scheme-handler/deusex;\n") != NULL);
     CHECK(text && strstr(text, "\nExec=\"/a b/deusex-launcher\" %u\n") != NULL);
     free(text);
+    CHECK_INT(dxl_desktop_installed(share, "/a b/deusex-launcher"), DXL_DESKTOP_OURS);
+    CHECK_INT(dxl_desktop_installed(share, "/b/deusex-launcher"), DXL_DESKTOP_OTHER);
     char *cache = dxl_path_join(share, "applications/mimeinfo.cache");
     if (mime_cache) {
         text = slurp(cache, NULL);

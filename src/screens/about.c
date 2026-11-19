@@ -48,14 +48,19 @@ void dxl_page_about(dxl_shell *s, dxl_rect r) {
     dxl_cut_top(&in, 12);
     dxl_paragraph(ui, in, DXL_FONT_SMALL, credits, t->help);
 
-    int entry = dxl_button(ui, "about entry", dxl_cut_left(&buttons, 250),
-                           s->desktop_entry ? "Take it off " DXL_DESKTOP_MENU : "Add it to " DXL_DESKTOP_MENU, 0);
+    /* An entry that starts another copy of the app (one moved or unpacked
+     * again elsewhere) is made this one's, not offered to be taken off as
+     * though it were (bugs.md LAPP.28). */
+    const char *entry_label = s->desktop_entry == DXL_DESKTOP_OURS    ? "Take it off " DXL_DESKTOP_MENU
+                              : s->desktop_entry == DXL_DESKTOP_OTHER ? "Update it in " DXL_DESKTOP_MENU
+                                                                      : "Add it to " DXL_DESKTOP_MENU;
+    int entry = dxl_button(ui, "about entry", dxl_cut_left(&buttons, 250), entry_label, 0);
     dxl_cut_left(&buttons, 12);
     int open = dxl_button(ui, "about open", dxl_cut_left(&buttons, 230), "Open the settings folder", 0);
     int back = dxl_button(ui, "about back", dxl_cut_right(&buttons, 150), "Back", 0);
 
     if (entry) {
-        if (s->desktop) s->desktop(s, !s->desktop_entry);
+        if (s->desktop) s->desktop(s, s->desktop_entry != DXL_DESKTOP_OURS);
     } else if (open) {
         dxl_shell_open(s, x->config);
     } else if (back || ui->in.back) {

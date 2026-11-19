@@ -62,11 +62,16 @@ target_compile_definitions(test_desktop PRIVATE DXL_DATA="${DXL_ROOT}/data")
 add_test(NAME test_desktop_mime_cache COMMAND test_desktop --mime-cache)
 set_tests_properties(test_desktop_mime_cache PROPERTIES SKIP_RETURN_CODE 77)
 dxl_test(test_trash)
-target_link_libraries(test_trash PRIVATE dxl_platform)
+target_link_libraries(test_trash PRIVATE dxl_app)
 # The GPU probe on this machine's own drivers: skipped with no GPU's of
 # Mesa's, whose versions it lowers.
 dxl_test(test_gpu_probe)
 target_link_libraries(test_gpu_probe PRIVATE dxl_platform)
+# A Vulkan driver that crashes as it loads, for a probe that loses Vulkan's
+# answers alone.
+add_library(crash_icd MODULE crash_icd.c)
+target_compile_definitions(test_gpu_probe PRIVATE DXL_CRASH_ICD="$<TARGET_FILE:crash_icd>")
+add_dependencies(test_gpu_probe crash_icd)
 # Its own OpenGL ES context, the EGL headers the probe's.
 if(DXL_PORT_INCLUDE_DIRS)
     target_include_directories(test_gpu_probe PRIVATE ${DXL_PORT_INCLUDE_DIRS})

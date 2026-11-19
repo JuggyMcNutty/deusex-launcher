@@ -91,6 +91,7 @@ static int probe(int as_ini) {
     if (p.vulkan_cpu) printf("  device   %s\n", p.vulkan_cpu_device);
     printf("opengl cpu %s\n", p.gl_cpu ? "yes" : "no");
     if (p.gl_cpu) printf("  renderer %s\n", p.gl_cpu_renderer);
+    if (p.note[0]) printf("note       %s\n", p.note);
     return 0;
 }
 
