@@ -562,7 +562,6 @@ static char *small_install(const char *tag) {
     scratch_write(g, "System/DeusEx.exe", "x");
     scratch_write(g, "System/DeusEx.ini", "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n");
     scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=X\r\n");
-    RUN(test_import_recased);
     scratch_write(g, "System/Shot0000.bmp", "game-shot-0");
     scratch_write(g, "Save/Save0001/SaveInfo.dxs", "game-slot-1");
     scratch_write(g, "Save/Save0001/01_NYC_UNATCOIsland.dxs", "game-slot-1-level");
@@ -822,6 +821,7 @@ TEST_MAIN_BEGIN
     RUN(test_import);
     RUN(test_no_links);
     RUN(test_import_from_defaults);
+    RUN(test_import_recased);
     RUN(test_import_keeps_its_own);
     RUN(test_import_undone);
 #ifndef _WIN32
