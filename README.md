@@ -13,8 +13,9 @@ controller.
 </p>
 
 **You need your own copy of Deus Ex, version 1112fm**, GOG's or Steam's
-(1002f, the first release, runs with a warning). None of the game's files are
-included.
+(1002f, the first release, runs with a warning; a 1112fm copy whose
+`DeusEx.exe` another launcher or a patch replaced plays too, with a warning).
+None of the game's files are included.
 DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.

@@ -133,7 +133,8 @@ int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl
  * DXEngine, or one without the userdir feature. */
 int dxl_engine_check(const char *path, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
                      size_t size);
-/* The same for the session's engine. */
+/* The same for the session's engine; and, for an install known by its
+ * packages, one without the game-by-packages feature refused. */
 int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
                          size_t size);
 /* The engine's program in a folder, DXEngine; NULL for none. Caller

@@ -88,11 +88,20 @@ one over both.
 ## An install
 
 A folder is an install when `System/DeusEx.exe` is there, each in any case as the
-engine finds them, and the engine plays it only when that file's SHA1 is one
-it knows
+engine finds them, and the engine plays it when that file's SHA1 is one it
+knows
 (`src/core/gamedb.c`, the engine's own list, which Port Ex Machina's
 `scripts/dx.sh check` holds them to): 1112fm, GOG's and Steam's; 1002f, the
-first release, runs with a warning. Beside it the files the engine cannot
+first release, runs with a warning. Neither program runs the exe: one of
+another hash (another launcher's in the stock one's place, a patched or a
+localized one) plays 1112fm, with a warning in the finder's row, on Home and
+in `launcher.log` at each start, when `System`'s `Core.u`, `Engine.u` and
+`DeusEx.u` are 1112fm's, each with a GUID of the same file's list in its
+header, read alone; with others' packages it is refused, the message naming
+the first that is not 1112fm's. Such an install goes only to an engine whose
+`--version` has `game-by-packages`: another is refused, saying so. The
+GUIDs are GOG's and Steam's, whose packages are the same files; a copy that
+carries others is a row more in the list, the engine's too. Beside it the files the engine cannot
 start without, in any case: `System`'s `Core.u`, `Engine.u`, `Extension.u`,
 `DeusEx.u`, `DeusExUI.u`, `Default.ini` and `DefUser.ini`, and
 `Maps/DX.dx` (`src/core/install.c`).
@@ -945,8 +954,10 @@ but under `-firstrun`, which writes 1100 over a higher one, an empty
 `User.ini` where there is no `DefUser.ini`, and `INI=`'s folders found in
 any case;
 `test_engine_settings` the engine's `Settings.json`, a file it cannot read
-replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
-`test_install` what makes an install, in the odd cases a copy leaves, and a
+replaced; `test_gamedb` SHA1 by FIPS 180's examples, the engine's builds
+and 1112fm's packages;
+`test_install` what makes an install, in the odd cases a copy leaves, an
+unknown exe beside 1112fm's packages, others' and none, and a
 file of 2 GiB and more there, its size whole;
 `test_lastrun` a run's end, written and read back; `test_runtime` the crash
 sentinel, the state folder, every launcher's mark of running, and each
@@ -978,11 +989,13 @@ since dropped; `test_engine_sections` the keys written, each
 as the engine reads its retail one;
 `test_advice` the advice; `test_upkg` the game's packages, on packages it
 writes itself and the same broken a thousand ways, read at a page's end so
-that a read past them faults; `test_saves` a profile's saves and shots, the
+that a read past them faults, and a header's GUID of both layouts;
+`test_saves` a profile's saves and shots, the
 saves' infos written as the game writes them (`tests/upkg_writer.h`), a
 snapshot read only when asked for; `test_vdf` Steam's KeyValues files,
 blocks nested past 32 refused,
-and `test_finder` each of the finder's places, in homes it makes up;
+and `test_finder` each of the finder's places, in homes it makes up, and a
+copy of an unknown exe listed by its packages;
 `test_bigscreen` when the big screen is wanted, by the setting, the
 environment and `--big-screen`; `test_mods` which folders are mods, their
 settings and where they are found, and their profiles' paths, settings and
@@ -1151,8 +1164,6 @@ Each open in Port Ex Machina's
   its first native.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
-  refused, its message not saying the exe alone is the trouble.
 - **D.94**: a start whose window cannot open plays nothing, even where the
   profile could play.
 - **D.95**: a launcher killed while its game plays leaves no running mark,

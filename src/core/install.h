@@ -2,8 +2,9 @@
  * missing from it.
  *
  * A folder is an install when System/DeusEx.exe is there, each in any
- * case, as the engine finds them; the engine plays it only when
- * that file's SHA1 is a build it knows (core/gamedb.h). Beside it: the
+ * case, as the engine finds them; the engine plays it when that file's
+ * SHA1 is a build it knows, or, with a warning, when the packages beside
+ * it are 1112fm's (core/gamedb.h). Beside it: the
  * packages the engine cannot start without, the defaults a profile is made
  * from, and the menu's map -- System's Core.u, Engine.u, Extension.u,
  * DeusEx.u, DeusExUI.u, Default.ini and DefUser.ini, and Maps/DX.dx -- in
@@ -22,6 +23,7 @@ typedef struct {
     char  sha1[41];       /* DeusEx.exe's; "" when there is none */
     const dxl_game_build *build;   /* NULL: none the engine takes */
     int   found;          /* System/DeusEx.exe is there */
+    int   by_packages;    /* its hash unknown, the game known by its packages */
     int   ok;             /* playable: a known build, nothing missing */
     char  missing[256];   /* what is not there, ", " between */
     char  problem[320];   /* why it cannot be played, or a warning; "" for none */

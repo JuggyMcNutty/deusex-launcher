@@ -64,8 +64,26 @@ static void test_builds(void) {
     CHECK_INT(dxl_gamedb_count(), 3);
 }
 
+/* 1112fm's packages by their GUIDs, file and GUID in any case; the build
+ * an unknown exe beside them is (bugs.md D.89). */
+static void test_packages(void) {
+    CHECK(dxl_gamedb_package_known("Core.u", "BFC9A4E444E3B749B688A99529BD75C1"));
+    CHECK(dxl_gamedb_package_known("core.U", "bfc9a4e444e3b749b688a99529bd75c1"));
+    CHECK(dxl_gamedb_package_known("Engine.u", "51EA2E914B9530035CB94784FF411102"));
+    CHECK(dxl_gamedb_package_known("DeusEx.u", "CADECA6B4EB3B7FF1F0CB59221ECCC8E"));
+    CHECK(!dxl_gamedb_package_known("Engine.u", "BFC9A4E444E3B749B688A99529BD75C1"));   /* Core.u's */
+    CHECK(!dxl_gamedb_package_known("DeusEx.u", "00000000000000000000000000000000"));
+    CHECK(!dxl_gamedb_package_known(NULL, NULL));
+    CHECK(dxl_gamedb_package_count() >= 3);
+    const dxl_game_build *b = dxl_gamedb_by_packages();
+    CHECK_STR(b->version, "1112fm");
+    CHECK_INT(b->current, 1);
+    CHECK(dxl_gamedb_find(b->sha1) == NULL);   /* no hash of its own */
+}
+
 TEST_MAIN_BEGIN
     RUN(test_sha1_vectors);
     RUN(test_sha1_file);
     RUN(test_builds);
+    RUN(test_packages);
 TEST_MAIN_END

@@ -284,6 +284,52 @@ static void unguard(guarded *g) {
 #endif
 }
 
+/* A package's GUID, its header alone read: from version 68 after the
+ * tables' counts, before it the last of its heritage; none for a file cut
+ * short, one that is no package, one not there. */
+static void test_guid(void) {
+    const char *dir = scratch_dir("upkg-guid");
+    buf b = { 0 };
+    u32(&b, DXL_UPKG_TAG); u16(&b, 68); u16(&b, 0); u32(&b, 1);
+    for (int i = 0; i < 6; i++) u32(&b, 0);
+    u32(&b, 0xBFC9A4E4u); u32(&b, 0x44E3B749u); u32(&b, 0xB688A995u); u32(&b, 0x29BD75C1u);
+    u32(&b, 0);
+    char *p = scratch_path(dir, "new.u");
+    FILE *f = fopen(p, "wb");
+    if (f) { fwrite(b.d, 1, b.n, f); fclose(f); }
+    char guid[33];
+    CHECK_INT(dxl_upkg_guid(p, guid), 0);
+    CHECK_STR(guid, "BFC9A4E444E3B749B688A99529BD75C1");
+    f = fopen(p, "wb");   /* cut inside its GUID */
+    if (f) { fwrite(b.d, 1, 44, f); fclose(f); }
+    CHECK_INT(dxl_upkg_guid(p, guid), -1);
+    free(p);
+
+    b.n = 0;   /* version 61: two GUIDs of heritage at 44, its own the last */
+    u32(&b, DXL_UPKG_TAG); u16(&b, 61); u16(&b, 0); u32(&b, 1);
+    for (int i = 0; i < 6; i++) u32(&b, 0);
+    u32(&b, 2); u32(&b, 44);
+    for (uint32_t i = 0; i < 4; i++) u32(&b, 0x11111111u * (i + 1));
+    for (uint32_t i = 0; i < 4; i++) u32(&b, 0xA0000000u + i);
+    p = scratch_path(dir, "old.u");
+    f = fopen(p, "wb");
+    if (f) { fwrite(b.d, 1, b.n, f); fclose(f); }
+    CHECK_INT(dxl_upkg_guid(p, guid), 0);
+    CHECK_STR(guid, "A0000000A0000001A0000002A0000003");
+    free(p);
+
+    scratch_write(dir, "text.u", "not a package, though long enough to be one's header");
+    p = scratch_path(dir, "text.u");
+    CHECK_INT(dxl_upkg_guid(p, guid), -1);
+    CHECK_STR(guid, "");
+    free(p);
+    p = scratch_path(dir, "none.u");
+    CHECK_INT(dxl_upkg_guid(p, guid), -1);
+    free(p);
+    free(b.d);
+    scratch_remove(dir);
+}
+
 /* Broken a thousand ways -- bytes changed, cut short -- every reader
  * refuses it or reads within it: the objects' readers on its bytes guarded
  * (guard), so that one that read past them would fault. */
@@ -343,4 +389,5 @@ TEST_MAIN_BEGIN
     RUN(test_assets);
     RUN(test_wide_string);
     RUN(test_broken);
+    RUN(test_guid);
 TEST_MAIN_END
