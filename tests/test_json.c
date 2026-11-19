@@ -1,5 +1,8 @@
 #include "test.h"
 #include "core/json.h"
+#include "core/paths.h"
+
+#include <unistd.h>
 
 /* What the engine wrote on the device (Settings.json, 2026-09-22). */
 static const char *engine_file =
@@ -232,6 +235,18 @@ static void test_last_member_wins(void) {
     dxl_json_free(v);
 }
 
+/* A file that does not read whole is no document, said as a read error,
+ * not parsed as what came before it: here a folder, an error to fread. */
+static void test_read_error(void) {
+    char *dir = dxl_path_join(dxl_test_tmp(), "dxl-json-read-error");
+    dxl_path_mkdirs(dir);
+    dxl_err e;
+    CHECK(dxl_json_load(dir, &e) == NULL);
+    CHECK(strstr(dxl_err_msg(&e), "read error") != NULL);
+    rmdir(dir);
+    free(dir);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_reads_the_engine_file);
     RUN(test_round_trip_keeps_unknown_members);
@@ -243,4 +258,5 @@ TEST_MAIN_BEGIN
     RUN(test_last_member_wins);
     RUN(test_child_creates_and_replaces);
     RUN(test_elements);
+    RUN(test_read_error);
 TEST_MAIN_END

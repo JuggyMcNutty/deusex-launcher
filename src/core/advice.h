@@ -1,5 +1,6 @@
-/* What to do after a run that did not end cleanly, or that the software
- * renderer drew in the chosen one's place, for Recovery: the engine's known
+/* What to do after a run that did not end cleanly, that the software
+ * renderer drew in the chosen one's place, or that played silent, its audio
+ * device not started, for Recovery: the engine's known
  * errors, from its own messages (DXEngine's Exception::Throw), and the ways
  * a run ends, each with advice and the fix Recovery offers for it. */
 #ifndef DXL_ADVICE_H

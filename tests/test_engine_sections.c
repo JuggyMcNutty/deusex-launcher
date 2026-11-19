@@ -1,6 +1,8 @@
 #include "test.h"
 #include "core/engine_sections.h"
 
+#include <locale.h>
+
 /* Before the engine's sections: each from its retail key, as the engine
  * writes it; a retail key it would not read gives way to its default. */
 static void test_from_retail(void) {
@@ -120,8 +122,31 @@ static void test_engine_read(void) {
     dxl_ini_free(ini);
 }
 
+/* Under a locale whose decimal point is a comma, as a library in the
+ * process may set one: the floats read and written with the C locale's
+ * point all the same. Skipped where no such locale is installed. */
+static void test_decimal_comma(void) {
+    if (!setlocale(LC_NUMERIC, "de_DE.UTF-8") && !setlocale(LC_NUMERIC, "de_DE.utf8") &&
+        !setlocale(LC_NUMERIC, "fr_FR.UTF-8"))
+        return;
+    const char *src = "[WinDrv.WindowsClient]\nBrightness=0.6\n[Galaxy.GalaxyAudioSubsystem]\nAmbientFactor=1,5\n";
+    dxl_ini *ini = dxl_ini_parse(src, strlen(src));
+    dxl_engine_sections_seed(ini);
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineClient", "Brightness"), "0.600000");
+    CHECK_STR(dxl_ini_get(ini, "Engine.DXEngineAudioDevice", "AmbientFactor"), "1.000000");   /* as the C locale reads it */
+    dxl_ini_free(ini);
+    char *end;
+    CHECK(dxl_strtod_c("-.5e1x", &end) == -5.0 && *end == 'x');
+    CHECK(dxl_strtod_c("2,5", &end) == 2.0 && *end == ',');
+    char out[32];
+    dxl_snprintf_c(out, sizeof out, "%.6g|%f", 0.25, 1.5);
+    CHECK_STR(out, "0.25|1.500000");
+    setlocale(LC_NUMERIC, "C");
+}
+
 TEST_MAIN_BEGIN
     RUN(test_from_retail);
+    RUN(test_decimal_comma);
     RUN(test_as_the_engine_reads);
     RUN(test_engine_read);
 TEST_MAIN_END

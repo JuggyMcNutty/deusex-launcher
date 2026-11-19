@@ -92,7 +92,7 @@ static int leading_int(const char *v, long *out) {
 static int leading_float(const char *v, double *out) {
     char *end;
     while (*v == ' ' || *v == '\t') v++;
-    *out = strtod(v, &end);
+    *out = dxl_strtod_c(v, &end);
     return end != v;
 }
 
@@ -100,7 +100,7 @@ static int full_number(const char *v, double *out) {
     char *end;
     while (*v == ' ') v++;
     if (!*v) return 0;
-    *out = strtod(v, &end);
+    *out = dxl_strtod_c(v, &end);
     while (*end == ' ') end++;
     return *end == '\0';
 }
@@ -123,25 +123,25 @@ static int decode(const dxl_set_place *p, const char *v, char *out, size_t size)
     }
     case DXL_CODEC_HZ:
         if (!(i = dxl_engine_rate(v))) return 0;
-        snprintf(out, size, "%.6g", i / scale_of(p));
+        dxl_snprintf_c(out, size, "%.6g", i / scale_of(p));
         return 1;
     case DXL_CODEC_INT:
     case DXL_CODEC_WIDTH:
     case DXL_CODEC_HEIGHT:
         if (!leading_int(v, &i)) return 0;
-        snprintf(out, size, "%.6g", i / scale_of(p));
+        dxl_snprintf_c(out, size, "%.6g", i / scale_of(p));
         return 1;
     case DXL_CODEC_BYTE:
         if (!leading_int(v, &i)) return 0;
-        snprintf(out, size, "%.6g", (unsigned char)i / scale_of(p));
+        dxl_snprintf_c(out, size, "%.6g", (unsigned char)i / scale_of(p));
         return 1;
     case DXL_CODEC_FLOAT:
         /* The game's inis as the engine and a class's import read a float,
          * any text by strtod, an empty one 0 (bugs.md ENG.11); the
          * launcher's own with a number. */
-        if (p->store == DXL_STORE_SYSTEM || p->store == DXL_STORE_USER) n = strtod(v, NULL);
+        if (p->store == DXL_STORE_SYSTEM || p->store == DXL_STORE_USER) n = dxl_strtod_c(v, NULL);
         else if (!leading_float(v, &n)) return 0;
-        snprintf(out, size, "%.6g", n / scale_of(p));
+        dxl_snprintf_c(out, size, "%.6g", n / scale_of(p));
         return 1;
     case DXL_CODEC_TEXT:
         snprintf(out, size, "%s", v);
@@ -163,7 +163,7 @@ static int decode(const dxl_set_place *p, const char *v, char *out, size_t size)
 /* Written only as the player changes it: an untouched value keeps its own
  * text, so a whole is the nearest. */
 static void encode(const dxl_set_place *p, const char *value, char *out, size_t size) {
-    double n = atof(value) * scale_of(p);
+    double n = dxl_strtod_c(value, NULL) * scale_of(p);
     long whole = lround(n);
     switch (p->codec) {
     case DXL_CODEC_BOOL: snprintf(out, size, "%s", strcmp(value, "1") == 0 ? "True" : "False"); break;
@@ -172,7 +172,7 @@ static void encode(const dxl_set_place *p, const char *value, char *out, size_t 
     case DXL_CODEC_WIDTH:
     case DXL_CODEC_HEIGHT: snprintf(out, size, "%ld", whole); break;
     case DXL_CODEC_BYTE: snprintf(out, size, "%ld", whole < 0 ? 0 : whole > 255 ? 255 : whole); break;
-    case DXL_CODEC_FLOAT: snprintf(out, size, "%f", n); break;
+    case DXL_CODEC_FLOAT: dxl_snprintf_c(out, size, "%f", n); break;
     case DXL_CODEC_HZ: snprintf(out, size, "%ldHz", whole); break;
     default: snprintf(out, size, "%s", value); break;
     }
@@ -196,7 +196,7 @@ static int read_place(const dxl_stores *st, const dxl_set_place *p, char *out, s
         const dxl_es_info *info = dxl_es_describe(p->field);
         switch (info->kind) {
         case DXL_ES_BOOL: snprintf(out, size, "%d", dxl_es_bool(st->engine, p->field) ? 1 : 0); return 1;
-        case DXL_ES_NUMBER: snprintf(out, size, "%.6g", dxl_es_number(st->engine, p->field) / scale_of(p)); return 1;
+        case DXL_ES_NUMBER: dxl_snprintf_c(out, size, "%.6g", dxl_es_number(st->engine, p->field) / scale_of(p)); return 1;
         case DXL_ES_CHOICE:
             if (p->field == DXL_ES_RENDER_TYPE && !dxl_es_names_type(st->engine)) return 0;
             snprintf(out, size, "%s", dxl_es_choice(st->engine, p->field));
@@ -221,7 +221,7 @@ static int write_place(dxl_stores *st, const dxl_set_place *p, const char *value
         const dxl_es_info *info = dxl_es_describe(p->field);
         switch (info->kind) {
         case DXL_ES_BOOL: dxl_es_set_bool(st->engine, p->field, strcmp(value, "1") == 0); break;
-        case DXL_ES_NUMBER: dxl_es_set_number(st->engine, p->field, atof(value) * scale_of(p)); break;
+        case DXL_ES_NUMBER: dxl_es_set_number(st->engine, p->field, dxl_strtod_c(value, NULL) * scale_of(p)); break;
         case DXL_ES_CHOICE: return dxl_es_set_choice(st->engine, p->field, value) == 0 ? 0 : -1;
         }
         return 0;
@@ -289,7 +289,7 @@ int dxl_setting_get(const dxl_stores *st, const dxl_setting *s, char *out, size_
 double dxl_setting_number(const dxl_stores *st, const dxl_setting *s) {
     char v[64];
     dxl_setting_get(st, s, v, sizeof v);
-    return atof(v);
+    return dxl_strtod_c(v, NULL);
 }
 
 int dxl_setting_bool(const dxl_stores *st, const dxl_setting *s) {
@@ -321,7 +321,7 @@ static int normalise(const dxl_setting *s, const char *in, char *out, size_t siz
         if (!full_number(in, &n)) return 0;
         if (n < s->min) n = s->min;
         if (n > s->max) n = s->max;
-        snprintf(out, size, "%.6g", n);
+        dxl_snprintf_c(out, size, "%.6g", n);
         return 1;
     case DXL_SET_CHOICE:
         /* The renderers', and a size's, are the page's to offer. */
@@ -421,7 +421,7 @@ void dxl_preset_apply(dxl_stores *st, const dxl_preset *p) {
 
 static int same(const dxl_setting *s, const char *a, const char *b) {
     if (s->kind == DXL_SET_NUMBER) {
-        double x = atof(a), y = atof(b);
+        double x = dxl_strtod_c(a, NULL), y = dxl_strtod_c(b, NULL);
         return fabs(x - y) <= 1e-6 * (fabs(x) > 1 ? fabs(x) : 1);
     }
     return dxl_stricmp(a, b) == 0;

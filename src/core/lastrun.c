@@ -1,5 +1,6 @@
 #include "core/lastrun.h"
 #include "core/ini.h"
+#include "core/log.h"
 #include "core/paths.h"
 #include "platform/fs.h"
 #include "platform/os.h"
@@ -32,6 +33,8 @@ int dxl_lastrun_load(dxl_lastrun *r, const char *state_dir) {
     snprintf(r->error, sizeof r->error, "%s", e ? e : "");
     const char *fallback = dxl_ini_get(ini, SECTION, "Fallback");
     snprintf(r->fallback, sizeof r->fallback, "%s", fallback ? fallback : "");
+    const char *audio = dxl_ini_get(ini, SECTION, "Audio");
+    snprintf(r->audio, sizeof r->audio, "%s", audio ? audio : "");
     const char *start = dxl_ini_get(ini, SECTION, "Start");
     snprintf(r->start, sizeof r->start, "%s", start ? start : "");
     dxl_ini_free(ini);
@@ -65,6 +68,12 @@ int dxl_lastrun_save(const dxl_lastrun *r, const char *state_dir, dxl_err *err) 
         for (char *c = fallback; *c; c++) if (*c == '\r' || *c == '\n') *c = ' ';
         dxl_ini_set(ini, SECTION, "Fallback", fallback);
     }
+    if (r->audio[0]) {
+        char audio[sizeof r->audio];
+        snprintf(audio, sizeof audio, "%s", r->audio);
+        for (char *c = audio; *c; c++) if (*c == '\r' || *c == '\n') *c = ' ';
+        dxl_ini_set(ini, SECTION, "Audio", audio);
+    }
     if (r->start[0]) dxl_ini_set(ini, SECTION, "Start", r->start);
     char *path = dxl_path_join(state_dir, "LastRun.ini");
     int rc = dxl_ini_save(ini, path, err);
@@ -86,7 +95,17 @@ char *dxl_lastrun_rotate(const char *logs_dir) {
     char *last = dxl_path_join(logs_dir, DXL_LASTRUN_LOG);
     char *previous = dxl_path_join(logs_dir, DXL_PREVIOUSRUN_LOG);
     dxl_path_mkdirs(logs_dir);
-    if (dxl_path_exists(last)) dxl_fs_replace(last, previous);
+    /* One that cannot be moved aside (on Windows, held open by a program
+     * that does not share its deletion) is emptied: the run's output never
+     * goes on the end of the last one's, whose error line would be told as
+     * this run's. */
+    if (dxl_path_exists(last) && dxl_fs_replace(last, previous) != 0) {
+        FILE *f = fopen(last, "wb");
+        int emptied = f != NULL;
+        if (f) fclose(f);
+        dxl_log("warning: %s could not be moved to %s: %s", last, previous,
+                emptied ? "started afresh" : "nor emptied, the run's output after the last one's");
+    }
     free(previous);
     return last;
 }
@@ -130,6 +149,27 @@ int dxl_lastrun_fallback_line(const char *log_path, char *out, size_t size) {
         /* From "The ...", the engine's log prefix ("[] ") left out. */
         char *msg = strstr(line, "The ");
         if (!msg) continue;
+        msg[strcspn(msg, "\r\n")] = '\0';
+        snprintf(out, size, "%s", msg);
+        found = 1;
+    }
+    fclose(f);
+    return found;
+}
+
+/* The engine's line where its audio device did not start
+ * (UDXEngineAudioDevice::InitDevice), after its log prefix ("[] "). */
+#define AUDIO_MARK "Audio device not started: "
+
+int dxl_lastrun_audio_line(const char *log_path, char *out, size_t size) {
+    FILE *f = log_path ? fopen(log_path, "rb") : NULL;
+    if (!f) return 0;
+    char line[2048];
+    int found = 0;
+    while (fgets(line, sizeof line, f)) {
+        char *msg = strstr(line, AUDIO_MARK);
+        if (!msg) continue;
+        msg += strlen(AUDIO_MARK);
         msg[strcspn(msg, "\r\n")] = '\0';
         snprintf(out, size, "%s", msg);
         found = 1;

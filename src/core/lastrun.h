@@ -1,7 +1,7 @@
 /* What a profile's last run left: how it ended, and its log.
  *
  *   <state>/LastRun.ini         [LastRun] Ended, Status, Signal, Ready, Clean,
- *                               Error, Fallback, Start: the run's end,
+ *                               Error, Fallback, Audio, Start: the run's end,
  *                               written as it ends, and where the game
  *                               started; taken away as the next run begins
  *   <state>/logs/last-run.log   the engine's output, all of it
@@ -32,6 +32,7 @@ typedef struct {
     char error[512];   /* the engine's "DXEngine error: ..." line, or "" */
     char fallback[512];/* the engine's line where its GPU renderer did not start and its software
                           one drew instead, or "" */
+    char audio[512];   /* why the engine's audio device did not start, the game played silent, or "" */
     char start[64];    /* where the game started: a save's ?loadgame=N; "" for its own start */
 } dxl_lastrun;
 
@@ -47,7 +48,8 @@ int  dxl_lastrun_clear(const char *state_dir);
  * ended cleanly is not that run's, but an older launcher's record. */
 int  dxl_lastrun_shown(const dxl_lastrun *r, int unclean);
 
-/* Before a run: last-run.log becomes previous-run.log. Returns the new
+/* Before a run: last-run.log becomes previous-run.log, or, where it cannot
+ * be moved, is emptied, previous-run.log left as it was. Returns the new
  * log's path; caller frees. */
 char *dxl_lastrun_rotate(const char *logs_dir);
 
@@ -58,6 +60,10 @@ int   dxl_lastrun_error_line(const char *log_path, char *out, size_t size);
  * drew in its place ("The Vulkan device did not start (...): the software
  * device draws in its place"), without its log prefix: 1 when there is one. */
 int   dxl_lastrun_fallback_line(const char *log_path, char *out, size_t size);
+/* Why the engine's audio device did not start and the game played on
+ * silent, from its line "Audio device not started: <why>", which a clean
+ * run logs too: 1 when there is one. */
+int   dxl_lastrun_audio_line(const char *log_path, char *out, size_t size);
 /* The last lines of a log, at most max_lines; caller frees. NULL when
  * there is none. */
 char *dxl_lastrun_tail(const char *log_path, int max_lines);

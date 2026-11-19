@@ -34,7 +34,7 @@ scratch home, a relative one taken from the working folder:
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log and crash reports |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
-| `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` |
+| `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`) |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
 | `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
 | `$XDG_RUNTIME_DIR` (else `/tmp/deusex-launcher-<uid>`, made 0700) | `deusex-launcher.<hash>.lock`, a lock on which every launcher of a home marks itself running, and each client's `deusex-launcher.<hash>.<pid>.<n>.sock`, a channel a second start hands its command line over, the newest's first, removed as it ends |
@@ -158,9 +158,10 @@ writing nothing there:
   desktop's size (`FullscreenViewportX` and `Y` 0), where the install's
   size would switch the display's mode; one chosen after, in the game's
   Screen Resolution or Settings' Full screen size, is kept.
-- **The saves** (every folder of the game's save folder but `Current`, that
-  folder its `SavePath` in any case, as the engine finds it) and
-  the shots (`System/Shot*.bmp`) copied. A save folder or a shot the
+- **The saves** (every folder of the game's save folder but `Current` and a
+  linked one, that folder its `SavePath` in any case, as the engine finds
+  it) and the shots (`System/Shot*.bmp`) copied, the saves told those of
+  them the Saves page lists. A save folder or a shot the
   profile's folders hold already -- a data folder an earlier profile of the
   id left, its config folder removed to start afresh -- is the profile's
   own and is kept as it is, the game's of that name not copied into or over
@@ -201,7 +202,8 @@ saying so, to choose the game again.
 
 Each profile is one way to play: its own settings, keys, controller,
 saves and screenshots, and its install, and a mod's profile its mod.
-Profiles, from Home (`src/screens/profiles.c`), lists each, its game (a
+Profiles, from Home (`src/screens/profiles.c`), lists each -- 32 at most:
+the first by id, and the one in use always among them --, its game (a
 mod's profile's, its mod on it), its saves and its last run, the one in use
 marked; its buttons act on the one chosen, the row last focused:
 
@@ -351,7 +353,10 @@ keyed by six spaces for Deus Ex, and its list asked for
 then each server it lists -- an entry that is not a dotted address and a
 port is no server --, and each of the profile's favourites
 (`profile.ini`'s `Favourites`, asked whether the master lists them or
-not), for its `\status\`, all at once over UDP: the game's answer, a
+not: each `address:port`, the game's port, asked at the next one, or
+`address:port:query` where its query port, as it answered, is another --
+the game's `UdpServerQuery` takes the next free one, a second server's on
+one host past the first's), for its `\status\`, all at once over UDP: the game's answer, a
 packet each for its basic, info and rules and one for each player, in
 whatever order they come; one not whole a second after its asking -- a
 packet lost, or all of them -- asked again, its answer begun again, three
@@ -359,7 +364,8 @@ times at most, and given up two seconds after the last, the later ask's
 answer known by its id, which the server counts from 1 to 100 and begins
 again (`src/core/gamespy.c`). Refresh asks them all again.
 Each shows as it answers -- its name, or its address where it gives none,
-map, game, players and ping, the time to its first packet, LAN for one of
+map, game, players and ping (a server's text with its control characters
+each a `?`, as `dxl-cli` shows it), the time to its first packet, LAN for one of
 the local network's -- and, once all have, by the sort chosen: ping,
 players or the name shown; the filter shows them
 all, those with players, those not full, those with no password, the
@@ -371,7 +377,10 @@ when it asks for one; a favourite or not. One the filter hides is still
 the one chosen, shown again with it. An address the list does not have,
 typed, `host` or `host:port` (7790 when none), is joined by Enter or Join
 it; a Tab or a click away keeps it. A server joined is the game's start,
-its `--url` the server's `host:port`, `?lan` after it for one of the local
+its `--url` the server's `host:port` -- a host with no dot (`localhost`, a
+machine's name) looked up first and given as its address, for the engine's
+URL takes such a name for a protocol, as the original's does; one not found
+plays no game, the run's error saying so --, `?lan` after it for one of the local
 network's, as the game's Join LAN screen adds it (the client's LAN speed),
 and `?password=` after that when it asks for one; the launcher's log and
 the last run keep where it went, not the password.
@@ -704,7 +713,10 @@ values nested 512 deep are read by both; a comma before a close, or anything
 after the document, makes it no JSON to either, the engine playing on its
 defaults. One neither can read is written anew the next time the launcher
 writes it, the old one kept beside it as `Settings.json.unreadable` and the
-launcher's log saying why.
+launcher's log saying why; one the launcher cannot open or read whole (its
+rights, a disk's error) is never written over, a save of it failing with
+why. Its numbers, and the inis', are read and written with a `.` for their
+point whatever locale a library in the process sets.
 
 ## The controller
 
@@ -845,7 +857,8 @@ open. Beside it,
 `LastRun.ini` (`src/core/lastrun.c`) says how the last run ended: its exit
 code or signal, the engine's error line (`DXEngine error: ...`),
 its line where the renderer chosen did not start and the software one drew
-in its place, whether it was ever ready, whether the launcher stopped it
+in its place, its line where its audio device did not start and the game
+played silent, whether it was ever ready, whether the launcher stopped it
 (`Stopped`, and `Killed` where it took no notice and was killed), and the
 save it started on. It is
 written as the run ends, the run before's taken away as `Running.ini` is
@@ -858,19 +871,25 @@ so with the end of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
 crash, and for the errors it knows -- OpenAL not started, a package or the
-engine's `.pk3` not found, a folder the engine finds no game in, a native
-the engine does not have (a script error's reason read with its line: a mod
-with native code of its own, which does not play), a save it started on
+engine's `.pk3` not found, a file or folder by its path it could not open or
+make, a folder the engine finds no game in, a native the engine does not
+have (a script error's reason read with its line: a mod with native code of
+its own, which does not play), a save it started on
 that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
 a stage or install of DXLauncher again). A run the launcher itself
 stopped -- its window closed, a signal, a logout -- is said to be no fault
 of the game's, though its settings and last save may not have been
+written; one killed from outside, by a `SIGKILL` the launcher did not send
+(the system's out-of-memory killer, a Force Quit), is said to be that, its
+log silent on why, its settings and the game since its last save not
 written. A run the engine drew with its
 software renderer, the one chosen not having started, ends cleanly: Home
 says so of the last run, and the page, opened by `-safe`, has the engine's
-line and that fix.
+line and that fix. So does a run the game played silent, its audio device
+not started (`Audio device not started: ...`, OpenAL's error, which the engine
+logs and plays on), with a run without sound.
 Below are the end of the log where it fits, the
 [next run's words](#settings), and Play, the fix, the log, the defaults of a
 page or of all, Home, Quit. Home, or the back button, goes to Home with the
@@ -1113,31 +1132,12 @@ Each open in Port Ex Machina's
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.
-- **LCORE.35**: Profiles lists at most 32 profiles, chosen in the folder's
-  order.
-- **LCORE.36**: a game with no sound device plays silent with no advice, and
-  some fatal errors have none.
-- **LCORE.37**: a game killed from outside, by the system or Force Quit, is
-  said to have stopped with an error.
-- **LCORE.38**: a server's name or map is shown with its control characters,
-  a line break drawn over other rows.
-- **LCORE.39**: a last-run log that cannot be renamed gets the next run
-  appended, and the old run's error is told as the new one's.
-- **LCORE.41**: Numbers break under a decimal-comma locale; a read error
-  resets a good Settings.json; a very long binding is cut when unbound.
-- **LCORE.42**: Very long imported bindings are cut; the save count told is
-  not the folders copied.
 - **LCORE.43**: the saves of a copy of the game recased by its unpacker,
   their folders and files in lower case, are imported and listed nowhere.
 - **LCORE.44**: Duplicate leaves the new profile's files behind when it
   fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **LUI.12**: Long names and server texts can be cut in the middle of a
-  character.
-- **LUI.13**: a server's host name with no dot never joins.
-- **LUI.14**: a favourite is asked at the game port + 1, which need not be
-  its query port.
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
 - **LPORT.18**: on GNOME's Wayland without libdecor the window has no title

@@ -80,6 +80,45 @@ static void test_fallback(void) {
     CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
 }
 
+/* The engine's audio device did not start and the game played silent, its
+ * line in the log of a clean run: advised as the OpenAL error it names; a
+ * run that went wrong after it, by what went wrong. Files and folders the
+ * engine could not open or make: advice of their own. */
+static void test_silent(void) {
+    dxl_lastrun l = run(0, 0, 1, "");
+    snprintf(l.audio, sizeof l.audio, "Failed to initialize OpenAL device");
+    CHECK(dxl_advice_for(&l) != NULL);
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NOSOUND);
+    l = run(END_CRASH_STATUS, END_CRASH, 1, "");
+    snprintf(l.audio, sizeof l.audio, "Failed to initialize OpenAL device");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_RENDERER);
+    l = run(1, 0, 0, "Could not open /home/p/.local/share/dxlauncher/x/Save0001/SaveInfo.dxs");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "could not open a file") != NULL);
+    l = run(1, 0, 0, "Could not create directory /mnt/full/Save");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "could not write a file or make a folder") != NULL);
+    l = run(1, 0, 0, "Could not open DXEngine.pk3");
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_APP);
+    /* The GPU's and the sound's, which name no path: no file's advice. */
+    l = run(1, 0, 0, "Could not create vulkan image: VK_ERROR_OUT_OF_DEVICE_MEMORY");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "stopped with an error") != NULL);
+    l = run(1, 0, 0, "Could not open wav file");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "stopped with an error") != NULL);
+    l = run(1, 0, 0, "Could not create C:\\Users\\p\\Saved Games\\Save0001\\SaveInfo.dxs");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "could not write a file") != NULL);
+}
+
+#ifndef _WIN32
+/* A SIGKILL the launcher did not send: a kill from outside, no error of the
+ * game's; one it sent, its own stop. */
+static void test_killed_outside(void) {
+    dxl_lastrun l = run(END_KILL_STATUS, END_KILL, 1, "");
+    CHECK(strstr(dxl_advice_for(&l)->advice, "killed from outside") != NULL);
+    CHECK_INT(dxl_advice_for(&l)->fix, DXL_FIX_NONE);
+    l.killed = 1;
+    CHECK(strstr(dxl_advice_for(&l)->advice, "The launcher stopped the game") != NULL);
+}
+#endif
+
 /* A run the launcher stopped: nothing went wrong in the game. */
 static void test_stopped_by_launcher(void) {
     dxl_lastrun l = run(1, 0, 1, "");
@@ -98,5 +137,9 @@ TEST_MAIN_BEGIN
     RUN(test_known);
     RUN(test_ends);
     RUN(test_fallback);
+    RUN(test_silent);
     RUN(test_stopped_by_launcher);
+#ifndef _WIN32
+    RUN(test_killed_outside);
+#endif
 TEST_MAIN_END

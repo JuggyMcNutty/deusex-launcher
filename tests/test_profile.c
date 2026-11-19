@@ -480,6 +480,20 @@ static void test_profiles(void) {
     CHECK_INT((int)dxl_profiles_list(&x, ids, 4), 2);
     CHECK_STR(ids[0], "copy");
     CHECK_STR(ids[1], "default");
+    /* Past max, the first by id, whatever order the folder gives. */
+    CHECK_INT((int)dxl_profiles_list(&x, ids, 1), 2);
+    CHECK_STR(ids[0], "copy");
+    for (const char *const *m = (const char *const[]){ "zz", "bb", "yy", "aa", "xx", NULL }; *m; m++) {
+        char rel[96];
+        snprintf(rel, sizeof rel, "config/dxlauncher/profiles/%s/profile.ini", *m);
+        scratch_write(home, rel, "[Profile]\n");
+        snprintf(rel, sizeof rel, "config/dxlauncher/profiles/%s/DeusEx.ini", *m);
+        scratch_write(home, rel, "");
+    }
+    CHECK_INT((int)dxl_profiles_list(&x, ids, 3), 7);
+    CHECK_STR(ids[0], "aa");
+    CHECK_STR(ids[1], "bb");
+    CHECK_STR(ids[2], "copy");
     char *dirs[4];
     dxl_profile_folders(&b, dirs);
     CHECK(strstr(dirs[0], "/config/dxlauncher/profiles/copy") != NULL);
@@ -820,6 +834,57 @@ static void test_make_undone(void) {
     free(g); free(home);
 }
 
+/* The import's small slips: an [Extension.InputExt] binding longer than
+ * any buffer folded whole; no id when every one of a name is taken; the
+ * saves told those copied, a linked folder neither. */
+static void test_import_slips(void) {
+    char *g = small_install("profile-slips-game");
+    char key[48], value[400], text[600];
+    snprintf(key, sizeof key, "%040d", 1);
+    snprintf(value, sizeof value, "Say %0350d", 2);
+    snprintf(text, sizeof text, "[Engine.Input]\r\nF1=X\r\n[Extension.InputExt]\r\n%s=%s\r\n", key, value);
+    scratch_write(g, "System/User.ini", text);
+    char *user = scratch_path(g, "System/User.ini");
+    dxl_ini *usr = dxl_profile_user_preview(user);
+    CHECK(usr && dxl_ini_get(usr, "Engine.Input", key) != NULL);
+    CHECK_STR(usr ? dxl_ini_get(usr, "Engine.Input", key) : "", value);
+    dxl_ini_free(usr);
+    free(user);
+
+    char *home = dxl_xstrdup(scratch_dir("profile-slips-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    char id[DXL_PROFILE_ID_MAX + 1], rel[64];
+    for (int k = 1; k < 1000; k++) {
+        if (k == 1) snprintf(rel, sizeof rel, "config/dxlauncher/profiles/full/x");
+        else snprintf(rel, sizeof rel, "config/dxlauncher/profiles/full-%d/x", k);
+        scratch_write(home, rel, "");
+    }
+    CHECK_INT(dxl_profile_new_id(&x, "Full", id, sizeof id), -1);
+    CHECK_INT(dxl_profile_new_id(&x, "Free", id, sizeof id), 0);
+    CHECK_STR(id, "free");
+
+    char *slot = scratch_path(g, "Save/Save0001"), *link = scratch_path(g, "Save/Save0099");
+    CHECK_INT(dxl_fs_link_dir(slot, link), 0);
+    scratch_write(g, "Save/ServerCurrent/x.dxs", "server");
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sys = scratch_path(g, "System");
+    dxl_import r;
+    CHECK_INT(dxl_profile_import(&p, sys, 1, &r, NULL), 0);
+    CHECK_INT(r.saves, 3);
+    CHECK_INT(dxl_profile_import(&p, sys, 0, &r, NULL), 0);
+    CHECK_INT(r.saves, 3);
+    CHECK_INT(dxl_profile_count_saves(&p), 3);
+    dxl_profile_free(&p);
+    free(sys);
+    free(slot);
+    free(link);
+    free(home);
+    free(g);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
@@ -834,5 +899,6 @@ TEST_MAIN_BEGIN
     RUN(test_import_after_kill);
     RUN(test_make_undone);
     RUN(test_profiles);
+    RUN(test_import_slips);
     RUN(test_home_past_ascii);
 TEST_MAIN_END

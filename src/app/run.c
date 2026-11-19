@@ -10,6 +10,7 @@
 #include "core/servers.h"
 #include "core/paths.h"
 #include "platform/fs.h"
+#include "platform/net.h"
 #include "platform/os.h"
 #include "platform/process.h"
 
@@ -25,6 +26,7 @@
 
 #define HANDOFF_TIMEOUT_MS 30000   /* the original's SendMessageTimeout */
 #define VERSION_TIMEOUT_MS 5000
+#define RESOLVE_TIMEOUT_MS 5000    /* the server browser's lookups' */
 /* The engine's own folder, which a run of it without --userdir writes. */
 #ifdef _WIN32
 #define ENGINE_OWN_DIR "%LOCALAPPDATA%\\DXEngine"
@@ -775,6 +777,31 @@ static char *shown_line(char *const *argv) {
     return line;
 }
 
+/* A server to join named by a host with no dot ("localhost", a machine's
+ * name): the engine's URL takes the text before a ':' with no '.' before it
+ * for a protocol, and a host only with a '.', as the original's does
+ * (dx-reverse-info's network.md, Addresses), so the name is looked up here
+ * and the engine handed its address. -1, with why, when it is not found. */
+static int join_address(dxl_run *r, const atomic_int *stop, char *why, size_t size) {
+    size_t n = strcspn(r->url, ":?#/");
+    char host[256], address[64];
+    if (r->url[n] != ':' || !n || n >= sizeof host) return 0;
+    memcpy(host, r->url, n);
+    host[n] = '\0';
+    if (strchr(host, '.') || !dxl_server_host_ok(host)) return 0;
+    dxl_err e;
+    if (dxl_net_resolve(host, address, sizeof address, RESOLVE_TIMEOUT_MS, stop, &e) != 0) {
+        snprintf(why, size, "the server's name %.64s was not found: %.140s", host, dxl_err_msg(&e));
+        return -1;
+    }
+    size_t a = strlen(address), rest = strlen(r->url + n);
+    if (a + rest >= sizeof r->url) return 0;
+    memmove(r->url + a, r->url + n, rest + 1);
+    memcpy(r->url, address, a);
+    dxl_log("play: the server's name %s is %s", host, address);
+    return 0;
+}
+
 /* The game, and its end recorded. A stop that came before it -- while the
  * start asked the GPU about anti-aliasing -- starts none: one started and
  * stopped at once ends before its ready, unclean, and Running.ini stays for
@@ -789,10 +816,13 @@ static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
         return 0;
     }
     char *log = dxl_lastrun_rotate(r->session.profile.logs_dir);
-    char **argv = engine_argv(r);
-    char *line = shown_line(argv);
-    dxl_log("starting the game: %s", line);
-    free(line);
+    char why[sizeof r->played.error];
+    char **argv = join_address(r, stop, why, sizeof why) == 0 ? engine_argv(r) : NULL;
+    if (argv) {
+        char *line = shown_line(argv);
+        dxl_log("starting the game: %s", line);
+        free(line);
+    }
     dxl_play_request req = {
         .argv = argv,
         .env = engine_env(r),
@@ -803,7 +833,14 @@ static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
     };
     if (ui && ui->before_play) ui->before_play(ui->ctx, r);
     dxl_play_result_free(&r->played);
-    dxl_play(&req, &r->played);
+    if (argv) {
+        dxl_play(&req, &r->played);
+    } else {
+        /* No game: why, as a start that failed says it. */
+        memset(&r->played, 0, sizeof r->played);
+        snprintf(r->played.error, sizeof r->played.error, "%s", why);
+        dxl_log("play: %s", why);
+    }
     if (ui && ui->after_play) ui->after_play(ui->ctx, r);
     dxl_argv_free(argv);
 
@@ -826,6 +863,8 @@ static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
         dxl_lastrun_error_line(log, last->error, sizeof last->error);
         if (dxl_lastrun_fallback_line(log, last->fallback, sizeof last->fallback))
             dxl_log("renderer: %s", last->fallback);
+        if (dxl_lastrun_audio_line(log, last->audio, sizeof last->audio))
+            dxl_log("sound: the audio device did not start, the game played silent: %s", last->audio);
     }
     dxl_err e;
     if (dxl_lastrun_save(last, r->session.profile.state_dir, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
