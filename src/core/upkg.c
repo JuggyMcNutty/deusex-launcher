@@ -1,6 +1,7 @@
 #include "core/upkg.h"
 #include "core/paths.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -226,6 +227,36 @@ int dxl_upkg_parse(dxl_upkg *p, const void *data, size_t size, dxl_err *err) {
         dxl_upkg_free(p);
         return -1;
     }
+    return 0;
+}
+
+int dxl_upkg_guid(const char *path, char out[33]) {
+    out[0] = '\0';
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    uint8_t h[52], g[16];
+    int ok = fread(h, 1, 44, f) == 44;
+    dxl_ureader r;
+    ur_init(&r, h, 44);
+    ok = ok && dxl_ur_u32(&r) == DXL_UPKG_TAG;
+    int version = dxl_ur_u16(&r);
+    if (ok && version >= 68) {
+        ok = fread(h + 44, 1, 8, f) == 8;
+        memcpy(g, h + 36, 16);
+    } else if (ok) {
+        r.at = 36;
+        uint32_t count = dxl_ur_u32(&r), offset = dxl_ur_u32(&r);
+        /* In 64 bits: Windows' long is 32, and fseek takes no more. */
+        uint64_t at = (uint64_t)offset + ((uint64_t)count - 1) * 16;
+        ok = count > 0 && count <= MAX_OBJECTS && at <= LONG_MAX && fseek(f, (long)at, SEEK_SET) == 0 &&
+             fread(g, 1, 16, f) == 16;
+    }
+    fclose(f);
+    if (!ok) return -1;
+    ur_init(&r, g, 16);
+    uint32_t d[4];
+    for (int i = 0; i < 4; i++) d[i] = dxl_ur_u32(&r);
+    snprintf(out, 33, "%08X%08X%08X%08X", (unsigned)d[0], (unsigned)d[1], (unsigned)d[2], (unsigned)d[3]);
     return 0;
 }
 
