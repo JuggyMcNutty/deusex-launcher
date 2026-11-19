@@ -481,6 +481,12 @@ static void help(dxl_shell *s, const dxl_setting *st, dxl_rect r) {
             snprintf(text + len, sizeof text - len, "%s%s", len ? " " : "", st->choices[i].help);
         }
     }
+    /* What the renderer chosen leaves out (bugs.md LUI.19). */
+    const char *note = dxl_setting_renderer_note(&s->stores, st);
+    if (note) {
+        size_t len = strlen(text);
+        snprintf(text + len, sizeof text - len, "%s%s", len ? " " : "", note);
+    }
     dxl_paragraph_typed(ui, r, DXL_FONT_SMALL, text, ui->theme.help, ui->focus_since);
 }
 

@@ -415,6 +415,20 @@ static int same(const dxl_setting *s, const char *a, const char *b) {
     return dxl_stricmp(a, b) == 0;
 }
 
+const char *dxl_setting_renderer_note(const dxl_stores *st, const dxl_setting *s) {
+    const dxl_setting *renderer = dxl_setting_find("graphics.renderer");
+    char v[64];
+    if (!s || !renderer) return NULL;
+    dxl_setting_get(st, renderer, v, sizeof v);
+    if (dxl_stricmp(v, "Software") != 0) return NULL;
+    if (!strcmp(s->id, DXL_ANTIALIAS_ROW))
+        return "The software renderer draws no multisampling: it is the GPU renderers' alone.";
+    if (!strcmp(s->id, "graphics.bloom") || !strcmp(s->id, "graphics.bloom_amount"))
+        return "The software renderer draws no bloom: it is the GPU renderers' alone.";
+    if (s->flags & DXL_SET_PRESET) return "The software renderer draws neither multisampling nor bloom.";
+    return NULL;
+}
+
 const dxl_preset *dxl_preset_matching(const dxl_stores *st) {
     for (size_t i = 0; i < dxl_presets_count; i++) {
         int all = 1;

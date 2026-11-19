@@ -57,20 +57,27 @@ dxl_pad_family dxl_ui_pad_family(SDL_Gamepad *g) {
 }
 
 /* The held direction a pad gives, for its repeats: the d-pad's or the
- * left stick's, the last pressed. Its first repeat counts from the frame
- * that takes the press: the events come before the frame sets the clock,
- * which until then is the last frame's -- seconds old once the window has
- * waited a while. */
-static int    held_dir = -1;
-static int    held_by_stick;  /* the stick holds it, not the d-pad */
-static int    held_new;       /* pressed since the last frame began */
-static double held_next;
-static int    stick_dir = -1;
+ * left stick's, the last pressed, of the pad that holds it. Its first
+ * repeat counts from the frame that takes the press: the events come
+ * before the frame sets the clock, which until then is the last frame's --
+ * seconds old once the window has waited a while. While one pad holds a
+ * direction another's presses move once each and take no repeat, and its
+ * stick and its letting go end nothing: a second pad's drift does not break
+ * the first's hold (bugs.md LUI.18). */
+static int            held_dir = -1;
+static int            held_by_stick;  /* the stick holds it, not the d-pad */
+static int            held_new;       /* pressed since the last frame began */
+static double         held_next;
+static SDL_JoystickID held_pad;       /* the pad that holds held_dir */
+static int            stick_dir = -1;
+static SDL_JoystickID stick_pad;      /* the pad whose stick holds stick_dir */
 
-static void press_dir(dxl_ui *ui, int dir, int stick) {
+static void press_dir(dxl_ui *ui, int dir, int stick, SDL_JoystickID pad) {
     ui->in.nav[dir]++;
+    if (held_dir >= 0 && pad != held_pad) return;
     held_dir = dir;
     held_by_stick = stick;
+    held_pad = pad;
     held_new = 1;
 }
 
@@ -93,6 +100,12 @@ float dxl_ui_big_scale(int w, int h) {
     return s;
 }
 
+float dxl_ui_fit_scale(float k, float room_w, float room_h, float w_dp, float h_dp) {
+    if (room_w <= 0 || room_h <= 0 || w_dp <= 0 || h_dp <= 0) return k;
+    float fit = room_w / w_dp < room_h / h_dp ? room_w / w_dp : room_h / h_dp;
+    return fit < k ? fit : k;
+}
+
 static void measure(dxl_ui *ui) {
     int w = 0, h = 0;
     float scale = ui->user_scale;
@@ -103,6 +116,9 @@ static void measure(dxl_ui *ui) {
     } else if (ui->renderer) {
         SDL_GetCurrentRenderOutputSize(ui->renderer, &w, &h);
     }
+    /* Held where the window's smallest would not fit its screen at the
+     * display's scale and the launcher's size (bugs.md LUI.15). */
+    if (ui->fit_scale > 0 && scale > ui->fit_scale) scale = ui->fit_scale;
     if (ui->big && w > 0 && h > 0) scale = dxl_ui_big_scale(w, h);
     if (scale < 0.5f) scale = 0.5f;
     ui->scale = scale;
@@ -366,7 +382,7 @@ static void pad_button(dxl_ui *ui, const SDL_GamepadButtonEvent *b) {
      * confirms with its A, on the east. */
     int south_confirms = ui->pad_family != DXL_PADFAMILY_NINTENDO;
     if (dpad_dir(b->button) >= 0) {
-        press_dir(ui, dpad_dir(b->button), 0);
+        press_dir(ui, dpad_dir(b->button), 0, b->which);
         return;
     }
     switch (b->button) {
@@ -395,23 +411,24 @@ static void pad_trigger(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
 static void pad_axis(dxl_ui *ui, const SDL_GamepadAxisEvent *a) {
     if (a->axis != SDL_GAMEPAD_AXIS_LEFTX && a->axis != SDL_GAMEPAD_AXIS_LEFTY) return;
     SDL_Gamepad *g = pad_of(a->which);
-    if (!g) return;
+    if (!g || (stick_dir >= 0 && a->which != stick_pad)) return;
     float x = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTX) / 32767.0f;
     float y = SDL_GetGamepadAxis(g, SDL_GAMEPAD_AXIS_LEFTY) / 32767.0f;
     float m = fmaxf(fabsf(x), fabsf(y));
     if (stick_dir >= 0 && m < STICK_OFF) {
-        if (held_by_stick) held_dir = -1;
+        if (held_by_stick && held_pad == a->which) held_dir = -1;
         stick_dir = -1;
         return;
     }
     if (stick_dir < 0 && m > STICK_ON) {
         int dir = fabsf(x) > fabsf(y) ? (x < 0 ? DXL_DIR_LEFT : DXL_DIR_RIGHT) : (y < 0 ? DXL_DIR_UP : DXL_DIR_DOWN);
         stick_dir = dir;
+        stick_pad = a->which;
         ui->mode = DXL_INPUT_PAD;
         ui->pad = a->which;
         ui->pad_family = dxl_ui_pad_family(g);
         ui->in.any = 1;
-        press_dir(ui, dir, 1);
+        press_dir(ui, dir, 1, a->which);
     }
 }
 
@@ -509,6 +526,9 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
     case SDL_EVENT_GAMEPAD_REMOVED:
         pad_close(e->gdevice.which);
         if (ui->pad == e->gdevice.which) ui->pad = 0;
+        /* A pad gone while it holds: its letting go never comes. */
+        if (held_dir >= 0 && held_pad == e->gdevice.which) held_dir = -1;
+        if (stick_dir >= 0 && stick_pad == e->gdevice.which) stick_dir = -1;
         ui->in.any = 1;
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
@@ -516,8 +536,10 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
         /* The d-pad let go of: its own direction's repeat, not another's
-         * pressed since. */
-        if (!held_by_stick && held_dir >= 0 && dpad_dir(e->gbutton.button) == held_dir) held_dir = -1;
+         * pressed since, nor another pad's. */
+        if (!held_by_stick && held_dir >= 0 && held_pad == e->gbutton.which &&
+            dpad_dir(e->gbutton.button) == held_dir)
+            held_dir = -1;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         if (ui->pads_off) break;
