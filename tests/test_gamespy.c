@@ -74,6 +74,15 @@ static void test_list(void) {
     CHECK_STR(l.at[1], "9.9.9.9");
     CHECK_INT(l.port[1], 17578);
     CHECK_INT(dxl_gs_list("\\final\\", got_ip, &l), 0);
+    /* An \ip\ is a dotted address and a port, nothing else: a map with
+     * options, a name, a line break and a key, a part past 255 and a port
+     * with a tail are no servers (bugs.md LCORE.26). */
+    ips m = { .n = 0 };
+    CHECK_INT(dxl_gs_list("\\ip\\Entry?listen?x=:7791\\ip\\dx.example.org:7791\\ip\\1.2.3.4\nEngineArgs=--system=/tmp/evil:7791"
+                          "\\ip\\1.2.3.256:7791\\ip\\1.2.3:7791\\ip\\1.2.3.4.5:7791\\ip\\1.2.3.4:7791x\\ip\\10.0.0.7:7791\\final\\",
+                          got_ip, &m), 1);
+    CHECK_INT(m.n, 1);
+    CHECK_STR(m.at[0], "10.0.0.7");
 }
 
 /* Packet n of an answer as Deus Ex's UdpServerQuery sends it (IpServer.u):

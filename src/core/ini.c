@@ -460,6 +460,10 @@ static void pair_write(ini_line *l, const char *key, const char *value,
     /* key and value may be the line's own strings (a name dxl_ini_pairs
      * gave): copied before the line's go. */
     char *name = dxl_xstrdup(key), *text = dxl_xstrdup(value ? value : "");
+    /* One line: a line break in either would write a second line, a key of
+     * its own. */
+    name[strcspn(name, "\r\n")] = '\0';
+    text[strcspn(text, "\r\n")] = '\0';
     free(l->raw); free(l->name); free(l->value);
     if (eol) { free(l->eol); l->eol = dxl_xstrdup(eol); }
     l->kind  = LINE_PAIR;

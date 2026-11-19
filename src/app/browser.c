@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "app/browser.h"
 #include "core/gamespy.h"
+#include "core/servers.h"
 #include "platform/net.h"
 
 #include <stdio.h>
@@ -300,9 +301,9 @@ int dxl_browse(const char *master, const char *const *also, const dxl_browse_lan
         char host[256], at[64];
         snprintf(host, sizeof host, "%s", also[i]);
         char *colon = strrchr(host, ':');
-        int port = colon ? atoi(colon + 1) : 0;
+        int port = colon ? dxl_server_port_of(colon + 1) : 0;
         if (colon) *colon = '\0';
-        if (port > 0 && port <= 65535 && dxl_net_resolve(host, at, sizeof at, RESOLVE_MS, stop, &e) == 0)
+        if (port > 0 && dxl_server_host_ok(host) && dxl_net_resolve(host, at, sizeof at, RESOLVE_MS, stop, &e) == 0)
             listed(&q, at, port);
     }
     int rc = master && *master ? master_list(master, &q, stop, err) : 0;

@@ -299,7 +299,8 @@ Then the profile's master server, as the game's Join Internet asks it:
 challenge answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4
 keyed by six spaces for Deus Ex, and its list asked for
 ([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server));
-then each server it lists, and each of the profile's favourites
+then each server it lists -- an entry that is not a dotted address and a
+port is no server --, and each of the profile's favourites
 (`profile.ini`'s `Favourites`, asked whether the master lists them or
 not), for its `\status\`, all at once over UDP: the game's answer, a
 packet each for its basic, info and rules and one for each player, in
@@ -332,7 +333,11 @@ window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
 is half done there -- a dialog, a text being edited or a key being taken,
 the game's folder or a profile being chosen -- or the game, while it plays,
-opens the server.
+opens the server. What begins `deusex:` and is no such link -- no host, a
+host that is not a name or an address, a port that is not a number from 1 to
+65535 -- is passed over, with a message: it is never a word of the
+original's command line, whose `INI=` and `USERINI=` it could carry, nor
+handed to a game that plays.
 
 ## One start
 
@@ -1020,9 +1025,6 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LAPP.21**: a server link the launcher refuses becomes part of the game's
-  command line, so a web page's link can name the inis both programs read
-  and write.
 - **LAPP.22**: a logout or shutdown signals the engine twice, killing it
   before it saves its settings.
 - **LAPP.23**: a start that fails with no window up says why only in the
@@ -1043,8 +1045,6 @@ Each open in Port Ex Machina's
   game's old saves copied over its own, a mixed save.
 - **LCORE.25**: one ini that cannot be written stops the others being saved,
   and the player is not told.
-- **LCORE.26**: a master server's address text is not checked, so it can
-  reach the join URL and, as a favourite, the profile's file.
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays, and stops at its first native.
 - **LCORE.28**: a copy of the game recased on a case-sensitive file system

@@ -186,11 +186,12 @@ static int address_of(const char *text, char *host, size_t size, int *port) {
     char *colon = strrchr(a, ':');
     if (colon) {
         *colon = '\0';
-        *port = atoi(colon + 1);
+        *port = dxl_server_port_of(colon + 1);
     }
     snprintf(host, size, "%s", a);
-    /* No name is longer than DNS takes one. */
-    return host[0] && strlen(a) <= 253 && *port > 0 && *port <= 65535;
+    /* A name or an address alone, no longer than DNS takes one: nothing of
+     * it a URL's option. */
+    return strlen(a) < size && dxl_server_host_ok(host) && *port > 0;
 }
 
 /* ---- the page ------------------------------------------------------------- */

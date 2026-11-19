@@ -64,6 +64,7 @@ typedef struct {
     int import_only;        /* --import: make the profile from --game, nothing run */
     int big_screen;         /* --big-screen: the window on the big screen (core/bigscreen.h) */
     const char *join;       /* a deusex://host:port link: its server joined, Multiplayer asking first */
+    const char *refused;    /* what begins as a link and is none: passed over, said once */
 } dxl_run_options;
 
 typedef struct {
