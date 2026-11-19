@@ -104,14 +104,40 @@ typedef struct {
     int  shots_kept;         /* shots it had already, likewise */
     int  master_replaced;    /* GameSpy's dead master server given 333networks' */
     int  bindings_folded;    /* [Extension.InputExt]'s keys, the original's, put in [Engine.Input] */
+    int  files;              /* the files of the saves and shots to copy... */
+    long long bytes;         /* ...and their size */
 } dxl_import;
+
+/* What one import made, in the order it made it, to be taken away again:
+ * each folder it created, each ini it wrote (one there before kept, to be
+ * put back), each save and shot it copied. */
+typedef struct {
+    struct dxl_made_one *items;
+    size_t count, cap;
+} dxl_made;
+/* Takes away what m holds, the last made first, and frees it. */
+void dxl_profile_unmake(dxl_made *m);
+/* Frees m, what it holds kept. */
+void dxl_made_free(dxl_made *m);
+
+/* An import's progress, told after each file it copies: the files and
+ * bytes copied of the totals it counted before the first. Non-zero from it
+ * stops the import: it fails, "the copy was cancelled". */
+typedef int (*dxl_import_progress)(void *ctx, int files, int files_total, long long bytes, long long bytes_total);
 
 /* Makes the profile's inis from the files of the game's System folder, and
  * copies its saves (never Current) and shots; with dry set, only fills r.
  * Nothing is written to the game's folder. A save folder or a shot the
  * profile's own folders hold already -- a data folder left by an earlier
  * profile of the id -- is kept as it is and counted (saves_kept,
- * shots_kept): the game's of that name is not copied into or over it. */
+ * shots_kept): the game's of that name is not copied into or over it.
+ * Each save folder and shot is copied whole or not at all: under a
+ * temporary name (".dxl-copy-" before its own, which neither the Saves
+ * page nor the engine lists), renamed to its own once whole; such a name
+ * an import cut short left is taken away as the next begins. What was
+ * copied is synced (dxl_fs_sync_all) before the import returns. A failure
+ * takes away what the import made, and nothing else: what was there before
+ * is as it was. */
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err);
 /* A mod's profile, made as dxl_profile_import makes one but from the mod's
@@ -121,6 +147,14 @@ int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl
  * no shots. */
 int dxl_profile_import_mod(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry,
                            dxl_import *r, dxl_err *err);
+/* dxl_profile_import, or with mod not NULL dxl_profile_import_mod, made
+ * for real: progress (may be NULL) told as it copies; what it made into
+ * made (may be NULL), for the caller to keep (dxl_made_free) or take away
+ * (dxl_profile_unmake) as what follows does or does not go. Empty on a
+ * failure, the import's own made taken away. */
+int dxl_profile_import_watched(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod,
+                               dxl_import_progress progress, void *ctx, dxl_made *made, dxl_import *r,
+                               dxl_err *err);
 /* The User.ini the import makes from the file at path (dxl_import's
  * user_from), in memory: the bindings the original saved folded in as the
  * import folds them. NULL when it cannot be read. */

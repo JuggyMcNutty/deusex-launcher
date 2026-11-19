@@ -1,13 +1,18 @@
 #include "test.h"
 #include "scratch.h"
+#include "app/session.h"
 #include "core/ini.h"
 #include "core/paths.h"
 #include "core/profile.h"
 #include "platform/os.h"
 #include "platform/fs.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <time.h>
 #include <utime.h>
 
@@ -514,12 +519,278 @@ static void test_home_past_ascii(void) {
     free(game);
 }
 
+/* A game of three saves and a shot, for the imports that fail. */
+static char *small_install(const char *tag) {
+    char *g = dxl_xstrdup(scratch_dir(tag));
+    scratch_write(g, "System/DeusEx.exe", "x");
+    scratch_write(g, "System/DeusEx.ini", "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=X\r\n");
+    scratch_write(g, "System/Shot0000.bmp", "game-shot-0");
+    scratch_write(g, "Save/Save0001/SaveInfo.dxs", "game-slot-1");
+    scratch_write(g, "Save/Save0001/01_NYC_UNATCOIsland.dxs", "game-slot-1-level");
+    scratch_write(g, "Save/Save0002/SaveInfo.dxs", "game-slot-2");
+    scratch_write(g, "Save/Save0003/SaveInfo.dxs", "game-slot-3");
+    return g;
+}
+
+/* Whether a folder holds a name the import copies under. */
+static int has_copying(const char *dir) {
+    DIR *d = opendir(dir);
+    int found = 0;
+    struct dirent *e;
+    while (d && (e = readdir(d))) found |= !strncmp(e->d_name, ".dxl-copy-", 10);
+    if (d) closedir(d);
+    return found;
+}
+
+/* Whether any of a profile's four folders is there. */
+static int any_folder(const dxl_profile *p) {
+    char *dirs[4];
+    dxl_profile_folders(p, dirs);
+    int any = 0;
+    for (int i = 0; i < 4; i++) {
+        any |= dxl_path_exists(dirs[i]);
+        free(dirs[i]);
+    }
+    return any;
+}
+
+static int cancel_at, told_files, told_total;
+static long long told_bytes, told_bytes_total;
+static int stop_at(void *ctx, int files, int files_total, long long bytes, long long bytes_total) {
+    (void)ctx;
+    told_files = files;
+    told_total = files_total;
+    told_bytes = bytes;
+    told_bytes_total = bytes_total;
+    return cancel_at && files >= cancel_at;
+}
+
+#ifndef _WIN32
+/* A link of the player's own among a profile's folders and files is never
+ * taken away with what an import made: a save folder linked to a drive that
+ * is not there, an ini linked to a file not there yet, which is written
+ * through and alone goes again. */
+static void test_import_links_kept(void) {
+    char *g = small_install("profile-links-game");
+    char *home = dxl_xstrdup(scratch_dir("profile-links-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    char *sys = scratch_path(g, "System");
+    dxl_import r;
+    dxl_err e;
+    dxl_made made;
+    dxl_profile p;
+    struct stat st;
+
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    char *up = dxl_path_dirname(p.save_dir);
+    CHECK_INT(dxl_path_mkdirs(up), 0);
+    CHECK_INT(symlink("/nonexistent/dxl-test-drive/Save", p.save_dir), 0);
+    CHECK_INT(dxl_profile_import_watched(&p, sys, NULL, stop_at, NULL, &made, &r, &e), -1);
+    CHECK_INT(lstat(p.save_dir, &st), 0);
+    CHECK(S_ISLNK(st.st_mode));
+    CHECK_INT(dxl_path_exists(p.engine_dir), 0);
+    unlink(p.save_dir);
+    free(up);
+    dxl_profile_free(&p);
+    scratch_remove(home);
+
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    CHECK_INT(dxl_path_mkdirs(p.dir), 0);
+    char *target = dxl_path_join(home, "dotfiles-DeusEx.ini");
+    CHECK_INT(symlink(target, p.system_ini), 0);
+    cancel_at = 2;
+    CHECK_INT(dxl_profile_import_watched(&p, sys, NULL, stop_at, NULL, &made, &r, &e), -1);
+    cancel_at = 0;
+    CHECK_STR(dxl_err_msg(&e), "the copy was cancelled");
+    CHECK_INT(lstat(p.system_ini, &st), 0);
+    CHECK(S_ISLNK(st.st_mode));
+    CHECK_INT(dxl_path_exists(target), 0);
+    CHECK_INT(dxl_path_exists(p.user_ini), 0);
+    unlink(p.system_ini);
+    free(target);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(g);
+    scratch_remove(home);
+    free(sys); free(g); free(home);
+}
+#endif
+
+/* An import that fails half-way takes away what it made and nothing else
+ * (bugs.md LCORE.34): a save it cannot read, its message why; one cancelled
+ * through its progress after two files, in a home it made all of. */
+static void test_import_undone(void) {
+    char *g = small_install("profile-undo-game");
+    char *home = dxl_xstrdup(scratch_dir("profile-undo-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    char *sys = scratch_path(g, "System");
+    dxl_import r;
+    dxl_err e;
+    dxl_made made;
+    dxl_profile p;
+#ifndef _WIN32
+    /* A file no one may read: Windows has no such mode. */
+    char *bad = scratch_path(g, "Save/Save0002/SaveInfo.dxs");
+    chmod(bad, 0);
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    /* What was there: a part-made profile's DeusEx.ini, a save of its own. */
+    CHECK_INT(dxl_path_mkdirs(p.dir), 0);
+    CHECK_INT(dxl_path_mkdirs(p.save_dir), 0);
+    scratch_write(p.dir, "DeusEx.ini", "[Core.System]\nSavePath=before\n");
+    scratch_write(p.save_dir, "Save0003/SaveInfo.dxs", "profile-slot-3");
+    CHECK_INT(dxl_profile_import_watched(&p, sys, NULL, stop_at, NULL, &made, &r, &e), -1);
+    CHECK_INT((int)made.count, 0);
+    CHECK(strstr(dxl_err_msg(&e), "Save0002") && strstr(dxl_err_msg(&e), strerror(EACCES)));
+    char *text = slurp(p.system_ini, NULL);
+    CHECK_STR(text, "[Core.System]\nSavePath=before\n");
+    free(text);
+    CHECK_INT(dxl_path_exists(p.user_ini), 0);
+    CHECK_INT(dxl_path_exists(p.engine_dir), 0);
+    CHECK_INT(dxl_path_exists(p.state_dir), 0);
+    CHECK_INT(dxl_path_exists(p.cache_dir), 0);
+    CHECK_INT(scratch_exists(p.save_dir, "Save0001"), 0);
+    CHECK_INT(scratch_exists(p.save_dir, "Save0002"), 0);
+    CHECK_INT(has_copying(p.save_dir), 0);
+    char *own = dxl_path_join(p.save_dir, "Save0003/SaveInfo.dxs");
+    text = slurp(own, NULL);
+    CHECK_STR(text, "profile-slot-3");
+    free(text);
+    free(own);
+    dxl_profile_free(&p);
+    chmod(bad, 0644);
+    free(bad);
+    scratch_remove(home);
+#endif
+
+    /* Cancelled after two files: the totals counted first, nothing left. */
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    cancel_at = 2;
+    CHECK_INT(dxl_profile_import_watched(&p, sys, NULL, stop_at, NULL, &made, &r, &e), -1);
+    cancel_at = 0;
+    CHECK_STR(dxl_err_msg(&e), "the copy was cancelled");
+    CHECK_INT(told_files, 2);
+    CHECK_INT(told_total, 5);
+    CHECK_INT(told_bytes_total, 11 + 17 + 11 + 11 + 11);
+    CHECK_INT(any_folder(&p), 0);
+    dxl_profile_free(&p);
+
+    /* Whole, the plan's size the copy's. */
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    CHECK_INT(dxl_profile_import(&p, sys, 1, &r, &e), 0);
+    CHECK_INT(r.files, 5);
+    CHECK_INT(r.bytes, 61);
+    CHECK_INT(any_folder(&p), 0);
+    CHECK_INT(dxl_profile_import_watched(&p, sys, NULL, stop_at, NULL, &made, &r, &e), 0);
+    CHECK_INT(told_files, 5);
+    CHECK_INT(told_bytes, 61);
+    CHECK(made.count > 0);
+    /* Taken away by its caller, as a profile.ini not written does. */
+    dxl_profile_unmake(&made);
+    CHECK_INT(any_folder(&p), 0);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(g);
+    scratch_remove(home);
+    free(sys); free(g); free(home);
+}
+
+/* What an import killed half-way left under its temporary names is no
+ * save of the profile's: taken away, the game's copied whole. */
+static void test_import_after_kill(void) {
+    char *g = small_install("profile-kill-game");
+    char *home = dxl_xstrdup(scratch_dir("profile-kill-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    CHECK_INT(dxl_path_mkdirs(p.save_dir), 0);
+    CHECK_INT(dxl_path_mkdirs(p.shots_dir), 0);
+    scratch_write(p.save_dir, ".dxl-copy-Save0001/SaveInfo.dxs", "game-sl");
+    scratch_write(p.shots_dir, ".dxl-copy-Shot0000.bmp", "game");
+    CHECK_INT(has_copying(p.save_dir) && has_copying(p.shots_dir), 1);
+    char *sys = scratch_path(g, "System");
+    dxl_import r;
+    dxl_err e;
+    CHECK_INT(dxl_profile_import(&p, sys, 0, &r, &e), 0);
+    CHECK_INT(r.saves_kept, 0);
+    CHECK_INT(r.shots_kept, 0);
+    CHECK_INT(r.saves, 3);
+    CHECK_INT(r.shots, 1);
+    CHECK_INT(has_copying(p.save_dir), 0);
+    CHECK_INT(has_copying(p.shots_dir), 0);
+    char *path = dxl_path_join(p.save_dir, "Save0001/SaveInfo.dxs");
+    char *text = slurp(path, NULL);
+    CHECK_STR(text, "game-slot-1");
+    free(text); free(path);
+    path = dxl_path_join(p.save_dir, "Save0001/01_NYC_UNATCOIsland.dxs");
+    CHECK_INT(dxl_path_exists(path), 1);
+    free(path);
+    path = dxl_path_join(p.shots_dir, "Shot0000.bmp");
+    text = slurp(path, NULL);
+    CHECK_STR(text, "game-shot-0");
+    free(text); free(path);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(g);
+    scratch_remove(home);
+    free(sys); free(g); free(home);
+}
+
+/* A profile whose profile.ini cannot be written is not made: what its
+ * import made goes too (bugs.md LCORE.34). */
+static void test_make_undone(void) {
+    char *g = small_install("profile-made-game");
+    char *home = dxl_xstrdup(scratch_dir("profile-made-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_session s;
+    dxl_err e;
+    CHECK_INT(dxl_session_open(&s, NULL, &e), 0);
+    /* profile.ini a folder: no file can be put in its place. */
+    CHECK_INT(dxl_path_mkdirs(s.profile.ini_path), 0);
+    scratch_write(s.profile.ini_path, "x", "");
+    dxl_install in;
+    memset(&in, 0, sizeof in);
+    in.root = g;
+    in.system_dir = scratch_path(g, "System");
+    dxl_import r;
+    CHECK_INT(dxl_session_make_profile(&s, &in, NULL, "Deus Ex", &r, &e), -1);
+    CHECK_INT(dxl_path_exists(s.profile.system_ini), 0);
+    CHECK_INT(dxl_path_exists(s.profile.user_ini), 0);
+    CHECK_INT(dxl_path_exists(s.profile.engine_dir), 0);
+    char *dirs[4];
+    dxl_profile_folders(&s.profile, dirs);
+    CHECK_INT(dxl_path_exists(dirs[0]), 1);   /* there before, with the folder in it */
+    for (int i = 1; i < 4; i++) CHECK_INT(dxl_path_exists(dirs[i]), 0);
+    for (int i = 0; i < 4; i++) free(dirs[i]);
+    free(in.system_dir);
+    dxl_session_close(&s);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(g);
+    scratch_remove(home);
+    free(g); free(home);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
     RUN(test_no_links);
     RUN(test_import_from_defaults);
     RUN(test_import_keeps_its_own);
+    RUN(test_import_undone);
+#ifndef _WIN32
+    RUN(test_import_links_kept);
+#endif
+    RUN(test_import_after_kill);
+    RUN(test_make_undone);
     RUN(test_profiles);
     RUN(test_home_past_ascii);
 TEST_MAIN_END

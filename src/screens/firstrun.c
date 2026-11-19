@@ -245,11 +245,92 @@ static int begin_on_software(dxl_shell *s) {
     return done;
 }
 
+/* The profile made: how it begins, what Your profile says of it, and
+ * Home or the play it was made for. */
+static void begun(dxl_shell *s, const dxl_import *made) {
+    const dxl_import done = *made;
+    const dxl_mod *mod = s->making_mod.dir ? &s->making_mod : NULL;
+    int pad = SDL_HasGamepad();
+    dxl_err e;
+    const dxl_preset *looks_with = s->begin_graphics > 0 ? dxl_preset_at((size_t)s->begin_graphics - 1) : NULL;
+    const dxl_pad_preset *layout = pad && s->begin_layout > 0 ? dxl_pad_preset_at((size_t)s->begin_layout - 1) : NULL;
+    if (dxl_session_begin_with(&s->run->session, looks_with, layout, &e) != 0)
+        dxl_log("warning: the profile's graphics and layout: %s", dxl_err_msg(&e));
+    int software = begin_on_software(s);
+    char saves[32], shots[40];
+    snprintf(saves, sizeof saves, done.saves == 1 ? "1 save" : "%d saves", done.saves);
+    snprintf(shots, sizeof shots, done.shots == 1 ? "1 screenshot" : "%d screenshots", done.shots);
+    if (done.saves && done.shots)
+        snprintf(s->note, sizeof s->note, "The profile is made: %s and %s copied from the game's folder.", saves, shots);
+    else if (done.saves || done.shots)
+        snprintf(s->note, sizeof s->note, "The profile is made: %s copied from the %s folder.",
+                 done.saves ? saves : shots, mod ? "mod's" : "game's");
+    else
+        snprintf(s->note, sizeof s->note, "The profile is made.");
+    if (done.saves_kept || done.shots_kept) {
+        /* What its folders held already, from an earlier profile of
+         * the id: its own, not the game's of those names. */
+        char kept[96] = "";
+        if (done.saves_kept)
+            snprintf(kept, sizeof kept, done.saves_kept == 1 ? "1 save" : "%d saves", done.saves_kept);
+        if (done.shots_kept) {
+            size_t k = strlen(kept);
+            snprintf(kept + k, sizeof kept - k, done.shots_kept == 1 ? "%s1 screenshot" : "%s%d screenshots",
+                     k ? " and " : "", done.shots_kept);
+        }
+        size_t n = strlen(s->note);
+        snprintf(s->note + n, sizeof s->note - n, " %s it had from before %s kept as %s.", kept,
+                 done.saves_kept + done.shots_kept == 1 ? "was" : "were",
+                 done.saves_kept + done.shots_kept == 1 ? "it was" : "they were");
+    }
+    if (software) {
+        size_t n = strlen(s->note);
+        snprintf(s->note + n, sizeof s->note - n, " It draws on the software renderer: no GPU driver was found.");
+    }
+    dxl_mod_free(&s->making_mod);
+    if (s->making) {
+        /* From the Profiles page: the run's profile this one now, Home;
+         * the next run's words were the other's. */
+        if (dxl_run_use_profile(s->run, s->run->session.profile.id, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+        s->making = 0;
+        s->next_run[0] = '\0';
+        dxl_shell_rebrowse(s);
+        dxl_shell_theme(s);
+        dxl_shell_go(s, DXL_PAGE_HOME);
+        return;
+    }
+    s->result = 1;
+}
+
+/* While the worker copies: how far it is, and Cancel. */
+static void copying(dxl_shell *s, dxl_rect r) {
+    dxl_ui *ui = &s->ui;
+    const dxl_theme *t = &ui->theme;
+    float w = r.w < 900 ? r.w : 900;
+    char line[200];
+    if (s->copy_files_total)
+        snprintf(line, sizeof line, "Copying saves: %d of %d files, %.0f of %.0f MB.", s->copy_files,
+                 s->copy_files_total, (double)s->copy_bytes / 1e6, (double)s->copy_bytes_total / 1e6);
+    else
+        snprintf(line, sizeof line, "Making the profile...");
+    dxl_rect panel = { r.x, r.y + 6, w, fit(r, dxl_text_size(ui, DXL_FONT_BODY, line, w - 44).y) };
+    dxl_rect in = dxl_window(ui, panel, "Making the profile");
+    dxl_rect buttons = button_row(&in);
+    dxl_paragraph(ui, in, DXL_FONT_BODY, line, t->text);
+    if (!ui->focus) ui->focus = dxl_ui_id(ui, "import cancel");
+    if (dxl_button(ui, "import cancel", dxl_cut_left(&buttons, 150), "Cancel", DXL_W_PRIMARY) || ui->in.back)
+        s->cancel_make(s);
+}
+
 void dxl_page_import(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
     const dxl_import *p = &s->plan;
     const dxl_mod *mod = s->making_mod.dir ? &s->making_mod : NULL;
+    if (s->copying) {
+        copying(s, r);
+        return;
+    }
     /* What the machine draws with, known by the time the profile is made */
     dxl_shell_probe(s);
     float w = r.w < 900 ? r.w : 900;
@@ -263,6 +344,13 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     char kept_in[1200];
     snprintf(kept_in, sizeof kept_in, "Nothing in the game's folder%s changes: the profile is kept in %s.",
              mod ? " or the mod's" : "", dxl_shell_tilde(s->run->session.profile.dir, buf, sizeof buf));
+    /* And how much the copy is: the time it takes. */
+    if (p->bytes > 0) {
+        size_t n = strlen(kept_in);
+        snprintf(kept_in + n, sizeof kept_in - n, " The %s copied come to %.1f MB.",
+                 mod || !p->shots ? "saves" : p->saves ? "saves and screenshots" : "screenshots",
+                 (double)p->bytes / 1e6);
+    }
     /* How it begins, on lines under the fields: its name, the graphics,
      * and with a pad connected its layout. The fields' lines closer on a
      * short window. */
@@ -365,62 +453,39 @@ void dxl_page_import(dxl_shell *s, dxl_rect r) {
     if (s->make_waits) dxl_ui_animate(ui);
 
     if (make) {
+        /* In the window's worker, the window live meanwhile; offscreen, or
+         * with no worker, at once. */
+        if (s->start_make && s->start_make(s) == 0) return;
         dxl_import done;
         dxl_err e;
         if (dxl_session_make_profile(&s->run->session, &s->chosen, mod, s->begin_name, &done, &e) != 0) {
             dxl_shell_message(s, "The profile was not made", "%s", dxl_err_msg(&e));
             return;
         }
-        const dxl_preset *looks_with = s->begin_graphics > 0 ? dxl_preset_at((size_t)s->begin_graphics - 1) : NULL;
-        const dxl_pad_preset *layout = pad && s->begin_layout > 0 ? dxl_pad_preset_at((size_t)s->begin_layout - 1) : NULL;
-        if (dxl_session_begin_with(&s->run->session, looks_with, layout, &e) != 0)
-            dxl_log("warning: the profile's graphics and layout: %s", dxl_err_msg(&e));
-        int software = begin_on_software(s);
-        char saves[32], shots[40];
-        snprintf(saves, sizeof saves, done.saves == 1 ? "1 save" : "%d saves", done.saves);
-        snprintf(shots, sizeof shots, done.shots == 1 ? "1 screenshot" : "%d screenshots", done.shots);
-        if (done.saves && done.shots)
-            snprintf(s->note, sizeof s->note, "The profile is made: %s and %s copied from the game's folder.", saves, shots);
-        else if (done.saves || done.shots)
-            snprintf(s->note, sizeof s->note, "The profile is made: %s copied from the %s folder.",
-                     done.saves ? saves : shots, mod ? "mod's" : "game's");
-        else
-            snprintf(s->note, sizeof s->note, "The profile is made.");
-        if (done.saves_kept || done.shots_kept) {
-            /* What its folders held already, from an earlier profile of
-             * the id: its own, not the game's of those names. */
-            char kept[96] = "";
-            if (done.saves_kept)
-                snprintf(kept, sizeof kept, done.saves_kept == 1 ? "1 save" : "%d saves", done.saves_kept);
-            if (done.shots_kept) {
-                size_t k = strlen(kept);
-                snprintf(kept + k, sizeof kept - k, done.shots_kept == 1 ? "%s1 screenshot" : "%s%d screenshots",
-                         k ? " and " : "", done.shots_kept);
-            }
-            size_t n = strlen(s->note);
-            snprintf(s->note + n, sizeof s->note - n, " %s it had from before %s kept as %s.", kept,
-                     done.saves_kept + done.shots_kept == 1 ? "was" : "were",
-                     done.saves_kept + done.shots_kept == 1 ? "it was" : "they were");
-        }
-        if (software) {
-            size_t n = strlen(s->note);
-            snprintf(s->note + n, sizeof s->note - n, " It draws on the software renderer: no GPU driver was found.");
-        }
-        dxl_mod_free(&s->making_mod);
-        if (s->making) {
-            /* From the Profiles page: the run's profile this one now, Home;
-             * the next run's words were the other's. */
-            if (dxl_run_use_profile(s->run, s->run->session.profile.id, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
-            s->making = 0;
-            s->next_run[0] = '\0';
-            dxl_shell_rebrowse(s);
-            dxl_shell_theme(s);
-            dxl_shell_go(s, DXL_PAGE_HOME);
-            return;
-        }
-        s->result = 1;
+        begun(s, &done);
     } else if (back || (ui->in.back && !ui->text_id)) {
         if (mod) dxl_shell_making_cancel(s);
         else dxl_shell_go(s, DXL_PAGE_FIND);
     }
+}
+
+void dxl_shell_copied(dxl_shell *s, dxl_profile *profile, dxl_made *made, const dxl_import *done, const char *error,
+                      int cancelled) {
+    dxl_session *ss = &s->run->session;
+    s->copying = 0;
+    if (error) {
+        dxl_profile_free(profile);
+        if (cancelled) dxl_shell_toast(s, "The profile was not made: its copy was cancelled.");
+        else dxl_shell_message(s, "The profile was not made", "%s", error);
+        return;
+    }
+    dxl_profile_free(&ss->profile);
+    ss->profile = *profile;
+    dxl_err e;
+    if (dxl_session_made_profile(ss, &s->chosen, s->making_mod.dir ? &s->making_mod : NULL, s->begin_name, made,
+                                 done, &e) != 0) {
+        dxl_shell_message(s, "The profile was not made", "%s", dxl_err_msg(&e));
+        return;
+    }
+    begun(s, done);
 }

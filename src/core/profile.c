@@ -90,27 +90,29 @@ int dxl_profile_exists(const dxl_profile *p) {
 
 int (*dxl_profile_link)(const char *target, const char *link) = dxl_fs_link_dir;
 
-int dxl_profile_make_dirs(dxl_profile *p, dxl_err *err) {
+static int make_dir(const char *path, const char *id, dxl_made *m, dxl_err *err);
+static void made_add(dxl_made *m, const char *path, char *old, size_t old_len, int had);
+
+/* The folders, and the link, each made recorded in m (may be NULL). */
+static int make_dirs(dxl_profile *p, dxl_made *m, dxl_err *err) {
     const char *dirs[] = { p->dir, p->engine_dir, p->save_dir, p->shots_dir, p->state_dir,
                            p->logs_dir, p->cache_dir };
-    for (size_t i = 0; i < sizeof dirs / sizeof *dirs; i++) {
-        if (dxl_path_mkdirs(dirs[i]) != 0) {
-            dxl_err_set(err, "cannot create %s", dirs[i]);
-            return -1;
-        }
-    }
+    for (size_t i = 0; i < sizeof dirs / sizeof *dirs; i++)
+        if (make_dir(dirs[i], p->id, m, err) != 0) return -1;
     /* The engine writes its shots into its folder's Screenshots (--userdir):
      * a link to the profile's own. A filesystem with no links (exFAT, FAT, a
      * handheld's card) refuses it: that folder is then the profile's shots
      * folder, and the other, empty, goes. */
     char *link = dxl_path_join(p->engine_dir, "Screenshots");
     int rc = 0;
-    if (!dxl_path_exists(link) && dxl_profile_link(p->shots_dir, link) != 0) {
+    int there = dxl_path_exists(link);
+    if (!there && dxl_profile_link(p->shots_dir, link) == 0) {
+        made_add(m, link, NULL, 0, 0);
+    } else if (!there) {
         if (errno != EPERM && errno != EOPNOTSUPP && errno != ENOSYS) {
             dxl_err_set(err, "cannot link %s to %s: %s", link, p->shots_dir, strerror(errno));
             rc = -1;
-        } else if (dxl_path_mkdirs(link) != 0) {
-            dxl_err_set(err, "cannot create %s", link);
+        } else if (make_dir(link, p->id, m, err) != 0) {
             rc = -1;
         } else {
             rmdir(p->shots_dir);
@@ -122,6 +124,8 @@ int dxl_profile_make_dirs(dxl_profile *p, dxl_err *err) {
     free(link);
     return rc;
 }
+
+int dxl_profile_make_dirs(dxl_profile *p, dxl_err *err) { return make_dirs(p, NULL, err); }
 
 int dxl_profile_count_saves(const dxl_profile *p) { return dxl_saves_count(p->save_dir); }
 
@@ -289,68 +293,269 @@ static int is_shot(const char *name) {
     return n > 8 && dxl_strnicmp(name, "Shot", 4) == 0 && dxl_stricmp(name + n - 4, ".bmp") == 0;
 }
 
+/* ---- what an import made ------------------------------------------- */
+
+struct dxl_made_one {
+    char  *path;
+    char  *old;        /* a file there before: its bytes, put back */
+    size_t old_len;
+    int    had;
+};
+
+static void made_add(dxl_made *m, const char *path, char *old, size_t old_len, int had) {
+    if (!m) {
+        free(old);
+        return;
+    }
+    if (m->count == m->cap) {
+        m->cap = m->cap ? m->cap * 2 : 16;
+        m->items = dxl_xrealloc(m->items, m->cap * sizeof *m->items);
+    }
+    m->items[m->count++] = (struct dxl_made_one){ dxl_xstrdup(path), old, old_len, had };
+}
+
+void dxl_made_free(dxl_made *m) {
+    if (!m) return;
+    for (size_t i = 0; i < m->count; i++) {
+        free(m->items[i].path);
+        free(m->items[i].old);
+    }
+    free(m->items);
+    memset(m, 0, sizeof *m);
+}
+
+void dxl_profile_unmake(dxl_made *m) {
+    if (!m) return;
+    /* As far as it goes: what cannot be taken away stays, the rest goes. */
+    for (size_t i = m->count; i-- > 0;) {
+        struct dxl_made_one *o = &m->items[i];
+        if (o->had) dxl_path_write_atomic(o->path, o->old ? o->old : "", o->old_len, NULL);
+        else dxl_fs_remove_tree(o->path);
+    }
+    dxl_made_free(m);
+}
+
+/* path made a folder, and its parents: the first of them that was not
+ * there recorded, all made under it this import's -- but none above the
+ * profile's own folder, the one its id names: the launcher's folders over
+ * it, made here on a first run, stay, whatever else has come to lie in them
+ * by the time an import is taken away. */
+static int make_dir(const char *path, const char *id, dxl_made *m, dxl_err *err) {
+    char *top = NULL, *at = dxl_xstrdup(path);
+    /* A link that leads nowhere, to a drive not mounted, is there: the
+     * player's own, never one of the folders made here, so never taken
+     * away with them. */
+    while (!dxl_path_exists(at) && !dxl_fs_is_link(at)) {
+        char *up = dxl_path_dirname(at);
+        free(top);
+        top = at;
+        at = up;
+        if (!strcmp(at, top) || !strcmp(dxl_path_basename(top), id)) break;
+    }
+    free(at);
+    int rc = dxl_path_mkdirs(path);
+    if (rc != 0) {
+        dxl_err_set(err, "cannot create %s: %s", path, strerror(errno));
+        if (top) dxl_fs_remove_tree(top);
+    } else if (top) {
+        made_add(m, top, NULL, 0, 0);
+    }
+    free(top);
+    return rc;
+}
+
+/* A file's bytes; NULL when it cannot be read. */
+static char *read_whole(const char *path, size_t *len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    dxl_buf b;
+    dxl_buf_init(&b);
+    char chunk[16384];
+    size_t n;
+    while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) dxl_buf_add(&b, chunk, n);
+    int bad = ferror(f);
+    fclose(f);
+    if (bad) {
+        dxl_buf_free(&b);
+        return NULL;
+    }
+    *len = b.len;
+    return b.data ? b.data : dxl_xstrdup("");
+}
+
+/* An ini written, recorded: one there before kept to be put back. */
+static int write_ini(const dxl_ini *ini, const char *path, dxl_made *m, dxl_err *err) {
+    size_t len = 0;
+    int had = dxl_path_exists(path);
+    /* A link to a file not there yet is written through, the file made
+     * where it leads (dxl_path_write_atomic): what this import made is that
+     * file, the link the player's own. */
+    int linked = !had && dxl_fs_is_link(path);
+    char *old = had ? read_whole(path, &len) : NULL;
+    if (had && !old) {
+        dxl_err_set(err, "cannot read %s: %s", path, strerror(errno));
+        return -1;
+    }
+    if (dxl_ini_save(ini, path, err) != 0) {
+        free(old);
+        return -1;
+    }
+    if (linked) {
+        char *real = dxl_fs_real(path);
+        if (real) made_add(m, real, NULL, 0, 0);
+        free(real);
+        return 0;
+    }
+    made_add(m, path, old, len, had);
+    return 0;
+}
+
+/* ---- the copy ------------------------------------------------------- */
+
+/* The temporary name a save folder or a shot is copied under, beside its
+ * own: a dot name, which the Saves page and the engine pass over (a save is
+ * Save%04d or QuickSave to the one, a folder named Save* to the other), and
+ * Screenshots too. */
+#define COPYING ".dxl-copy-"
+
+typedef struct {
+    dxl_made           *made;
+    dxl_import_progress progress;
+    void               *ctx;
+    int                 files, files_total;
+    long long           bytes, bytes_total;
+} copy_job;
+
+/* Each file copied: the progress told. */
+static int copied_one(void *ctx, long size) {
+    copy_job *j = ctx;
+    j->files++;
+    if (size > 0) j->bytes += size;
+    return j->progress ? j->progress(j->ctx, j->files, j->files_total, j->bytes, j->bytes_total) : 0;
+}
+
+/* The files and bytes of a file, or of a folder as dxl_path_copy_dir copies
+ * it: its linked folders not descended. */
+static void tally(const char *path, int *files, long long *bytes) {
+    if (!dxl_path_is_dir(path)) {
+        long n = dxl_path_size(path);
+        (*files)++;
+        if (n > 0) *bytes += n;
+        return;
+    }
+    if (dxl_fs_is_link(path)) return;
+    DIR *d = opendir(path);
+    struct dirent *e;
+    while (d && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char *in = dxl_path_join(path, e->d_name);
+        tally(in, files, bytes);
+        free(in);
+    }
+    if (d) closedir(d);
+}
+
+/* What an import cut short left in dir: its temporary names taken away. */
+static void sweep(const char *dir) {
+    DIR *d = opendir(dir);
+    struct dirent *e;
+    while (d && (e = readdir(d)) != NULL) {
+        if (strncmp(e->d_name, COPYING, strlen(COPYING)) != 0) continue;
+        char *left = dxl_path_join(dir, e->d_name);
+        dxl_fs_remove_tree(left);
+        free(left);
+    }
+    if (d) closedir(d);
+}
+
+/* src, a save folder or a shot, copied to dst whole or not at all: under
+ * its temporary name, put in its place once whole, then recorded. A shot
+ * keeps its time: taken when the game wrote it, as Screenshots dates and
+ * orders a shot. */
+static int copy_whole(const char *src, const char *dst, copy_job *j, dxl_err *err) {
+    char *dir = dxl_path_dirname(dst);
+    size_t n = strlen(COPYING) + strlen(dxl_path_basename(dst)) + 1;
+    char *leaf = dxl_xmalloc(n);
+    snprintf(leaf, n, COPYING "%s", dxl_path_basename(dst));
+    char *tmp = dxl_path_join(dir, leaf);
+    int folder = dxl_path_is_dir(src);
+    int rc = folder ? dxl_path_copy_dir(src, tmp, copied_one, j, err) : dxl_path_copy(src, tmp, err);
+    if (rc == 0 && !folder) {
+        long when = dxl_path_mtime(src);
+        if (when >= 0) dxl_fs_set_mtime(tmp, when);
+        if (copied_one(j, dxl_path_size(tmp)) != 0) {
+            dxl_err_set(err, "the copy was cancelled");
+            rc = -1;
+        }
+    }
+    /* rename, not dxl_fs_replace: dst is not there, and a folder is
+     * renamed so on Windows too. */
+    if (rc == 0 && rename(tmp, dst) != 0) {
+        dxl_err_set(err, "cannot rename %s to %s: %s", tmp, dst, strerror(errno));
+        rc = -1;
+    }
+    if (rc == 0) made_add(j->made, dst, NULL, 0, 0);
+    else dxl_fs_remove_tree(tmp);
+    free(tmp);
+    free(leaf);
+    free(dir);
+    return rc;
+}
+
 /* The saves to carry over: every folder of the game's but Current, the
- * level the player is in, which the engine makes again from a save. */
-static int each_save(const char *save_dir, const char *to, int *kept, dxl_err *err) {
+ * level the player is in, which the engine makes again from a save. A
+ * save the profile has already in to is its own, the later: never copied
+ * into, its files mixed with the game's, but counted into kept. With copy
+ * 0 those to copy are only counted, their files and bytes into j's
+ * totals. Returns how many are copied, or would be. */
+static int each_save(const char *save_dir, const char *to, int copy, copy_job *j, int *kept, dxl_err *err) {
     DIR *d = opendir(save_dir);
     if (!d) return 0;
-    int n = 0;
+    int n = 0, rc = 0;
     struct dirent *e;
-    while ((e = readdir(d)) != NULL) {
+    while (rc == 0 && (e = readdir(d)) != NULL) {
         if (e->d_name[0] == '.' || dxl_stricmp(e->d_name, "Current") == 0) continue;
         char *src = dxl_path_join(save_dir, e->d_name);
         if (dxl_path_is_dir(src) && !dxl_fs_is_link(src)) {   /* a linked folder is no save's */
-            if (to) {
-                char *dst = dxl_path_join(to, e->d_name);
-                /* A save the profile has already is its own, the later:
-                 * never copied into, its files mixed with the game's. */
-                int there = dxl_path_exists(dst);
-                int rc = there ? 0 : dxl_path_copy_dir(src, dst, NULL, err);
-                free(dst);
-                if (rc != 0) { free(src); closedir(d); return -1; }
-                if (there) {
-                    if (kept) (*kept)++;
-                    free(src);
-                    continue;
-                }
+            char *dst = dxl_path_join(to, e->d_name);
+            if (dxl_path_exists(dst)) {
+                if (kept) (*kept)++;
+            } else {
+                if (copy) rc = copy_whole(src, dst, j, err);
+                else tally(src, &j->files_total, &j->bytes_total);
+                n++;
             }
-            n++;
+            free(dst);
         }
         free(src);
     }
     closedir(d);
-    return n;
+    return rc ? -1 : n;
 }
 
-static int each_shot(const char *system_dir, const char *to, int *kept, dxl_err *err) {
+/* The shots, System/Shot*.bmp, likewise; with to NULL only counted. */
+static int each_shot(const char *system_dir, const char *to, int copy, copy_job *j, int *kept, dxl_err *err) {
     DIR *d = opendir(system_dir);
     if (!d) return 0;
-    int n = 0;
+    int n = 0, rc = 0;
     struct dirent *e;
-    while ((e = readdir(d)) != NULL) {
+    while (rc == 0 && (e = readdir(d)) != NULL) {
         if (!is_shot(e->d_name)) continue;
         if (to) {
             char *src = dxl_path_join(system_dir, e->d_name);
             char *dst = dxl_path_join(to, e->d_name);
-            if (dxl_path_exists(dst)) {   /* the profile's own of that name: kept */
-                if (kept) (*kept)++;
-                free(src);
-                free(dst);
-                continue;
-            }
-            int rc = dxl_path_copy(src, dst, err);
-            /* Taken when the game wrote it, as Screenshots dates and orders
-             * a shot: the copy keeps the time. */
-            long when = dxl_path_mtime(src);
-            if (rc == 0 && when >= 0) dxl_fs_set_mtime(dst, when);
+            int there = dxl_path_exists(dst);   /* the profile's own of that name: kept */
+            if (there && kept) (*kept)++;
+            else if (!there && copy) rc = copy_whole(src, dst, j, err);
+            else if (!there) tally(src, &j->files_total, &j->bytes_total);
             free(src);
             free(dst);
-            if (rc != 0) { closedir(d); return -1; }
+            if (there) continue;
         }
         n++;
     }
     closedir(d);
-    return n;
+    return rc ? -1 : n;
 }
 
 /* [Extension.InputExt]'s keys over [Engine.Input]'s, but its key 0 (the
@@ -426,9 +631,11 @@ static char *mod_save_dir(const char *game_system_dir, const dxl_mod *m, const d
     return dir;
 }
 
-/* The import, of the game or with a mod. */
-static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry, dxl_import *r,
-                       dxl_err *err) {
+/* The import, of the game or with a mod; progress and made as
+ * dxl_profile_import_watched has them. */
+static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry,
+                       dxl_import_progress progress, void *ctx, dxl_made *made, dxl_import *r, dxl_err *err) {
+    if (made) memset(made, 0, sizeof *made);
     memset(r, 0, sizeof *r);
     int rc = -1;
     char *game_ini = dxl_path_resolve_ci(game_system_dir, "DeusEx.ini");
@@ -486,7 +693,15 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     saves = mod ? mod_save_dir(game_system_dir, mod, mod->ini ? sys : NULL) : game_save_dir(game_system_dir, sys);
     copy_str(r->saves_from, sizeof r->saves_from, saves);
     r->saves = dxl_saves_count(saves);
-    r->shots = mod ? 0 : each_shot(game_system_dir, NULL, NULL, NULL);
+    r->shots = mod ? 0 : each_shot(game_system_dir, NULL, 0, NULL, NULL, NULL);
+    /* What the copy will be, counted before it begins: its progress's
+     * totals, and the plan's size. */
+    dxl_made own = { 0 };
+    copy_job j = { made ? made : &own, progress, ctx, 0, 0, 0, 0 };
+    if (saves) each_save(saves, p->save_dir, 0, &j, NULL, NULL);
+    if (!mod) each_shot(game_system_dir, p->shots_dir, 0, &j, NULL, NULL);
+    r->files = j.files_total;
+    r->bytes = j.bytes_total;
     if (mod) dxl_mod_set_paths(sys, game_system_dir, mod);
     const char *master = dxl_ini_get(sys, "DeusEx.MenuScreenJoinGame", "MasterServerAddress");
     r->master_replaced = master && dxl_stricmp(master, DEAD_MASTER) == 0;
@@ -507,14 +722,30 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     dxl_ini_set_eol(sys, "\n");
     dxl_ini_set_eol(usr, "\n");
 
-    if (dxl_profile_make_dirs(p, err) != 0) goto out;
-    if (dxl_ini_save(sys, p->system_ini, err) != 0) goto out;
-    if (dxl_ini_save(usr, p->user_ini, err) != 0) goto out;
-    if (saves && each_save(saves, p->save_dir, &r->saves_kept, err) < 0) goto out;
-    if (!mod && each_shot(game_system_dir, p->shots_dir, &r->shots_kept, err) < 0) goto out;
+    if (make_dirs(p, j.made, err) != 0) goto undo;
+    sweep(p->save_dir);
+    sweep(p->shots_dir);
+    if (write_ini(sys, p->system_ini, j.made, err) != 0) goto undo;
+    if (write_ini(usr, p->user_ini, j.made, err) != 0) goto undo;
+    if (saves && each_save(saves, p->save_dir, 1, &j, &r->saves_kept, err) < 0) goto undo;
+    if (!mod && each_shot(game_system_dir, p->shots_dir, 1, &j, &r->shots_kept, err) < 0) goto undo;
+    /* On the disk before profile.ini makes it a profile: the copy synced
+     * once for its file system, not file by file (the inis are, as they
+     * are written). */
+    const char *copied_to[2] = { p->save_dir, p->shots_dir };
+    for (int i = 0; i < 2 && j.files; i++) {
+        if (dxl_fs_sync_all(copied_to[i]) != 0) {
+            dxl_err_set(err, "cannot sync %s: %s", copied_to[i], strerror(errno));
+            goto undo;
+        }
+    }
     r->saves -= r->saves_kept < r->saves ? r->saves_kept : r->saves;
     r->shots -= r->shots_kept < r->shots ? r->shots_kept : r->shots;
     rc = 0;
+    dxl_made_free(&own);
+    goto out;
+undo:
+    dxl_profile_unmake(j.made);
 out:
     dxl_ini_free(sys);
     dxl_ini_free(usr);
@@ -526,10 +757,16 @@ out:
 
 int dxl_profile_import(dxl_profile *p, const char *game_system_dir, int dry, dxl_import *r,
                        dxl_err *err) {
-    return import_from(p, game_system_dir, NULL, dry, r, err);
+    return import_from(p, game_system_dir, NULL, dry, NULL, NULL, NULL, r, err);
 }
 
 int dxl_profile_import_mod(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod, int dry,
                            dxl_import *r, dxl_err *err) {
-    return import_from(p, game_system_dir, mod, dry, r, err);
+    return import_from(p, game_system_dir, mod, dry, NULL, NULL, NULL, r, err);
+}
+
+int dxl_profile_import_watched(dxl_profile *p, const char *game_system_dir, const dxl_mod *mod,
+                               dxl_import_progress progress, void *ctx, dxl_made *made, dxl_import *r,
+                               dxl_err *err) {
+    return import_from(p, game_system_dir, mod, 0, progress, ctx, made, r, err);
 }
