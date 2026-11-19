@@ -13,7 +13,8 @@
 # rate. before applies the mode (launcher.ini's [Launcher] CpuMode: Smart,
 # Performance or Overclock, src/core/cpumode.c) with spruceOS's own
 # helpers, the ones its Ports launcher uses; after puts back the state
-# before saved, so the menu gets what it had.
+# before saved, so the menu gets what it had, and fails, the state kept,
+# where the CPU read back is not that state.
 #
 # The state is kept in a file, written by before only when there is none: a
 # launcher killed mid-game leaves the boost on, and the next game's before
@@ -35,9 +36,8 @@ cpu_now() {
          "$(cat $CPU/cpu0/cpufreq/scaling_min_freq)-$(cat $CPU/cpu0/cpufreq/scaling_max_freq)"
 }
 
-# Runs inside the helpers' subshell: online governor min max.
-restore_cpu_state() {
-    # "0,3" or "0-3" -> the digit string spruce's cores_online takes
+# "0,3" or "0-3" -> the digit string spruce's cores_online takes
+cores_of() {
     cores=""
     for part in $(echo "$1" | tr ',' ' '); do
         case "$part" in
@@ -46,7 +46,19 @@ restore_cpu_state() {
             *)   cores="$cores$part" ;;
         esac
     done
-    cores_online "$cores" >/dev/null 2>&1
+    echo "$cores"
+}
+
+# The CPU as the state file has it, its cores as cores_of gives them, so
+# "0-3" and "0,1,2,3" are one: online governor min max.
+cpu_state() {
+    echo "$(cores_of "$(cat $CPU/online)") $(cat $CPU/cpu0/cpufreq/scaling_governor)" \
+         "$(cat $CPU/cpu0/cpufreq/scaling_min_freq) $(cat $CPU/cpu0/cpufreq/scaling_max_freq)"
+}
+
+# Runs inside the helpers' subshell: online governor min max.
+restore_cpu_state() {
+    cores_online "$(cores_of "$1")" >/dev/null 2>&1
     unlock_governor >/dev/null 2>&1
     echo "$2" > $CPU/cpu0/cpufreq/scaling_governor
     # min and max each must stay within the other: write min, max, then min
@@ -86,6 +98,16 @@ case "$1" in
         [ -s "$STATE" ] || { echo "cpu mode: no state to put back"; exit 0; }
         # shellcheck disable=SC2046
         ( . "$HELPERS" >/dev/null 2>&1; restore_cpu_state $(cat "$STATE") )
+        # The helpers' answers are not read: the CPU itself says whether it
+        # is back. Where it is not (a helper spruceOS renamed, a write
+        # refused), the state is kept for the next game's after to put back.
+        # shellcheck disable=SC2046
+        set -- $(cat "$STATE")
+        if [ "$(cpu_state)" != "$(cores_of "$1") $2 $3 $4" ]; then
+            echo "cpu not restored: $(cpu_now);" \
+                 "the state before, online $1, $2 $3-$4, is kept"
+            exit 1
+        fi
         rm -f "$STATE"
         echo "cpu restored: $(cpu_now)"
         ;;

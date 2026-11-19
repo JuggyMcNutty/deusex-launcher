@@ -157,6 +157,50 @@ static void test_second_before(void) {
     teardown();
 }
 
+/* A spruceOS whose cores_online is gone (renamed by an update): after
+ * cannot bring the menu's cores back, says so and fails, and keeps the
+ * state, which the next game's before keeps and its after, the helpers
+ * back, puts back. */
+static void test_restore_fails(void) {
+    setup(1);
+    char out[1024];
+    CHECK_INT(hook("before", "Overclock", out, sizeof out), 0);
+    char *renamed = dxl_xstrdup(stub_helpers);
+    char *at = strstr(renamed, "cores_online() {");
+    memcpy(at, "spruce_cores", strlen("spruce_cores"));
+    scratch_write(dir, "helperFunctions.sh", renamed);
+    free(renamed);
+    CHECK_INT(hook("after", NULL, out, sizeof out), 1);
+    CHECK(strstr(out, "not restored") != NULL);
+    CHECK_INT(scratch_exists(dir, "state"), 1);
+    char *online = cpu_file("online");
+    CHECK_STR(online, "0-3");
+    free(online);
+    scratch_write(dir, "helperFunctions.sh", stub_helpers);
+    CHECK_INT(hook("before", "Overclock", out, sizeof out), 0);
+    CHECK(strstr(out, "kept") != NULL);
+    CHECK_INT(hook("after", NULL, out, sizeof out), 0);
+    CHECK(strstr(out, "cpu restored") != NULL);
+    online = cpu_file("online");
+    CHECK_STR(online, "0,3");
+    free(online);
+    CHECK_INT(scratch_exists(dir, "state"), 0);
+    teardown();
+}
+
+/* The kernel writes a run of cores as "0-3", the helpers' stand-in as
+ * "0,1,2,3": one state, put back. */
+static void test_range_restored(void) {
+    setup(1);
+    char out[1024];
+    put_cpu("0-3\n", "conservative\n", "600000\n", "1488000\n");
+    CHECK_INT(hook("before", "Smart", out, sizeof out), 0);
+    CHECK_INT(hook("after", NULL, out, sizeof out), 0);
+    CHECK_INT(called("cores_online 0123"), 1);
+    CHECK_INT(scratch_exists(dir, "state"), 0);
+    teardown();
+}
+
 /* No spruceOS helpers -- not a Smart Pro, or not spruceOS: nothing done,
  * and no failure. */
 static void test_no_helpers(void) {
@@ -187,6 +231,8 @@ TEST_MAIN_BEGIN
     RUN(test_each_mode);
     RUN(test_unknown_mode);
     RUN(test_second_before);
+    RUN(test_restore_fails);
+    RUN(test_range_restored);
     RUN(test_no_helpers);
     RUN(test_mode_kept);
 TEST_MAIN_END

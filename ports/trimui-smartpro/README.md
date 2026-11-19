@@ -154,9 +154,10 @@ CpuMode`) offers spruceOS's own: Smart, Performance (all four cores at 1.8 GHz) 
 (2.0 GHz), the default: the game is CPU-bound. The game hook, `packaging/port-hooks.sh`,
 applies it with the spruceOS helpers its Ports launcher uses just before the engine starts,
 and puts the state from before back (online cores, governor, min/max) as the game ends,
-however it ends ([the game hook](../../docs/LAUNCHER.md#the-game-and-the-launcher)). The
-helpers are sourced in subshells only: `helperFunctions.sh` exports its own `LD_LIBRARY_PATH`.
-`test_cpumode` runs the hook against stand-in helpers and a scratch sysfs.
+however it ends ([the game hook](../../docs/LAUNCHER.md#the-game-and-the-launcher)), failing
+with the state kept where the CPU read back is not that state. The helpers are sourced in
+subshells only: `helperFunctions.sh` exports its own `LD_LIBRARY_PATH`. `test_cpumode` runs the
+hook against stand-in helpers and a scratch sysfs.
 
 ### Engine settings
 

@@ -829,7 +829,9 @@ the game. The Smart Pro's sets the CPU mode with spruceOS's own helpers
 and puts back the state from before, kept in `/tmp/dxlauncher-cpu`,
 written only where there is none: a launcher killed mid-game leaves the
 CPU as the game had it, and the next game's `after` gives the menu its
-own back.
+own back. `after` reads the CPU back: where it is not that state (a helper
+spruceOS has renamed, a write refused), it says the CPU is not restored
+and fails, the state kept for the next game's `after`.
 
 ## Recovery
 
@@ -974,7 +976,8 @@ a profile whose `profile.ini` cannot be written, the player's own links
 kept through each; `test_delete` deletes a
 folder, its link not followed;
 `test_cpumode` runs the Smart Pro's game hook against stand-in spruceOS
-helpers and a scratch sysfs, each CPU mode and the state put back;
+helpers and a scratch sysfs, each CPU mode and the state put back, and
+a restore that fails, the state kept;
 `test_gamefiles`, on a real install in `gamefiles/`, reads every asset the
 window takes from it -- the menu themes, the art, the menu sounds, the title
 music (`test_gamefiles_saves` its saves' infos and snapshots, skipped where
@@ -1110,8 +1113,6 @@ Each open in Port Ex Machina's
   moved.
 - **LPORT.11**: the programs are linked for pages of 16 KiB, so a kernel of
   64 KiB pages may not start them.
-- **LPORT.16**: a failed CPU restore after a game is reported as done and
-  its state thrown away.
 - **LPORT.17**: the low-battery popup stalls the game, and nothing warns the
   player.
 - **LPORT.20**: the app's start script stops in silence if spruceOS moves
