@@ -348,6 +348,43 @@ static void test_headless_run(void) {
     free(home);
 }
 
+/* A server named by a host with no dot, which the engine would take for a
+ * URL's protocol: joined at its address, looked up; one not found plays no
+ * game, the run's error why. */
+static void test_join_by_name(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-join-name"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    dxl_env_set("DXL_STUB_ARGS", "1");
+    CHECK_INT(run_launcher(root, "deusex://localhost:7791"), 0);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *log = dxl_path_join(p.logs_dir, DXL_LASTRUN_LOG);
+    char *text = slurp(log, NULL);
+    CHECK(text && strstr(text, "[--url=127.0.0.1:7791]\n") != NULL);
+    free(text);
+    dxl_lastrun last;
+    CHECK_INT(run_launcher(root, "deusex://dxlnosuchhost:7790"), 127);
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), 0);
+    CHECK(strstr(last.error, "the server's name dxlnosuchhost was not found") != NULL);
+    dxl_env_set("DXL_STUB_ARGS", NULL);
+    free(log);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A launcher killed while the game plays, with its engine (a session's
  * end, a power cut): Running.ini left, and the run before's record of a
  * clean end gone with the run's start, not taken for this run's; the next
@@ -1000,6 +1037,7 @@ TEST_MAIN_BEGIN
     RUN(test_mark_before_the_runs);
     RUN(test_headless_run);
     RUN(test_killed_mid_game);
+    RUN(test_join_by_name);
     RUN(test_server_takes_no_handover);
     RUN(test_ends_without_a_game);
     RUN(test_unanswered);

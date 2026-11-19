@@ -104,8 +104,9 @@ int  dxl_es_was_present(const dxl_engine_settings *s, dxl_es_field f);
 int  dxl_es_names_type(const dxl_engine_settings *s);
 
 /* Writes the file, creating its directory. Every field but a Type none
- * named. A file there that could not be read is kept first, its path with
- * DXL_ES_KEPT after it, or nothing is written. */
+ * named. A file there that did not parse is kept first, its path with
+ * DXL_ES_KEPT after it, or nothing is written; one that did not open or
+ * read whole (its rights, an I/O error) is never written over: -1. */
 #define DXL_ES_KEPT ".unreadable"
 int  dxl_es_save(dxl_engine_settings *s, dxl_err *err);
 

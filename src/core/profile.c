@@ -136,8 +136,6 @@ void dxl_profile_folders(const dxl_profile *p, char *out[4]) {
     out[3] = dxl_path_dirname(p->cache_dir);
 }
 
-static int by_id(const void *a, const void *b) { return strcmp((const char *)a, (const char *)b); }
-
 size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], size_t max) {
     char *dir = dxl_path_join(x->config, "profiles");
     DIR *d = opendir(dir);
@@ -147,15 +145,20 @@ size_t dxl_profiles_list(const dxl_xdg *x, char ids[][DXL_PROFILE_ID_MAX + 1], s
         if (e->d_name[0] == '.' || !id_valid(e->d_name)) continue;
         dxl_profile p;
         if (dxl_profile_open(&p, x, e->d_name, NULL) != 0) continue;
+        /* Kept in order as they are read, the first max by id: never which
+         * the folder gives first. */
         if (dxl_profile_exists(&p)) {
-            if (n < max) snprintf(ids[n], DXL_PROFILE_ID_MAX + 1, "%.64s", e->d_name);
+            if (n < max || (max && strcmp(e->d_name, ids[max - 1]) < 0)) {
+                size_t k = n < max ? n : max - 1;
+                for (; k > 0 && strcmp(ids[k - 1], e->d_name) > 0; k--) memcpy(ids[k], ids[k - 1], sizeof ids[0]);
+                snprintf(ids[k], DXL_PROFILE_ID_MAX + 1, "%.64s", e->d_name);
+            }
             n++;
         }
         dxl_profile_free(&p);
     }
     if (d) closedir(d);
     free(dir);
-    qsort(ids, n < max ? n : max, sizeof ids[0], by_id);
     return n;
 }
 
@@ -175,7 +178,7 @@ static int id_taken(const dxl_xdg *x, const char *id) {
     return taken;
 }
 
-void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size) {
+int dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t size) {
     char base[DXL_PROFILE_ID_MAX - 3];
     size_t n = 0;
     int dash = 0;
@@ -193,8 +196,9 @@ void dxl_profile_new_id(const dxl_xdg *x, const char *name, char *out, size_t si
     for (int k = 1; k < 1000; k++) {
         if (k == 1) snprintf(out, size, "%s", base);
         else snprintf(out, size, "%s-%d", base, k);
-        if (!id_taken(x, out)) break;
+        if (!id_taken(x, out)) return 0;
     }
+    return -1;
 }
 
 /* The engine folder's own files worth a copy: Settings.json and a class's
@@ -528,8 +532,11 @@ static int copy_whole(const char *src, const char *dst, copy_job *j, dxl_err *er
  * save the profile has already in to is its own, the later: never copied
  * into, its files mixed with the game's, but counted into kept. With copy
  * 0 those to copy are only counted, their files and bytes into j's
- * totals. Returns how many are copied, or would be. */
-static int each_save(const char *save_dir, const char *to, int copy, copy_job *j, int *kept, dxl_err *err) {
+ * totals. Returns how many are copied, or would be; into saves, how many
+ * of them are saves the Saves page lists (core/saves.h), into kept, of
+ * those it has. */
+static int each_save(const char *save_dir, const char *to, int copy, copy_job *j, int *saves, int *kept,
+                     dxl_err *err) {
     DIR *d = opendir(save_dir);
     if (!d) return 0;
     int n = 0, rc = 0;
@@ -539,12 +546,14 @@ static int each_save(const char *save_dir, const char *to, int copy, copy_job *j
         char *src = dxl_path_join(save_dir, e->d_name);
         if (dxl_path_is_dir(src) && !dxl_fs_is_link(src)) {   /* a linked folder is no save's */
             char *dst = dxl_path_join(to, e->d_name);
+            int slot, listed = dxl_save_slot_of(e->d_name, &slot);
             if (dxl_path_exists(dst)) {
-                if (kept) (*kept)++;
+                if (kept && listed) (*kept)++;
             } else {
                 if (copy) rc = copy_whole(src, dst, j, err);
                 else tally(src, &j->files_total, &j->bytes_total);
                 n++;
+                if (saves && listed) (*saves)++;
             }
             free(dst);
         }
@@ -587,16 +596,21 @@ static int fold_bindings(dxl_ini *usr, int fold) {
     enum { MAX = 600 };
     const char **k = dxl_xmalloc(sizeof *k * MAX), **v = dxl_xmalloc(sizeof *v * MAX);
     size_t n = dxl_ini_pairs(usr, "Extension.InputExt", k, v, MAX);
-    char (*keys)[32] = dxl_xmalloc(sizeof *keys * MAX), (*values)[256] = dxl_xmalloc(sizeof *values * MAX);
+    /* Copies, whole: the section's own go as it is emptied. */
+    char **keys = dxl_xmalloc(sizeof *keys * MAX), **values = dxl_xmalloc(sizeof *values * MAX);
     size_t m = 0;
     for (size_t i = 0; i < n && i < MAX; i++) {
         if (!dxl_stricmp(k[i], "StrProperty0")) continue;
-        snprintf(keys[m], sizeof keys[m], "%s", k[i]);
-        snprintf(values[m], sizeof values[m], "%s", v[i]);
+        keys[m] = dxl_xstrdup(k[i]);
+        values[m] = dxl_xstrdup(v[i]);
         m++;
     }
     for (size_t i = 0; fold && i < m; i++) dxl_ini_set(usr, "Engine.Input", keys[i], values[i]);
     if (fold && n) dxl_ini_empty_section(usr, "Extension.InputExt");
+    for (size_t i = 0; i < m; i++) {
+        free(keys[i]);
+        free(values[i]);
+    }
     free(keys);
     free(values);
     free(k);
@@ -713,13 +727,13 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
      * game's shots are not its. */
     saves = mod ? mod_save_dir(game_system_dir, mod, mod->ini ? sys : NULL) : game_save_dir(game_system_dir, sys);
     copy_str(r->saves_from, sizeof r->saves_from, saves);
-    r->saves = dxl_saves_count(saves);
+    r->saves = 0;
     r->shots = mod ? 0 : each_shot(game_system_dir, NULL, 0, NULL, NULL, NULL);
     /* What the copy will be, counted before it begins: its progress's
      * totals, and the plan's size. */
     dxl_made own = { 0 };
     copy_job j = { made ? made : &own, progress, ctx, 0, 0, 0, 0 };
-    if (saves) each_save(saves, p->save_dir, 0, &j, NULL, NULL);
+    if (saves) each_save(saves, p->save_dir, 0, &j, &r->saves, NULL, NULL);
     if (!mod) each_shot(game_system_dir, p->shots_dir, 0, &j, NULL, NULL);
     r->files = j.files_total;
     r->bytes = j.bytes_total;
@@ -748,7 +762,8 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
     sweep(p->shots_dir);
     if (write_ini(sys, p->system_ini, j.made, err) != 0) goto undo;
     if (write_ini(usr, p->user_ini, j.made, err) != 0) goto undo;
-    if (saves && each_save(saves, p->save_dir, 1, &j, &r->saves_kept, err) < 0) goto undo;
+    r->saves = 0;
+    if (saves && each_save(saves, p->save_dir, 1, &j, &r->saves, &r->saves_kept, err) < 0) goto undo;
     if (!mod && each_shot(game_system_dir, p->shots_dir, 1, &j, &r->shots_kept, err) < 0) goto undo;
     /* On the disk before profile.ini makes it a profile: the copy synced
      * once for its file system, not file by file (the inis are, as they
@@ -760,7 +775,6 @@ static int import_from(dxl_profile *p, const char *game_system_dir, const dxl_mo
             goto undo;
         }
     }
-    r->saves -= r->saves_kept < r->saves ? r->saves_kept : r->saves;
     r->shots -= r->shots_kept < r->shots ? r->shots_kept : r->shots;
     rc = 0;
     dxl_made_free(&own);

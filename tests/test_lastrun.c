@@ -56,6 +56,25 @@ static void test_clear_and_shown(void) {
     scratch_remove(dir);
 }
 
+/* A last log that cannot be moved aside (here previous-run.log a folder
+ * with a file in it, on Windows one held open): started afresh, its error
+ * not the next run's. */
+static void test_rotate_refused(void) {
+    const char *dir = scratch_dir("lastrun-rotate");
+    scratch_write(dir, "logs/last-run.log", "DXEngine error: the last run's\n");
+    scratch_write(dir, "logs/previous-run.log/kept", "x");
+    char *logs = scratch_path(dir, "logs");
+    char *log = dxl_lastrun_rotate(logs);
+    CHECK_INT(scratch_exists(dir, "logs/last-run.log"), 1);
+    char err[128];
+    CHECK_INT(dxl_lastrun_error_line(log, err, sizeof err), 0);
+    CHECK(dxl_lastrun_tail(log, 5) == NULL);
+    CHECK_INT(scratch_exists(dir, "logs/previous-run.log/kept"), 1);
+    free(log);
+    free(logs);
+    scratch_remove(dir);
+}
+
 static void test_describe(void) {
     char line[256];
     dxl_lastrun r = { .known = 1, .status = 1 };
@@ -76,6 +95,27 @@ static void test_describe(void) {
     CHECK_STR(line, "killed by " END_KILL_NAME ", before its first map was in");
     char buf[64];
     CHECK_STR(dxl_end_name(END_UNNAMED, buf, sizeof buf), END_UNNAMED_NAME);
+}
+
+/* The engine's line where its audio device did not start, a clean run's,
+ * read without its prefix, and kept in the record. */
+static void test_audio_line(void) {
+    const char *dir = scratch_dir("lastrun-audio");
+    scratch_write(dir, "logs/last-run.log",
+                  "[] Game: Deus Ex\n[] Audio device not started: Failed to initialize OpenAL device\r\n"
+                  "[] Audio initialization failed.\n[] Ready\n");
+    char *log = scratch_path(dir, "logs/last-run.log");
+    dxl_lastrun r = { .ended = 1, .ready = 1, .clean = 1 };
+    CHECK_INT(dxl_lastrun_audio_line(log, r.audio, sizeof r.audio), 1);
+    CHECK_STR(r.audio, "Failed to initialize OpenAL device");
+    CHECK_INT(dxl_lastrun_save(&r, dir, NULL), 0);
+    dxl_lastrun back;
+    CHECK_INT(dxl_lastrun_load(&back, dir), 0);
+    CHECK_STR(back.audio, "Failed to initialize OpenAL device");
+    scratch_write(dir, "logs/last-run.log", "[] Audio device initialized\n");
+    CHECK_INT(dxl_lastrun_audio_line(log, r.audio, sizeof r.audio), 0);
+    free(log);
+    scratch_remove(dir);
 }
 
 /* The log's last lines, and the engine's error line, the last of them. */
@@ -127,7 +167,9 @@ static void test_log(void) {
 
 TEST_MAIN_BEGIN
     RUN(test_record);
+    RUN(test_audio_line);
     RUN(test_clear_and_shown);
     RUN(test_describe);
     RUN(test_log);
+    RUN(test_rotate_refused);
 TEST_MAIN_END

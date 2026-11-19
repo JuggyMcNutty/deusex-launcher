@@ -52,6 +52,18 @@ static void test_status(void) {
     CHECK_INT(dxl_server_player(&s, 0, who, sizeof who, NULL, NULL), 1);
     CHECK_STR(who, "Jos\xc3\xa9");
 
+    /* Its control characters, a line break among them, each a '?': no row
+     * drawn in two lines over the next. */
+    dxl_server_take_status(&s, "\\hostname\\Two\nlines\\mapname\\DX\r\\gametype\\\x1b[2J\\player_0\\a\tb"
+                               "\\AdminName\\x\x7fy");
+    CHECK_STR(s.name, "Two?lines");
+    CHECK_STR(s.map, "DX?");
+    CHECK_STR(s.game_type, "?[2J");
+    CHECK_INT(dxl_server_player(&s, 0, who, sizeof who, NULL, NULL), 1);
+    CHECK_STR(who, "a?b");
+    CHECK_INT(dxl_server_rule(&s, 0, key, sizeof key, value, sizeof value), 1);
+    CHECK_STR(value, "x?y");
+
     /* Another version: not the game's to join. */
     dxl_server_take_status(&s, "\\gamever\\1000\\minnetver\\1000\\hostname\\Old");
     CHECK_INT(dxl_server_joinable(&s), 0);
@@ -156,13 +168,13 @@ static void test_links(void) {
     CHECK_INT(dxl_server_port_of(""), 0);
     /* A favourite is an address and a port: text that is neither is not put
      * into the profile's list (bugs.md LCORE.26). */
-    char *list = dxl_favourite_toggle("1.2.3.4:7790", "9.9.9.9\nEngineArgs=--system=/tmp/evil", 7790);
+    char *list = dxl_favourite_toggle("1.2.3.4:7790", "9.9.9.9\nEngineArgs=--system=/tmp/evil", 7790, 7791);
     CHECK_STR(list, "1.2.3.4:7790");
     free(list);
-    list = dxl_favourite_toggle("1.2.3.4:7790", "Entry?listen?x=", 7790);
+    list = dxl_favourite_toggle("1.2.3.4:7790", "Entry?listen?x=", 7790, 7791);
     CHECK_STR(list, "1.2.3.4:7790");
     free(list);
-    list = dxl_favourite_toggle("1.2.3.4:7790", "dx.example.org", 7780);
+    list = dxl_favourite_toggle("1.2.3.4:7790", "dx.example.org", 7780, 7781);
     CHECK_STR(list, "1.2.3.4:7790 dx.example.org:7780");
     free(list);
     /* What begins as a link, whether it is one or not. */
@@ -189,12 +201,40 @@ static void test_join_url(void) {
 static void test_favourites(void) {
     CHECK_INT(dxl_favourite_has(NULL, "1.2.3.4", 7790), 0);
     CHECK_INT(dxl_favourite_has("1.2.3.4:77900 11.2.3.4:7790", "1.2.3.4", 7790), 0);   /* whole words alone */
-    char *l = dxl_favourite_toggle("", "1.2.3.4", 7790);
+    char *l = dxl_favourite_toggle("", "1.2.3.4", 7790, 7791);
     CHECK_STR(l, "1.2.3.4:7790");
-    char *m = dxl_favourite_toggle(l, "5.6.7.8", 7780);
+    char *m = dxl_favourite_toggle(l, "5.6.7.8", 7780, 7781);
     CHECK_STR(m, "1.2.3.4:7790 5.6.7.8:7780");
     CHECK_INT(dxl_favourite_has(m, "5.6.7.8", 7780), 1);
-    char *k = dxl_favourite_toggle(m, "1.2.3.4", 7790);
+    char *k = dxl_favourite_toggle(m, "1.2.3.4", 7790, 7791);
+    CHECK_STR(k, "5.6.7.8:7780");
+    free(k);
+    free(m);
+    free(l);
+
+    /* A query port that is not the next after the game's, as a second
+     * server on one host has: kept, and asked there; the game's port the
+     * favourite's either way. */
+    l = dxl_favourite_toggle("", "1.2.3.4", 7790, 7793);
+    CHECK_STR(l, "1.2.3.4:7790:7793");
+    CHECK_INT(dxl_favourite_has(l, "1.2.3.4", 7790), 1);
+    CHECK_INT(dxl_favourite_has(l, "1.2.3.4", 779), 0);
+    char host[64];
+    int port = 0;
+    CHECK_INT(dxl_favourite_parse(l, host, sizeof host, &port), 7793);
+    CHECK_STR(host, "1.2.3.4");
+    CHECK_INT(port, 7790);
+    CHECK_INT(dxl_favourite_parse("5.6.7.8:7780", host, sizeof host, &port), 7781);
+    CHECK_INT(port, 7780);
+    CHECK_INT(dxl_favourite_parse("5.6.7.8", host, sizeof host, &port), 0);
+    CHECK_INT(dxl_favourite_parse("5.6.7.8:x", host, sizeof host, &port), 0);
+    CHECK_INT(dxl_favourite_parse("5.6.7.8:65535", host, sizeof host, &port), 0);
+    m = dxl_favourite_toggle(l, "5.6.7.8", 7780, 0);   /* not answered: its query port not known */
+    CHECK_STR(m, "1.2.3.4:7790:7793 5.6.7.8:7780");
+    CHECK_INT(dxl_favourite_game_port(m, "1.2.3.4", 7793), 7790);
+    CHECK_INT(dxl_favourite_game_port(m, "1.2.3.4", 7791), 0);
+    CHECK_INT(dxl_favourite_game_port(m, "5.6.7.8", 7781), 7780);
+    k = dxl_favourite_toggle(m, "1.2.3.4", 7790, 7793);
     CHECK_STR(k, "5.6.7.8:7780");
     free(k);
     free(m);

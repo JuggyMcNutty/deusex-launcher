@@ -38,15 +38,18 @@ static void describe(dxl_shell *s, int i) {
         dxl_profile p;
         int opened = dxl_profile_open(&p, &ss->xdg, ids[0], NULL) == 0;
         const char *name = opened ? dxl_profile_get(&p, "Name") : NULL;
-        snprintf(s->mod_rows[i].profile_name, sizeof s->mod_rows[i].profile_name, "%.95s", name && *name ? name : ids[0]);
+        const char *shown_name = name && *name ? name : ids[0];
+        snprintf(s->mod_rows[i].profile_name, sizeof s->mod_rows[i].profile_name, "%.*s",
+                 dxl_utf8_fit(shown_name, 95), shown_name);
         if (opened) dxl_profile_free(&p);
         if (n == 1) snprintf(who, sizeof who, "its profile: %s", s->mod_rows[i].profile_name);
         else snprintf(who, sizeof who, "%d profiles play it", (int)n);
     } else {
         snprintf(who, sizeof who, "no profile yet");
     }
-    snprintf(s->mod_rows[i].detail, sizeof s->mod_rows[i].detail, "%s, %.300s  \xc2\xb7  %s  \xc2\xb7  %s",
-             dxl_mod_where_text(m->where), dxl_shell_tilde(m->dir, shown, sizeof shown),
+    const char *dir = dxl_shell_tilde(m->dir, shown, sizeof shown);
+    snprintf(s->mod_rows[i].detail, sizeof s->mod_rows[i].detail, "%s, %.*s  \xc2\xb7  %s  \xc2\xb7  %s",
+             dxl_mod_where_text(m->where), dxl_utf8_fit(dir, 300), dir,
              m->ini ? "its own settings" : "the game's settings", who);
 }
 
@@ -97,7 +100,11 @@ static void start_mod(dxl_shell *s, const dxl_mod *m) {
         return;
     }
     char id[DXL_PROFILE_ID_MAX + 1];
-    dxl_profile_new_id(&ss->xdg, m->name, id, sizeof id);
+    if (dxl_profile_new_id(&ss->xdg, m->name, id, sizeof id) != 0) {
+        dxl_install_free(&in);
+        dxl_shell_message(s, "No new profile", "Every id for a profile named %s is taken.", m->name);
+        return;
+    }
     snprintf(s->making_before, sizeof s->making_before, "%s", ss->profile.id);
     dxl_err e;
     if (dxl_run_use_profile(s->run, id, &e) != 0) {
@@ -108,7 +115,7 @@ static void start_mod(dxl_shell *s, const dxl_mod *m) {
     s->making = 1;
     dxl_mod_free(&s->making_mod);
     dxl_mod_copy(&s->making_mod, m);
-    snprintf(s->begin_name, sizeof s->begin_name, "%.95s", m->name);
+    snprintf(s->begin_name, sizeof s->begin_name, "%.*s", dxl_utf8_fit(m->name, 95), m->name);
     if (s->has_chosen) dxl_install_free(&s->chosen);
     s->chosen = in;
     s->has_chosen = 1;

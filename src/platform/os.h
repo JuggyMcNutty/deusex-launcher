@@ -27,6 +27,10 @@ long long dxl_os_ms(void);
 const char *dxl_end_name(int end, char *buf, size_t size);
 /* Whether that end was the program's own crash, not a stop. */
 int dxl_end_crashed(int end);
+/* Whether that end was a kill no program can answer (SIGKILL): from
+ * outside, where the launcher did not stop it -- the out-of-memory killer,
+ * a Force Quit. 0 where no end says so (Windows). */
+int dxl_end_killed(int end);
 
 /* The virtual-key code the keyboard layout in use gives a key by its
  * platform scancode (SDL's raw): on Windows MapVirtualKeyEx's, by which

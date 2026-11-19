@@ -292,7 +292,7 @@ void dxl_settings_row(dxl_shell *s, const dxl_setting *st, uint32_t id, dxl_rect
         char shown[64];
         snprintf(shown, sizeof shown, st->format ? st->format : "%.2f", n * (st->shown_scale ? st->shown_scale : 1));
         if (dxl_slider(ui, id, r, st->label, &n, st->min, st->max, st->step, shown, 0)) {
-            snprintf(v, sizeof v, "%.6g", n);
+            dxl_snprintf_c(v, sizeof v, "%.6g", n);
             dxl_setting_set(&s->stores, st, v);
             live(s, st);
         }

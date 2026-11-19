@@ -44,6 +44,10 @@ static dxl_rgba last_run(const dxl_shell *s, char *out, size_t size) {
         snprintf(out, size, "ended cleanly, drawn by the software renderer, %s", date);
         return t->warn;
     }
+    if (l->clean && l->audio[0]) {
+        snprintf(out, size, "ended cleanly, played without sound, %s", date);
+        return t->warn;
+    }
     if (l->clean) {
         snprintf(out, size, "ended cleanly, %s", date);
         return t->text;
