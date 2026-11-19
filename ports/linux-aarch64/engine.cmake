@@ -14,9 +14,14 @@
 cmake_host_system_information(RESULT DXL_HOST_ARCH QUERY OS_PLATFORM)
 if(DXL_HOST_ARCH MATCHES "^(aarch64|arm64)$")
     set(ENABLE_WAYLAND ON CACHE BOOL "" FORCE)
+    set(DXE_BUNDLE_OPENAL OFF CACHE BOOL "" FORCE)
 else()
     set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/toolchain-cxx.cmake" CACHE FILEPATH "" FORCE)
     set(ENABLE_WAYLAND OFF CACHE BOOL "" FORCE)
+    # OpenAL Soft built from the engine's own copy and shipped beside it as
+    # libopenal.so.1 (port.sh stages it), so that a device with none plays;
+    # a native build links the distro's.
+    set(DXE_BUNDLE_OPENAL ON CACHE BOOL "" FORCE)
 endif()
 set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 set(ENABLE_SDL2    ON CACHE BOOL "" FORCE)

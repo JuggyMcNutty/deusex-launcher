@@ -5,6 +5,20 @@ PORT_ENGINE=1
 
 native() { [ "$(uname -m)" = aarch64 ] || [ "$(uname -m)" = arm64 ]; }
 
+# With the cross-built engine its OpenAL Soft, built from the engine's own
+# copy (engine.cmake) and found by the engine's run path, the folder it is
+# in; a native build links the distro's.
+native || PORT_ENGINE_FILES="DXEngine DXEngine.pk3 libopenal.so.1"
+
+# OpenAL Soft's licence (LGPL) beside its library, in licenses/, as
+# THIRD-PARTY.md says.
+port_stage() {
+    [ ! -f "$APP/libopenal.so.1" ] || {
+        mkdir -p "$APP/licenses"
+        cp "$DX_ENGINE/Thirdparty/openal-soft/COPYING" "$APP/licenses/OpenAL-Soft-COPYING.txt"
+    }
+}
+
 # The cross toolchain: Godot's Buildroot SDK, GCC 13.2 on glibc 2.28,
 # pinned by our own SHA256 (its release publishes none), as linux-x86_64's.
 A64_SDK=aarch64-godot-linux-gnu_sdk-buildroot-2023.08.x-4
@@ -25,6 +39,7 @@ port_deps() {
     dx_fetch_buildroot "$A64_SDK" "$A64_SDK_URL" "$A64_SDK_SHA256" 2.28
     dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite sdl2 sqlite
     a64_sysroot
+    a64_pipewire_pc
     a64_sdl2
 }
 
@@ -32,15 +47,15 @@ port_deps() {
 # Debian bookworm arm64: what SDL3's and SDL2's backends are built against,
 # each library's headers and the library itself, whose soname they open at
 # run time; Vulkan's, EGL's and GL's headers for the GPU probe and the
-# engine. Over them buster's glvnd, EGL, GL and OpenAL Soft, which the engine
-# links: buster's glibc is 2.28, so they link against the SDK's. And in
+# engine. Over them buster's glvnd, EGL and GL, which the engine links:
+# buster's glibc is 2.28, so they link against the SDK's. And in
 # sdk-pkgconfig/ the SDK's own pkg-config files, saying lib64 where its
 # libraries are, for what the engine takes from the SDK (D-Bus, GLib,
 # fontconfig). Only for building: at run time the device's own libraries are
 # used.
 a64_sysroot() {
     local sdk="$DX_DEPS/toolchains/$A64_SDK/aarch64-godot-linux-gnu/sysroot"
-    local sys="$DX_DEPS/sysroots/linux-aarch64" recipe="linux-aarch64 sysroot 4 ($A64_SDK)"
+    local sys="$DX_DEPS/sysroots/linux-aarch64" recipe="linux-aarch64 sysroot 5 ($A64_SDK)"
     if [ "$(cat "$sys/.dx-recipe" 2>/dev/null)" = "$recipe" ]; then
         say "sysroot present: $sys"
         return 0
@@ -58,8 +73,7 @@ a64_sysroot() {
         libegl-dev libegl1 libgles-dev libgles2 libgl-dev libgl1 libglx-dev libopengl-dev \
         libdrm-dev libdrm2 libgbm-dev libgbm1 libffi-dev libffi8 libvulkan-dev
     say "fetching Debian buster arm64 packages ..."
-    dx_fetch_debs "$tmp/buster" buster arm64 libglvnd0 libegl1 libgl1 libglx0 libgles2 libopengl0 \
-        libopenal1 libopenal-dev libsndio7.0 libbsd0
+    dx_fetch_debs "$tmp/buster" buster arm64 libglvnd0 libegl1 libgl1 libglx0 libgles2 libopengl0
     rm -rf "$sys"; mkdir -p "$(dirname "$sys")"
     cp -a "$tmp/bookworm" "$sys"
     cp -a --remove-destination "$tmp/buster/." "$sys/"
@@ -69,6 +83,20 @@ a64_sysroot() {
     rm -rf "$tmp"
     printf '%s\n' "$recipe" > "$sys/.dx-recipe"
     say "sysroot ready: $sys"
+}
+
+# PipeWire's pkg-config files for the engine's build, whose OpenAL Soft is
+# built with its PipeWire backend (the headers alone: the library is opened
+# at run time): Debian's, from the sysroot, into sdk-pkgconfig/, their
+# prefix written so that behind the SDK's root, which the engine's
+# pkg-config puts before every path (toolchain-cxx.cmake), it leads back to
+# this sysroot. Made at each deps: no fetch.
+a64_pipewire_pc() {
+    local sys="$DX_DEPS/sysroots/linux-aarch64" f
+    for f in libpipewire-0.3 libspa-0.2; do
+        sed -E 's#^prefix=/usr$#prefix=/../../../../sysroots/linux-aarch64/usr#' \
+            "$sys/usr/lib/aarch64-linux-gnu/pkgconfig/$f.pc" > "$sys/sdk-pkgconfig/$f.pc"
+    done
 }
 
 # The engine's SDL2 (engine.cmake): cmake/deps.lock's, built with the SDK

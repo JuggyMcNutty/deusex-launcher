@@ -1153,8 +1153,6 @@ Each open in Port Ex Machina's
   moved.
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
-- **D.90**: the engine needs OpenAL Soft installed, which a stock Ubuntu
-  desktop lacks, and the message names no package to install.
 - **D.94**: a start whose window cannot open plays nothing, even where the
   profile could play.
 - **D.95**: a launcher killed while its game plays leaves no running mark,

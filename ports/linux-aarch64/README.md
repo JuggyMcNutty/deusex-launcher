@@ -9,9 +9,11 @@ userland, Mesa and a desktop.
 The launcher is DXLauncher, linux-x86_64's
 ([`docs/LAUNCHER.md`](../../docs/LAUNCHER.md)). It and the engine
 cross-build warning-free under GCC 13.2, needing glibc 2.27 at most: the
-launcher no library but the C library's, the engine the device's X11,
-OpenAL, EGL and GL, D-Bus, GLib, fontconfig and FreeType. Untried on an
-aarch64 device.
+launcher no library but the C library's, the engine the device's X11, EGL
+and GL, D-Bus, GLib, fontconfig and FreeType, its sound library, OpenAL
+Soft, its own: `libopenal.so.1`, built from the engine's copy and shipped
+beside it, which the engine finds by its run path, the folder it is in.
+Untried on an aarch64 device.
 
 ## Build and run
 
@@ -48,9 +50,9 @@ gives it a scratch home, `build/linux-aarch64/fresh-home`.
 |---|---|
 | `port.cmake` | a cross build has SDL3, FreeType, SDL3_ttf and libxmp-lite built in from `cmake/deps.lock`'s sources, SDL3's window and audio backends built against `deps/sysroots/linux-aarch64`'s headers and opened at run time, and a 2.28 ceiling, which `CMakeLists.txt` checks the programs against after each build (`scripts/check-abi.sh`); a native build none of it, the device's own libraries or their sources, with no ceiling |
 | `toolchain-c.cmake` | Godot's Buildroot SDK, GCC 13.2 / glibc 2.28, as linux-x86_64's, finding the sysroot's libraries in their multiarch folders; does nothing on an aarch64 host |
-| `toolchain-cxx.cmake` | the engine's: the same SDK, linking the SDK's own X11, Xi, Xext, D-Bus, GLib, fontconfig and FreeType, and the sysroot's EGL, GL and OpenAL Soft, buster's, at glibc 2.28; libstdc++ and libgcc static; does nothing on an aarch64 host |
-| `engine.cmake` | the engine: SDL2's and X11's windows, SDL2's the one the launcher asks for at run time; cross-built with `toolchain-cxx.cmake` and without the engine's own Wayland window, which needs waylandpp, as linux-x86_64's; natively with it |
-| `port.sh` | `deps` fetches the toolchain and the sources, makes the sysroot from Debian bookworm's arm64 packages, each checked against the SHA256 its suite's pinned index gives -- the headers and libraries of X11, Wayland, libdecor, ALSA, PulseAudio, PipeWire, udev, D-Bus, libusb, EGL, GL, GLES, DRM and GBM, and Vulkan's headers -- with buster's glvnd, EGL, GL and OpenAL Soft over them and the SDK's pkg-config files in `deps/sysroots/linux-aarch64/sdk-pkgconfig`, and builds the engine's SDL2 into `deps/prefix/linux-aarch64`, static, its backends opened at run time; `run` works natively |
+| `toolchain-cxx.cmake` | the engine's: the same SDK, linking the SDK's own X11, Xi, Xext, D-Bus, GLib, fontconfig and FreeType, and the sysroot's EGL and GL, buster's, at glibc 2.28; libstdc++ and libgcc static; does nothing on an aarch64 host |
+| `engine.cmake` | the engine: SDL2's and X11's windows, SDL2's the one the launcher asks for at run time; cross-built with `toolchain-cxx.cmake`, without the engine's own Wayland window, which needs waylandpp, as linux-x86_64's, and with OpenAL Soft built from the engine's own copy (`DXE_BUNDLE_OPENAL`) and shipped beside it; natively with that window and the distro's OpenAL Soft |
+| `port.sh` | `deps` fetches the toolchain and the sources, makes the sysroot from Debian bookworm's arm64 packages, each checked against the SHA256 its suite's pinned index gives -- the headers and libraries of X11, Wayland, libdecor, ALSA, PulseAudio, PipeWire, udev, D-Bus, libusb, EGL, GL, GLES, DRM and GBM, and Vulkan's headers -- with buster's glvnd, EGL and GL over them and the SDK's pkg-config files in `deps/sysroots/linux-aarch64/sdk-pkgconfig`, PipeWire's two beside them for the engine's OpenAL Soft, and builds the engine's SDL2 into `deps/prefix/linux-aarch64`, static, its backends opened at run time; a cross-built engine's files staged are `DXEngine`, `DXEngine.pk3` and `libopenal.so.1`, with OpenAL Soft's licence in `licenses/`; `run` works natively |
 | the shared files touched | `src/app/run.c` (`DXE_DISPLAY_BACKEND=SDL2` for the engine's window, and its comment), `src/core/keys.{c,h}` (their comments name DXWidgets' SDL2 window, whose key names match SDL3's), `CMakePresets.json` (the preset), `cmake/deps.lock`, `ports/linux-x86_64/port.cmake` (the host build's: native, no ceiling), `THIRD-PARTY.md` (the engine's SDL2): a cherry-pick from linux-x86_64 may meet them |
 
 The glibc 2.28 ceiling keeps the cross-built programs off newer glibc

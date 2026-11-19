@@ -95,9 +95,8 @@ Take `DX-linux-aarch64.tar.gz` from
 [Port Ex Machina's releases](https://github.com/JuggyMcNutty/port-ex-machina/releases):
 DXLauncher with DXEngine. Unpack it anywhere and run `deusex-launcher` in
 its `DXLauncher` folder; its About page adds it to the app menu. It needs
-glibc 2.28 or newer, Mesa,
-OpenAL Soft (`libopenal.so.1`: Debian's and Ubuntu's `libopenal1`, Fedora's
-`openal-soft`, Arch's `openal`), PipeWire or PulseAudio, and a desktop.
+glibc 2.28 or newer, Mesa, PipeWire, PulseAudio or ALSA, and a desktop: the
+engine's sound library, OpenAL Soft, comes with it.
 This repository's releases tagged `linux-aarch64-<date>-<commit>` have the
 launcher alone.
 

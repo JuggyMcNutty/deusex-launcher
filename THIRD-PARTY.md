@@ -56,7 +56,11 @@ libxmp-lite's notice:
 
 `DXEngine` and `DXEngine.pk3` are [DXEngine](https://github.com/JuggyMcNutty/DXEngine)'s, under
 the zlib licence, with the third-party code it carries: the notices of each are in
-`DXEngine-LICENSE.md` beside them.
+`DXEngine-LICENSE.md` beside them. `libopenal.so.1`, beside a cross-built engine, is
+[OpenAL Soft](https://openal-soft.org) 1.23.1, built unchanged from the copy DXEngine carries
+(its `Thirdparty/openal-soft`, at the commit the engine was built from), under the GNU Library
+General Public License, version 2 or later, `licenses/OpenAL-Soft-COPYING.txt`: a library of
+its own, which another build of it may replace.
 
 ## The game
 
