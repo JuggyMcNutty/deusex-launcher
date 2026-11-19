@@ -12,8 +12,9 @@ wears the game's look and sound.
        alt="Home: the game's logo and buttons, the profile, its latest save">
 </p>
 
-**You need your own copy of Deus Ex, version 1112fm** (1002f, the first
-release, runs with a warning). None of the game's files are included.
+**You need your own copy of Deus Ex, version 1112fm**, GOG's or Steam's
+(1002f, the first release, runs with a warning). None of the game's files are
+included.
 DXLauncher is part of
 [Port Ex Machina](https://github.com/JuggyMcNutty/port-ex-machina). Made with
 AI assistance.
@@ -34,7 +35,9 @@ through end to end ([where the engine differs](https://github.com/JuggyMcNutty/D
   command line names (`INI=`, `USERINI=`).
 - **CPU modes**: spruceOS's Smart, Performance (all four cores at 1.8 GHz)
   or Overclock (2.0 GHz, the default) while the game runs; the menu's own
-  power-save comes back as the game ends.
+  power-save comes back as the game ends, or, after a launcher killed
+  mid-game, as the next game ends
+  ([the game hook](docs/LAUNCHER.md#the-game-and-the-launcher)).
 - **The device's defaults**: the scene drawn at two thirds of the screen's
   size and scaled up, anti-aliasing and VSync off.
 - **Profiles**: one for each way of playing, with its own settings, keys,
@@ -89,7 +92,10 @@ app. On the SD card, `/mnt/SDCARD` on the device and the card's own top
 folder in a PC's card reader:
 
 1. Unzip it into `/mnt/SDCARD/App/`, which makes the app's folder,
-   `/mnt/SDCARD/App/DeusEx`.
+   `/mnt/SDCARD/App/DeusEx`: `/mnt/SDCARD/App/DeusEx/config.json` is there
+   when it is right. An unzip that makes a folder of the zip's name first
+   (Windows' Extract All, `DX-trimui-smartpro`) puts the app one folder too
+   deep: move its `DeusEx` up into `App`.
 2. Copy what the game's folder holds, a GOG or Steam install's `System`,
    `Maps`, `Textures` and the rest, into `/mnt/SDCARD/Roms/PORTS/DeusEx`, so
    that `/mnt/SDCARD/Roms/PORTS/DeusEx/System/DeusEx.exe` is there.
@@ -97,6 +103,12 @@ folder in a PC's card reader:
 
 This repository's releases tagged `trimui-smartpro-<date>-<commit>` have the
 launcher alone.
+
+To update, unzip the new one into `/mnt/SDCARD/App/` over the old, never
+deleting `DeusEx` first: the profiles, their settings and saves are in its
+`home` folder
+([where everything lives](docs/LAUNCHER.md#where-everything-lives)).
+To remove it, delete `/mnt/SDCARD/App/DeusEx`, which takes them with it.
 
 ## Building
 
