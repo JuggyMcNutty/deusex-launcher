@@ -72,6 +72,30 @@ typedef struct {
     int            failed;
 } browse_job;
 
+/* The import of a profile being made, in its worker (core/profile.h's
+ * dxl_profile_import_watched): into a profile of its own, from copies of
+ * the install's folder and the mod; its progress under its lock, an event
+ * telling the window each time it has taken the last. The window waits on
+ * it as it closes. */
+typedef struct {
+    SDL_Thread    *thread;
+    SDL_Mutex     *lock;
+    SDL_AtomicInt  done;
+    atomic_int     stop;
+    int            told;           /* an event on its way, not taken yet */
+    Uint32         event;
+    int            files, files_total;
+    long long      bytes, bytes_total;
+    dxl_profile    profile;
+    char          *system_dir;
+    dxl_mod        mod;
+    int            has_mod;
+    dxl_made       made;
+    dxl_import     report;
+    dxl_err        err;
+    int            rc;
+} make_job;
+
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
@@ -109,6 +133,8 @@ struct dxl_window {
      * browser's. */
     find_job      *find;
     browse_job    *browse;
+    /* Your profile's import, in its worker; NULL for none. */
+    make_job      *make;
 
     /* The system's folder dialog's answer, from its thread. */
     SDL_Mutex     *pick_lock;
@@ -523,6 +549,128 @@ static void browse_collect(dxl_window *w) {
     dxl_shell_browsed(&w->shell, failed ? error : NULL);
 }
 
+/* ---- Your profile's import ---------------------------------------------- */
+
+static int make_told(void *ctx, int files, int files_total, long long bytes, long long bytes_total) {
+    make_job *j = ctx;
+    SDL_LockMutex(j->lock);
+    j->files = files;
+    j->files_total = files_total;
+    j->bytes = bytes;
+    j->bytes_total = bytes_total;
+    if (!j->told) {
+        SDL_Event e;
+        SDL_zero(e);
+        e.type = j->event;
+        SDL_PushEvent(&e);
+        j->told = 1;
+    }
+    SDL_UnlockMutex(j->lock);
+    return atomic_load(&j->stop);
+}
+
+static int SDLCALL make_main(void *p) {
+    make_job *j = p;
+    j->rc = dxl_profile_import_watched(&j->profile, j->system_dir, j->has_mod ? &j->mod : NULL, make_told, j,
+                                       &j->made, &j->report, &j->err);
+    SDL_SetAtomicInt(&j->done, 1);
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = j->event;
+    SDL_PushEvent(&e);
+    return 0;
+}
+
+static void make_free(make_job *j) {
+    SDL_DestroyMutex(j->lock);
+    free(j->system_dir);
+    if (j->has_mod) dxl_mod_free(&j->mod);
+    free(j);
+}
+
+static int start_make(dxl_shell *s) {
+    dxl_window *w = s->window;
+    dxl_session *ss = &s->run->session;
+    if (w->make) return 0;
+    make_job *j = dxl_xmalloc(sizeof *j);
+    memset(j, 0, sizeof *j);
+    atomic_init(&j->stop, 0);
+    j->event = w->job_event;
+    j->lock = SDL_CreateMutex();
+    j->system_dir = dxl_xstrdup(s->chosen.system_dir);
+    j->has_mod = s->making_mod.dir && dxl_mod_check(s->making_mod.dir, &j->mod, NULL) == 0;
+    /* What the screens read of it each frame stays the session's, and the
+     * window's alone: the worker's own of the same id is the session's once
+     * the profile is made (dxl_shell_copied). */
+    if ((s->making_mod.dir && !j->has_mod) || dxl_profile_open(&j->profile, &ss->xdg, ss->profile.id, NULL) != 0) {
+        make_free(j);
+        return -1;
+    }
+    j->thread = j->lock ? SDL_CreateThread(make_main, "dxl-make", j) : NULL;
+    if (!j->thread) {
+        dxl_log("no thread for the profile's copy (%s): it is made now", SDL_GetError());
+        dxl_profile_free(&j->profile);
+        make_free(j);
+        return -1;
+    }
+    w->make = j;
+    s->copying = 1;
+    s->copy_files = 0;
+    s->copy_bytes = 0;
+    s->copy_files_total = s->plan.files;
+    s->copy_bytes_total = s->plan.bytes;
+    return 0;
+}
+
+static void cancel_make(dxl_shell *s) {
+    dxl_window *w = s->window;
+    if (w->make) atomic_store(&w->make->stop, 1);
+}
+
+/* The import's progress, and once it is done its end, to the page. */
+static void make_collect(dxl_window *w) {
+    make_job *j = w->make;
+    if (!j) return;
+    SDL_LockMutex(j->lock);
+    w->shell.copy_files = j->files;
+    w->shell.copy_bytes = j->bytes;
+    if (j->files_total) {
+        w->shell.copy_files_total = j->files_total;
+        w->shell.copy_bytes_total = j->bytes_total;
+    }
+    j->told = 0;
+    SDL_UnlockMutex(j->lock);
+    if (!SDL_GetAtomicInt(&j->done)) return;
+    SDL_WaitThread(j->thread, NULL);
+    w->make = NULL;
+    /* A Cancel that came after the last file was copied -- while the copy
+     * was synced, or before this frame -- is a Cancel still: what the
+     * import made is taken away, as the worker takes it at a file. */
+    int cancelled = atomic_load(&j->stop) != 0;
+    if (cancelled && j->rc == 0) {
+        dxl_profile_unmake(&j->made);
+        j->rc = -1;
+        dxl_err_set(&j->err, "the copy was cancelled");
+    }
+    dxl_shell_copied(&w->shell, &j->profile, &j->made, &j->report, j->rc ? dxl_err_msg(&j->err) : NULL, cancelled);
+    make_free(j);
+}
+
+/* The window going while the import copies: stopped, waited for, and what
+ * it made, a profile with no profile.ini yet, taken away. */
+static void make_stop(dxl_window *w) {
+    make_job *j = w->make;
+    if (!j) return;
+    w->make = NULL;
+    atomic_store(&j->stop, 1);
+    SDL_WaitThread(j->thread, NULL);
+    if (j->rc == 0) dxl_profile_unmake(&j->made);
+    dxl_profile_free(&j->profile);
+    make_free(j);
+    w->shell.copying = 0;
+    dxl_log("the profile's copy: given up, the window closing");
+}
+
 /* ---- the app menu's entry ------------------------------------------------- */
 
 static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
@@ -810,6 +958,8 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->start_probe = start_probe;
     s->start_find = start_find;
     s->start_browse = start_browse;
+    s->start_make = start_make;
+    s->cancel_make = cancel_make;
     s->set_big = set_big;
     s->desktop_entry = dxl_desktop_installed(r->session.xdg.data_home);
     return 0;
@@ -846,6 +996,7 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         probe_collect(w);
         find_collect(w);
         browse_collect(w);
+        make_collect(w);
     }
 }
 
@@ -913,6 +1064,7 @@ static int view(void *ctx, dxl_run *r, dxl_view which) {
         }
     }
     listen_stop(w);
+    make_stop(w);
     dxl_shell_leave(s);
     /* Play: the music faded as the window goes. */
     if (s->result == 1 && s->audio) {

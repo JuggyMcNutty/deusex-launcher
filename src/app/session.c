@@ -128,15 +128,25 @@ int dxl_session_check_install(dxl_session *s) {
 
 int dxl_session_make_profile(dxl_session *s, const dxl_install *in, const dxl_mod *mod, const char *name,
                              dxl_import *report, dxl_err *err) {
-    int made = mod ? dxl_profile_import_mod(&s->profile, in->system_dir, mod, 0, report, err)
-                   : dxl_profile_import(&s->profile, in->system_dir, 0, report, err);
-    if (made != 0) return -1;
+    dxl_made made;
+    if (dxl_profile_import_watched(&s->profile, in->system_dir, mod, NULL, NULL, &made, report, err) != 0)
+        return -1;
+    return dxl_session_made_profile(s, in, mod, name, &made, report, err);
+}
+
+int dxl_session_made_profile(dxl_session *s, const dxl_install *in, const dxl_mod *mod, const char *name,
+                             dxl_made *made, const dxl_import *report, dxl_err *err) {
     char id[96];
     dxl_session_remember_install(s, in, id, sizeof id);
     dxl_profile_set(&s->profile, "Name", name && *name ? name : mod ? mod->name : "Deus Ex");
     dxl_profile_set(&s->profile, "Install", id);
     if (mod) dxl_profile_set(&s->profile, "Mod", mod->dir);
-    if (dxl_profile_save(&s->profile, err) != 0) return -1;
+    /* No profile.ini, no profile: what the import made goes with it. */
+    if (dxl_profile_save(&s->profile, err) != 0) {
+        dxl_profile_unmake(made);
+        return -1;
+    }
+    dxl_made_free(made);
     dxl_ini_set(s->ini, LAUNCHER, "Profile", s->profile.id);
     /* launcher.ini with it at once, the install the profile names in it,
      * whatever stops the run after (an engine refused). */

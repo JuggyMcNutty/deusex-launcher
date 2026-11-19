@@ -65,6 +65,11 @@ int  dxl_session_check_install(dxl_session *s);
  * (core/profile.h's import). */
 int  dxl_session_make_profile(dxl_session *s, const dxl_install *in, const dxl_mod *mod, const char *name,
                               dxl_import *report, dxl_err *err);
+/* Its second half, once the profile's import (dxl_profile_import_watched)
+ * made what made holds: profile.ini, launcher.ini. made is kept, or taken
+ * away when profile.ini cannot be written, and freed either way. */
+int  dxl_session_made_profile(dxl_session *s, const dxl_install *in, const dxl_mod *mod, const char *name,
+                              dxl_made *made, const dxl_import *report, dxl_err *err);
 /* The launcher's mods folder, <data>/mods (core/mods.h). Caller frees. */
 char *dxl_session_mods_dir(const dxl_session *s);
 /* The mods to offer: the install's folder's, the launcher's mods folder's,
