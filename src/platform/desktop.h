@@ -31,7 +31,13 @@ char *dxl_desktop_exec(const char *program);
 int  dxl_desktop_install(const char *data_home, const char *template_path, const char *program, dxl_err *err);
 /* The entry and the icons, gone. */
 int  dxl_desktop_remove(const char *data_home, dxl_err *err);
-int  dxl_desktop_installed(const char *data_home);
+/* Whether the menu has the entry, and whose it is: none, program's, or one
+ * that starts another (a copy of the app moved, deleted or unpacked again
+ * elsewhere since). */
+#define DXL_DESKTOP_NONE  0
+#define DXL_DESKTOP_OURS  1
+#define DXL_DESKTOP_OTHER 2
+int  dxl_desktop_installed(const char *data_home, const char *program);
 
 /* The menu the entry goes in, as the window names it: "the app menu" here,
  * "the Start menu" on Windows. */

@@ -5,8 +5,10 @@
  *   --version   (any mode) answers as DXEngine does; DXL_STUB_FEATURES
  *               the features (default "userdir"); with DXL_STUB_VERSION_ERR
  *               set, that line on stderr and exit 127, as a program the
- *               loader could not start; with DXL_STUB_VERSION_EXIT, that
- *               exit code alone, as Windows' loader ends one (0xC0000135)
+ *               loader could not start (with DXL_STUB_VERSION_SLOW, asleep
+ *               after it, as a program that gives no answer); with
+ *               DXL_STUB_VERSION_EXIT, that exit code alone, as Windows'
+ *               loader ends one (0xC0000135)
  *   args        prints its working folder, then its words one a line, as
  *               the engine splits its command line
  *               (any other mode prints its words too with DXL_STUB_ARGS set)
@@ -185,6 +187,10 @@ int main(int argc, char **argv) {
             const char *err = getenv("DXL_STUB_VERSION_ERR");
             if (err && *err) {
                 fprintf(stderr, "%s\n", err);
+#ifndef _WIN32
+                if (getenv("DXL_STUB_VERSION_SLOW"))
+                    for (;;) sleep(1);
+#endif
                 return 127;
             }
             const char *code = getenv("DXL_STUB_VERSION_EXIT");

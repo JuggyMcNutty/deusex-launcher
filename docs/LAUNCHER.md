@@ -55,8 +55,11 @@ which the harness's runs read: an engine whose `--version` lacks
 
 A file the launcher writes is written whole or not at all, the icon's PNGs
 too: to a new file beside it, synced, then renamed over it
-(`dxl_path_write_atomic`); a link is written through, its target replaced,
-or made where the link points when it is not there yet, and the link kept;
+(`dxl_path_write_atomic`), its name the launcher's own (`.<file>.dxl-` and
+six characters), one that a write killed before its rename left there swept
+by the file's next write once a minute old; a link is written
+through, its target replaced, or made where the link points when it is not
+there yet, and the link kept;
 one that cannot be followed, a loop, is refused. It keeps the mode the old
 one had, set only where the new one's differs; a filesystem with no
 permissions to keep (exFAT, FAT) refusing that is no failure. A file the
@@ -186,7 +189,9 @@ from then on, as Settings' Launcher page's The game's folder does, and
 Home's The game's folder... when the install is not there to play: The
 game, the one chosen its install from then on, and back to the page it came
 from. A profile whose install is not there to play (moved or deleted) opens
-on The game.
+on The game; one whose install's folder `launcher.ini`, which alone keeps
+it, has no more (deleted, or the profiles copied without it) opens there
+saying so, to choose the game again.
 
 ## Profiles
 
@@ -208,8 +213,11 @@ marked; its buttons act on the one chosen, the row last focused:
   `CachePath`, the engine folder's `Settings.json` and a class's config
   files -- and none of its saves, shots or logs (`dxl_profile_copy`).
 - **Name**, under the list: the chosen one's, edited in place.
-- **Delete...**: the chosen one's four folders to the desktop's trash, all
-  or none (`src/platform/posix/trash.c`); never the one in use.
+- **Delete...**: the chosen one's settings, data and state folders to the
+  desktop's trash, all or none (`src/platform/posix/trash.c`), its cache
+  folder, the net's downloads, then deleted, as it may be on a file system
+  of its own that the trash does not reach, and said where it could not be
+  removed; never the one in use.
 
 ## Mods
 
@@ -410,7 +418,9 @@ handed to a game that plays.
 5. **The engine** asked what it can do (`--version`), and started: or
    refused, saying why -- not there, one this system cannot start (a glibc
    newer than its own, a library it lacks: the loader's words, which the
-   launcher keeps), no DXEngine, or one without `userdir`.
+   launcher keeps, past a notice that it ignored a preload, as Steam's
+   32-bit overlay is in every 64-bit program), one that gives no answer in
+   5 s, no DXEngine, or one without `userdir`.
 6. **The end**: the inis read again, as the engine left them. A clean end
    (exit 0, with the engine's "ready" seen) takes `Running.ini` away and
    runs at once a `RELAUNCH` the engine passed on, as the original's
@@ -426,7 +436,10 @@ The launcher's own options start with `--` (`--game=`, `--profile=`,
 which reaches the engine whole in `--cmdline`. Exit codes: the game's own
 status, or 1 for a stop at a screen, 2 for an option it does not know, 3
 for a screen that is due with no window (`dxl-cli`'s, or a window that
-does not open), 4 for no install or engine to play.
+does not open), 4 for no install or engine to play. A start that stops
+short says why on stderr and in `launcher.log`, and `deusex-launcher` in a
+message box of the system's too, with why its window did not open where it
+did not, for a player who started it from the desktop.
 
 ## The window
 
@@ -600,9 +613,11 @@ High, as the original's Render.dll hands them over, which the row's help
 says. Its
 Renderer offers the engine's renderers that run here, Vulkan, OpenGL 4.2,
 OpenGL ES 3.1, and Software, which draws on the CPU and needs nothing of the
-GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds the GPU's in a
-child process as the page needs them, OpenGL and OpenGL ES each by a
-context made at its version, so a driver below it is not offered, and a
+GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds the GPU's as the
+page needs them, Vulkan and EGL each in a child process of its own, so a
+driver that crashes or hangs loses its own API's answers alone, OpenGL and
+OpenGL ES each by a context made at its version, so a driver below it is
+not offered, and a
 profile made where it finds none begins on Software. A profile's
 renderer that does not run here shows as it is, "(not on this machine)"
 after it. The row is
@@ -759,7 +774,9 @@ id, so the desktop puts the two together; its Big screen action starts it
 with `--big-screen`, and its MimeType makes it the handler of `deusex://`
 links, `update-desktop-database` (where the desktop has it) putting it in
 the applications folder's cache. `--remove-desktop`, or the button again,
-takes them away; nothing else writes them.
+takes them away; nothing else writes them. An entry whose `Exec` names
+another program (a copy of the app moved, deleted or unpacked again
+elsewhere) is not this copy's: About's button then updates it to this one.
 
 ## The game and the launcher
 
@@ -793,7 +810,9 @@ engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
 The launcher waits on the line and its own socket, waking once a second
 besides. Stopped (SIGINT, SIGTERM, SIGHUP), it passes SIGTERM on, and
 SIGKILL 5 s later to an engine still running: DXEngine quits on
-SIGTERM at its next frame, so only a stuck one is killed.
+SIGTERM at its next frame, so only a stuck one is killed. A stop sent to
+the launcher and the engine at once (a logout's, a shutdown's) reaches the
+engine twice, which takes the two for one stop.
 
 ## Recovery
 
@@ -935,7 +954,9 @@ as it was, and makes, lists and copies profiles; an import that fails on a
 save it cannot read, one cancelled, one after another killed half-way and
 a profile whose `profile.ini` cannot be written, the player's own links
 kept through each; `test_trash` puts folders
-in a scratch trash; `test_gpu_probe` probes this machine's GPU with Mesa's
+in a scratch trash; `test_gpu_probe` probes this machine's GPU, with a
+Vulkan driver of its own that crashes as it loads too, whose probe keeps
+the OpenGL answers, and with Mesa's
 versions set at OpenGL 4.2 and ES 3.1, which it then offers, and lowered
 below them, which it then does not (skipped where an OpenGL ES context the
 test makes itself is no GPU's of Mesa's; a probe that does not report back
@@ -1069,22 +1090,8 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LAPP.22**: a logout or shutdown signals the engine twice, killing it
-  before it saves its settings.
-- **LAPP.23**: a start that fails with no window up says why only in the
-  terminal and the log.
-- **LAPP.24**: under Steam a refused or slow engine is named by the
-  overlay's loader notice, not by its own fault.
-- **LAPP.25**: with the launcher's own settings file lost, every profile
-  says it has no game.
-- **LAPP.26**: a profile cannot be deleted when one of its folders is on
-  another file system than the trash.
-- **LAPP.28**: the app-menu entry is not checked against where the app now
-  is, so a moved copy keeps a dead entry and calls it its own.
-- **LAPP.29**: a write killed half-way leaves a temporary file beside the
-  ini, never swept; very long trash paths are cut unchecked.
-- **LAPP.30**: a Vulkan driver that crashes the GPU probe loses its OpenGL
-  answers too.
+- **LAPP.26**: a profile cannot be deleted when its settings, data or
+  state folder is on another file system than the trash.
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.

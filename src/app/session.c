@@ -7,6 +7,7 @@
 #include "core/paths.h"
 #include "platform/trash.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -248,9 +249,28 @@ int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
     char *dirs[4];
     dxl_profile_folders(&p, dirs);
     dxl_profile_free(&p);
-    /* All of them, or none. */
+    /* The settings, data and state folders, all of them or none. The cache
+     * folder, the net's downloads alone, made again at need, is deleted
+     * outright after them: it is often on a file system of its own (a
+     * tmpfs, a subvolume), which no rename into the trash reaches (bugs.md
+     * LAPP.26). */
+#ifdef _WIN32
+    /* Windows' Recycle Bin takes a folder of any drive: all four go there. */
     int rc = dxl_trash_all(dirs, 4, s->xdg.data_home, err);
     if (rc == 0) dxl_log("profile %s: to the trash", id);
+#else
+    int rc = dxl_trash_all(dirs, 3, s->xdg.data_home, err);
+    if (rc == 0) {
+        dxl_log("profile %s: to the trash", id);
+        if (dxl_fs_remove_tree(dirs[3]) != 0) {
+            /* The profile is gone; what is left of its cache is said, for
+             * the player to remove: nothing lists it, and it keeps its id. */
+            dxl_log("warning: %s is left: %s", dirs[3], strerror(errno));
+            dxl_err_set(err, "its cache folder could not be removed: %s", dirs[3]);
+            rc = 1;
+        }
+    }
+#endif
     for (int i = 0; i < 4; i++) free(dirs[i]);
     return rc;
 }

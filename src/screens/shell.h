@@ -384,7 +384,9 @@ typedef struct dxl_shell {
      * NULL offscreen, where the buttons do nothing. */
     void       (*pick_folder)(struct dxl_shell *s);
     void       (*desktop)(struct dxl_shell *s, int install);
-    int          desktop_entry;   /* the app menu has the launcher's entry */
+    /* The app menu's entry: DXL_DESKTOP_NONE, _OURS, or _OTHER, one that
+     * starts another copy of the app (platform/desktop.h). */
+    int          desktop_entry;
     void        *window;
 } dxl_shell;
 
@@ -472,6 +474,8 @@ void dxl_page_home(dxl_shell *s, dxl_rect r);
 void dxl_page_home_enter(dxl_shell *s);
 void dxl_page_welcome(dxl_shell *s, dxl_rect r);
 void dxl_page_find(dxl_shell *s, dxl_rect r);
+/* What The game says of the profile's game, before a repoint. */
+void dxl_page_find_repoint_line(const dxl_shell *s, char *out, size_t size);
 void dxl_page_find_enter(dxl_shell *s);
 /* The finder asked for, the game page's list emptied for what it finds:
  * the places core/finder.h has, with --game's folder and launcher.ini's

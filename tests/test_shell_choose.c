@@ -35,6 +35,31 @@ static void repoint_not_kept(const char *tag, const char *had) {
     CHECK_INT(dxl_fs_remove_tree(home), 0);
 }
 
+/* A profile whose install's folder launcher.ini kept, launcher.ini gone:
+ * The game says the launcher has lost it, not that the profile has
+ * no game (bugs.md LAPP.25). */
+static void test_repoint_unknown(void) {
+    const char *home = scratch_dir("repoint-unknown");
+    dxl_env_set("DXL_HOME", home);
+    static dxl_run r;
+    memset(&r, 0, sizeof r);
+    dxl_err e;
+    CHECK_INT(dxl_session_open(&r.session, NULL, &e), 0);
+    dxl_shell_init(&s, "test");
+    s.run = &r;
+    s.repoint = 1;
+    char line[1600];
+    dxl_page_find_repoint_line(&s, line, sizeof line);
+    CHECK_STR(line, "The profile's game is not there to play: it has none.");
+    dxl_profile_set(&r.session.profile, "Install", "1112fm-0badf00d");
+    CHECK_INT(dxl_session_check_install(&r.session), -1);
+    dxl_page_find_repoint_line(&s, line, sizeof line);
+    CHECK(strstr(line, "has lost where the profile's game is") != NULL);
+    dxl_session_close(&r.session);
+    dxl_env_set("DXL_HOME", NULL);
+    CHECK_INT(dxl_fs_remove_tree(home), 0);
+}
+
 static void test_repoint_not_kept(void) {
     repoint_not_kept("repoint-had", "1112fm-0badf00d");
     repoint_not_kept("repoint-none", NULL);
@@ -42,4 +67,5 @@ static void test_repoint_not_kept(void) {
 
 TEST_MAIN_BEGIN
     RUN(test_repoint_not_kept);
+    RUN(test_repoint_unknown);
 TEST_MAIN_END

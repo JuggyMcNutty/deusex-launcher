@@ -573,13 +573,18 @@ static void test_profiles(void) {
     char *info = read_home("data/Trash/info/deus-ex-copy.trashinfo");
     CHECK(strstr(info, "/config/dxlauncher/profiles/deus-ex-copy\n") != NULL);
     free(info);
+    /* Its settings, data and state folders in the trash; its cache folder
+     * deleted, not a fourth there. */
     for (int i = 2; i <= 4; i++) {
         char rel[96];
         snprintf(rel, sizeof rel, "data/Trash/info/deus-ex-copy.%d.trashinfo", i);
         char *p = home_file(rel);
-        CHECK(access(p, F_OK) == 0);
+        CHECK_INT(access(p, F_OK) == 0, i <= 3);
         free(p);
     }
+    char *cache = home_file("cache/dxlauncher/profiles/deus-ex-copy");
+    CHECK(access(cache, F_OK) != 0);
+    free(cache);
 }
 
 /* A mod of its own made in the launcher's mods folder: its profile made

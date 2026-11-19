@@ -16,6 +16,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -78,12 +79,52 @@ static int probe_at(dxl_gpu_probe *p, const char *gl, const char *gles) {
     return rc;
 }
 
+/* A Vulkan driver that crashes as it loads, the only one the loader is
+ * given: Vulkan's answers lost, and with a note, EGL's kept, as the probe
+ * before found them (bugs.md LAPP.30). Where that probe found no Vulkan
+ * device, a loader to load the driver may not be there: not asked. */
+static void crashing_vulkan(const dxl_gpu_probe *before) {
+    if (!before->vulkan && !before->vulkan_cpu) {
+        printf("  no Vulkan device here: a crashing driver not tried\n");
+        return;
+    }
+    char json[300];
+    snprintf(json, sizeof json, "%s/dxl-crash-icd-%ld.json", dxl_test_tmp(), (long)getpid());
+    FILE *f = fopen(json, "w");
+    CHECK(f != NULL);
+    if (!f) return;
+    fprintf(f, "{\"file_format_version\": \"1.0.0\", \"ICD\": {\"library_path\": \"%s\", "
+               "\"api_version\": \"1.0.0\"}}\n", DXL_CRASH_ICD);
+    fclose(f);
+    setenv("VK_DRIVER_FILES", json, 1);
+    setenv("VK_ICD_FILENAMES", json, 1);
+    struct rlimit core, none = { 0, 0 };
+    getrlimit(RLIMIT_CORE, &core);
+    setrlimit(RLIMIT_CORE, &none);
+    dxl_gpu_probe p;
+    CHECK_INT(dxl_gpu_probe_run(&p, 10000), 0);
+    setrlimit(RLIMIT_CORE, &core);
+    unsetenv("VK_DRIVER_FILES");
+    unsetenv("VK_ICD_FILENAMES");
+    remove(json);
+    CHECK_INT(p.probed, 1);
+    CHECK_INT(p.vulkan, 0);
+    CHECK_INT(p.vulkan_cpu, 0);
+    CHECK(strstr(p.note, "Vulkan detection crashed") != NULL);
+    CHECK_INT(p.gles, before->gles);
+    CHECK_STR(p.gles_version, before->gles_version);
+    CHECK_STR(p.gles_renderer, before->gles_renderer);
+    CHECK_INT(p.gl, before->gl);
+    CHECK_STR(p.gl_version, before->gl_version);
+}
+
 TEST_MAIN_BEGIN
     dxl_gpu_probe p;
     int rc = dxl_gpu_probe_run(&p, 10000);
     if (rc != 0) fprintf(stderr, "  the probe did not report back: %s\n", p.note);
     CHECK_INT(rc, 0);
     if (rc != 0) return 1;
+    crashing_vulkan(&p);
     if (!mesa_gpu_gles()) {
         printf("skipped: no GPU's OpenGL ES of Mesa's here\n");
         return 77;

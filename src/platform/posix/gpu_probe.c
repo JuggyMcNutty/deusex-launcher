@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -260,10 +261,16 @@ static void cpu_probe_start(cpu_probe *c) {
     c->fd = -1;
     int fds[2];
     if (pipe(fds) != 0) return;
+    pid_t parent = getpid();
     pid_t pid = fork();
     if (pid < 0) { close(fds[0]); close(fds[1]); return; }
     if (pid == 0) {
         close(fds[0]);
+        /* Gone with the EGL probe's child, should that be killed at the
+         * probe's limit while this one's driver is still starting (bugs.md
+         * LAPP.30). */
+        prctl(PR_SET_PDEATHSIG, SIGKILL);
+        if (getppid() != parent) _exit(0);
         setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
         dxl_gpu_probe r;
         memset(&r, 0, sizeof r);
@@ -310,7 +317,7 @@ static void cpu_probe_finish(cpu_probe *c, long left_ms, dxl_gpu_probe *out) {
     }
 }
 
-/* ---- the child/parent split ------------------------------------------ */
+/* ---- the children and the parent --------------------------------------- */
 
 static long elapsed_ms(const struct timespec *t0) {
     struct timespec now;
@@ -318,19 +325,35 @@ static long elapsed_ms(const struct timespec *t0) {
     return (now.tv_sec - t0->tv_sec) * 1000L + (now.tv_nsec - t0->tv_nsec) / 1000000L;
 }
 
-int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
-    memset(out, 0, sizeof *out);
+/* One API's probe, Vulkan's or EGL's, in a child of its own: a driver or a
+ * layer that crashes or hangs one loses that API's answers alone (bugs.md
+ * LAPP.30). */
+typedef struct {
+    const char   *api;
+    pid_t         pid;
+    int           fd;
+    size_t        have;
+    int           ok;
+    int           err;    /* why no child was made: errno then, the poll and the other child's end having set it since */
+    dxl_gpu_probe got;
+} probe_child;
 
+static void child_start(probe_child *c, const char *api, int egl, int timeout_ms) {
+    memset(c, 0, sizeof *c);
+    c->api = api;
+    c->pid = -1;
+    c->fd = -1;
     int fds[2];
     if (pipe(fds) != 0) {
-        snprintf(out->note, sizeof out->note, "pipe: %s", strerror(errno));
-        return -1;
+        c->err = errno;
+        return;
     }
     pid_t pid = fork();
     if (pid < 0) {
-        snprintf(out->note, sizeof out->note, "fork: %s", strerror(errno));
-        close(fds[0]); close(fds[1]);
-        return -1;
+        c->err = errno;
+        close(fds[0]);
+        close(fds[1]);
+        return;
     }
     if (pid == 0) {
         close(fds[0]);
@@ -340,17 +363,20 @@ int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
         freopen("/dev/null", "w", stderr);
         dxl_gpu_probe r;
         memset(&r, 0, sizeof r);
-        /* llvmpipe's child forked first, before any driver is loaded here
-         * (a driver's threads do not survive a fork), and read after the
-         * GPU's drivers have answered, in the time left: its slow start
-         * costs the probe nothing it cannot spare. */
-        struct timespec t0;
-        clock_gettime(CLOCK_MONOTONIC, &t0);
-        cpu_probe c;
-        cpu_probe_start(&c);
-        probe_vulkan(&r);
-        probe_egl(&r);
-        cpu_probe_finish(&c, timeout_ms - elapsed_ms(&t0) - 200, &r);
+        if (egl) {
+            /* llvmpipe's child forked first, before any driver is loaded
+             * here (a driver's threads do not survive a fork), and read
+             * after the GPU's drivers have answered, in the time left: its
+             * slow start costs the probe nothing it cannot spare. */
+            struct timespec t0;
+            clock_gettime(CLOCK_MONOTONIC, &t0);
+            cpu_probe cpu;
+            cpu_probe_start(&cpu);
+            probe_egl(&r);
+            cpu_probe_finish(&cpu, timeout_ms - elapsed_ms(&t0) - 200, &r);
+        } else {
+            probe_vulkan(&r);
+        }
         r.probed = 1;
         ssize_t w = write(fds[1], &r, sizeof r);
         (void)w;
@@ -359,41 +385,85 @@ int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
         _exit(0);
     }
     close(fds[1]);
+    c->pid = pid;
+    c->fd = fds[0];
+}
+
+/* The child's answer, as much as has come; at its end, the pipe closed. */
+static void child_read(probe_child *c) {
+    ssize_t n = read(c->fd, (char *)&c->got + c->have, sizeof c->got - c->have);
+    if (n < 0 && errno == EINTR) return;
+    if (n > 0) c->have += (size_t)n;
+    if (n <= 0 || c->have == sizeof c->got) {
+        c->ok = c->have == sizeof c->got;
+        close(c->fd);
+        c->fd = -1;
+    }
+}
+
+/* The child gone, killed if it has not answered; why it failed into note. */
+static void child_end(probe_child *c, int timeout_ms, char *note, size_t size) {
+    if (c->pid < 0) {
+        snprintf(note, size, "%s: no child: %s", c->api, strerror(c->err));
+        return;
+    }
+    if (c->fd >= 0) close(c->fd);
+    int status = 0;
+    if (!c->ok) kill(c->pid, SIGKILL);
+    waitpid(c->pid, &status, 0);
+    if (c->ok) return;
+    if (WIFSIGNALED(status) && WTERMSIG(status) != SIGKILL)
+        snprintf(note, size, "%s detection crashed (signal %d) -- a graphics driver failed to initialise", c->api,
+                 WTERMSIG(status));
+    else
+        snprintf(note, size, "%s detection timed out after %d ms", c->api, timeout_ms);
+}
+
+int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
+    memset(out, 0, sizeof *out);
+    probe_child kids[2];
+    child_start(&kids[0], "Vulkan", 0, timeout_ms);
+    child_start(&kids[1], "EGL", 1, timeout_ms);
 
     struct timespec t0;
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    dxl_gpu_probe got;
-    size_t have = 0;
-    int ok = 0;
     for (;;) {
+        struct pollfd pfd[2];
+        int n = 0;
+        for (int i = 0; i < 2; i++)
+            if (kids[i].fd >= 0) pfd[n++] = (struct pollfd){ kids[i].fd, POLLIN, 0 };
         long left = timeout_ms - elapsed_ms(&t0);
-        if (left <= 0) break;
-        struct pollfd pfd = { fds[0], POLLIN, 0 };
-        int pr = poll(&pfd, 1, (int)left);
+        if (!n || left <= 0) break;
+        int pr = poll(pfd, (nfds_t)n, (int)left);
         if (pr < 0 && errno == EINTR) continue;
         if (pr <= 0) break;
-        ssize_t n = read(fds[0], (char *)&got + have, sizeof got - have);
-        if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) break;                      /* child died mid-write */
-        have += (size_t)n;
-        if (have == sizeof got) { ok = 1; break; }
+        for (int i = 0; i < 2; i++)
+            for (int k = 0; k < n; k++)
+                if (kids[i].fd >= 0 && pfd[k].fd == kids[i].fd && pfd[k].revents) child_read(&kids[i]);
     }
-    close(fds[0]);
+    char notes[2][(sizeof out->note - 3) / 2] = { "", "" };
+    for (int i = 0; i < 2; i++) child_end(&kids[i], timeout_ms, notes[i], sizeof notes[i]);
 
-    int status = 0;
-    if (!ok) kill(pid, SIGKILL);
-    waitpid(pid, &status, 0);
-
-    if (ok) {
-        *out = got;
-        return 0;
+    /* Each API's answers from its own child. */
+    if (kids[0].ok) {
+        const dxl_gpu_probe *v = &kids[0].got;
+        out->vulkan = v->vulkan;
+        memcpy(out->vulkan_device, v->vulkan_device, sizeof out->vulkan_device);
+        memcpy(out->vulkan_version, v->vulkan_version, sizeof out->vulkan_version);
+        out->vulkan_cpu = v->vulkan_cpu;
+        memcpy(out->vulkan_cpu_device, v->vulkan_cpu_device, sizeof out->vulkan_cpu_device);
     }
-    if (WIFSIGNALED(status) && WTERMSIG(status) != SIGKILL)
-        snprintf(out->note, sizeof out->note,
-                 "detection crashed (signal %d) -- a graphics driver failed to initialise",
-                 WTERMSIG(status));
-    else
-        snprintf(out->note, sizeof out->note,
-                 "detection timed out after %d ms", timeout_ms);
-    return -1;
+    if (kids[1].ok) {
+        const dxl_gpu_probe *g = &kids[1].got;
+        out->gles = g->gles;
+        memcpy(out->gles_version, g->gles_version, sizeof out->gles_version);
+        memcpy(out->gles_renderer, g->gles_renderer, sizeof out->gles_renderer);
+        out->gl = g->gl;
+        memcpy(out->gl_version, g->gl_version, sizeof out->gl_version);
+        out->gl_cpu = g->gl_cpu;
+        memcpy(out->gl_cpu_renderer, g->gl_cpu_renderer, sizeof out->gl_cpu_renderer);
+    }
+    out->probed = kids[0].ok || kids[1].ok;
+    snprintf(out->note, sizeof out->note, "%s%s%s", notes[0], notes[0][0] && notes[1][0] ? "; " : "", notes[1]);
+    return out->probed ? 0 : -1;
 }
