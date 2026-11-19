@@ -17,6 +17,11 @@
 # launcher's programs open everything else at run time, and a library linked
 # instead would add its own NEEDED and run nowhere it is not. The engine,
 # which the workspace checks with the same script, needs its own.
+#
+# An aarch64 program's load segments must be aligned at 64 KiB, the largest
+# page an aarch64 kernel uses, each one's address and file offset congruent
+# at it: a kernel of 64 KiB pages cannot map one that is not (bugs.md
+# LPORT.11; port.cmake's link options).
 set -euo pipefail
 
 max="" needed=""
@@ -39,6 +44,20 @@ needed() {
     readelf -d --wide "$1" 2>/dev/null | grep -oE 'Shared library: \[[^]]+\]' | sed 's/Shared library: \[\(.*\)\]/\1/'
 }
 
+# pages <binary>: each load segment an aarch64 kernel of 64 KiB pages could
+# not map, one line each; nothing for another architecture's.
+pages() {
+    local type off va al
+    case "$(readelf -h "$1" 2>/dev/null)" in *"Machine:"*AArch64*) ;; *) return 0 ;; esac
+    readelf -lW "$1" 2>/dev/null | while read -r type off va _ _ _ al; do
+        [ "$type" = LOAD ] || continue
+        al="${al##* }"
+        if [ $((al)) -lt 65536 ] || [ $(((va - off) % 65536)) -ne 0 ]; then
+            echo "load segment at $va (offset $off) aligned at $al"
+        fi
+    done
+}
+
 rc=0
 for bin in "$@"; do
     [ -f "$bin" ] || { echo "MISSING $bin" >&2; rc=1; continue; }
@@ -50,6 +69,11 @@ for bin in "$@"; do
         rc=1
     else
         echo "OK   $bin [$(echo "${have:-no glibc refs}" | tr '\n' ' ')]"
+    fi
+    unmappable=$(pages "$bin")
+    if [ -n "$unmappable" ]; then
+        echo "FAIL $bin has a $(echo "$unmappable" | head -n 1), under the 64 KiB page" >&2
+        rc=1
     fi
     if [ -n "$needed" ]; then
         extra=$(needed "$bin" | grep -vE '^(libc|libm|libdl|libpthread|librt)\.so|^ld-linux' || true)
