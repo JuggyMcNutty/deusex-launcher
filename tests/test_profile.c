@@ -319,6 +319,67 @@ static void test_import_from_defaults(void) {
 /* More profiles than one: ids made of their names, each its own; those
  * made listed; one's settings copied to another, its saves and logs not,
  * the copy's SavePath and CachePath its own. */
+/* A profile made over a data folder that is still there -- its config
+ * folder removed to start afresh, a folder put back from the trash -- keeps
+ * what the folder holds: a save of its own is never copied into, the game's
+ * old files mixed with its later ones (bugs.md LCORE.24). */
+static void test_import_keeps_its_own(void) {
+    char *g = dxl_xstrdup(scratch_dir("profile-reimport-game"));
+    scratch_write(g, "System/DeusEx.exe", "x");
+    scratch_write(g, "System/DeusEx.ini", "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=X\r\n");
+    scratch_write(g, "System/Shot0000.bmp", "game-shot-0");
+    scratch_write(g, "System/Shot0001.bmp", "game-shot-1");
+    scratch_write(g, "Save/QuickSave/SaveInfo.dxs", "game-old-info");
+    scratch_write(g, "Save/QuickSave/01_NYC_UNATCOIsland.dxs", "game-old-level");
+    scratch_write(g, "Save/Save0001/SaveInfo.dxs", "game-slot-1");
+    char *home = dxl_xstrdup(scratch_dir("profile-reimport-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    CHECK_INT(dxl_profile_open(&p, &x, "default", NULL), 0);
+    /* What the profile's own play left: a later quick save, and a shot. */
+    CHECK_INT(dxl_path_mkdirs(p.save_dir), 0);
+    CHECK_INT(dxl_path_mkdirs(p.shots_dir), 0);
+    scratch_write(p.save_dir, "QuickSave/SaveInfo.dxs", "profile-new-info");
+    scratch_write(p.save_dir, "QuickSave/05_NYC_UNATCOMJ12Lab.dxs", "profile-new-level");
+    scratch_write(p.shots_dir, "Shot0000.bmp", "profile-shot-0");
+    char *sys = scratch_path(g, "System");
+    dxl_import r;
+    dxl_err e;
+    CHECK_INT(dxl_profile_import(&p, sys, 0, &r, &e), 0);
+    CHECK_INT(r.saves_kept, 1);
+    CHECK_INT(r.saves, 1);
+    CHECK_INT(r.shots_kept, 1);
+    CHECK_INT(r.shots, 1);
+    char *path = dxl_path_join(p.save_dir, "QuickSave/SaveInfo.dxs");
+    char *text = slurp(path, NULL);
+    CHECK_STR(text, "profile-new-info");
+    free(text); free(path);
+    path = dxl_path_join(p.save_dir, "QuickSave/01_NYC_UNATCOIsland.dxs");
+    CHECK_INT(dxl_path_exists(path), 0);
+    free(path);
+    path = dxl_path_join(p.save_dir, "Save0001/SaveInfo.dxs");
+    text = slurp(path, NULL);
+    CHECK_STR(text, "game-slot-1");
+    free(text); free(path);
+    path = dxl_path_join(p.shots_dir, "Shot0000.bmp");
+    text = slurp(path, NULL);
+    CHECK_STR(text, "profile-shot-0");
+    free(text); free(path);
+    path = dxl_path_join(p.shots_dir, "Shot0001.bmp");
+    text = slurp(path, NULL);
+    CHECK_STR(text, "game-shot-1");
+    free(text); free(path);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(g);
+    scratch_remove(home);
+    free(sys); free(g); free(home);
+}
+
 static void test_profiles(void) {
     char *game = make_install();
     char *home = dxl_xstrdup(scratch_dir("profiles-home"));
@@ -462,6 +523,7 @@ TEST_MAIN_BEGIN
     RUN(test_import);
     RUN(test_no_links);
     RUN(test_import_from_defaults);
+    RUN(test_import_keeps_its_own);
     RUN(test_profiles);
     RUN(test_home_past_ascii);
 TEST_MAIN_END

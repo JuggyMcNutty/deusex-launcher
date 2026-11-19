@@ -257,6 +257,36 @@ static void test_reload_reads_what_another_wrote(void) {
     scrub(dir);
 }
 
+/* Each file is saved whatever the other's did: a read-only DeusEx.ini, as
+ * players keep one the game is not to rewrite, does not leave User.ini's
+ * keys unwritten; the failure told is the first (bugs.md LCORE.25). */
+static void test_save_writes_each_file(void) {
+    char *dir = scratch_install("save-each");
+    char *sys = scratch_path(dir, "DeusEx.ini");
+    char *usr = scratch_path(dir, "User.ini");
+    dxl_config *c = dxl_config_open_files(dir, "DeusEx", NULL, NULL);
+    dxl_err e;
+    CHECK_INT(dxl_config_save(c, &e), 0);
+    CHECK_INT(chmod(sys, 0444), 0);
+    dxl_ini_set(dxl_config_ini(c), "Engine.DXEngineClient", "Brightness", "0.700000");
+    dxl_ini_set(dxl_config_user_ini(c), "Engine.Input", "W", "Jump");
+    CHECK_INT(dxl_config_save(c, &e), -1);
+    CHECK(strstr(dxl_err_msg(&e), "DeusEx.ini") != NULL);
+    dxl_ini *back = dxl_ini_load(usr, NULL);
+    CHECK(back != NULL);
+    CHECK_STR(dxl_ini_get(back, "Engine.Input", "W"), "Jump");
+    dxl_ini_free(back);
+    back = dxl_ini_load(sys, NULL);
+    CHECK(back != NULL);
+    CHECK(dxl_ini_get(back, "Engine.DXEngineClient", "Brightness") == NULL ||
+          strcmp(dxl_ini_get(back, "Engine.DXEngineClient", "Brightness"), "0.700000") != 0);
+    dxl_ini_free(back);
+    chmod(sys, 0644);
+    dxl_config_free(c);
+    free(sys); free(usr);
+    scrub(dir);
+}
+
 /* Saved, a config is clean: saving it again writes nothing over what
  * another wrote since (the engine, at its clean end). */
 static void test_saved_is_clean(void) {
@@ -338,6 +368,7 @@ TEST_MAIN_BEGIN
     RUN(test_missing_user_ini_is_created_from_defuser);
     RUN(test_missing_user_ini_without_defuser);
     RUN(test_reload_reads_what_another_wrote);
+    RUN(test_save_writes_each_file);
     RUN(test_saved_is_clean);
     RUN(test_open_named_files);
     RUN(test_named_files_in_any_case);
