@@ -898,7 +898,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
         return DXL_RUN_EXIT_USAGE;
     }
     if (dxl_session_open(&r->session, r->opt.profile, &e) != 0) {
-        fprintf(stderr, "%s\n", dxl_err_msg(&e));
+        /* No folders to keep anything in: said as every stop is, in a box
+         * for a start from the desktop (bugs.md LPORT.12). */
+        stop_with(r, "%s", dxl_err_msg(&e));
         rc = DXL_RUN_EXIT_NOGAME;
         goto done;
     }

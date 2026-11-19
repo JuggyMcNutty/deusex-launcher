@@ -26,7 +26,12 @@ and the launcher read and write. The launcher's files are in the
 user's own folders, Windows' Known Folders
 (`src/platform/win32/folders.c`): `%LOCALAPPDATA%\DXLauncher`, not the
 roaming folder, as its inis name this machine's paths, and the player's
-own in `Saved Games\DXLauncher`. `DXL_HOME=<dir>` puts all four under one
+own in `Saved Games\DXLauncher`, Saved Games made where it is missing. A
+`data` folder in `%LOCALAPPDATA%\DXLauncher`, where a build that fell back
+to it without Saved Games left one, is the data folder while Saved Games
+holds no `DXLauncher`: its profiles name it as their `SavePath`. A Saved
+Games that cannot be had, moved to a drive that is not there, stops the
+start with a box that says so. `DXL_HOME=<dir>` puts all four under one
 folder, a scratch home, each with a `dxlauncher` folder in it, as on every
 platform, a relative one taken from the working folder (`src/core/xdg.h`):
 
@@ -906,13 +911,15 @@ Windows, under Proton's wine (Port Ex Machina's `scripts/wine.sh`, CMake's
 emulator), each side by side, all but the host's `test_ui_scripts` with no
 display, each of the host's with a runtime folder of its own
 (`XDG_RUNTIME_DIR`, set in `tests/test.h`), removed as it ends: a test's
-launchers leave no lock or channel in the user's. Under Wine run all of them but the POSIX ones, `test_xdg`,
+launchers leave no lock or channel in the user's. Under Wine run all of
+them but the POSIX ones, `test_xdg`,
 `test_finder`, `test_desktop`, `test_desktop_mime_cache`, `test_trash` and
 `test_ui_scripts`, `test_gamefiles` there without its two that fork a
 launcher (one killed mid-game, a dedicated server that takes no hand-over)
 and `test_cli` without its two of POSIX's alone (a master's refusal, a
 server's lines caught as it answers), and Windows' own
-besides: `test_folders_win32` the Known Folders and `DXL_HOME`'s;
+besides: `test_folders_win32` the Known Folders, Saved Games made where it
+is missing, and `DXL_HOME`'s;
 `test_finder_win32` the finder's Windows places, with a home given and the
 registry's, read from a key of the test's own in theirs (`DXL_FINDER_KEYS`);
 `test_desktop_win32` the Start menu's shortcuts and their icon in a folder
@@ -1137,8 +1144,6 @@ Each open in Port Ex Machina's
   moved.
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
-- **LPORT.12**: a Saved Games folder that cannot be reached moves the
-  launcher's data elsewhere without a word.
 - **LPORT.13**: a launcher run as administrator may not be seen by a second
   start.
 - **LPORT.14**: a profile partly recycled is reported as nothing taken; the

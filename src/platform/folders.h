@@ -18,7 +18,8 @@ typedef struct {
 } dxl_app_folders;
 
 /* app's folders, each named after it where the platform's are shared;
- * creates nothing. -1 when there is no home to put them in. */
+ * creates none of its own (Windows makes its Saved Games where it is
+ * missing). -1 and why when there is no home to put them in. */
 int  dxl_app_folders_get(const char *app, dxl_app_folders *f, dxl_err *err);
 void dxl_app_folders_free(dxl_app_folders *f);
 
