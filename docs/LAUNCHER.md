@@ -33,10 +33,10 @@ platform, a relative one taken from the working folder (`src/core/xdg.h`):
 | Folder | What is in it |
 |---|---|
 | `%LOCALAPPDATA%\DXLauncher\config\` | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`UIScale`, `BigScreen`, `ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`: [Settings](#settings)), whether the big screen has been offered (`BigScreenOffered`), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`), the window as it last closed out of the big screen (`[Window]` `Width`, `Height`, `Maximized`) |
-| `%LOCALAPPDATA%\DXLauncher\config\profiles\<id>\` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log and crash reports |
+| `%LOCALAPPDATA%\DXLauncher\config\profiles\<id>\` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log |
 | `Saved Games\DXLauncher\` | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `Saved Games\DXLauncher\profiles\<id>\` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it where Windows lets the user make one, in its developer mode; else that folder is the shots folder itself) |
-| `%LOCALAPPDATA%\DXLauncher\state\` | `launcher.log`, each start's (a start beside a running launcher appends to it); per profile `Running.ini`, `LastRun.ini`, and in `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`) |
+| `%LOCALAPPDATA%\DXLauncher\state\` | `launcher.log`, each start's (a start beside a running launcher appends to it); in `profiles\<id>\`, each profile's `Running.ini`, `LastRun.ini`, and in its `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`) |
 | `%LOCALAPPDATA%\DXLauncher\cache\profiles\<id>\Cache\` | the inis' `CachePath`: a net game's downloads |
 | `%LOCALAPPDATA%\DXLauncher\` | the Start menu's icon, `DXLauncher.ico`, and the pictures it is made of ([the app menu](#the-app-menu)) |
 | the Recycle Bin | a deleted profile's four folders, a save, a screenshot, each by its own name, to be restored from it ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
@@ -261,7 +261,7 @@ A mod's profile is made as the first run makes one
   `Textures`, `Sounds` and `Music` that no path gave come after those. A
   path whose last part is no pattern (`*` or `?` in it) is kept as it is.
 - **A mod that runs from its own `System`**, its own `Core.dll` there
-  (Transcended's `Mods\Transcended`, Revision's): its ini's relative paths
+  (Transcended's `Mods\Transcended`): its ini's relative paths
   are taken from that `System`, as its own launcher starting there takes
   them -- by their absolute paths where the folder is there, and one that
   climbs out of the mod's folder to none as the game's folder of its last
@@ -511,7 +511,8 @@ screen's, not kept as the window's.
 
 **Controls.** The keyboard: the arrows or WASD move, Enter or Space chooses,
 Esc or Backspace goes back, Tab and Shift-Tab step through, Page Up and Page
-Down scroll a list, Ctrl-Tab and Ctrl-Shift-Tab change tabs, F5 plays, F11
+Down move a page along the list the focus is in,
+Ctrl-Tab and Ctrl-Shift-Tab change tabs, F5 plays, F11
 switches the big screen. The mouse: the pointer focuses what it moves onto
 (not what the window, coming up or changing size, puts under it), a click
 chooses, the wheel scrolls a list and a list's scroll bar drags by its thumb
@@ -854,13 +855,13 @@ finds `Running.ini`; with no window (`dxl-cli`), that start says so with the
 end of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
-crash, and for the errors it knows -- OpenAL not started, a package or the
+crash, and for the errors it knows -- a package or the
 engine's `.pk3` not found, a file or folder it could not open or make, a
 folder the engine finds no game in, a native
 the engine does not have (a script error's reason read with its line: a mod
 with native code of its own, which does not play), a save
 it started on that did not load -- it says the likely cause, and has its fix
-as a button: another renderer, of those that run here; a run without sound;
+as a button: another renderer, of those that run here;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
 a stage or install of DXLauncher again). A run the launcher itself
 stopped -- its window closed, the console's Ctrl+C or closing --
