@@ -54,6 +54,10 @@ int dxl_run_parse(int argc, char **argv, dxl_run_options *opt, char **words, dxl
          * original's. */
         char link[256];
         if (dxl_server_link(a, link, sizeof link)) { opt->join = a; continue; }
+        /* What begins as a link and is none is no word of the original's
+         * either: its ?INI= and USERINI= would name the inis both programs
+         * open and write. */
+        if (dxl_server_link_like(a)) { opt->refused = a; continue; }
         if (strncmp(a, "--", 2) != 0) { rest[n++] = argv[i]; continue; }
         if (take(a, "--game", &opt->game) || take(a, "--profile", &opt->profile) || take(a, "--mod", &opt->mod))
             continue;
@@ -841,6 +845,11 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
         fprintf(stderr, "%s\n", dxl_err_msg(&e));
         free(r);
         return DXL_RUN_EXIT_USAGE;
+    }
+    if (r->opt.refused) {
+        char shown[128];
+        dxl_text_no_controls(r->opt.refused, shown, sizeof shown);
+        fprintf(stderr, "%s is no link to a server: passed over\n", shown);
     }
     if (r->opt.mod && !r->opt.import_only) {
         fprintf(stderr, "--mod makes a mod's profile, with --import\n");

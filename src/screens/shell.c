@@ -249,6 +249,12 @@ void dxl_shell_enter(dxl_shell *s, dxl_run *r, dxl_view v) {
         dxl_shell_join_link(s, link);
         r->opt.join = NULL;
     }
+    if (v == DXL_VIEW_HOME && r->opt.refused) {
+        char shown[96];
+        dxl_text_no_controls(r->opt.refused, shown, sizeof shown);
+        dxl_shell_message(s, "Not a server's link", "%s names no server: nothing was joined.", shown);
+        r->opt.refused = NULL;
+    }
 }
 
 void dxl_shell_go(dxl_shell *s, dxl_page p) {

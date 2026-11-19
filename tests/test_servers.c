@@ -137,6 +137,39 @@ static void test_links(void) {
     CHECK_INT(dxl_server_link("deusex://", out, sizeof out), 0);
     CHECK_INT(dxl_server_link("unreal://host:7777", out, sizeof out), 0);
     CHECK_INT(dxl_server_link("203.0.113.9:7790", out, sizeof out), 0);
+    /* A port is digits alone, 1 to 65535; a host a name or an address alone. */
+    CHECK_INT(dxl_server_link("deusex://host:65536", out, sizeof out), 0);
+    CHECK_INT(dxl_server_link("deusex://host:7790x", out, sizeof out), 0);
+    CHECK_INT(dxl_server_link("deusex://host:", out, sizeof out), 0);
+    CHECK_INT(dxl_server_link("deusex://Entry,USERINI=x:7790", out, sizeof out), 0);
+    CHECK_INT(dxl_server_link("deusex://a%20b:7790", out, sizeof out), 0);
+    CHECK_INT(dxl_server_link("deusex://dx.example.org:7790?INI=/home/player/.profile", out, sizeof out), 1);
+    CHECK_STR(out, "dx.example.org:7790");
+    CHECK_INT(dxl_server_host_ok("dx-1.example_org"), 1);
+    CHECK_INT(dxl_server_host_ok("Entry?listen?x="), 0);
+    CHECK_INT(dxl_server_host_ok("1.2.3.4\nEngineArgs=--system=/tmp/x"), 0);
+    CHECK_INT(dxl_server_host_ok(""), 0);
+    CHECK_INT(dxl_server_port_of("7790"), 7790);
+    CHECK_INT(dxl_server_port_of("0"), 0);
+    CHECK_INT(dxl_server_port_of("65536"), 0);
+    CHECK_INT(dxl_server_port_of("77 90"), 0);
+    CHECK_INT(dxl_server_port_of(""), 0);
+    /* A favourite is an address and a port: text that is neither is not put
+     * into the profile's list (bugs.md LCORE.26). */
+    char *list = dxl_favourite_toggle("1.2.3.4:7790", "9.9.9.9\nEngineArgs=--system=/tmp/evil", 7790);
+    CHECK_STR(list, "1.2.3.4:7790");
+    free(list);
+    list = dxl_favourite_toggle("1.2.3.4:7790", "Entry?listen?x=", 7790);
+    CHECK_STR(list, "1.2.3.4:7790");
+    free(list);
+    list = dxl_favourite_toggle("1.2.3.4:7790", "dx.example.org", 7780);
+    CHECK_STR(list, "1.2.3.4:7790 dx.example.org:7780");
+    free(list);
+    /* What begins as a link, whether it is one or not. */
+    CHECK_INT(dxl_server_link_like("deusex://"), 1);
+    CHECK_INT(dxl_server_link_like("DEUSEX:?INI=x"), 1);
+    CHECK_INT(dxl_server_link_like("deusex"), 0);
+    CHECK_INT(dxl_server_link_like("-nosound"), 0);
 }
 
 /* The URL that joins a server: ?lan for the local network's, as the game's

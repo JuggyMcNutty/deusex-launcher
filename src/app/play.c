@@ -44,6 +44,12 @@ static void forwarded(dxl_game *g, const char *msg, int ready) {
         /* A link's server, as the game takes a server: host:port. */
         char link[256];
         if (dxl_server_link(url, link, sizeof link)) snprintf(url, sizeof url, "%s", link);
+        else if (dxl_server_link_like(url)) {
+            /* A link that is none is not the game's to open, its options
+             * with it. */
+            dxl_log("forwarded: no link to a server, not opened");
+            return;
+        }
         char open[DXL_HANDOFF_MAX + 8];
         snprintf(open, sizeof open, "Open %s", url);
         dxl_game_send(g, open);

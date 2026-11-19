@@ -63,6 +63,7 @@ typedef struct {
     int print_command;      /* --print-command: the engine's command line, nothing run */
     int import_only;        /* --import: make the profile from --game, nothing run */
     const char *join;       /* a deusex://host:port link: its server joined, Multiplayer asking first */
+    const char *refused;    /* what begins as a link and is none: passed over, said once */
 } dxl_run_options;
 
 typedef struct {
