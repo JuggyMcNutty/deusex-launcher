@@ -3,6 +3,15 @@
 #include "core/finder_places.h"
 #include "core/install.h"
 #include "platform/fs.h"
+#include "core/paths.h"
+
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#include <sys/stat.h>
+#else
+#include <unistd.h>
+#endif
 
 /* What the engine needs besides DeusEx.exe, in the odd cases a copy can
  * leave them in. */
@@ -117,10 +126,39 @@ static void test_system_folder(void) {
     free(g);
 }
 
+/* A file of 2 GiB and one byte, as an install's or a save's can be: there,
+ * a file, its size whole (bugs.md LPORT.19, mingw-w64's 32-bit stat). Made
+ * sparse where the file system lets it; not tried where it will not. */
+static void test_large_file(void) {
+    char *g = dxl_xstrdup(scratch_dir("install-large"));
+    scratch_write(g, "big", "");
+    char *big = scratch_path(g, "big");
+    long long want = 2147483648LL + 1;
+#ifdef _WIN32
+    int fd = _open(big, _O_WRONLY | _O_BINARY);
+    int made = fd >= 0 && _chsize_s(fd, want) == 0;
+    if (fd >= 0) _close(fd);
+#else
+    int made = truncate(big, (off_t)want) == 0;
+#endif
+    if (made) {
+        CHECK(dxl_path_exists(big));
+        CHECK(!dxl_path_is_dir(big));
+        CHECK(dxl_path_size(big) == want);
+        CHECK(dxl_path_mtime(big) > 0);
+    } else {
+        printf("  no file of 2 GiB here: not tried\n");
+    }
+    free(big);
+    scratch_remove(g);
+    free(g);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_not_an_install);
     RUN(test_recased);
     RUN(test_unknown_build);
     RUN(test_missing);
     RUN(test_system_folder);
+    RUN(test_large_file);
 TEST_MAIN_END

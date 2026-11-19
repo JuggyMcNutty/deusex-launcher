@@ -954,7 +954,8 @@ but under `-firstrun`, which writes 1100 over a higher one, an empty
 any case;
 `test_engine_settings` the engine's `Settings.json`, a file it cannot read
 replaced; `test_gamedb` SHA1 by FIPS 180's examples and the engine's builds;
-`test_install` what makes an install, in the odd cases a copy leaves;
+`test_install` what makes an install, in the odd cases a copy leaves, and a
+file of 2 GiB and more there, its size whole;
 `test_lastrun` a run's end, written and read back; `test_runtime` the crash
 sentinel, the state folder, every launcher's mark of running, and each
 client's channel of its own, a line going to the newest;
