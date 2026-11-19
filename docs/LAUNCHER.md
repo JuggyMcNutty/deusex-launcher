@@ -721,7 +721,9 @@ and `Joy10` the stick clicks, `Joy11` and `Joy12` the triggers,
 their own
 ([the gamepad](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-on-our-devices)).
 The Smart Pro's sticks do not click: no preset binds `Joy9` or `Joy10`,
-and the Controller page has no row for them.
+and the Controller page has no row for them. Modern and its swap put the
+laser sight on `Joy7`, the left middle button (`ToggleLaser`, the game's
+one way to turn it on), and keep the pause menu on `Joy8`, the right.
 
 Settings' Controller page (`src/screens/controller.c`) has on its left the
 controller shown: a model of its family, of our own shapes, no maker's --
@@ -1106,7 +1108,6 @@ Each open in Port Ex Machina's
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.
-- **LCORE.40**: the pad presets bind no button to the laser sight.
 - **LCORE.44**: Duplicate leaves the new profile's files behind when it
   fails half-way.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has

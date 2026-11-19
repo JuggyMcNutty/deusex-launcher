@@ -138,6 +138,18 @@ static void test_remap_one_button(void) {
     dxl_ini_free(ini);
 }
 
+/* With no stick clicks, Modern and its swap put the laser sight, which the
+ * game turns on through ToggleLaser alone, on the left middle button, the
+ * right one keeping the pause menu. */
+static void test_modern_binds_laser(void) {
+    for (size_t p = 0; p < dxl_pad_preset_count(); p++) {
+        const dxl_pad_preset *pr = dxl_pad_preset_at(p);
+        if (strcmp(pr->id, "modern") && strcmp(pr->id, "southpaw")) continue;
+        CHECK_STR(dxl_pad_preset_binding(pr, "Joy7"), "ToggleLaser");
+        CHECK_STR(dxl_pad_preset_binding(pr, "Joy8"), "ShowMainMenu");
+    }
+}
+
 /* The Smart Pro's fourteen buttons, no stick clicks among them, nor bound
  * by a preset; each named by its place on a pad of each kind. */
 static void test_buttons_and_labels(void) {
@@ -169,5 +181,6 @@ TEST_MAIN_BEGIN
     RUN(test_descriptions);
     RUN(test_presets_use_catalogue_commands);
     RUN(test_remap_one_button);
+    RUN(test_modern_binds_laser);
     RUN(test_buttons_and_labels);
 TEST_MAIN_END

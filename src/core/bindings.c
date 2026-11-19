@@ -56,7 +56,9 @@ const char *dxl_joy_key_label(const char *key) { return dxl_pad_control_label(DX
 /* Every command is one the game's own key menu offers (MenuScreenCustomizeKeys
  * in DeusEx.u), but the pause menu, which its defaults bind to Escape.
  * Walk/run is left out: a half-pushed stick already walks. The Smart Pro's
- * sticks do not click (no L3/R3): Joy9 and Joy10 are left unbound. */
+ * sticks do not click (no L3/R3): Joy9 and Joy10 are left unbound, and the
+ * laser sight, which DeusEx.u turns on through ToggleLaser alone, takes the
+ * left middle button. */
 static const dxl_binding modern[] = {
     { "Joy1",  "Jump" },
     { "Joy2",  "Duck" },
@@ -64,7 +66,7 @@ static const dxl_binding modern[] = {
     { "Joy4",  "ShowInventoryWindow" },
     { "Joy5",  "PrevBeltItem" },
     { "Joy6",  "NextBeltItem" },
-    { "Joy7",  "ShowMainMenu" },
+    { "Joy7",  "ToggleLaser" },
     { "Joy8",  "ShowMainMenu" },
     { "Joy11", "ParseRightClick" },
     { "Joy12", "ParseLeftClick|Fire" },
@@ -86,7 +88,7 @@ static const dxl_binding southpaw[] = {
     { "Joy4",  "ShowInventoryWindow" },
     { "Joy5",  "PrevBeltItem" },
     { "Joy6",  "NextBeltItem" },
-    { "Joy7",  "ShowMainMenu" },
+    { "Joy7",  "ToggleLaser" },
     { "Joy8",  "ShowMainMenu" },
     { "Joy11", "ParseRightClick" },
     { "Joy12", "ParseLeftClick|Fire" },
@@ -117,8 +119,9 @@ static const dxl_pad_preset presets[] = {
     { "modern", "Modern",
       "Left stick moves, right stick looks. The right trigger fires, the left uses and picks up. "
       "The bottom face button jumps, the right one crouches, the left reloads, the top opens the "
-      "inventory. Either middle button pauses (save, load). The shoulders cycle the belt. D-pad: up "
-      "the scope, down the ammunition, left and right lean.",
+      "inventory. The left middle button toggles the laser sight, the right one pauses (save, "
+      "load). The shoulders cycle the belt. D-pad: up the scope, down the ammunition, left and "
+      "right lean.",
       modern, N(modern) },
     { "southpaw", "Modern, sticks swapped",
       "As Modern, but the left stick looks and the right stick moves.",
