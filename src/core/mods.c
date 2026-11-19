@@ -255,6 +255,15 @@ int dxl_mod_check(const char *dir, dxl_mod *m, dxl_err *err) {
     return 0;
 }
 
+int dxl_mod_chosen(const char *dir, dxl_mod *m, dxl_err *err) {
+    if (dxl_mod_check(dir, m, err) == 0) return 0;
+    if (dxl_stricmp(dxl_path_basename(dir), "System") != 0) return -1;
+    char *up = dxl_path_dirname(dir);
+    int rc = dxl_mod_check(up, m, NULL);
+    free(up);
+    return rc;
+}
+
 void dxl_mod_free(dxl_mod *m) {
     if (!m) return;
     free(m->dir); free(m->name); free(m->system_dir); free(m->ini); free(m->user_ini);

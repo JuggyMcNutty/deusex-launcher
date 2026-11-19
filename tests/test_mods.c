@@ -147,6 +147,19 @@ static void test_check(void) {
     CHECK(m.ini && strstr(m.ini, "/GameMod/System/GameMod.ini"));
     CHECK(m.user_ini && strstr(m.user_ini, "/GameMod/System/GameModUser.ini"));
     dxl_mod_free(&m);
+    /* Pointed at by a player: the folder, or its System folder, in any
+     * case, for the folder above; a System that is no mod's is none. */
+    char *system = at("game/GameMod/System"), *game_system = at("game/System");
+    CHECK_INT(dxl_mod_chosen(dir, &m, &e), 0);
+    CHECK_STR(m.dir, dir);
+    dxl_mod_free(&m);
+    CHECK_INT(dxl_mod_check(system, &m, &e), -1);
+    CHECK_INT(dxl_mod_chosen(system, &m, &e), 0);
+    CHECK_STR(m.dir, dir);
+    dxl_mod_free(&m);
+    CHECK_INT(dxl_mod_chosen(game_system, &m, &e), -1);
+    free(system);
+    free(game_system);
     free(dir);
 
     dir = at("home/data/dxlauncher/mods/OutMod");
