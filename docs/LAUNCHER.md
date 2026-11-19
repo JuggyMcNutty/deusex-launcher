@@ -1017,5 +1017,96 @@ Changed:
 
 ## Known defects
 
-None open in Port Ex Machina's
-[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md).
+Each open in Port Ex Machina's
+[`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
+
+- **LAPP.21**: a server link the launcher refuses becomes part of the game's
+  command line, so a web page's link can name the inis both programs read
+  and write.
+- **LAPP.22**: a logout or shutdown signals the engine twice, killing it
+  before it saves its settings.
+- **LAPP.23**: a start that fails with no window up says why only in the
+  terminal and the log.
+- **LAPP.24**: under Steam a refused or slow engine is named by the
+  overlay's loader notice, not by its own fault.
+- **LAPP.25**: with the launcher's own settings file lost, every profile
+  says it has no game.
+- **LAPP.26**: a profile cannot be deleted when one of its folders is on
+  another file system than the trash.
+- **LAPP.28**: the app-menu entry is not checked against where the app now
+  is, so a moved copy keeps a dead entry and calls it its own.
+- **LAPP.29**: a write killed half-way leaves a temporary file beside the
+  ini, never swept; very long trash paths are cut unchecked.
+- **LAPP.30**: a Vulkan driver that crashes the GPU probe loses its OpenGL
+  answers too.
+- **LCORE.24**: a profile made over a data folder still there gets the
+  game's old saves copied over its own, a mixed save.
+- **LCORE.25**: one ini that cannot be written stops the others being saved,
+  and the player is not told.
+- **LCORE.26**: a master server's address text is not checked, so it can
+  reach the join URL and, as a favourite, the profile's file.
+- **LCORE.27**: a mod with native code of its own is offered as one that
+  plays, and stops at its first native.
+- **LCORE.28**: a copy of the game recased on a case-sensitive file system
+  is refused, and its saves are not carried over.
+- **LCORE.29**: a System folder given on the command line or in the system's
+  folder dialog is refused, where the launcher's own browser takes it.
+- **LCORE.30**: the search walks network mounts with no time limit, and a
+  dead one keeps it looking for good.
+- **LCORE.31**: a relative scratch home is ignored without a word, the real
+  folders used.
+- **LCORE.32**: an ini with a NUL byte is read past it by the launcher and
+  not by the engine.
+- **LCORE.33**: Detail textures draw nothing unless the game's World Texture
+  Detail is High, and the row does not say so.
+- **LCORE.34**: a profile that fails to be made leaves its files behind, and
+  the error gives no reason.
+- **LCORE.35**: Profiles lists at most 32 profiles, chosen in the folder's
+  order.
+- **LCORE.36**: a game with no sound device plays silent with no advice, and
+  some fatal errors have none.
+- **LCORE.37**: a game killed from outside, by the system or Force Quit, is
+  said to have stopped with an error.
+- **LCORE.38**: a server's name or map is shown with its control characters,
+  a line break drawn over other rows.
+- **LCORE.39**: a last-run log that cannot be renamed gets the next run
+  appended, and the old run's error is told as the new one's.
+- **LCORE.41**: Numbers break under a decimal-comma locale; a read error
+  resets a good Settings.json; a very long binding is cut when unbound.
+- **LCORE.42**: Very long imported bindings are cut; the save count told is
+  not the folders copied.
+- **LUI.9**: making a profile copies every save with the window frozen, no
+  progress and no cancel.
+- **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
+  moved.
+- **LUI.11**: screenshot thumbnails are kept until the window closes, so a
+  long gallery holds much memory.
+- **LUI.12**: Long names and server texts can be cut in the middle of a
+  character.
+- **LUI.13**: a server's host name with no dot never joins.
+- **LUI.14**: a favourite is asked at the game port + 1, which need not be
+  its query port.
+- **LUI.15**: on a short screen the window opens as tall as the screen and
+  lays out below its smallest size.
+- **LUI.17**: the folder browser freezes the window on a network mount that
+  does not answer.
+- **LUI.18**: with two pads, one pad's stick jitter breaks the other's held
+  direction.
+- **LPORT.18**: on GNOME's Wayland without libdecor the window has no title
+  bar.
+- **X.17**: the tarballs record the build machine's user, so unpacked as
+  root the files belong to a local account.
+- **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
+  refused, its message not saying the exe alone is the trouble.
+- **D.90**: the engine needs OpenAL Soft installed, which a stock Ubuntu
+  desktop lacks, and the message names no package to install.
+- **D.94**: a start whose window cannot open plays nothing, even where the
+  profile could play.
+- **D.95**: a launcher killed while its game plays leaves no running mark,
+  so the next start can play a second game on the same profile.
+- **D.96**: a server link opened while the game plays is joined at once,
+  unasked, unsaved progress lost.
+- **D.97**: LAN servers and favourites show only once the master server has
+  answered or given up, up to 25 s.
+- **D.98**: Cyrillic, Greek, CJK and Arabic draw as boxes; an input method's
+  composition is not shown on Wayland.
