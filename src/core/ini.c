@@ -1,4 +1,5 @@
 #include "core/ini.h"
+#include "core/log.h"
 #include "core/paths.h"
 
 #include <stdio.h>
@@ -15,7 +16,8 @@ typedef enum {
 typedef struct {
     line_kind kind;
     char *raw;   /* the line as it will be written, without its terminator */
-    size_t raw_len;   /* its bytes, a NUL among them kept: read up to one, written whole */
+    size_t raw_len;   /* its bytes, a NUL among them kept (the launcher's own): read up to one,
+                       * written whole */
     char *eol;   /* "\r\n", "\n", or "" for a final line with no terminator */
     char *name;  /* LINE_SECTION: section name; LINE_PAIR: key */
     char *value; /* LINE_PAIR only */
@@ -27,6 +29,7 @@ struct dxl_ini {
     char     *eol;   /* what new lines get; inferred from the file */
     int       dirty;
     int       game;  /* the game's: read and written as the engine does; else the launcher's own UTF-8 */
+    size_t    cut;   /* a game ini's text past its first NUL, in bytes: not read */
 };
 
 static void lines_reserve(dxl_ini *ini, size_t need) {
@@ -251,6 +254,15 @@ static dxl_ini *parse(const char *bytes, size_t len, int game) {
     int how;
     char *text = text_of((const unsigned char *)bytes, len, game, &how, &len);
     if (how == 1 || (how == 2 && !game)) ini->dirty = 1;
+    /* A game ini's text ends at its first NUL, as the engine's reader and
+     * the original's end it (Package/IniFile.cpp's ReadIniText;
+     * FConfigFile::Read, GOG DeusEx.exe 0x10916780): what is past it is
+     * neither read nor written back. */
+    const char *nul = game ? memchr(text, '\0', len) : NULL;
+    if (nul) {
+        ini->cut = len - (size_t)(nul - text);
+        len = (size_t)(nul - text);
+    }
 
     size_t i = 0;
     while (i < len) {
@@ -301,6 +313,7 @@ static dxl_ini *load(const char *path, int game, dxl_err *err) {
 
     dxl_ini *ini = parse(b.data ? b.data : "", b.len, game);
     dxl_buf_free(&b);
+    if (ini->cut) dxl_log("%s: read to its first NUL, as the engine reads it: %zu bytes after it not read", path, ini->cut);
     return ini;
 }
 

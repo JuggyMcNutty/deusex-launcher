@@ -20,7 +20,7 @@ static void add_missing(dxl_install *in, const char *what) {
     snprintf(in->missing + n, sizeof in->missing - n, "%s%s", n ? ", " : "", what);
 }
 
-int dxl_install_check(const char *root, dxl_install *out) {
+static int check(const char *root, dxl_install *out) {
     memset(out, 0, sizeof *out);
     char *abs = dxl_fs_real(root);
     out->root = abs ? abs : dxl_xstrdup(root);
@@ -28,9 +28,10 @@ int dxl_install_check(const char *root, dxl_install *out) {
     char *sys = dxl_path_resolve_ci(out->root, "System");
     out->system_dir = sys ? sys : dxl_path_join(out->root, "System");
 
-    /* Exactly this name: the engine looks for it so. */
-    char *exe = dxl_path_join(out->system_dir, "DeusEx.exe");
-    out->found = dxl_path_exists(exe) && !dxl_path_is_dir(exe);
+    /* In any case, as the engine finds it: a copy recased on a
+     * case-sensitive file system is the game still, as Windows finds it. */
+    char *exe = dxl_path_resolve_ci(out->system_dir, "DeusEx.exe");
+    out->found = exe && !dxl_path_is_dir(exe);
     if (out->found && dxl_sha1_file(exe, out->sha1) != 0) out->sha1[0] = '\0';
     free(exe);
 
@@ -58,6 +59,26 @@ int dxl_install_check(const char *root, dxl_install *out) {
     }
     out->ok = out->build && !out->missing[0];
     return out->ok ? 0 : -1;
+}
+
+int dxl_install_check(const char *root, dxl_install *out) {
+    int rc = check(root, out);
+    /* A System folder with no game in it, chosen or named for the game:
+     * the game its parent's, when it is there. */
+    if (!out->found && dxl_stricmp(dxl_path_basename(out->root), "System") == 0) {
+        char *up = dxl_path_dirname(out->root);
+        dxl_install parent;
+        int prc = check(up, &parent);
+        if (parent.found) {
+            dxl_install_free(out);
+            *out = parent;
+            rc = prc;
+        } else {
+            dxl_install_free(&parent);
+        }
+        free(up);
+    }
+    return rc;
 }
 
 void dxl_install_free(dxl_install *in) {

@@ -64,21 +64,34 @@ void dxl_finder_add(finder *f, const char *source, const char *dir, int always) 
     it.source = source;
     dxl_install_check(dir, &it.install);
     if (always || it.install.found) {
+        /* A System folder given is taken as its parent (core/install.h): the
+         * install is remembered by the folder it is too, so that the same
+         * one met again -- played before, a store's -- is listed once. */
+        char *root = it.install.found ? dxl_fs_real(it.install.root) : NULL;
+        int listed = 0;
+        if (root && strcmp(root, real) != 0) {
+            for (int i = 0; i < f->seen_count && !listed; i++) listed = !strcmp(f->seen[i], root);
+            if (!listed && f->seen_count + 1 < DXL_FOUND_MAX) {
+                f->seen[f->seen_count++] = root;
+                root = NULL;
+            }
+        }
+        free(root);
         f->seen[f->seen_count++] = real;
         real = NULL;
-        f->found(f->ctx, &it);
+        if (!listed) f->found(f->ctx, &it);
     }
     free(real);
     dxl_install_free(&it.install);
 }
 
-/* Whether dir holds the game: System/DeusEx.exe, by that name, in a System
- * of any case, as core/install.h takes it. */
+/* Whether dir holds the game: System/DeusEx.exe, each in any case, as
+ * core/install.h takes it. */
 int dxl_finder_has_game(const char *dir) {
     char *sys = dxl_path_resolve_ci(dir, "System");
     if (!sys) return 0;
-    char *exe = dxl_path_join(sys, "DeusEx.exe");
-    int there = dxl_path_exists(exe) && !dxl_path_is_dir(exe);
+    char *exe = dxl_path_resolve_ci(sys, "DeusEx.exe");
+    int there = exe && !dxl_path_is_dir(exe);
     free(exe);
     free(sys);
     return there;
@@ -86,7 +99,7 @@ int dxl_finder_has_game(const char *dir) {
 
 /* dir's folders, but the hidden ones, in name order, so the list is the
  * same each time: NULL-terminated, freed with names_free. */
-static char **children(const char *dir) {
+static char **children(const finder *f, const char *dir) {
     DIR *d = opendir(dir);
     if (!d) return NULL;
     char **names = NULL;
@@ -95,7 +108,12 @@ static char **children(const char *dir) {
     while ((e = readdir(d)) && n < CHILDREN_MAX) {
         if (e->d_name[0] == '.') continue;
         char *path = dxl_path_join(dir, e->d_name);
-        int is_dir = dxl_path_is_dir(path);
+        /* One the walk is to keep out of is not asked about either: the
+         * question itself mounts an automounter's folder, or waits on a
+         * server that is gone. */
+        int skipped = 0;
+        for (int i = 0; f && i < f->skip_count && !skipped; i++) skipped = !strcmp(f->skip[i], path);
+        int is_dir = !skipped && dxl_path_is_dir(path);
         free(path);
         if (!is_dir) continue;
         if (n + 1 >= cap) {
@@ -123,7 +141,7 @@ static void names_free(char **names) {
 
 /* Each folder in dir that holds the game. */
 void dxl_finder_add_children(finder *f, const char *source, const char *dir) {
-    char **names = children(dir);
+    char **names = children(f, dir);
     for (size_t i = 0; names && names[i] && !dxl_finder_stopped(f); i++) {
         char *child = dxl_path_join(dir, names[i]);
         if (dxl_finder_has_game(child)) dxl_finder_add(f, source, child, 0);
@@ -140,7 +158,7 @@ void dxl_finder_within(finder *f, const char *source, const char *dir, int depth
         return;
     }
     if (depth <= 0) return;
-    char **names = children(dir);
+    char **names = children(f, dir);
     for (size_t i = 0; names && names[i] && !dxl_finder_stopped(f); i++) {
         char *child = dxl_path_join(dir, names[i]);
         dxl_finder_within(f, source, child, depth - 1);
@@ -194,7 +212,7 @@ void dxl_finder_prefix(finder *f, const char *source, const char *dir) {
 
 /* Each folder in dir that is a Wine prefix. */
 void dxl_finder_prefixes_in(finder *f, const char *source, const char *dir) {
-    char **names = children(dir);
+    char **names = children(f, dir);
     for (size_t i = 0; names && names[i] && !dxl_finder_stopped(f); i++) {
         char *child = dxl_path_join(dir, names[i]);
         dxl_finder_prefix(f, source, child);
@@ -307,6 +325,7 @@ void dxl_finder_heroic(finder *f, const char *config) {
 static void teardown(finder *f) {
     for (int i = 0; i < 3; i++) free(f->own[i]);
     for (int i = 0; i < f->seen_count; i++) free(f->seen[i]);
+    for (int i = 0; i < f->skip_count; i++) free(f->skip[i]);
 }
 
 void dxl_finder_run(const dxl_finder_where *w, dxl_found_fn found, void *ctx, const atomic_int *stop) {

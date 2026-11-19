@@ -22,7 +22,8 @@
  * top and two folders down. The drives are what /proc/self/mountinfo has
  * mounted under those folders, however deep (a user's
  * /run/media/<user>/<label>, the automounter's /run/media/system/<label>),
- * each once, a folder that links to another looked in once.
+ * each once, a folder that links to another looked in once; a network file
+ * system or an automount point (nfs, cifs, sshfs, autofs) never.
  *
  * Each folder there is checked (core/install.h) and listed once, however
  * many ways lead to it; one that is not there is not listed, though the

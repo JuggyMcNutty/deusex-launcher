@@ -317,6 +317,39 @@ static void test_import_from_defaults(void) {
     free(game);
 }
 
+/* A copy recased on a case-sensitive file system: its SAVE folder is its
+ * SavePath's ..\Save, in any case, as the engine finds it, and its saves
+ * are carried over. */
+static void test_import_recased(void) {
+    char *g = dxl_xstrdup(scratch_dir("profile-recased-game"));
+    scratch_write(g, "system/deusex.exe", "x");
+    scratch_write(g, "system/deusex.ini", "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n");
+    scratch_write(g, "system/defuser.ini", "[Engine.Input]\r\nF1=X\r\n");
+    scratch_write(g, "SAVE/Save0003/SaveInfo.dxs", "recased");
+    char *home = dxl_xstrdup(scratch_dir("profile-recased-home"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *system_dir = scratch_path(g, "system");
+    dxl_import r;
+    CHECK_INT(dxl_profile_import(&p, system_dir, 0, &r, NULL), 0);
+    CHECK(strstr(r.saves_from, "/SAVE") != NULL);
+    CHECK_INT(r.saves, 1);
+    char *f = dxl_path_join(p.save_dir, "Save0003/SaveInfo.dxs");
+    CHECK_INT(dxl_path_exists(f), 1);
+    free(f);
+    dxl_profile_free(&p);
+    free(system_dir);
+    dxl_xdg_free(&x);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    scratch_remove(g);
+    free(home);
+    free(g);
+}
+
 /* More profiles than one: ids made of their names, each its own; those
  * made listed; one's settings copied to another, its saves and logs not,
  * the copy's SavePath and CachePath its own. */
@@ -525,6 +558,7 @@ static char *small_install(const char *tag) {
     scratch_write(g, "System/DeusEx.exe", "x");
     scratch_write(g, "System/DeusEx.ini", "[Core.System]\r\nSavePath=..\\Save\r\nPaths=..\\System\\*.u\r\n");
     scratch_write(g, "System/User.ini", "[Engine.Input]\r\nF1=X\r\n");
+    RUN(test_import_recased);
     scratch_write(g, "System/Shot0000.bmp", "game-shot-0");
     scratch_write(g, "Save/Save0001/SaveInfo.dxs", "game-slot-1");
     scratch_write(g, "Save/Save0001/01_NYC_UNATCOIsland.dxs", "game-slot-1-level");

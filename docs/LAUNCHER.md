@@ -32,7 +32,8 @@ folders and name found in any case, the engine and the launcher read and
 write. The launcher's files are in the
 home's XDG folders, each with a `dxlauncher` folder in it
 (`src/core/xdg.h`); `DXL_HOME=<dir>` puts all four under one folder, a
-scratch home. On the Smart Pro the app's `launch.sh` names one, `home` in
+scratch home, a relative one taken from the working folder. On the Smart Pro
+the app's `launch.sh` names one, `home` in
 the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
 
 | Folder | What is in it |
@@ -52,8 +53,9 @@ names the mod's folders before them, by their absolute paths
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
 writes them back, their text as the engine reads it: a byte a character,
 Latin-1, a UTF-16 file kept UTF-16, and one holding a character past
-Latin-1, a path under such a home, written UTF-16; the launcher's own inis
-are UTF-8. A `SavePath`, `CachePath` or `Paths` an earlier launcher wrote
+Latin-1, a path under such a home, written UTF-16, the text ending at its
+first NUL, what is past it neither read nor written back; the launcher's
+own inis are UTF-8. A `SavePath`, `CachePath` or `Paths` an earlier launcher wrote
 as UTF-8 is read as that UTF-8 at the next run. The engine never touches `~/.config/DXEngine`,
 which the harness's runs read: an engine whose `--version` lacks
 `userdir` is refused.
@@ -90,8 +92,8 @@ one over both.
 
 ## An install
 
-A folder is an install when `System/DeusEx.exe` is there, `System` in any case as the
-engine finds it, and the engine plays it only when that file's SHA1 is one
+A folder is an install when `System/DeusEx.exe` is there, each in any case as the
+engine finds them, and the engine plays it only when that file's SHA1 is one
 it knows
 (`src/core/gamedb.c`, the engine's own list, which Port Ex Machina's
 `scripts/dx.sh check` holds them to): 1112fm, GOG's and Steam's; 1002f, the
@@ -122,7 +124,9 @@ game in (read with SQLite, opened read only), and its Wine prefix;
 Bottles' bottles and the other Wine prefixes,
 `$WINEPREFIX`, `~/.wine`, winetricks', those in `~/Games` and Heroic's;
 the drives `/proc/self/mountinfo` has mounted in `/run/media`, `/media`
-and `/mnt`, however deep, each once, at its top and two folders down. In
+and `/mnt`, however deep, but a network file system's or an automount
+point's (NFS, SMB, SSHFS, autofs and the like), which a walk would wake or
+wait on, each once, at its top and two folders down. In
 a prefix's `drive_c`, and on a drive, it looks where
 Windows' installers put the game: `DeusEx`, the CD's folder; each folder
 in `GOG Games`, GOG Galaxy's `Games` and `Games`; Steam's library; and
@@ -132,7 +136,8 @@ paths (`D:\SteamLibrary`) taken where the prefix's `dosdevices` lead, in
 any letter case; a network path (`\\server\share`) is passed over.
 Another is shown by the launcher's folder browser, which a pad works.
 `dxl-cli` makes the profile from
-`--game=<dir>`'s install. Either way the profile is made from the
+`--game=<dir>`'s install. A game's `System` folder, shown or named, is
+taken for the game it is in. Either way the profile is made from the
 install by `dxl_profile_import` (`src/core/profile.c`), reading it and
 writing nothing there:
 
@@ -152,7 +157,8 @@ writing nothing there:
 - `SavePath` and `CachePath` the profile's; GameSpy's closed master server
   (`[DeusEx.MenuScreenJoinGame] MasterServerAddress=master0.gamespy.com`)
   given 333networks', `master.333networks.com`.
-- **The saves** (every folder of the game's save folder but `Current`) and
+- **The saves** (every folder of the game's save folder but `Current`, that
+  folder its `SavePath` in any case, as the engine finds it) and
   the shots (`System/Shot*.bmp`) copied. A save folder or a shot the
   profile's folders hold already -- a data folder an earlier profile of the
   id left, its config folder removed to start afresh -- is the profile's
@@ -580,7 +586,10 @@ Defaults... does it for a page or for all.
 drew it: detail textures, and no multisampling or bloom), Enhanced (4x
 multisampling, bloom, detail textures) and Performance (less to draw, three
 quarters of the window's size); Custom whenever the rows match none of them,
-a first run's engine defaults among them. Its
+a first run's engine defaults among them. Detail textures, a preset's or
+the row's, are drawn only while the game's own World Texture Detail is
+High, as the original's Render.dll hands them over, which the row's help
+says. Its
 Renderer offers the engine's renderers that run here, Vulkan and OpenGL
 ES 3.2, the Smart Pro's two, and Software, which draws on the CPU and needs
 nothing of the GPU (`data/renderers.ini`); `dxl-cli --probe --ini` finds
@@ -812,7 +821,9 @@ so with the end of the run's log, and exits 3.
 
 The page says what to do about the run's end (`src/core/advice.c`). For a
 crash, and for the errors it knows -- OpenAL not started, a package or the
-engine's `.pk3` not found, a folder the engine finds no game in, a save
+engine's `.pk3` not found, a folder the engine finds no game in, a native
+the engine does not have (a script error's reason read with its line: a mod
+with native code of its own, which does not play), a save
 it started on that did not load -- it says the likely cause, and has its fix
 as a button: another renderer, of those that run here; a run without sound;
 the game's folder; Saves (the engine's `.pk3` missing has none: it asks for
@@ -850,8 +861,8 @@ Home's The engine... chooses another.
 but `test_ui_scripts` with no display. `test_ini` loads and saves an ini in
 the game's format byte for byte (CR LF, blank lines, repeated keys; 8-bit
 text Latin-1 and UTF-16 kept, as the engine reads and writes them, and a
-path past Latin-1 written UTF-16; each line read as the original's reader
-takes it; a read-only file left as it is; a link written where it leads,
+path past Latin-1 written UTF-16; the text to its first NUL; each line read
+as the original's reader takes it; a read-only file left as it is; a link written where it leads,
 made there when it is not there yet), and `test_json` `Settings.json`,
 the members it does not know kept in their order; `test_cmdline` the
 original's three parsers, which differ, and `test_argv` and
@@ -1054,17 +1065,8 @@ Each open in Port Ex Machina's
 - **LAPP.29**: a write killed half-way leaves a temporary file beside the
   ini, never swept; very long trash paths are cut unchecked.
 - **LCORE.27**: a mod with native code of its own is offered as one that
-  plays, and stops at its first native.
-- **LCORE.29**: a System folder given on the command line or in the system's
-  folder dialog is refused, where the launcher's own browser takes it.
-- **LCORE.30**: the search walks network mounts with no time limit, and a
-  dead one keeps it looking for good.
-- **LCORE.31**: a relative scratch home is ignored without a word, the real
-  folders used.
-- **LCORE.32**: an ini with a NUL byte is read past it by the launcher and
-  not by the engine.
-- **LCORE.33**: Detail textures draw nothing unless the game's World Texture
-  Detail is High, and the row does not say so.
+  plays; that it does not is said only on Recovery, once it has stopped at
+  its first native.
 - **LCORE.35**: Profiles lists at most 32 profiles, chosen in the folder's
   order.
 - **LCORE.36**: a game with no sound device plays silent with no advice, and

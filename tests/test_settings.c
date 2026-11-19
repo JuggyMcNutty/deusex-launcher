@@ -323,6 +323,10 @@ static void test_renderer_unnamed(void) {
 
 /* A preset applied is the one matched; a row changed after, none. */
 static void test_presets(void) {
+    /* Detail textures, which its presets turn on, draw only at the game's
+     * World Texture Detail High (DXEngine's RenderSubsystem, as Render.dll):
+     * its row says so. */
+    CHECK(strstr(row("graphics.detail_textures")->help, "World Texture Detail is High") != NULL);
     dxl_stores st;
     open_all(&st);
     dxl_engine_sections_seed(st.system);

@@ -254,10 +254,30 @@ static int under(const char *path, const char *root) {
     return !strncmp(path, root, n) && (path[n] == '/' || !path[n] || (n == 1 && root[0] == '/'));
 }
 
+/* Whether a mountinfo line's file system (the field after its " - ") is a
+ * network one or an automounter's: a walk there would mount it, wake a far
+ * machine's disks, or wait on a dead server for good. */
+static int remote(const char *line, const char *stop_at) {
+    static const char *const types[] = {
+        "autofs", "nfs", "nfs4", "cifs", "smb3", "smbfs", "ncpfs", "afs", "ceph", "glusterfs", "davfs",
+        "fuse.sshfs", "fuse.rclone", "fuse.s3fs", "fuse.glusterfs", "fuse.smbnetfs", "fuse.curlftpfs",
+    };
+    const char *sep = NULL;
+    for (const char *p = line; p + 3 <= stop_at && !sep; p++)
+        if (!memcmp(p, " - ", 3)) sep = p + 3;
+    if (!sep) return 0;
+    const char *end = memchr(sep, ' ', (size_t)(stop_at - sep));
+    size_t n = (size_t)((end ? end : stop_at) - sep);
+    for (size_t i = 0; i < sizeof types / sizeof *types; i++)
+        if (strlen(types[i]) == n && !memcmp(sep, types[i], n)) return 1;
+    return 0;
+}
+
 /* What mountinfo has mounted under the folders drives are mounted in --
  * those folders made real first, so a link to another is looked in once --
- * each drive once, in its order: at its top and two folders down, and
- * where Windows' installers put the game. */
+ * each drive once, in its order, but a network one's or an automounter's:
+ * at its top and two folders down, and where Windows' installers put the
+ * game. */
 static void drives(finder *f) {
     if (!f->media) return;
     char *own = NULL;
@@ -283,6 +303,26 @@ static void drives(finder *f) {
             }
         if (r) roots[nroots++] = r;
     }
+    /* The network mounts and the automounters' among them first: one that
+     * lies inside a drive walked below is neither entered nor asked about. */
+    for (const char *line = info; *line && f->skip_count < DXL_FINDER_SKIP_MAX;) {
+        const char *end = strchr(line, '\n');
+        size_t len = end ? (size_t)(end - line) : strlen(line);
+        const char *p = line, *stop_at = line + len;
+        for (int k = 0; k < 4 && p; k++) {
+            p = memchr(p, ' ', (size_t)(stop_at - p));
+            if (p) p++;
+        }
+        if (p && p < stop_at && remote(p, stop_at)) {
+            const char *q = memchr(p, ' ', (size_t)(stop_at - p));
+            char at[PATH_MAX];
+            mount_path(p, (size_t)((q ? q : stop_at) - p), at, sizeof at);
+            int in_media = 0;
+            for (int k = 0; k < nroots && !in_media; k++) in_media = under(at, roots[k]);
+            if (in_media) f->skip[f->skip_count++] = dxl_xstrdup(at);
+        }
+        line = end ? end + 1 : line + len;
+    }
     char *walked[DRIVES_MAX];
     int nwalked = 0;
     for (const char *line = info; *line && !dxl_finder_stopped(f) && nwalked < DRIVES_MAX;) {
@@ -294,7 +334,7 @@ static void drives(finder *f) {
             p = memchr(p, ' ', (size_t)(stop_at - p));
             if (p) p++;
         }
-        if (p && p < stop_at) {
+        if (p && p < stop_at && !remote(p, stop_at)) {
             const char *q = memchr(p, ' ', (size_t)(stop_at - p));
             char at[PATH_MAX];
             mount_path(p, (size_t)((q ? q : stop_at) - p), at, sizeof at);
