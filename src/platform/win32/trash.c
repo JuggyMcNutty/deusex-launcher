@@ -40,7 +40,27 @@ int dxl_trash_can(const char *path, const char *data_home) {
     return SHQueryRecycleBinW(root, &info) == S_OK;
 }
 
-/* paths, n of them, into the Recycle Bin in one go. */
+int (*dxl_trash_test_op)(struct _SHFILEOPSTRUCTW *op);
+
+/* The window the shell's question stands in front of: this thread's first
+ * top-level window shown, the launcher's; NULL for none. */
+static BOOL CALLBACK first_shown(HWND w, LPARAM out) {
+    if (!IsWindowVisible(w) || GetWindow(w, GW_OWNER)) return TRUE;
+    *(HWND *)out = w;
+    return FALSE;
+}
+
+static HWND owner(void) {
+    HWND w = NULL;
+    EnumThreadWindows(GetCurrentThreadId(), first_shown, (LPARAM)&w);
+    return w;
+}
+
+/* paths, n of them, into the Recycle Bin in one go. The shell takes them
+ * one by one and stops at the first that fails, those before it gone, or
+ * passes over one its question was answered No for: each looked for after
+ * a failure, and what went said (bugs.md LPORT.14). SHFileOperationW's
+ * answer is its own code, no GetLastError's: said as a number. */
 static int recycle(wchar_t *const *paths, int n, dxl_err *err) {
     size_t len = 2;
     for (int i = 0; i < n; i++) len += wcslen(paths[i]) + 1;
@@ -52,19 +72,45 @@ static int recycle(wchar_t *const *paths, int n, dxl_err *err) {
     *p = 0;   /* the list ends with two NULs */
     SHFILEOPSTRUCTW op;
     memset(&op, 0, sizeof op);
+    /* Its question in front of the launcher's window, whose frames stop
+     * until it is answered. */
+    op.hwnd = owner();
     op.wFunc = FO_DELETE;
     op.pFrom = from;
     /* FOF_WANTNUKEWARNING: an item the bin will not take (the bin off for
      * the drive, one over its size) is asked about, not deleted outright
      * without a word, as trash.h promises. */
     op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_WANTNUKEWARNING | FOF_NOERRORUI | FOF_SILENT;
-    int rc = SHFileOperationW(&op);
+    int rc = dxl_trash_test_op ? dxl_trash_test_op(&op) : SHFileOperationW(&op);
     free(from);
-    if (rc != 0 || op.fAnyOperationsAborted) {
-        dxl_err_set(err, "the Recycle Bin took nothing (error 0x%X)", (unsigned)rc);
-        return -1;
+    if (rc == 0 && !op.fAnyOperationsAborted) return 0;
+    int gone = 0, left = -1;
+    for (int i = 0; i < n; i++) {
+        DWORD e = GetFileAttributesW(paths[i]) == INVALID_FILE_ATTRIBUTES ? GetLastError() : 0;
+        if (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND) {
+            char *u = dxl_u8(paths[i], 1);
+            dxl_log("the Recycle Bin took %s", u);
+            free(u);
+            gone++;
+        } else if (left < 0) {
+            left = i;
+        }
     }
-    return 0;
+    /* Each gone, the failure past the last: what was asked is done. */
+    if (left < 0) return 0;
+    if (!gone) {
+        dxl_err_set(err, "the Recycle Bin took nothing (error 0x%X)", (unsigned)rc);
+    } else {
+        char *u = dxl_u8(paths[left], 1);
+        if (n - gone > 1)
+            dxl_err_set(err, "the Recycle Bin took %d of %d and stopped (error 0x%X): %s and %d more stay", gone, n,
+                        (unsigned)rc, u, n - gone - 1);
+        else
+            dxl_err_set(err, "the Recycle Bin took %d of %d and stopped (error 0x%X): %s stays", gone, n,
+                        (unsigned)rc, u);
+        free(u);
+    }
+    return -1;
 }
 
 int dxl_trash(const char *path, const char *data_home, char *name, size_t name_size, dxl_err *err) {

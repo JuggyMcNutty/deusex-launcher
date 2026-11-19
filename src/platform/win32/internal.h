@@ -34,6 +34,12 @@ HANDLE dxl_instance_event(const dxl_instance *inst);
  * sender, where a second start can come and go before that wait. */
 extern void (*dxl_instance_test_made)(const wchar_t *pipe);
 
+/* The tests' (tests/test_trash_win32.c), NULL but there: called in
+ * SHFileOperationW's place with what the Recycle Bin is asked, to fail a
+ * part of it. */
+struct _SHFILEOPSTRUCTW;
+extern int (*dxl_trash_test_op)(struct _SHFILEOPSTRUCTW *op);
+
 /* A word quoted for a command line as CommandLineToArgvW splits it, onto
  * line's end (its size in wchar_t, NUL-terminated; 0 when it would not
  * fit). */

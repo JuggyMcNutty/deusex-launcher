@@ -212,7 +212,10 @@ marked; its buttons act on the one chosen, the row last focused:
 - **Name**, under the list: the chosen one's, edited in place.
 - **Delete...**: the chosen one's four folders to the Recycle Bin, all or
   none, each by its own name (`src/platform/win32/trash.c`); never the one
-  in use.
+  in use. A Recycle Bin that stops part way, at a folder taken in use after
+  the launcher's check, is said as such: how many went, and the first that
+  stays. Its question for a folder it will not take, on a drive whose
+  Recycle Bin is off, stands in front of the launcher's window.
 
 ## Mods
 
@@ -927,7 +930,8 @@ is missing, and `DXL_HOME`'s;
 registry's, read from a key of the test's own in theirs (`DXL_FINDER_KEYS`);
 `test_desktop_win32` the Start menu's shortcuts and their icon in a folder
 of its own (`DXL_START_MENU`) and `deusex://`, each gone again;
-`test_trash_win32` the Recycle Bin, several at once all or none;
+`test_trash_win32` the Recycle Bin, several at once all or none, one that
+stops part way said, its question's owner the window;
 `test_instance_win32` the hand-over's pipe: a line while it waits and after
 one, a start that says nothing, one come and gone before its first wait, a
 mark and a pipe that refuse the start.
@@ -1148,8 +1152,6 @@ Each open in Port Ex Machina's
   moved.
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
-- **LPORT.14**: a profile partly recycled is reported as nothing taken; the
-  Recycle Bin's question has no owner window.
 - **LPORT.15**: the programs carry no icon of their own.
 - **LPORT.19**: a failed handle list at a program's start goes unchecked; a
   file of 2 GiB or more is taken as missing.
