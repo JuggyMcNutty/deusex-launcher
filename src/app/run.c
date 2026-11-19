@@ -242,7 +242,18 @@ int dxl_engine_check(const char *engine, dxl_engine_version *v, char *brief, siz
 
 int dxl_run_engine_check(const dxl_session *s, dxl_engine_version *v, char *brief, size_t brief_size, char *why,
                          size_t size) {
-    return dxl_engine_check(s->engine, v, brief, brief_size, why, size);
+    if (dxl_engine_check(s->engine, v, brief, brief_size, why, size) != 0) return -1;
+    /* A game known by its packages, its exe not a stock one: only to an
+     * engine that takes such a folder, which an older one refuses (bugs.md
+     * D.89). */
+    if (s->install.by_packages && !dxl_engine_has(v, DXL_ENGINE_BY_PACKAGES)) {
+        snprintf(brief, brief_size, "%.120s, without %s", v->version, DXL_ENGINE_BY_PACKAGES);
+        snprintf(why, size, "%s (%s) plays no game whose System/DeusEx.exe is not a stock one, as this one's is: "
+                 "choose a DXEngine with the %s feature, or put the stock DeusEx.exe back (Steam's Verify, "
+                 "GOG's repair).", s->engine, v->version, DXL_ENGINE_BY_PACKAGES);
+        return -1;
+    }
+    return 0;
 }
 
 char *dxl_engine_in(const char *dir) {
@@ -286,6 +297,7 @@ static int check_engine(dxl_run *r, dxl_engine_version *v) {
         return -1;
     }
     dxl_log("engine: %s, %s; features: %s", r->session.engine, v->version, v->features);
+    if (r->session.install.by_packages) dxl_log("warning: %s", r->session.install.problem);
     return 0;
 }
 

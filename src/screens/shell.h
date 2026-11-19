@@ -154,8 +154,9 @@ typedef struct dxl_shell {
     uint32_t     focus[DXL_PAGE_COUNT];   /* each page's focus, for coming back to it */
 
     /* The engine's --version, asked once: what is wrong in a few words, and
-     * the whole of it. */
-    int          engine_asked;
+     * the whole of it; asked again for an install of the other kind, one
+     * known by its packages wanting game-by-packages (bugs.md D.89). */
+    int          engine_asked, engine_by_packages;
     int          engine_ok;
     char         engine_version[160], engine_features[256], engine_brief[160], engine_problem[700];
 

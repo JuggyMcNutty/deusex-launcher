@@ -535,6 +535,20 @@ static void test_engine_check(void) {
     CHECK(strstr(brief, "without --userdir") != NULL);
     dxl_env_set("DXL_STUB_FEATURES", NULL);
 
+    /* A game known by its packages, its exe no stock one: only to an engine
+     * with the game-by-packages feature (bugs.md D.89). */
+    dxl_session ss;
+    memset(&ss, 0, sizeof ss);
+    ss.engine = DXL_STUB_ENGINE;
+    CHECK_INT(dxl_run_engine_check(&ss, &v, brief, sizeof brief, why, sizeof why), 0);
+    ss.install.by_packages = 1;
+    CHECK_INT(dxl_run_engine_check(&ss, &v, brief, sizeof brief, why, sizeof why), -1);
+    CHECK(strstr(brief, "without game-by-packages") != NULL);
+    CHECK(strstr(why, "put the stock DeusEx.exe back") != NULL);
+    dxl_env_set("DXL_STUB_FEATURES", "userdir game-by-packages");
+    CHECK_INT(dxl_run_engine_check(&ss, &v, brief, sizeof brief, why, sizeof why), 0);
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
+
     /* In a folder: DXEngine is found; a folder with only an old name has no
      * engine. */
     const char *dir = scratch_dir("engine-in");

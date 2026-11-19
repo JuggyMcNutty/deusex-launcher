@@ -3,6 +3,7 @@
 #include "core/finder.h"
 #include "core/paths.h"
 
+#include <stdint.h>
 #include <unistd.h>
 
 /* An install's files under base/rel: a DeusEx.exe the engine does not know,
@@ -395,6 +396,51 @@ static void test_stop_and_full(void) {
     free(home);
 }
 
+/* A copy whose DeusEx.exe is no stock one beside 1112fm's packages:
+ * listed playable, with its warning; beside others' packages, listed and
+ * not (bugs.md D.89). */
+static void test_by_packages(void) {
+    static const uint32_t guids[3][4] = {
+        { 0xBFC9A4E4u, 0x44E3B749u, 0xB688A995u, 0x29BD75C1u },
+        { 0x51EA2E91u, 0x4B953003u, 0x5CB94784u, 0xFF411102u },
+        { 0xCADECA6Bu, 0x4EB3B7FFu, 0x1F0CB592u, 0x21ECCC8Eu },
+    };
+    static const char *names[3] = { "Core.u", "Engine.u", "DeusEx.u" };
+    char *home = dxl_xstrdup(scratch_dir("finder-bypackages"));
+    install_at(home, "Games/Deus Ex");
+    install_at(home, "GOG Games/Deus Ex");
+    for (int k = 0; k < 2; k++) {
+        for (int i = 0; i < 3; i++) {
+            uint32_t w[15] = { 0x9E2A83C1u, 68, 1, 0, 0, 0, 0, 0, 0, guids[i][0], guids[i][1], guids[i][2],
+                               guids[i][3] + (uint32_t)k, 0, 0 };
+            unsigned char b[sizeof w];
+            for (size_t j = 0; j < sizeof w / sizeof *w; j++)
+                for (int m = 0; m < 4; m++) b[j * 4 + m] = (unsigned char)(w[j] >> (8 * m));
+            char rel[128];
+            snprintf(rel, sizeof rel, "%s/System/%s", k ? "GOG Games/Deus Ex" : "Games/Deus Ex", names[i]);
+            char *p = scratch_path(home, rel);
+            FILE *f = fopen(p, "wb");
+            if (f) { fwrite(b, 1, sizeof b, f); fclose(f); }
+            free(p);
+        }
+    }
+    dxl_found_list l;
+    find_in(&l, home);
+    CHECK_INT(l.count, 2);
+    check_item(&l, 0, "in GOG Games", "GOG Games/Deus Ex");
+    check_item(&l, 1, "in Games", "Games/Deus Ex");
+    if (l.count == 2) {
+        CHECK_INT(l.items[0].install.ok, 0);
+        CHECK(strstr(l.items[0].install.problem, "System/Core.u is not 1112fm's either") != NULL);
+        CHECK_INT(l.items[1].install.ok, 1);
+        CHECK_INT(l.items[1].install.by_packages, 1);
+        CHECK(strstr(l.items[1].install.problem, "System/DeusEx.exe is not a stock one") != NULL);
+    }
+    dxl_found_list_free(&l);
+    scratch_remove(home);
+    free(home);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_nothing);
     RUN(test_places);
@@ -406,4 +452,5 @@ TEST_MAIN_BEGIN
     RUN(test_prefix_steam);
     RUN(test_drives);
     RUN(test_stop_and_full);
+    RUN(test_by_packages);
 TEST_MAIN_END
