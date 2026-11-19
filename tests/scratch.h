@@ -16,10 +16,20 @@
 #include <sys/stat.h>
 
 /* <the temporary folder>/dxl-<tag>-<pid>; the same path for the same tag
- * in one run. */
+ * in one run, empty at its first use: a folder an earlier run left under a
+ * process id that has come round again (a test that fails keeps its
+ * folders, and Windows' ids are few) is no part of this one. */
 static inline const char *scratch_dir(const char *tag) {
     static char dir[256];
+    static char seen[128][48];
+    static int nseen;
     snprintf(dir, sizeof dir, "%s/dxl-%s-%ld", dxl_test_tmp(), tag, dxl_os_pid());
+    int known = 0;
+    for (int i = 0; i < nseen && !known; i++) known = !strcmp(seen[i], tag);
+    if (!known && nseen < 128 && strlen(tag) < sizeof seen[0]) {
+        strcpy(seen[nseen++], tag);
+        dxl_fs_remove_tree(dir);
+    }
     dxl_fs_mkdir(dir);
     return dir;
 }
