@@ -509,6 +509,14 @@ smaller until they do. On a display of another scale or work area its
 smallest is worked out again, and the window keeps its size in dp within
 the work area.
 
+On a Wayland session whose compositor draws no window's frame (GNOME's),
+SDL3 draws it with libdecor. Where `libdecor-0.so.0` does not open there
+and X11 is at hand, a start asks SDL for X11 first
+(`src/platform/posix/startup.c`: the compositor asked for xdg-decoration in
+one round trip), so that the window has its title bar, and the engine's
+window, which inherits the choice, its own; an `SDL_VIDEO_DRIVER` the
+player set is kept.
+
 **The big screen**, for a television or a handheld
 (`src/core/bigscreen.h`): the window full screen, its layout 1280 x 720 dp
 an eighth larger -- the screen 640 dp tall, and no narrower than 960 dp --
@@ -996,7 +1004,8 @@ as it was, and makes, lists and copies profiles; an import that fails on a
 save it cannot read, one cancelled, one after another killed half-way and
 a profile whose `profile.ini` cannot be written, the player's own links
 kept through each; `test_trash` puts folders
-in a scratch trash; `test_gpu_probe` probes this machine's GPU, with a
+in a scratch trash; `test_startup` when a start asks SDL for X11 first;
+`test_gpu_probe` probes this machine's GPU, with a
 Vulkan driver of its own that crashes as it loads too, whose probe keeps
 the OpenGL answers, and with Mesa's
 versions set at OpenGL 4.2 and ES 3.1, which it then offers, and lowered
@@ -1143,10 +1152,6 @@ Each open in Port Ex Machina's
   moved.
 - **LUI.21**: the system's folder dialog for a mod does not take a `System`
   folder for the mod's own, as the launcher's browser does.
-- **LPORT.18**: on GNOME's Wayland without libdecor the window has no title
-  bar.
-- **X.17**: the tarballs record the build machine's user, so unpacked as
-  root the files belong to a local account.
 - **D.89**: a copy whose DeusEx.exe is not the stock GOG or Steam one is
   refused, its message not saying the exe alone is the trouble.
 - **D.90**: the engine needs OpenAL Soft installed, which a stock Ubuntu
