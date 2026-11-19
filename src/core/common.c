@@ -1,6 +1,7 @@
 #include "core/common.h"
 
 #include <ctype.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -216,6 +217,17 @@ void dxl_text_utf8(const char *in, char *out, size_t size) {
     out[o] = '\0';
 }
 
+int dxl_utf8_fit(const char *s, int max) {
+    int n = 0;
+    while (s && s[n] && n < max) {
+        int c = (int)utf8_char((const unsigned char *)s + n);
+        if (!c) c = 1;
+        if (n + c > max) break;
+        n += c;
+    }
+    return n;
+}
+
 void dxl_text_no_controls(const char *in, char *out, size_t size) {
     if (!size) return;
     size_t o = 0;
@@ -242,4 +254,48 @@ void dxl_text_drop_cut(char *s) {
     unsigned char c = (unsigned char)s[p - 1];
     size_t need = c >= 0xf0 && c <= 0xf4 ? 4 : c >= 0xe0 && c <= 0xef ? 3 : c >= 0xc2 && c <= 0xdf ? 2 : 0;
     if (need > len - (p - 1)) s[p - 1] = '\0';
+}
+
+double dxl_strtod_c(const char *s, char **end) {
+    const char *dp = localeconv()->decimal_point;
+    size_t dl = dp ? strlen(dp) : 0;
+    if (!dl || !strcmp(dp, ".")) return strtod(s, end);
+    /* The text in the locale's spelling, each byte's place in s kept: its
+     * '.' the locale's point, the locale's own point a stop, as it is to
+     * the C locale's strtod. A number is shorter than this. */
+    char buf[128];
+    size_t at[sizeof buf], o = 0, i = 0;
+    for (; s[i] && o + dl < sizeof buf; i++) {
+        if (s[i] == '.') {
+            for (size_t k = 0; k < dl; k++) at[o + k] = i;
+            memcpy(buf + o, dp, dl);
+            o += dl;
+        } else {
+            at[o] = i;
+            buf[o++] = s[i] == dp[0] ? '\x01' : s[i];
+        }
+    }
+    buf[o] = '\0';
+    at[o] = i;
+    char *e;
+    double v = strtod(buf, &e);
+    if (end) *end = (char *)s + at[e - buf];
+    return v;
+}
+
+int dxl_snprintf_c(char *out, size_t size, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(out, size, fmt, ap);
+    va_end(ap);
+    const char *dp = localeconv()->decimal_point;
+    size_t dl = dp ? strlen(dp) : 0;
+    if (!dl || !strcmp(dp, ".") || !size) return n;
+    /* Each number's point, the locale's, as '.'. */
+    for (char *p = out; (p = strstr(p, dp)) != NULL; p++) {
+        *p = '.';
+        memmove(p + 1, p + dl, strlen(p + dl) + 1);
+        n -= (int)(dl - 1);
+    }
+    return n;
 }

@@ -920,7 +920,7 @@ static void refit(dxl_window *w, float user_scale) {
 static void size_window(dxl_window *w) {
     SDL_DisplayID d = SDL_GetDisplayForWindow(w->window);
     const char *ui_scale = dxl_ini_get(w->run->session.ini, "Launcher", "UIScale");
-    float user_scale = ui_scale ? (float)atof(ui_scale) : 1;
+    float user_scale = ui_scale ? (float)dxl_strtod_c(ui_scale, NULL) : 1;
     if (user_scale < 0.5f || user_scale > 3) user_scale = 1;
     int minw, minh;
     minimum(w, user_scale, &minw, &minh);
@@ -1095,7 +1095,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     char fonts[1100];
     snprintf(fonts, sizeof fonts, "%s/fonts", r->session.data_dir);
     const char *scale = dxl_ini_get(r->session.ini, "Launcher", "UIScale");
-    float user_scale = scale ? (float)atof(scale) : 1;
+    float user_scale = scale ? (float)dxl_strtod_c(scale, NULL) : 1;
     if (user_scale < 0.5f || user_scale > 3) user_scale = 1;
     int rc;
     if (w->kit) {

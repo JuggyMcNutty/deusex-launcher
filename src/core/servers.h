@@ -85,10 +85,17 @@ int dxl_server_link(const char *link, char *out, size_t size);
 int dxl_server_link_like(const char *arg);
 
 /* The profile's favourites ([Profile] Favourites): "a.b.c.d:port" words,
- * the game's ports. Whether one is there; the list with one put in or
- * taken out, the caller's to free: an address dxl_server_host_ok refuses,
- * or a port that is none, is not put in. */
+ * the game's ports, "a.b.c.d:port:query" where its query port is not the
+ * next after it (the game's UdpServerQuery binds the next free one).
+ * Whether one is there; the list with one put in or taken out, the
+ * caller's to free: an address dxl_server_host_ok refuses, or a port that
+ * is none, is not put in. */
 int   dxl_favourite_has(const char *list, const char *address, int port);
-char *dxl_favourite_toggle(const char *list, const char *address, int port);
+char *dxl_favourite_toggle(const char *list, const char *address, int port, int query);
+/* A word of the list: its host into host, its game port into port; returns
+ * its query port, 0 for a word that is none. */
+int   dxl_favourite_parse(const char *word, char *host, size_t size, int *port);
+/* The game port of the favourite asked at address:query, 0 for none. */
+int   dxl_favourite_game_port(const char *list, const char *address, int query);
 
 #endif

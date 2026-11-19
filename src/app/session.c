@@ -213,7 +213,11 @@ int dxl_session_copy_profile(dxl_session *s, const char *from, const char *name,
                              dxl_err *err) {
     dxl_profile src, to;
     if (dxl_profile_open(&src, &s->xdg, from, err) != 0) return -1;
-    dxl_profile_new_id(&s->xdg, name, id, size);
+    if (dxl_profile_new_id(&s->xdg, name, id, size) != 0) {
+        dxl_err_set(err, "no id left for a profile named %s", name);
+        dxl_profile_free(&src);
+        return -1;
+    }
     if (dxl_profile_open(&to, &s->xdg, id, err) != 0) {
         dxl_profile_free(&src);
         return -1;

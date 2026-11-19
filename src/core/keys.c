@@ -4,6 +4,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define INPUT "Engine.Input"
@@ -391,15 +392,17 @@ void dxl_key_bind(dxl_ini *user, const char *key, const char *command) {
 }
 
 void dxl_key_unbind(dxl_ini *user, const char *key, const char *command) {
-    char binding[512];
-    snprintf(binding, sizeof binding, "%s", dxl_key_binding(user, key));
-    if (!dxl_key_binds(binding, command)) return;
-    if (strchr(command, '|')) {
-        dxl_key_bind(user, key, "");
+    char *binding = dxl_xstrdup(dxl_key_binding(user, key));
+    int bound = dxl_key_binds(binding, command);
+    if (!bound || strchr(command, '|')) {
+        if (bound) dxl_key_bind(user, key, "");
+        free(binding);
         return;
     }
-    /* Its part alone gone, the others kept as they were written. */
-    char want[512], rest[512] = "";
+    /* Its part alone gone, the others kept as they were written, whole. */
+    char want[512];
+    dxl_buf rest;
+    dxl_buf_init(&rest);
     plain(command, want, sizeof want);
     char *save = NULL;
     for (char *part = strtok_r(binding, "|", &save); part; part = strtok_r(NULL, "|", &save)) {
@@ -409,10 +412,12 @@ void dxl_key_unbind(dxl_ini *user, const char *key, const char *command) {
         while (*part == ' ') part++;
         char *e = part + strlen(part);
         while (e > part && e[-1] == ' ') *--e = '\0';
-        size_t len = strlen(rest);
-        snprintf(rest + len, sizeof rest - len, "%s%s", len ? "|" : "", part);
+        if (rest.len) dxl_buf_add(&rest, "|", 1);
+        dxl_buf_puts(&rest, part);
     }
-    dxl_key_bind(user, key, rest);
+    dxl_key_bind(user, key, rest.data ? rest.data : "");
+    dxl_buf_free(&rest);
+    free(binding);
 }
 
 void dxl_keys_reset(dxl_ini *user, const dxl_ini *defuser) {

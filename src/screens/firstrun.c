@@ -216,8 +216,7 @@ void dxl_page_find(dxl_shell *s, dxl_rect r) {
 static void renamed(dxl_shell *s) {
     dxl_session *ss = &s->run->session;
     char id[DXL_PROFILE_ID_MAX + 1];
-    dxl_profile_new_id(&ss->xdg, s->begin_name, id, sizeof id);
-    if (!strcmp(id, ss->profile.id)) return;
+    if (dxl_profile_new_id(&ss->xdg, s->begin_name, id, sizeof id) != 0 || !strcmp(id, ss->profile.id)) return;
     dxl_err e;
     if (dxl_run_use_profile(s->run, id, &e) != 0) {
         dxl_log("warning: %s", dxl_err_msg(&e));

@@ -3,6 +3,7 @@
 #include "core/paths.h"
 #include "platform/fs.h"
 
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,6 +77,7 @@ struct dxl_engine_settings {
     dxl_json *doc;
     dxl_json *defaults;    /* the packaged default file, or NULL */
     int       existed, corrupt, dirty;
+    int       unread;                 /* there, but not opened or read whole: never written over */
     unsigned char present[DXL_ES_FIELD_COUNT];
     char      problem[DXL_ERR_LEN];   /* why the file could not be read */
     char     *kept;                   /* where a save kept it */
@@ -128,8 +130,29 @@ dxl_engine_settings *dxl_es_open(const char *path, const char *default_path) {
         s->existed = 1;
         dxl_err e;
         dxl_err_set(&e, "not a JSON object");
-        s->doc = dxl_json_load(path, &e);
-        if (!s->doc || dxl_json_kind(s->doc) != DXL_JSON_OBJECT) {
+        /* A file there that does not open or read whole (its rights, an I/O
+         * error) is no corrupt one: kept as it is, never moved aside. */
+        FILE *f = fopen(path, "rb");
+        int bad = f ? 0 : errno;
+        dxl_buf b;
+        dxl_buf_init(&b);
+        if (f) {
+            char chunk[4096];
+            size_t n;
+            errno = 0;
+            while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) dxl_buf_add(&b, chunk, n);
+            /* Its own why: a folder in its place is EISDIR, not EIO. */
+            if (ferror(f)) bad = errno ? errno : EIO;
+            fclose(f);
+        }
+        if (bad) {
+            s->unread = 1;
+            snprintf(s->problem, sizeof s->problem, "cannot read %s: %s", path, strerror(bad));
+        } else {
+            s->doc = dxl_json_parse(b.data ? b.data : "", b.len, &e);
+        }
+        dxl_buf_free(&b);
+        if (!s->unread && (!s->doc || dxl_json_kind(s->doc) != DXL_JSON_OBJECT)) {
             dxl_json_free(s->doc);
             s->doc = NULL;
             s->corrupt = 1;
@@ -206,6 +229,10 @@ int dxl_es_save(dxl_engine_settings *s, dxl_err *err) {
         return -1;
     }
     free(dir);
+    if (s->unread) {
+        dxl_err_set(err, "%s: not written over", s->problem);
+        return -1;
+    }
     /* The file it could not read, kept beside it: never written over. */
     if (s->corrupt && dxl_path_exists(s->path)) {
         size_t n = strlen(s->path) + sizeof DXL_ES_KEPT;

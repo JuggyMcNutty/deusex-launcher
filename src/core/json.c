@@ -200,7 +200,7 @@ static dxl_json *read_number(reader *r) {
     }
     dxl_json *v = node(DXL_JSON_NUMBER);
     v->text = dxl_xstrndup(s, (size_t)(r->p - s));
-    v->num = strtod(v->text, NULL);
+    v->num = dxl_strtod_c(v->text, NULL);
     return v;
 }
 
@@ -299,7 +299,13 @@ dxl_json *dxl_json_load(const char *path, dxl_err *err) {
     char chunk[4096];
     size_t n;
     while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) dxl_buf_add(&b, chunk, n);
+    int bad = ferror(f);
     fclose(f);
+    if (bad) {
+        dxl_buf_free(&b);
+        dxl_err_set(err, "read error on %s", path);
+        return NULL;
+    }
     dxl_json *v = dxl_json_parse(b.data ? b.data : "", b.len, err);
     dxl_buf_free(&b);
     return v;
@@ -469,8 +475,8 @@ void dxl_json_set_number(dxl_json *obj, const char *key, double value) {
     } else {
         /* Shortest spelling that reads back as the same double. */
         for (int prec = 6; prec <= 17; prec++) {
-            snprintf(spelling, sizeof spelling, "%.*g", prec, value);
-            if (strtod(spelling, NULL) == value) break;
+            dxl_snprintf_c(spelling, sizeof spelling, "%.*g", prec, value);
+            if (dxl_strtod_c(spelling, NULL) == value) break;
         }
     }
     dxl_json *v = node(DXL_JSON_NUMBER);

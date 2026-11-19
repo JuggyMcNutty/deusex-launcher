@@ -132,7 +132,7 @@ void dxl_shell_volumes(dxl_shell *s) {
     if (!s->audio || !s->run) return;
     const dxl_ini *ini = s->run->session.ini;
     const char *m = dxl_ini_get(ini, "Launcher", "MusicVolume"), *v = dxl_ini_get(ini, "Launcher", "SoundVolume");
-    dxl_audio_volumes(s->audio, m ? (float)atof(m) : 0.5f, v ? (float)atof(v) : 0.7f);
+    dxl_audio_volumes(s->audio, m ? (float)dxl_strtod_c(m, NULL) : 0.5f, v ? (float)dxl_strtod_c(v, NULL) : 0.7f);
 }
 
 void dxl_shell_sound(dxl_shell *s) {
@@ -388,7 +388,7 @@ void dxl_shell_profile_mod(dxl_shell *s) {
     dxl_mod m;
     if (dxl_mod_check(dir, &m, NULL) == 0) {
         s->profile_mod = 1;
-        snprintf(s->profile_mod_text, sizeof s->profile_mod_text, "%.100s, %s", m.name,
+        snprintf(s->profile_mod_text, sizeof s->profile_mod_text, "%.*s, %s", dxl_utf8_fit(m.name, 100), m.name,
                  dxl_shell_tilde(m.dir, shown, sizeof shown));
         dxl_mod_free(&m);
     } else {

@@ -1,10 +1,13 @@
 #include "test.h"
 #include "core/engine_settings.h"
 #include "core/json.h"
+#include "core/paths.h"
 #include "platform/os.h"
 #include "platform/fs.h"
 
+#include <errno.h>
 #include <math.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -94,6 +97,30 @@ static void test_corrupt_file_is_replaced(void) {
     CHECK_INT(dxl_es_save(s, &e), 0);
     CHECK(dxl_es_kept(s) == NULL);
     dxl_es_free(s);
+    teardown();
+}
+
+/* A file there that does not read (here a folder of its name, an I/O
+ * error to fread; its rights, a disk's error): not a corrupt one, never
+ * moved aside nor written over. */
+static void test_unreadable_file_is_kept(void) {
+    setup("unread");
+    put("default.json", device_default);
+    CHECK_INT(dxl_fs_mkdir(in_dir("Settings.json")), 0);
+    dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_was_corrupt(s), 0);
+    CHECK(strstr(dxl_es_problem(s), "cannot read") != NULL);
+#ifndef _WIN32
+    CHECK(strstr(dxl_es_problem(s), strerror(EISDIR)) != NULL);   /* its own why, not EIO */
+#endif
+    dxl_err e;
+    CHECK_INT(dxl_es_save(s, &e), -1);
+    CHECK(dxl_es_kept(s) == NULL);
+    CHECK_INT(dxl_path_is_dir(in_dir("Settings.json")), 1);
+    CHECK_INT(dxl_path_exists(in_dir("Settings.json" DXL_ES_KEPT)), 0);
+    dxl_es_free(s);
+    rmdir(in_dir("Settings.json"));
+    rmdir(in_dir("Settings.json" DXL_ES_KEPT));
     teardown();
 }
 
@@ -379,6 +406,7 @@ static void test_antialias_taken_and_off(void) {
 }
 
 TEST_MAIN_BEGIN
+    RUN(test_unreadable_file_is_kept);
     RUN(test_antialias_taken_and_off);
     RUN(test_missing_file_seeds_from_default);
     RUN(test_corrupt_file_is_replaced);

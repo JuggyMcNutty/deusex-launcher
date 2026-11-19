@@ -122,7 +122,8 @@ static void describe(const dxl_save *sv, char *title, size_t tsize, char *detail
     dxl_save_when(sv, when, sizeof when);
     dxl_save_played(sv, played, sizeof played);
     snprintf(title, tsize, "%s", i->description[0] ? i->description : i->location[0] ? i->location : sv->folder);
-    snprintf(detail, dsize, "%.100s  \xc2\xb7  %s  \xc2\xb7  played %s%s", i->location[0] ? i->location : i->map, when,
+    const char *where = i->location[0] ? i->location : i->map;
+    snprintf(detail, dsize, "%.*s  \xc2\xb7  %s  \xc2\xb7  played %s%s", dxl_utf8_fit(where, 100), where, when,
              played, sv->slot == DXL_SAVE_QUICK ? "  \xc2\xb7  the quick save" : "");
 }
 
@@ -218,8 +219,8 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
     if (dxl_shell_answer(s, del_id) == 1 && chosen) {
         char *path = dxl_save_path(ss->profile.save_dir, chosen);
         char name[160];
-        snprintf(name, sizeof name, "%.150s", chosen->readable && chosen->info.description[0] ? chosen->info.description
-                                                                                                : chosen->folder);
+        const char *said = chosen->readable && chosen->info.description[0] ? chosen->info.description : chosen->folder;
+        snprintf(name, sizeof name, "%.*s", dxl_utf8_fit(said, 150), said);
         dxl_err e;
         if (dxl_trash(path, ss->xdg.data_home, NULL, 0, &e) != 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
@@ -236,8 +237,8 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
         if (sv && sv->readable) dxl_shell_play_save(s, sv->slot);
     } else if (b_delete && chosen) {
         char title[200], text[400];
-        snprintf(title, sizeof title, "Delete %.150s?",
-                 chosen->readable && chosen->info.description[0] ? chosen->info.description : chosen->folder);
+        const char *said = chosen->readable && chosen->info.description[0] ? chosen->info.description : chosen->folder;
+        snprintf(title, sizeof title, "Delete %.*s?", dxl_utf8_fit(said, 150), said);
         snprintf(text, sizeof text, "The save goes to the trash, and can be put back from there.");
         dxl_shell_confirm(s, del_id, title, text, "Delete", "Keep it");
     } else if (b_back || (ui->in.back && !ui->text_id)) {

@@ -137,7 +137,7 @@ static void float_text(double value, char *out, size_t size) {
         return;
     }
     char digits[400];
-    snprintf(digits, sizeof digits, "%.40f", fabs(value));
+    dxl_snprintf_c(digits, sizeof digits, "%.40f", fabs(value));
     char *point = strchr(digits, '.');
     int up = point[7] >= '5';
     /* The whole part and six decimals, one run of digits, rounded. */
@@ -190,7 +190,7 @@ static int as_read(int type, const char *v, char *out, size_t size) {
         snprintf(out, size, "%ld", n);
         return 1;
     case FLOAT:
-        float_text((float)strtod(v, NULL), out, size);
+        float_text((float)dxl_strtod_c(v, NULL), out, size);
         return 1;
     case RATE:
         if (!(n = dxl_engine_rate(v))) return 0;

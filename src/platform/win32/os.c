@@ -168,6 +168,13 @@ int dxl_end_crashed(int end) {
     return (unsigned)end >= 0xC0000000u;
 }
 
+/* No end says it here: a process another one terminates ends with the
+ * code that one gives it. */
+int dxl_end_killed(int end) {
+    (void)end;
+    return 0;
+}
+
 /* The virtual-key code Windows' layout gives a key by its scancode, as
  * DXEngine's SDL3 window names a typing key here (MapVirtualKeyEx,
  * MAPVK_VSC_TO_VK_EX, the thread's layout): 0 for none, and past 0xFE. */
