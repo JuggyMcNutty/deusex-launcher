@@ -452,7 +452,7 @@ typedef struct {
 } copy_job;
 
 /* Each file copied: the progress told. */
-static int copied_one(void *ctx, long size) {
+static int copied_one(void *ctx, long long size) {
     copy_job *j = ctx;
     j->files++;
     if (size > 0) j->bytes += size;
@@ -463,7 +463,7 @@ static int copied_one(void *ctx, long size) {
  * it: its linked folders not descended. */
 static void tally(const char *path, int *files, long long *bytes) {
     if (!dxl_path_is_dir(path)) {
-        long n = dxl_path_size(path);
+        long long n = dxl_path_size(path);
         (*files)++;
         if (n > 0) *bytes += n;
         return;

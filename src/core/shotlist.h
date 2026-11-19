@@ -12,7 +12,7 @@ typedef struct {
     char *path;
     char  name[256];
     long  mtime;       /* seconds since the epoch */
-    long  size;        /* bytes */
+    long long size;    /* bytes */
 } dxl_shot;
 
 typedef struct {
