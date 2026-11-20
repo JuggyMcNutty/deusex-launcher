@@ -26,6 +26,7 @@
     "LookSensitivityX": 1,
     "LookSensitivityY": 1,
     "InvertY": false,
-    "CursorSpeed": 1
+    "CursorSpeed": 1,
+    "DXController": false
   }
 }

@@ -96,7 +96,7 @@ port_stage() {
 
 port_deps() {
     dx_fetch_buildroot "$X64_SDK" "$X64_SDK_URL" "$X64_SDK_SHA256" 2.28
-    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite sqlite
+    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite sqlite dxcontroller
     x64_sysroot
     x64_sdl3
 }

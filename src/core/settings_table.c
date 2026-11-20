@@ -306,6 +306,11 @@ const dxl_setting dxl_settings_table[] = {
       .at = { PAWN("bMaxMouseSmoothing", DXL_CODEC_BOOL) } },
 
     /* ---- Controller (its buttons' rows the page's own) ----------------------- */
+    { .id = DXL_DXC_ROW, .page = "Controller", .label = "DXController",
+      .help = "DXController, a mod by dsgls (GPLv3+): the pad in every menu, conversation and device, a weapon "
+              "and augmentation wheel, an on-screen keyboard. On, the game's Settings, Controller holds the "
+              "pad's settings; never in multiplayer.",
+      .kind = DXL_SET_BOOL, .def = "1", .at = { PROFILE("DXController", DXL_CODEC_BOOL) } },
     { .id = "pad.dead_zone", .page = "Controller", .label = "Dead zone",
       .help = "How far a stick moves before it counts, round its middle, so a diagonal stays one.",
       .kind = DXL_SET_NUMBER, .min = 0.05, .max = 0.5, .step = 0.05, .format = "%.0f%%", .shown_scale = 100,

@@ -64,6 +64,29 @@ beside that text: `OpenAL-Soft-BSD-3Clause.txt`, `OpenAL-Soft-LICENSE-pffft.txt`
 `OpenAL-Soft-GSL-LICENSE.txt`. Its window is drawn with SDL3 too, built into it from the
 source `cmake/deps.lock` pins.
 
+## DXController
+
+[DXController](https://github.com/dsgls/DXController), a mod by dsgls that gives Deus Ex full
+controller support, is free software under the GNU General Public License, version 3 or (at
+your option) any later version, as its README says. `data/dxcontroller/` holds:
+
+- `DXController.u`, the mod's scripts: the author's own build, unchanged, as the release zip
+  `DXController-v1.6.1.zip` carries it, which `cmake/deps.lock` pins by its SHA256. Its source
+  is the mod's repository at the tag
+  [`v1.6.1`](https://github.com/dsgls/DXController/tree/v1.6.1); `COPYING` beside it is the
+  licence's text, and `README` says what the folder is.
+- `DeusEx-v1.6.1.dxlpatch`, a binary difference made by `tools/dxpatch.py` from the game's
+  stock `DeusEx.u` to the one that release carries, the mod's hooks in it: the bytes of that
+  file the stock one lacks, with which DXLauncher makes it on the player's machine from the
+  player's own copy ([`docs/LAUNCHER.md`](docs/LAUNCHER.md#dxcontroller)). The changed
+  `DeusEx.u` is Ion Storm's package; the mod's README makes no licence claim on it, and none
+  ships. The changes the patch carries are in the mod's repository at the same tag.
+
+DXController.u is a work of its own beside DXLauncher and DXEngine, which only name it to the
+game; the GPL covers it, and DXLauncher and DXEngine stay under the zlib licence.
+
 ## The game
 
-Deus Ex is its makers'. DXLauncher carries none of it: it plays the copy the player has.
+Deus Ex is its makers'. DXLauncher carries none of it: it plays the copy the player has. The
+one file it ships made from the game's, DXController's patch, is of use only with the player's
+own `DeusEx.u`.

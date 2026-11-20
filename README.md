@@ -40,6 +40,10 @@ through end to end ([where it differs](https://github.com/JuggyMcNutty/DXEngine/
   multiplayer, and the launcher's own.
 - **Controllers**: Xbox, PlayStation, Switch and other pads; a button bound
   by pressing it, a test, and a wizard that maps a pad SDL does not know.
+  With them dsgls's [DXController](https://github.com/dsgls/DXController),
+  on unless switched off: a weapon and augmentation wheel, the pad in every
+  menu, conversation and device, an on-screen keyboard
+  ([how it plays](docs/LAUNCHER.md#dxcontroller)).
 - **Saves and screenshots**: Continue on the latest save, load or delete
   any, look through the game's screenshots.
 - **Multiplayer**: the game's servers, from the local network and
@@ -146,7 +150,7 @@ a deliberate cherry-pick
 
 ## License
 
-[zlib](LICENSE); what the app carries of others', its fonts, libraries and
-engine, under their own terms ([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex
-belongs to its owners; this project is not affiliated with or endorsed by
-them.
+[zlib](LICENSE); what the app carries of others', its fonts, libraries,
+engine and DXController, under their own terms
+([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex belongs to its owners; this
+project is not affiliated with or endorsed by them.
