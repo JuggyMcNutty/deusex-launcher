@@ -22,6 +22,9 @@
 #include <stdatomic.h>
 
 #define DXL_LAUNCHER_FD_ENV "DXL_LAUNCHER_FD"
+/* The mark's descriptor, which the engine keeps from what it starts in
+ * turn, so that the game's process alone holds the mark (bugs.md D.95). */
+#define DXL_LAUNCHER_MARK_FD_ENV "DXL_LAUNCHER_MARK_FD"
 
 /* The platform's: the process, the launcher's end of the line. */
 typedef struct dxl_game_os dxl_game_os;
@@ -44,6 +47,14 @@ typedef struct {
  * for the game: "NAME=value" sets one, "NAME" alone takes it out. */
 int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
                         const char *log_path, dxl_err *err);
+/* The same, the game holding inst's mark of a launcher running for its
+ * whole run, as the original's mutex is the game's process's: a launcher
+ * killed while it plays leaves the mark to the game's end (bugs.md D.95;
+ * platform/instance.h), the descriptor's number DXL_LAUNCHER_MARK_FD in its
+ * environment. inst NULL, or Windows, whose mark is the launcher's mutex:
+ * dxl_game_start_argv's. */
+int dxl_game_start_marked(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                          const char *log_path, dxl_instance *inst, dxl_err *err);
 
 /* What dxl_game_wait saw. */
 #define DXL_GAME_LINE  1   /* a line from the engine, in line */

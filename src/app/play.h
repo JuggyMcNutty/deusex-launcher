@@ -7,9 +7,10 @@
  * "ready" once its first map is in, and "relaunch <line>" for the
  * original's RELAUNCH before it exits; the launcher hands it "TakeFocus"
  * and "Open <url>" for a line a second launch forwarded once it is ready
- * (DXEngine's ENGINE.md, running it). The wait is on the line and the
- * instance's channel, woken once a second besides: the launcher costs next
- * to nothing while the game runs.
+ * (DXEngine's ENGINE.md, running it); a server's link in it, "OpenLink
+ * <host:port>", which the engine opens only from a game on a server. The
+ * wait is on the line and the instance's channel, woken once a second
+ * besides: the launcher costs next to nothing while the game runs.
  *
  * A clean end is exit 0 with ready seen: an engine that ends before its
  * first map is in played nothing, whatever its exit. One that finds no
@@ -30,6 +31,8 @@ typedef struct {
     const char   *workdir;   /* the game's System folder */
     const char   *log_path;  /* the engine's output and errors */
     dxl_instance *instance;  /* a second launch's lines, or NULL */
+    int           open_link; /* the engine takes OpenLink (its --version's open-link) */
+    int           mark;      /* the engine keeps instance's mark (its --version's launcher-mark) */
     atomic_int   *stop;      /* set by a signal: the game is stopped (dxl_game_stop, then dxl_game_kill) */
     /* Told as the engine says it is up; may be NULL. */
     void (*on_ready)(void *ctx);

@@ -438,6 +438,187 @@ static void test_killed_mid_game(void) {
     free(home);
 }
 
+/* The launcher alone killed while its game plays (a crash of its own, a
+ * parent that kills its pid alone): the game keeps the mark, as the
+ * original's mutex is the game's process's, and a start while it plays --
+ * a window's, --play's, a link's, dxl-cli's -- opens no Recovery and starts
+ * no second game, saying why; once the game ends, a start finds the mark
+ * free and Running.ini left, and Recovery says how that run ended is not
+ * known, as it is not (bugs.md D.95). */
+static int orphan_views;
+static int note_orphan_view(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    (void)r;
+    (void)which;
+    orphan_views++;
+    return 0;
+}
+static char orphan_message[512];
+static void note_orphan_stop(void *ctx, const char *message) {
+    (void)ctx;
+    snprintf(orphan_message, sizeof orphan_message, "%s", message);
+}
+static void test_launcher_killed_alone(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-orphan"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    dxl_env_set("DXL_STUB_FEATURES", "userdir launcher-mark");
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_session ss;
+    CHECK_INT(dxl_session_open(&ss, NULL, NULL), 0);
+    char *id = dxl_session_instance_id(&ss);
+    char *log = dxl_path_join(ss.xdg.state, "launcher.log");
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+
+    /* The game deaf to a stop, its launcher killed alone once it is up. */
+    dxl_env_set("DXL_STUB", "stubborn");
+    remove(log);
+    pid_t pid = fork();
+    if (pid == 0) _exit(run_launcher(root, NULL));
+    long game = 0;
+    for (int i = 0; i < 200 && !game; i++) {
+        dxl_os_sleep_ms(50);
+        char *text = slurp(log, NULL);
+        const char *at = text ? strstr(text, "the engine is up") : NULL;
+        const char *started = text ? strstr(text, "the game started: pid ") : NULL;
+        if (at && started) game = strtol(started + 22, NULL, 10);
+        free(text);
+    }
+    CHECK(game > 0);
+    kill(pid, SIGKILL);
+    int status = 0;
+    waitpid(pid, &status, 0);
+    CHECK(WIFSIGNALED(status));
+    CHECK(game > 0 && kill((pid_t)game, 0) == 0);
+    CHECK_INT(dxl_instance_other_running(NULL, id), 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    /* Each start while it plays: no screen, no game, the reason. */
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_run_ui ui = { .view = note_orphan_view, .stopped = note_orphan_stop };
+    char *argv[] = { "deusex-launcher", NULL };
+    static atomic_int stop;
+    orphan_views = 0;
+    orphan_message[0] = '\0';
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), DXL_RUN_EXIT_PLAYING);
+    CHECK_INT(orphan_views, 0);
+    CHECK(strstr(orphan_message, "The game is still running") != NULL);
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_PLAYING);
+    CHECK_INT(run_launcher(root, "--play"), DXL_RUN_EXIT_PLAYING);
+    CHECK_INT(run_launcher(root, "deusex://127.0.0.1:7790"), DXL_RUN_EXIT_PLAYING);
+    char *text = slurp(log, NULL);
+    int starts = 0;
+    for (const char *q = text; q && (q = strstr(q, "starting the game:")); q++) starts++;
+    free(text);
+    CHECK_INT(starts, 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    CHECK(kill((pid_t)game, 0) == 0);
+
+    /* The game's end, which no launcher records: the mark free, Running.ini
+     * left, and no record of the run, so Recovery's "not known". */
+    kill((pid_t)game, SIGKILL);
+    for (int i = 0; i < 100 && dxl_instance_other_running(NULL, id); i++) dxl_os_sleep_ms(50);
+    CHECK_INT(dxl_instance_other_running(NULL, id), 0);
+    dxl_lastrun last;
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), -1);
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_SCREEN);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(log);
+    free(id);
+    dxl_session_close(&ss);
+    free(root);
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
+/* A server's link a second start hands to a game that plays: OpenLink to
+ * an engine with open-link, which opens it only from a game on a server;
+ * to one without, nothing but the game to the front (bugs.md D.96). */
+static void test_link_while_playing(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-link"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_session ss;
+    CHECK_INT(dxl_session_open(&ss, NULL, NULL), 0);
+    char *log = dxl_path_join(ss.xdg.state, "launcher.log");
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *game_log = dxl_path_join(p.logs_dir, DXL_LASTRUN_LOG);
+
+    static const char *const features[] = { "userdir open-link", "userdir" };
+    for (int f = 0; f < 2; f++) {
+        dxl_env_set("DXL_STUB_FEATURES", features[f]);
+        dxl_env_set("DXL_STUB_MS", "20000");
+        remove(log);
+        pid_t pid = fork();
+        if (pid == 0) _exit(run_launcher(root, NULL));
+        long game = 0;
+        for (int i = 0; i < 200 && !game; i++) {
+            dxl_os_sleep_ms(50);
+            char *text = slurp(log, NULL);
+            const char *started = text ? strstr(text, "the game started: pid ") : NULL;
+            if (started && strstr(text, "the engine is up")) game = strtol(started + 22, NULL, 10);
+            free(text);
+        }
+        CHECK(game > 0);
+        CHECK_INT(run_launcher(root, "deusex://127.0.0.1:7791"), 0);
+        int seen = 0;
+        for (int i = 0; i < 40 && !seen; i++) {
+            dxl_os_sleep_ms(50);
+            char *text = slurp(f ? log : game_log, NULL);
+            seen = text && strstr(text, f ? "not opened" : "line: OpenLink 127.0.0.1:7791") != NULL;
+            free(text);
+        }
+        CHECK(seen);
+        /* The game quits: its launcher ends with it. */
+        if (game > 0) kill((pid_t)game, SIGTERM);
+        int status = 0;
+        waitpid(pid, &status, 0);
+        CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        char *text = slurp(game_log, NULL);
+        CHECK(text && strstr(text, "line: TakeFocus") != NULL);
+        CHECK(text && strstr(text, "line: Open 127.0.0.1") == NULL);
+        CHECK(text && (strstr(text, "OpenLink") != NULL) == !f);
+        free(text);
+    }
+
+    free(game_log);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(log);
+    dxl_session_close(&ss);
+    free(root);
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+
 /* A dedicated server takes no line a second start hands on, as the
  * original's -server: started so, or relaunched to it by the game, its
  * launcher marks itself running with no channel, and a forward finds no
@@ -474,6 +655,8 @@ static void test_server_takes_no_handover(void) {
         dxl_os_sleep_ms(300);
         CHECK_INT(starts, 1 + relaunched);
         CHECK_INT(dxl_instance_other_running(NULL, id), 1);
+        /* No client's game: a start plays beside it (bugs.md D.95). */
+        CHECK_INT(dxl_instance_game_playing(id), 0);
         dxl_err e;
         CHECK(dxl_instance_forward(id, "-nosound", 1000, &e) != 0);
         int status = 0;
@@ -838,8 +1021,19 @@ static int home_then_quit(void *ctx, dxl_run *r, dxl_view which) {
     return 0;
 }
 
+/* A window that does not open, whatever the screen. */
+static int unopened_views;
+static int window_unopened(void *ctx, dxl_run *r, dxl_view which) {
+    (void)ctx;
+    (void)r;
+    (void)which;
+    unopened_views++;
+    return DXL_VIEW_UNANSWERED;
+}
+
 /* Back here after playing: Home after a clean end, the inis as the engine
- * left them; with DXL_NO_HOME=1, no Home and one run. */
+ * left them; with DXL_NO_HOME=1, no Home and one run; Home whose window
+ * does not open taken for none, one run, as --play's (bugs.md D.94). */
 static void test_back_home(void) {
     char *home = dxl_xstrdup(scratch_dir("gamefiles-back"));
     char *count = scratch_path(home, "runs");
@@ -882,6 +1076,24 @@ static void test_back_home(void) {
     CHECK_STR(runs, "xx");
     free(runs);
     dxl_env_set("DXL_NO_HOME", NULL);
+
+    /* No Home again after the game, whose window would not open either;
+     * stopped at Home, no game. */
+    dxl_run_ui unopened = { .view = window_unopened };
+    unopened_views = 0;
+    CHECK_INT(dxl_run_main(1, argv, &unopened, &stop), 0);
+    CHECK_INT(unopened_views, 1);
+    runs = slurp(count, &len);
+    CHECK_STR(runs, "xxx");
+    free(runs);
+    stop = 1;
+    unopened_views = 0;
+    CHECK_INT(dxl_run_main(1, argv, &unopened, &stop), 1);
+    CHECK_INT(unopened_views, 1);
+    runs = slurp(count, &len);
+    CHECK_STR(runs, "xxx");
+    free(runs);
+    stop = 0;
 
     dxl_xdg_free(&x);
     free(launcher_ini);
@@ -1037,6 +1249,8 @@ TEST_MAIN_BEGIN
     RUN(test_mark_before_the_runs);
     RUN(test_headless_run);
     RUN(test_killed_mid_game);
+    RUN(test_launcher_killed_alone);
+    RUN(test_link_while_playing);
     RUN(test_join_by_name);
     RUN(test_server_takes_no_handover);
     RUN(test_ends_without_a_game);

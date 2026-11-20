@@ -12,6 +12,14 @@
  * channel of its own: a unix socket file in that folder, whose mode (0700)
  * keeps other users' lines out, as an abstract name would not; removed at
  * release. A second start sends to the newest that takes its line.
+ *
+ * The game keeps the mark's description across its exec, as the original's
+ * mutex is the game's process's, so a launcher killed while its game plays
+ * leaves the mark held to the game's end; and while a client's game plays,
+ * the description holds a read lock on the second byte too, which a start
+ * that finds no launcher to take its line reads as a game still playing
+ * (bugs.md D.95). A dedicated server's holds the first alone: a client
+ * plays beside it, as the original's.
  */
 #define _GNU_SOURCE
 #include "platform/instance.h"
@@ -100,24 +108,37 @@ static int open_lock(const char *id) {
     return fd;
 }
 
-/* The first byte's lock, of type, asked (F_OFD_SETLK) or tested
- * (F_OFD_GETLK) through fd's description; l_pid 0, as a description's lock
- * asks. -1 when the call fails. */
-static int byte_lock(int fd, int cmd, struct flock *l, short type) {
+/* The bytes of the lock file: a launcher or its game running, and a
+ * client's game playing. */
+#define MARK_RUNNING 0
+#define MARK_PLAYING 1
+
+/* A byte's lock, of type, asked (F_OFD_SETLK) or tested (F_OFD_GETLK)
+ * through fd's description; l_pid 0, as a description's lock asks. -1 when
+ * the call fails. */
+static int byte_lock_at(int fd, int cmd, struct flock *l, short type, off_t at) {
     memset(l, 0, sizeof *l);
     l->l_type = type;
     l->l_whence = SEEK_SET;
-    l->l_start = 0;
+    l->l_start = at;
     l->l_len = 1;
     return fcntl(fd, cmd, l);
 }
 
-/* Whether a launcher other than fd's description's marks itself running:
- * a write lock there would meet its read lock. */
-static int marked_by_another(int fd) {
-    struct flock l;
-    return byte_lock(fd, F_OFD_GETLK, &l, F_WRLCK) == 0 && l.l_type != F_UNLCK;
+static int byte_lock(int fd, int cmd, struct flock *l, short type) {
+    return byte_lock_at(fd, cmd, l, type, MARK_RUNNING);
 }
+
+/* Whether a description other than fd's holds the byte at: a write lock
+ * there would meet its read lock. */
+static int held_by_another(int fd, off_t at) {
+    struct flock l;
+    return byte_lock_at(fd, F_OFD_GETLK, &l, F_WRLCK, at) == 0 && l.l_type != F_UNLCK;
+}
+
+/* Whether a launcher other than fd's description's marks itself running,
+ * or the game of one that has gone. */
+static int marked_by_another(int fd) { return held_by_another(fd, MARK_RUNNING); }
 
 /* Whether a launcher listens on the channel at sa. */
 static int listened(const struct sockaddr_un *sa, socklen_t len) {
@@ -193,6 +214,14 @@ int dxl_instance_listens(const dxl_instance *inst) { return dxl_instance_fd(inst
 
 int dxl_instance_locked(const dxl_instance *inst) { return inst && inst->lock_fd >= 0; }
 
+int dxl_instance_mark_fd(const dxl_instance *inst) { return inst ? inst->lock_fd : -1; }
+
+void dxl_instance_mark_game(dxl_instance *inst, int on) {
+    if (!dxl_instance_locked(inst) || inst->sock_fd < 0) return;
+    struct flock l;
+    byte_lock_at(inst->lock_fd, F_OFD_SETLK, &l, on ? F_RDLCK : F_UNLCK, MARK_PLAYING);
+}
+
 void dxl_instance_release(dxl_instance *inst) {
     if (!inst) return;
     if (inst->sock_fd >= 0) {
@@ -214,6 +243,14 @@ int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
     int other = marked_by_another(fd);
     close(fd);
     return other;
+}
+
+int dxl_instance_game_playing(const char *id) {
+    int fd = open_lock(id);
+    if (fd < 0) return 0;
+    int playing = held_by_another(fd, MARK_PLAYING);
+    close(fd);
+    return playing;
 }
 
 /* A client's channel found in the runtime folder: its file's name, and when
