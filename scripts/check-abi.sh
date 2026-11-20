@@ -24,7 +24,7 @@ set -euo pipefail
 # Windows 10's own DLLs, and the app's own beside its programs: a PE may
 # import these and no others. The UCRT's api-ms-win-crt-* and the
 # api-ms-win-core-* sets are Windows 10's too.
-WINDOWS_DLLS="advapi32 bcrypt cfgmgr32 comctl32 comdlg32 d3d11 d3dcompiler_47 dbghelp dwmapi dxgi gdi32 hid
+WINDOWS_DLLS="advapi32 avrt bcrypt cfgmgr32 comctl32 comdlg32 d3d11 d3dcompiler_47 dbghelp dwmapi dxgi gdi32 hid
 imm32 iphlpapi kernel32 ntdll ole32 oleaut32 opengl32 psapi setupapi shcore shell32 shlwapi user32 userenv
 uxtheme version winmm winspool ws2_32
 openal32"

@@ -59,7 +59,13 @@ port_stage() {
     mkdir -p "$APP/licenses"
     cp "$runtime/COPYING.MinGW-w64-runtime.txt" "$APP/licenses/MinGW-w64-runtime.txt"
     cp "$runtime/COPYING.winpthreads.txt" "$APP/licenses/winpthreads.txt"
-    [ ! -f "$APP/OpenAL32.dll" ] || cp "$DX_ENGINE/Thirdparty/openal-soft/COPYING" "$APP/licenses/OpenAL-Soft-COPYING.txt"
+    [ ! -f "$APP/OpenAL32.dll" ] || {
+        local al="$DX_ENGINE/Thirdparty/openal-soft"
+        cp "$al/COPYING" "$APP/licenses/OpenAL-Soft-COPYING.txt"
+        cp "$al/BSD-3Clause" "$APP/licenses/OpenAL-Soft-BSD-3Clause.txt"
+        cp "$al/LICENSE-pffft" "$APP/licenses/OpenAL-Soft-LICENSE-pffft.txt"
+        cp "$al/gsl/LICENSE" "$APP/licenses/OpenAL-Soft-GSL-LICENSE.txt"
+    }
     tmp="$(mktemp -d "$BUILD/.zip.XXXXXX")"
     cp -a "$APP" "$tmp/DXLauncher"
     rm -f "$zip"
