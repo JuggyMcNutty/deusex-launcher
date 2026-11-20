@@ -261,3 +261,33 @@ long dxl_udp_recv(dxl_socket s, char *buf, size_t size, int timeout_ms, char *fr
 void dxl_net_close(dxl_socket s) {
     if (s != DXL_SOCKET_NONE) close((int)s);
 }
+
+struct dxl_net_job {
+    pthread_t t;
+    void    (*fn)(void *);
+    void     *arg;
+};
+
+static void *job_main(void *p) {
+    dxl_net_job *j = p;
+    j->fn(j->arg);
+    return NULL;
+}
+
+dxl_net_job *dxl_net_job_start(void (*fn)(void *arg), void *arg) {
+    dxl_net_job *j = malloc(sizeof *j);
+    if (!j) return NULL;
+    j->fn = fn;
+    j->arg = arg;
+    if (pthread_create(&j->t, NULL, job_main, j) != 0) {
+        free(j);
+        return NULL;
+    }
+    return j;
+}
+
+void dxl_net_job_wait(dxl_net_job *job) {
+    if (!job) return;
+    pthread_join(job->t, NULL);
+    free(job);
+}

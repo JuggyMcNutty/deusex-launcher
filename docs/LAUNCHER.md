@@ -360,20 +360,26 @@ machine's interfaces; a beacon's answer that begins with its
 `BeaconProduct` (`DeusEx`) and a space names its server's query port, and
 the server is listed as LAN; the beacons are given a second at least, and
 what they answer is read however long the master takes.
-Then the profile's master server, as the game's Join Internet asks it:
+Meanwhile, on a thread of its own, the profile's master server, as the
+game's Join Internet asks it:
 `DeusEx.ini`'s `[DeusEx.MenuScreenJoinGame] MasterServerAddress`
 (333networks', which the import writes), resolved whole, over TCP at its
 `MasterServerTCPPort` (28900, the class's, where it holds no number), its
 challenge answered as `IpDrv.dll`'s `Validate` answers it, GameSpy's RC4
 keyed by six spaces for Deus Ex, and its list asked for
-([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server));
-then each server it lists -- an entry that is not a dotted address and a
-port is no server --, and each of the profile's favourites
+([the master server](https://github.com/JuggyMcNutty/dx-reverse-info/blob/main/ipdrv-dll.md#the-master-server)).
+Each server it lists -- an entry that is not a dotted address and a
+port is no server --, each of the profile's favourites
 (`profile.ini`'s `Favourites`, asked whether the master lists them or
 not: each `address:port`, the game's port, asked at the next one, or
 `address:port:query` where its query port, as it answered, is another --
 the game's `UdpServerQuery` takes the next free one, a second server's on
-one host past the first's), for its `\status\`, all at once over UDP: the game's answer, a
+one host past the first's) and each beacon's server is asked for its
+`\status\` over UDP as it is listed: a favourite at an address at once,
+one by a host name once a thread of its own has looked it up, the names
+one after another, a beacon's server at the beacon's answer, the master's
+as its list comes, room kept among the 256 asked for the favourites' names
+still looked up. Each answer is the game's, a
 packet each for its basic, info and rules and one for each player, in
 whatever order they come; one not whole a second after its asking -- a
 packet lost, or all of them -- asked again, its answer begun again, three
@@ -984,7 +990,10 @@ text, there and in the log, with no control character a terminal acts on;
 one of them silent, one losing a packet of its first answer, and at beacons
 of its own (`DXL_LAN`): the game's, its server asked and handed over as LAN,
 another game's passed over, a second given them, their answers read past a
-master slower than that, none asked with `none`. The stand-in engine
+master slower than that, none asked with `none`; behind a master that
+greets and then sends nothing, a LAN server and a favourite each shown as it
+answers; a master that lists more than a look asks, the favourite asked, the
+rest passed over and the look ended of itself. The stand-in engine
 `tests/stub_engine.c` answers `--version` -- or fails it as a loader that
 cannot start it does -- and talks on the line as the engine does, or
 crashes, fails, relaunches, prints its words or never ends (`test_process`,
@@ -1139,7 +1148,5 @@ Each open in Port Ex Machina's
   profile could play.
 - **D.95**: a launcher killed while its game plays leaves no running mark,
   so the next start can play a second game on the same profile.
-- **D.97**: LAN servers and favourites show only once the master server has
-  answered or given up, up to 25 s.
 - **D.98**: Cyrillic, Greek, CJK and Arabic draw as boxes; an input method's
   composition is not shown on Wayland.
