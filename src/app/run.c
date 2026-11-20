@@ -717,6 +717,19 @@ static void antialias_check(dxl_run *r, atomic_int *stop) {
     free(json);
 }
 
+/* A GPU named for the Vulkan device (Settings.json's RenderDevice.Device)
+ * that the engine does not read, which takes its own choice: said, not
+ * passed over in silence (bugs.md REN.79). */
+static void device_check(const dxl_run *r, const dxl_engine_version *v) {
+    if (dxl_engine_has(v, DXL_ENGINE_DEVICE)) return;
+    char *json = dxl_path_join(r->session.profile.engine_dir, "Settings.json");
+    dxl_engine_settings *es = dxl_es_open(json, NULL);
+    const char *gpu = dxl_es_text(es, DXL_ES_DEVICE);
+    if (*gpu) dxl_log("engine: no %s feature: its own GPU, not %s", DXL_ENGINE_DEVICE, gpu);
+    dxl_es_free(es);
+    free(json);
+}
+
 /* The instance for the run's words: the mark of a launcher running, every
  * launcher's, as the original's every instance keeps its mutex, and a
  * hand-over's channel of its own, as the original marks every client's log
@@ -1125,6 +1138,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
             dxl_log("engine: no loadgame-url feature: the game's own start, not %s", r->url);
             r->url[0] = '\0';
         }
+        device_check(r, &v);
         commit(r, stop);
         rc = play(r, ui, stop, &v);
         r->url[0] = '\0';

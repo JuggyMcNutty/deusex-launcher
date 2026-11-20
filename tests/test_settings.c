@@ -433,6 +433,32 @@ static void test_renderer_note(void) {
     close_all(&st);
 }
 
+/* The GPU row: Settings.json's RenderDevice.Device, a GPU's name as the
+ * page offers it, read back; Automatic, none, takes the key out; a reset
+ * too. Its help says the Vulkan renderer's alone where another is chosen
+ * (bugs.md REN.79). */
+static void test_gpu_row(void) {
+    dxl_stores st;
+    open_all(&st);
+    CHECK_STR(get(&st, DXL_GPU_ROW), "");
+    CHECK_INT(set(&st, DXL_GPU_ROW, "NVIDIA GeForce RTX 4060 Laptop GPU"), 0);
+    CHECK_STR(dxl_es_text(st.engine, DXL_ES_DEVICE), "NVIDIA GeForce RTX 4060 Laptop GPU");
+    CHECK_STR(get(&st, DXL_GPU_ROW), "NVIDIA GeForce RTX 4060 Laptop GPU");
+    CHECK_INT(set(&st, DXL_GPU_ROW, ""), 0);
+    CHECK_STR(get(&st, DXL_GPU_ROW), "");
+    CHECK_STR(dxl_es_text(st.engine, DXL_ES_DEVICE), "");
+    CHECK_INT(set(&st, DXL_GPU_ROW, "Radeon"), 0);
+    dxl_settings_reset(&st, NULL, "Graphics");
+    CHECK_STR(get(&st, DXL_GPU_ROW), "");
+
+    CHECK_INT(set(&st, "graphics.renderer", "Vulkan"), 0);
+    CHECK(dxl_setting_renderer_note(&st, row(DXL_GPU_ROW)) == NULL);
+    CHECK_INT(set(&st, "graphics.renderer", "OpenGL"), 0);
+    const char *note = dxl_setting_renderer_note(&st, row(DXL_GPU_ROW));
+    CHECK(note && strstr(note, "Vulkan"));
+    close_all(&st);
+}
+
 /* Back to the defaults: what a new profile has (the install's Default.ini
  * as the import seeds it, its DefUser.ini), a page at a time; with none,
  * the rows' own. */
@@ -510,6 +536,7 @@ TEST_MAIN_BEGIN
     RUN(test_engine_json);
     RUN(test_renderer_unnamed);
     RUN(test_renderer_note);
+    RUN(test_gpu_row);
     RUN(test_presets);
     RUN(test_no_msaa);
     RUN(test_reset);

@@ -243,6 +243,9 @@ const dxl_setting dxl_settings_table[] = {
     { .id = "graphics.gamma_shots", .page = "Graphics", .label = "Screenshots with the brightness",
       .help = "A screenshot as the screen shows it, brightness and all, not the scene as drawn.",
       .kind = DXL_SET_BOOL, .def = "0", .at = { JSON(DXL_ES_GAMMA_SCREENSHOTS) }, .flags = DXL_SET_ADVANCED },
+    { .id = DXL_GPU_ROW, .page = "Graphics", .label = "GPU",
+      .help = "The GPU the Vulkan renderer draws on. Automatic: a discrete one before an integrated one.",
+      .kind = DXL_SET_CHOICE, .def = "", .at = { JSON(DXL_ES_DEVICE) }, .flags = DXL_SET_GPU | DXL_SET_ADVANCED },
 
     /* ---- Audio -------------------------------------------------------------- */
     { .id = "audio.music_volume", .page = "Audio", .label = "Music", .help = "The music's volume.",

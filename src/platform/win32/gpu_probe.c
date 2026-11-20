@@ -93,17 +93,19 @@ static void probe_vulkan(dxl_gpu_probe *out) {
         uint32_t n = 8;
         VkResult rc = enumerate(inst, &n, devs);
         if ((rc == VK_SUCCESS || rc == VK_INCOMPLETE) && n > 0) {
-            /* The first GPU's: a CPU implementation (lavapipe) is no GPU,
-             * as the engine passes it over for the software device. */
+            /* The first GPU's, and every GPU's name (the GPU row's): a CPU
+             * implementation (lavapipe) is no GPU, as the engine passes it
+             * over for the software device. */
             static VkPhysicalDeviceProperties p;
             for (uint32_t i = 0; i < n; i++) {
                 props(devs[i], &p);
                 if (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) continue;
+                dxl_gpu_probe_add_gpu(out, p.deviceName);
+                if (out->vulkan) continue;
                 out->vulkan = 1;
                 snprintf(out->vulkan_device, sizeof out->vulkan_device, "%.127s", p.deviceName);
                 snprintf(out->vulkan_version, sizeof out->vulkan_version, "%u.%u.%u", p.apiVersion >> 22,
                          (p.apiVersion >> 12) & 0x3ffu, p.apiVersion & 0xfffu);
-                break;
             }
         }
     }

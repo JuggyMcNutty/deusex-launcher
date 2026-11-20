@@ -93,6 +93,10 @@ int dxl_settings_engine_generation(const dxl_ini *system);
 #define DXL_SET_ADVANCED 0x01   /* after the page's others */
 #define DXL_SET_PRESET   0x02   /* the graphics preset's: no place of its own */
 #define DXL_SET_RENDERER 0x04   /* its choices the renderers this machine runs, the page's */
+#define DXL_SET_GPU      0x08   /* its choices Automatic ("") and the GPUs this machine has, the page's */
+
+/* The GPU row's: Settings.json's RenderDevice.Device (DXL_ENGINE_DEVICE). */
+#define DXL_GPU_ROW "graphics.gpu"
 
 /* The anti-aliasing row, the one no_msaa holds at Off (dxl_stores). */
 #define DXL_ANTIALIAS_ROW "graphics.antialias"
