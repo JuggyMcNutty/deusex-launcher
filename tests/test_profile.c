@@ -893,6 +893,9 @@ static void test_import_slips(void) {
     CHECK_INT(r.saves, 3);
     CHECK_INT(dxl_profile_count_saves(&p), 3);
     dxl_profile_free(&p);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    scratch_remove(g);
     free(sys);
     free(slot);
     free(link);
