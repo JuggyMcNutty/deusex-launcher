@@ -86,7 +86,11 @@ x64_sdl3() {
 port_stage() {
     [ ! -f "$APP/libopenal.so.1" ] || {
         mkdir -p "$APP/licenses"
-        cp "$DX_ENGINE/Thirdparty/openal-soft/COPYING" "$APP/licenses/OpenAL-Soft-COPYING.txt"
+        local al="$DX_ENGINE/Thirdparty/openal-soft"
+        cp "$al/COPYING" "$APP/licenses/OpenAL-Soft-COPYING.txt"
+        cp "$al/BSD-3Clause" "$APP/licenses/OpenAL-Soft-BSD-3Clause.txt"
+        cp "$al/LICENSE-pffft" "$APP/licenses/OpenAL-Soft-LICENSE-pffft.txt"
+        cp "$al/gsl/LICENSE" "$APP/licenses/OpenAL-Soft-GSL-LICENSE.txt"
     }
 }
 
