@@ -2,7 +2,8 @@
  *
  * Seven roles, each a bundled font at a size in dp (data/fonts: Barlow Semi
  * Condensed for the UI, Share Tech Mono for "terminal" text), opened at the
- * pixel size the scale makes of it, again when the scale changes. Laid-out
+ * pixel size the scale makes of it, again when the scale changes, each with
+ * Noto Sans at its size for what it lacks (Cyrillic, Greek). Laid-out
  * texts (TTF_Text) are kept in a cache of the most recently drawn, keyed by
  * role, wrap width and string. The typewriter reveals a text line by line,
  * the line being typed growing from the left.

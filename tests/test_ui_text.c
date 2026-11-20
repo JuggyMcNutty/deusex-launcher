@@ -194,6 +194,91 @@ static void test_typed(dxl_ui *ui) {
     ui->reduced_motion = 0;
 }
 
+/* What s draws at 0,0 in white on black, its pixels kept: NULL when nothing
+ * is drawn. */
+static Uint32 *drawn(offscreen *o, dxl_ui *ui, dxl_font_role role, const char *s) {
+    SDL_SetRenderDrawColor(o->renderer, 0, 0, 0, 255);
+    SDL_RenderClear(o->renderer);
+    dxl_text_draw(ui, role, s, 0, 0, 0, (dxl_rgba){ 255, 255, 255, 255 }, 1);
+    SDL_FlushRenderer(o->renderer);
+    size_t n = (size_t)o->surface->h * (size_t)o->surface->pitch;
+    Uint32 *px = malloc(n);
+    memcpy(px, o->surface->pixels, n);
+    int lit = 0;
+    for (size_t i = 0; i < n / 4 && !lit; i++) lit = (px[i] & 0xffffff) != 0;
+    if (!lit) {
+        free(px);
+        return NULL;
+    }
+    return px;
+}
+
+/* Cyrillic and Greek, which the roles' fonts lack, drawn by the fallback in
+ * every role: measured and drawn unlike as many of the box, which CJK
+ * still draws as. */
+static void test_fallback(void) {
+    offscreen o;
+    static dxl_ui ui;
+    if (offscreen_open(&o, &ui, 640, 120, 1)) {
+        CHECK(0);
+        return;
+    }
+    static const char *const words[][2] = {
+        { "\xd0\x98\xd0\xb2\xd0\xb0\xd0\xbd", "\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad" },   /* Иван */
+        { "\xce\xa3\xce\xaf\xcf\x83\xcf\x85\xcf\x86\xce\xbf\xcf\x82",                          /* Σίσυφος */
+          "\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad" },
+    };
+    for (int role = 0; role < DXL_FONT_COUNT; role++) {
+        dxl_ui_begin(&ui, 1);
+        for (int k = 0; k < 2; k++) {
+            float w = dxl_text_size(&ui, (dxl_font_role)role, words[k][0], 0).x;
+            float box = dxl_text_size(&ui, (dxl_font_role)role, words[k][1], 0).x;
+            CHECK(w > 0 && box > 0);
+            Uint32 *a = drawn(&o, &ui, (dxl_font_role)role, words[k][0]);
+            Uint32 *b = drawn(&o, &ui, (dxl_font_role)role, words[k][1]);
+            CHECK(a && b);
+            int same = a && b && memcmp(a, b, (size_t)o.surface->h * (size_t)o.surface->pitch) == 0;
+            if (same || fabsf(w - box) < 0.01f)
+                fprintf(stderr, "  role %d: \"%s\" drawn as boxes (%.1f dp, the boxes %.1f)\n", role, words[k][0], w, box);
+            CHECK(!same);
+            free(a);
+            free(b);
+        }
+        dxl_ui_end(&ui);
+    }
+    offscreen_close(&o, &ui);
+}
+
+/* A copy of the app without the fallback: the kit opens all the same, what
+ * the roles' fonts lack drawn as their box. */
+static void test_no_fallback(void) {
+    static const char *const files[] = { "BarlowSemiCondensed-SemiBold.ttf", "BarlowSemiCondensed-Medium.ttf",
+                                         "BarlowSemiCondensed-Regular.ttf", "ShareTechMono-Regular.ttf" };
+    char dir[600], from[1200], to[1200];
+    snprintf(dir, sizeof dir, "%s/dxl-fonts-%ld", dxl_test_tmp(), dxl_os_pid());
+    dxl_fs_mkdir(dir);
+    for (size_t i = 0; i < sizeof files / sizeof *files; i++) {
+        snprintf(from, sizeof from, "%s/%s", DXL_FONTS, files[i]);
+        snprintf(to, sizeof to, "%s/%s", dir, files[i]);
+        size_t n = 0;
+        void *data = SDL_LoadFile(from, &n);
+        CHECK(data && SDL_SaveFile(to, data, n));
+        SDL_free(data);
+    }
+    SDL_Surface *surface = SDL_CreateSurface(320, 60, SDL_PIXELFORMAT_XRGB8888);
+    SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
+    static dxl_ui ui;
+    CHECK(renderer && dxl_ui_init(&ui, NULL, renderer, dir, 1) == 0);
+    CHECK(ui.fonts[DXL_FONT_BODY] != NULL && ui.fallback[DXL_FONT_BODY] == NULL);
+    dxl_ui_begin(&ui, 1);
+    CHECK(dxl_text_size(&ui, DXL_FONT_BODY, "\xd0\x98\xd0\xb2\xd0\xb0\xd0\xbd", 0).x > 0);
+    dxl_ui_end(&ui);
+    dxl_ui_free(&ui);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroySurface(surface);
+    dxl_fs_remove_tree(dir);
+}
+
 TEST_MAIN_BEGIN
     if (!TTF_Init()) {
         fprintf(stderr, "TTF_Init: %s\n", SDL_GetError());
@@ -216,5 +301,7 @@ TEST_MAIN_BEGIN
     RUN(test_scale);
     RUN(test_big_scale);
     RUN(test_fit_scale);
+    RUN(test_fallback);
+    RUN(test_no_fallback);
     TTF_Quit();
 TEST_MAIN_END
