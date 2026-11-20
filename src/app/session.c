@@ -243,7 +243,8 @@ int dxl_session_rename_profile(dxl_session *s, const char *id, const char *name,
     return rc;
 }
 
-int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
+int dxl_session_delete_profile(dxl_session *s, const char *id, int for_good, char *why, size_t why_size,
+                               dxl_err *err) {
     if (!strcmp(id, s->profile.id)) {
         dxl_err_set(err, "%s is the profile in use", id);
         return -1;
@@ -256,21 +257,25 @@ int dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err) {
     /* The settings, data and state folders, all of them or none. The cache
      * folder, the net's downloads alone, made again at need, is deleted
      * outright after them: it is often on a file system of its own (a
-     * tmpfs, a subvolume), which no rename into the trash reaches (bugs.md
-     * LAPP.26). */
+     * tmpfs, a subvolume) whose top is not the user's (bugs.md LAPP.26). */
 #ifdef _WIN32
     /* Windows' Recycle Bin takes a folder of any drive: all four go there. */
+    (void)for_good;
+    if (why && why_size) why[0] = '\0';
     int rc = dxl_trash_all(dirs, 4, s->xdg.data_home, err);
     if (rc == 0) dxl_log("profile %s: to the trash", id);
 #else
-    int rc = dxl_trash_all(dirs, 3, s->xdg.data_home, err);
-    if (rc == 0) {
-        dxl_log("profile %s: to the trash", id);
+    /* Each to its own file system's trash; one that no trash takes, for
+     * good on the player's yes alone. */
+    int rc = dxl_trash_or_delete(dirs, 3, s->xdg.data_home, for_good, why, why_size, err);
+    if (rc == DXL_TRASH_NONE) dxl_log("profile %s: a folder no trash takes: %s", id, dxl_err_msg(err));
+    if (rc == 0 || rc == 1) {
+        dxl_log("profile %s: %s", id, for_good ? "to the trash, what no trash takes deleted for good" : "to the trash");
         if (dxl_fs_remove_tree(dirs[3]) != 0) {
             /* The profile is gone; what is left of its cache is said, for
              * the player to remove: nothing lists it, and it keeps its id. */
             dxl_log("warning: %s is left: %s", dirs[3], strerror(errno));
-            dxl_err_set(err, "its cache folder could not be removed: %s", dirs[3]);
+            if (rc == 0) dxl_err_set(err, "its cache folder could not be removed: %s", dirs[3]);
             rc = 1;
         }
     }

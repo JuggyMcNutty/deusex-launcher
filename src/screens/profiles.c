@@ -4,7 +4,8 @@
  * makes one (The game, then Your profile, its Back the way out), or of a
  * mod, from Mods (screens/mods.c); one's settings duplicated, not its
  * saves; one renamed; one deleted -- its folders to the desktop's trash,
- * its downloads deleted, never the one in use. The rows are the profiles; the buttons
+ * one where no trash can be made deleted for good on a second yes, its
+ * downloads deleted, never the one in use. The rows are the profiles; the buttons
  * beside them act on the one chosen, the row last focused. */
 #define _GNU_SOURCE
 #include "screens/shell.h"
@@ -177,6 +178,44 @@ void dxl_shell_use_profile(dxl_shell *s, const char *id, const char *name) {
     }
 }
 
+void dxl_page_profiles_delete(dxl_shell *s, int i, int for_good) {
+    dxl_session *ss = &s->run->session;
+    if (i < 0 || i >= s->profile_count) return;
+    dxl_err e;
+    char name[96], why[600];
+    snprintf(name, sizeof name, "%s", s->profiles[i].name);
+    if (for_good && strcmp(s->profiles[i].id, s->profile_doomed) != 0) return;
+    /* The second question's yes deletes for good what it named alone: the
+     * folders looked at again, and asked again where that changed; all of
+     * them in the trash where each now has one. */
+    int gone = dxl_session_delete_profile(ss, s->profiles[i].id, 0, why, sizeof why, &e);
+    if (gone == 2 && for_good && !strcmp(why, s->profile_doomed_why))
+        gone = dxl_session_delete_profile(ss, s->profiles[i].id, 1, why, sizeof why, &e);
+    else for_good = 0;
+    s->profile_doomed[0] = '\0';
+    if (gone == 2) {
+        snprintf(s->profile_doomed, sizeof s->profile_doomed, "%s", s->profiles[i].id);
+        snprintf(s->profile_doomed_why, sizeof s->profile_doomed_why, "%s", why);
+        /* A folder where no trash can be made: nothing has gone; asked
+         * again, for good (bugs.md LAPP.26). */
+        char title[140], text[800];
+        snprintf(title, sizeof title, "Delete %s for good?", name);
+        snprintf(text, sizeof text,
+                 "No trash can take this of it:\n%s\n\nDelete that for good, never to be put back, and the rest "
+                 "to the trash?",
+                 why);
+        dxl_shell_confirm(s, dxl_ui_id(&s->ui, "profiles delete for good"), title, text, "Delete for good",
+                          "Keep it");
+        return;
+    }
+    if (gone < 0) dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
+    else if (gone > 0) dxl_shell_message(s, "Deleted, but not all of it", "%s is deleted; %s.", name, dxl_err_msg(&e));
+    else if (for_good) dxl_shell_toast(s, "%s is deleted.", name);
+    else dxl_shell_toast(s, "%s is in the trash.", name);
+    /* Part of it may be gone all the same: the list as the folders stand. */
+    load(s, ss->profile.id);
+}
+
 void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
     dxl_ui *ui = &s->ui;
     const dxl_theme *t = &ui->theme;
@@ -265,21 +304,9 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         why = "The chosen profile's settings, saves and screenshots to the trash, to be put back from there.";
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);
 
-    if (dxl_shell_answer(s, del_id) == 1 && sel >= 0 && !sel_active) {
-        dxl_err e;
-        char name[96];
-        snprintf(name, sizeof name, "%s", s->profiles[sel].name);
-        int gone = dxl_session_delete_profile(ss, s->profiles[sel].id, &e);
-        if (gone < 0) {
-            dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
-            /* Part of it may be in the trash all the same: the list as the
-             * folders stand. */
-            load(s, ss->profile.id);
-        } else {
-            if (gone > 0) dxl_shell_message(s, "In the trash, but for its cache", "%s is in the trash; %s.", name, dxl_err_msg(&e));
-            else dxl_shell_toast(s, "%s is in the trash.", name);
-            load(s, ss->profile.id);
-        }
+    int first = dxl_shell_answer(s, del_id), again = dxl_shell_answer(s, dxl_ui_id(ui, "profiles delete for good"));
+    if ((first == 1 || again == 1) && sel >= 0 && !sel_active) {
+        dxl_page_profiles_delete(s, sel, again == 1);
         return;
     }
     if (use >= 0 || (b_use && sel >= 0)) {
