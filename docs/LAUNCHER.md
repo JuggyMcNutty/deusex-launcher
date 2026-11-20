@@ -401,8 +401,12 @@ Multiplayer asking whether to join its server; with `--play`, with no
 window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
 is half done there -- a dialog, a text being edited or a key being taken,
-the game's folder or a profile being chosen -- or the game, while it plays,
-opens the server. What begins `deusex:` and is no such link -- no host, a
+the game's folder or a profile being chosen. While the game plays, a link
+never travels unasked: the game comes to the front, and joins the link's
+server only where it is on a server already, a player going from one
+server to another; a single-player game stays as it is, the link in
+`launcher.log`. An engine whose `--version` lacks `open-link` cannot tell,
+and joins none. What begins `deusex:` and is no such link -- no host, a
 host that is not a name or an address, a port that is not a number from 1 to
 65535 -- is passed over, with a message: it is never a word of the
 original's command line, whose `INI=` and `USERINI=` it could carry, nor
@@ -442,7 +446,11 @@ handed to a game that plays.
    `-safe`, or after a run whose `Running.ini` survived; Graphics after
    `-changevideo`; else Home. The original's first-time renderer page has no
    screen of its own here: the first run is the launcher's. `--play` and
-   `DXL_NO_HOME=1` skip Home, not the others.
+   `DXL_NO_HOME=1` skip Home, not the others; so does a window that does not
+   open, Home being only a way to play: the game is played as `--play` plays
+   it, and why the window did not open is in `launcher.log`. The first run,
+   The game for a profile whose install is gone, Recovery and Graphics are
+   never skipped so: each must be seen before anything plays.
 4. **Before the game**, after the screens, as the original does it: the inis
    saved, `FirstRun` raised to 1100 (one above it kept, but under
    `-firstrun`, which writes 1100), `Running.ini` made; and any key of the
@@ -466,8 +474,9 @@ The launcher's own options start with `--` (`--game=`, `--profile=`,
 `--play`); every other word is the original's command line, the player's,
 which reaches the engine whole in `--cmdline`. Exit codes: the game's own
 status, or 1 for a stop at a screen, 2 for an option it does not know, 3
-for a screen that is due with no window (`dxl-cli`'s, or a window that
-does not open), 4 for no install or engine to play. A start that stops
+for a screen other than Home that is due with no window (`dxl-cli`'s, or a
+window that does not open), 4 for no install or engine to play. A start
+that stops
 short says why on stderr and in `launcher.log`, and `deusex-launcher` in a
 message box of the system's too, with why its window did not open where it
 did not, for a player who started it from the desktop.
@@ -846,7 +855,9 @@ given, as every program the launcher runs is; its words are quoted as
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the
-engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
+engine is ready (`src/app/play.c`), and `OpenLink <host:port>` for a
+`deusex://` link in it, which the engine opens only from a game on a
+server ([links](#multiplayer)). A start URL goes in `--url`, a save's
 `?loadgame=N` for Continue and Load ([saves](#saves-and-screenshots)): in
 `--cmdline` the engine takes one only with `-hax0r` or `-server`.
 `dxl-cli --print-command` shows the command for a profile.
@@ -1187,9 +1198,5 @@ Each open in Port Ex Machina's
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
 - **LPORT.15**: the programs carry no icon of their own.
-- **D.94**: a start whose window cannot open plays nothing, even where the
-  profile could play.
-- **D.96**: a server link opened while the game plays is joined at once,
-  unasked, unsaved progress lost.
 - **D.99**: a sign-out or shutdown during play ends both programs where they
   are, so the next start opens Recovery.

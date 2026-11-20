@@ -19,6 +19,7 @@
 struct dxl_game_os {
     pid_t pid;
     int   channel;       /* the launcher's end of the line, or -1 */
+    dxl_instance *marked;   /* the instance whose game it marks playing, or NULL */
 };
 
 /* In a child, after fork: every descriptor from 3 up closes as it execs,
@@ -59,20 +60,22 @@ static char *on_path(const char *name) {
 /* The game's environment, made before the fork (after it the child calls
  * nothing but what is safe there: setenv takes a lock another thread may
  * hold at the fork, for good). This process's, less the launcher's line
- * and the names env sets or takes out, then env's settings, then the
- * line's descriptor (fd_entry's text). The array is the caller's to free;
- * its strings are environ's, env's and fd_entry. */
-static char **child_env(char *const env[], int keep_fd, char *fd_entry, size_t fd_entry_size) {
+ * and its mark's and the names env sets or takes out, then env's settings,
+ * then the line's descriptor and the mark's (fd_entry's and mark_entry's
+ * text, each of 64 bytes). The array is the caller's to free; its strings
+ * are environ's, env's, fd_entry and mark_entry. */
+static char **child_env(char *const env[], int keep_fd, char *fd_entry, int mark_fd, char *mark_entry) {
     extern char **environ;
     size_t ne = 0, nv = 0;
     while (environ[ne]) ne++;
     while (env && env[nv]) nv++;
-    char **out = dxl_xmalloc((ne + nv + 2) * sizeof *out);
+    char **out = dxl_xmalloc((ne + nv + 3) * sizeof *out);
     size_t k = 0;
     for (size_t i = 0; i < ne; i++) {
         const char *eq = strchr(environ[i], '=');
         size_t n = eq ? (size_t)(eq - environ[i]) : strlen(environ[i]);
-        int dropped = strncmp(environ[i], DXL_LAUNCHER_FD_ENV, n) == 0 && DXL_LAUNCHER_FD_ENV[n] == '\0';
+        int dropped = (strncmp(environ[i], DXL_LAUNCHER_FD_ENV, n) == 0 && DXL_LAUNCHER_FD_ENV[n] == '\0') ||
+                      (strncmp(environ[i], DXL_LAUNCHER_MARK_FD_ENV, n) == 0 && DXL_LAUNCHER_MARK_FD_ENV[n] == '\0');
         for (size_t j = 0; !dropped && j < nv; j++) {
             const char *veq = strchr(env[j], '=');
             size_t vn = veq ? (size_t)(veq - env[j]) : strlen(env[j]);
@@ -83,8 +86,12 @@ static char **child_env(char *const env[], int keep_fd, char *fd_entry, size_t f
     for (size_t j = 0; j < nv; j++)
         if (strchr(env[j], '=')) out[k++] = env[j];
     if (keep_fd >= 0) {
-        snprintf(fd_entry, fd_entry_size, "%s=%d", DXL_LAUNCHER_FD_ENV, keep_fd);
+        snprintf(fd_entry, 64, "%s=%d", DXL_LAUNCHER_FD_ENV, keep_fd);
         out[k++] = fd_entry;
+    }
+    if (mark_fd >= 0) {
+        snprintf(mark_entry, 64, "%s=%d", DXL_LAUNCHER_MARK_FD_ENV, mark_fd);
+        out[k++] = mark_entry;
     }
     out[k] = NULL;
     return out;
@@ -105,9 +112,10 @@ static void exec_child(char *const argv[], char *const envp[], const char *workd
     _exit(127);
 }
 
-/* fork, exec, and 0 once exec has happened; -1 with the reason if it did not. */
+/* fork, exec, and 0 once exec has happened; -1 with the reason if it did
+ * not. The child keeps keep_fd, its line, and mark_fd (-1: none). */
 static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *workdir,
-                 int keep_fd, const char *log_path, dxl_err *err) {
+                 int keep_fd, int mark_fd, const char *log_path, dxl_err *err) {
     const char *exe = argv[0];
     int report[2];
     if (pipe2(report, O_CLOEXEC) != 0) {
@@ -123,8 +131,8 @@ static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *
             return -1;
         }
     }
-    char fd_entry[64];
-    char **envp = child_env(env, keep_fd, fd_entry, sizeof fd_entry);
+    char fd_entry[64], mark_entry[64];
+    char **envp = child_env(env, keep_fd, fd_entry, mark_fd, mark_entry);
     *pid = fork();
     if (*pid < 0) {
         dxl_err_set(err, "fork: %s", strerror(errno));
@@ -137,7 +145,8 @@ static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *
         signal(SIGPIPE, SIG_DFL);
         if (log_fd >= 0) { dup2(log_fd, STDOUT_FILENO); dup2(log_fd, STDERR_FILENO); }
         cloexec_all(keep_fd);
-        if (keep_fd >= 0) fcntl(keep_fd, F_SETFD, 0);   /* the one descriptor the game keeps */
+        if (keep_fd >= 0) fcntl(keep_fd, F_SETFD, 0);   /* the line, which the game keeps */
+        if (mark_fd >= 0) fcntl(mark_fd, F_SETFD, 0);   /* and the launcher's mark */
         exec_child(argv, envp, workdir, report[1]);
     }
     free(envp);
@@ -155,16 +164,20 @@ static int spawn(pid_t *pid, char *const argv[], char *const env[], const char *
     return 0;
 }
 
-int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
-                        const char *log_path, dxl_err *err) {
+int dxl_game_start_marked(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                          const char *log_path, dxl_instance *inst, dxl_err *err) {
     memset(g, 0, sizeof *g);
     int sv[2];
     if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) != 0) {
         dxl_err_set(err, "socketpair: %s", strerror(errno));
         return -1;
     }
+    /* The game playing marked before it starts, so that the mark it keeps
+     * says so from its first moment. */
+    dxl_instance_mark_game(inst, 1);
     pid_t pid;
-    if (spawn(&pid, argv, env, workdir, sv[1], log_path, err) != 0) {
+    if (spawn(&pid, argv, env, workdir, sv[1], dxl_instance_mark_fd(inst), log_path, err) != 0) {
+        dxl_instance_mark_game(inst, 0);
         close(sv[0]); close(sv[1]);
         return -1;
     }
@@ -173,8 +186,14 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
     g->os = dxl_xmalloc(sizeof *g->os);
     g->os->pid = pid;
     g->os->channel = sv[0];
+    g->os->marked = inst;
     g->pid = (long)pid;
     return 0;
+}
+
+int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                        const char *log_path, dxl_err *err) {
+    return dxl_game_start_marked(g, argv, env, workdir, log_path, NULL, err);
 }
 
 void dxl_game_close(dxl_game *g) {
@@ -183,6 +202,8 @@ void dxl_game_close(dxl_game *g) {
     g->pending_len = g->pending_cap = 0;
     if (!g->os) return;
     if (g->os->channel >= 0) close(g->os->channel);
+    /* The game has ended: its mark of a game playing goes with it. */
+    dxl_instance_mark_game(g->os->marked, 0);
     free(g->os);
     g->os = NULL;
 }

@@ -231,6 +231,14 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
     return 0;
 }
 
+/* The mark is the launcher's mutex, which the game is not given: the start
+ * is dxl_game_start_argv's. */
+int dxl_game_start_marked(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                          const char *log_path, dxl_instance *inst, dxl_err *err) {
+    (void)inst;
+    return dxl_game_start_argv(g, argv, env, workdir, log_path, err);
+}
+
 void dxl_game_close(dxl_game *g) {
     free(g->pending);
     g->pending = NULL;

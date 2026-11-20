@@ -49,6 +49,13 @@ void          dxl_instance_release(dxl_instance *inst);
  * started beside another, which outlives it, live for a later start. */
 int dxl_instance_other_running(const dxl_instance *inst, const char *id);
 
+/* Is a game playing for id now that a second start would hand its line to
+ * -- a client's, not a dedicated server's -- whether its launcher lives or
+ * not? The game holds the mark itself (POSIX): a launcher killed while it
+ * plays leaves it, and with no channel to take a line the start can only
+ * say so (bugs.md D.95). Windows' mark is its launcher's mutex: never. */
+int dxl_instance_game_playing(const char *id);
+
 /* Sends message to a client's channel, the newest that takes it, as the
  * original's to the log window it finds first, the newest. Returns 0 on
  * success. The original allows 30s; nothing here should ever take that

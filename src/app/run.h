@@ -3,7 +3,8 @@
  *   1. A second start hands its command line to the launcher that runs
  *      (platform/instance.h) and ends -- unless the line holds one of the
  *      original's four bypass words (Server, NewWindow, changevideo,
- *      TestRenDev).
+ *      TestRenDev). A client's game still playing whose launcher has gone
+ *      takes no line: the start ends so, DXL_RUN_EXIT_PLAYING.
  *   2. The folders, launcher.ini, the active profile (app/session.h). No
  *      profile yet: the first run makes one from an install (--game=<dir>,
  *      or the first run's screens). A profile whose install is not there
@@ -44,6 +45,7 @@
 #define DXL_RUN_EXIT_USAGE   2   /* an option the launcher does not know */
 #define DXL_RUN_EXIT_SCREEN  3   /* a screen is due and there is no window */
 #define DXL_RUN_EXIT_NOGAME  4   /* no install to play, or no engine to play it */
+#define DXL_RUN_EXIT_PLAYING 5   /* the game of a launcher that has gone still plays */
 
 typedef enum {
     DXL_VIEW_NONE,

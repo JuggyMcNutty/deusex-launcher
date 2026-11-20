@@ -221,6 +221,13 @@ int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
     return 0;
 }
 
+/* The mark is the launcher's mutex alone, gone with it: a game whose
+ * launcher has gone holds none (bugs.md D.95 is POSIX's). */
+int dxl_instance_game_playing(const char *id) {
+    (void)id;
+    return 0;
+}
+
 /* How long no client's pipe is waited for: a launcher makes its pipe
  * straight after its mark, so one still starting has it by then; one that
  * holds the mark alone (-server's, or one whose pipe failed) never does, and
