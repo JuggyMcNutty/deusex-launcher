@@ -17,7 +17,7 @@
  * costs every setting at once; a RenderDevice bool or number it cannot
  * find reads as false or 0, the rest as the engine's default. That is why
  * a save always writes every member of every section here, but a Type
- * none chose (dxl_es_names_type), and why a file neither can read is
+ * none chose (dxl_es_names_type) and a Device (DXL_ES_TEXT), and why a file neither can read is
  * replaced rather than left alone -- kept beside it, never written over.
  * A member the file lacks takes the packaged default, so a field added
  * later reaches an existing install with the port's value.
@@ -48,6 +48,7 @@ typedef enum {
     DXL_ES_GAMMA_GREEN,
     DXL_ES_GAMMA_BLUE,
     DXL_ES_LOD_BIAS,            /* the textures' mip bias */
+    DXL_ES_DEVICE,              /* the GPU the Vulkan device takes, by a part of its name; none, the engine's order */
     /* Gamepad -- read by DXEngine's controller support */
     DXL_ES_PAD_ENABLED,
     DXL_ES_PAD_DEADZONE,
@@ -60,7 +61,9 @@ typedef enum {
     DXL_ES_FIELD_COUNT
 } dxl_es_field;
 
-typedef enum { DXL_ES_CHOICE, DXL_ES_BOOL, DXL_ES_NUMBER } dxl_es_kind;
+/* DXL_ES_TEXT: any text, kept only as one is chosen, as the Type: none, or
+ * an empty one, is no member at all (dxl_es_text). */
+typedef enum { DXL_ES_CHOICE, DXL_ES_BOOL, DXL_ES_NUMBER, DXL_ES_TEXT } dxl_es_kind;
 
 typedef struct {
     const char  *section;           /* "RenderDevice", "Gamepad" or "Performance" */
@@ -112,6 +115,8 @@ int  dxl_es_names_type(const dxl_engine_settings *s);
 int  dxl_es_save(dxl_engine_settings *s, dxl_err *err);
 
 const char *dxl_es_choice(const dxl_engine_settings *s, dxl_es_field f);
+/* A DXL_ES_TEXT member: its text, "" for none. */
+const char *dxl_es_text  (const dxl_engine_settings *s, dxl_es_field f);
 int         dxl_es_bool  (const dxl_engine_settings *s, dxl_es_field f);
 double      dxl_es_number(const dxl_engine_settings *s, dxl_es_field f);
 
@@ -120,6 +125,8 @@ double      dxl_es_number(const dxl_engine_settings *s, dxl_es_field f);
 int  dxl_es_set_choice(dxl_engine_settings *s, dxl_es_field f, const char *v);
 void dxl_es_set_bool  (dxl_engine_settings *s, dxl_es_field f, int v);
 void dxl_es_set_number(dxl_engine_settings *s, dxl_es_field f, double v);
+/* A DXL_ES_TEXT member set; NULL or "" takes it out of the file. */
+void dxl_es_set_text  (dxl_engine_settings *s, dxl_es_field f, const char *v);
 
 /* Render resolutions to offer on a panel panel_h lines tall: its own height,
  * then the usual heights below it down to 480 lines -- the least Deus Ex's

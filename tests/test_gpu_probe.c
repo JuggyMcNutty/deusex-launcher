@@ -124,6 +124,16 @@ TEST_MAIN_BEGIN
     if (rc != 0) fprintf(stderr, "  the probe did not report back: %s\n", p.note);
     CHECK_INT(rc, 0);
     if (rc != 0) return 1;
+    /* Every GPU's Vulkan device named, the first among them; none for a
+     * machine with Vulkan only on the CPU (bugs.md REN.79). */
+    if (p.vulkan) {
+        CHECK(p.vulkan_gpus >= 1);
+        /* the list's names cut to DXL_GPU_NAME_LEN - 1 bytes, the device's not */
+        size_t cut = strlen(p.vulkan_gpu[0]);
+        CHECK(cut > 0 && strncmp(p.vulkan_gpu[0], p.vulkan_device, cut) == 0);
+    } else {
+        CHECK_INT(p.vulkan_gpus, 0);
+    }
     crashing_vulkan(&p);
     if (!mesa_gpu_gles()) {
         printf("skipped: no GPU's OpenGL ES of Mesa's here\n");

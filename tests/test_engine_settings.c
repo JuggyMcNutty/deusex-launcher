@@ -169,6 +169,7 @@ static void test_save_writes_every_field_and_keeps_games(void) {
     dxl_json *rd = dxl_json_get(j, "RenderDevice");
     for (int f = 0; f < DXL_ES_FIELD_COUNT; f++) {
         const dxl_es_info *in = dxl_es_describe((dxl_es_field)f);
+        if (in->kind == DXL_ES_TEXT) continue;   /* kept only as one is chosen */
         CHECK(dxl_json_get(dxl_json_get(j, in->section), in->key) != NULL);
     }
     CHECK_INT((int)dxl_json_get_number(rd, "HdrScale", 0), 128);
@@ -373,6 +374,60 @@ static void test_type_only_as_chosen(void) {
     teardown();
 }
 
+/* The GPU the Vulkan device takes, RenderDevice.Device: none written
+ * until one is chosen, none again for Automatic and as reset; one of
+ * another kind, or empty, dropped as the file is read (bugs.md REN.79). */
+static void test_device_only_as_chosen(void) {
+    setup("device");
+    put("default.json", device_default);
+    dxl_err e;
+    dxl_engine_settings *s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_STR(dxl_es_text(s, DXL_ES_DEVICE), "");
+    CHECK_INT(dxl_es_was_present(s, DXL_ES_DEVICE), 0);
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_free(s);
+    dxl_json *j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK(j && dxl_json_get(dxl_json_get(j, "RenderDevice"), "Device") == NULL);
+    dxl_json_free(j);
+
+    s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_dirty(s), 0);
+    dxl_es_set_text(s, DXL_ES_DEVICE, "RTX 4060");
+    CHECK_INT(dxl_es_dirty(s), 1);
+    CHECK_STR(dxl_es_text(s, DXL_ES_DEVICE), "RTX 4060");
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_free(s);
+    j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK_STR(dxl_json_get_string(dxl_json_get(j, "RenderDevice"), "Device", NULL), "RTX 4060");
+    dxl_json_free(j);
+
+    /* Read back as written; Automatic takes it out; a reset too. */
+    s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_INT(dxl_es_dirty(s), 0);
+    CHECK_INT(dxl_es_was_present(s, DXL_ES_DEVICE), 1);
+    CHECK_STR(dxl_es_text(s, DXL_ES_DEVICE), "RTX 4060");
+    dxl_es_set_text(s, DXL_ES_DEVICE, "");
+    CHECK_STR(dxl_es_text(s, DXL_ES_DEVICE), "");
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_set_text(s, DXL_ES_DEVICE, "Radeon");
+    dxl_es_reset_section(s, "RenderDevice");
+    CHECK_STR(dxl_es_text(s, DXL_ES_DEVICE), "");
+    dxl_es_free(s);
+    j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK(j && dxl_json_get(dxl_json_get(j, "RenderDevice"), "Device") == NULL);
+    dxl_json_free(j);
+
+    put("Settings.json", "{\"RenderDevice\": {\"Device\": 3}}");
+    s = dxl_es_open(in_dir("Settings.json"), in_dir("default.json"));
+    CHECK_STR(dxl_es_text(s, DXL_ES_DEVICE), "");
+    CHECK_INT(dxl_es_save(s, &e), 0);
+    dxl_es_free(s);
+    j = dxl_json_load(in_dir("Settings.json"), NULL);
+    CHECK(j && dxl_json_get(dxl_json_get(j, "RenderDevice"), "Device") == NULL);
+    dxl_json_free(j);
+    teardown();
+}
+
 /* The anti-aliasing the engine takes: the file's, or its own 4x where it
  * reads none; and Off written for a GPU that multisamples badly, the file
  * made from the packaged default when there is none, the rest kept. */
@@ -423,4 +478,5 @@ TEST_MAIN_BEGIN
     RUN(test_save_creates_the_directory);
     RUN(test_clean_file_is_not_dirty);
     RUN(test_type_only_as_chosen);
+    RUN(test_device_only_as_chosen);
 TEST_MAIN_END

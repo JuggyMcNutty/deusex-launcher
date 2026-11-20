@@ -53,5 +53,8 @@ int dxl_engine_has(const dxl_engine_version *v, const char *feature);
 /* What it needs to play a game known by its packages, its DeusEx.exe of
  * no hash the engine lists (core/install.h). */
 #define DXL_ENGINE_BY_PACKAGES "game-by-packages"
+/* What reads Settings.json's RenderDevice.Device, the GPU the Vulkan
+ * device takes: an engine without it takes its own choice. */
+#define DXL_ENGINE_DEVICE "vulkan-device"
 
 #endif

@@ -709,6 +709,18 @@ With Software chosen, the help of Anti-aliasing, Bloom, Bloom strength and
 the preset says that the software renderer draws neither multisampling nor
 bloom, which it leaves out
 ([the software device](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#the-software-device)).
+Its last row, GPU, is the GPU the Vulkan renderer draws on: Automatic, the
+engine's own choice, a discrete GPU before an integrated one, then each GPU
+the probe names by its Vulkan device, written as `Settings.json`'s `Device`
+(none for Automatic), a part of whose name the engine matches
+([which device draws](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#rendering)).
+It offers Automatic alone where the engine's `--version` lacks
+`vulkan-device`, the help line saying so, and a play with a GPU named to
+such an engine is logged, the engine taking its own; a profile's GPU that is
+none of those listed shows as it is, "(not on this machine)" after it once
+the probe has looked, unless it is a part of a listed GPU's name, which the
+engine takes; with another renderer chosen, its help says it is the Vulkan
+renderer's alone.
 
 **On a GPU that multisamples badly**, a PowerVR, whose resolve turns
 partly covered pixels into speckle (`dxl_gpu_msaa_broken`),
@@ -967,7 +979,7 @@ Home's The engine... chooses another.
 | `--print-command` | the engine's command line for the profile, a shell's (Windows' launcher prints cmd.exe's); nothing is run |
 | `--import --game=<dir>` | a profile made from the install, nothing run; with `--mod=<dir>`, a mod's ([Mods](#mods)), named by `--profile=<id>` |
 | `--play` | the start, with no Home |
-| `--probe` | the Vulkan, OpenGL ES 3.1 and OpenGL 4.2 core this machine's GPU offers, a context of each GL made and its version shown, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
+| `--probe` | the Vulkan, OpenGL ES 3.1 and OpenGL 4.2 core this machine's GPU offers, every GPU's Vulkan device by name, a context of each GL made and its version shown, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
 | `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it and printed as it answers: its name (its address where it gives none), map, game, players, ping and address; then those that gave none. Their text and a master's refusal, here and in `launcher.log`, have each control character a terminal acts on (C0's, DEL, C1's CSI and OSC) as `?` |
@@ -994,8 +1006,8 @@ but under `-firstrun`, which writes 1100 over a higher one, an empty
 `User.ini` where there is no `DefUser.ini`, and `INI=`'s folders found in
 any case;
 `test_engine_settings` the engine's `Settings.json`, a file it cannot read
-replaced; `test_gamedb` SHA1 by FIPS 180's examples, the engine's builds
-and 1112fm's packages;
+replaced, a `Device` written only as one is chosen; `test_gamedb` SHA1 by
+FIPS 180's examples, the engine's builds and 1112fm's packages;
 `test_install` what makes an install, in the odd cases a copy leaves, an
 unknown exe beside 1112fm's packages, others' and none, and a
 file of 2 GiB and more there, its size whole;
@@ -1003,16 +1015,16 @@ file of 2 GiB and more there, its size whole;
 sentinel, the state folder, every launcher's mark of running, and each
 client's channel of its own, a line going to the newest;
 `test_renderers` the renderers the probe and
-the engine's build offer, the probe's answer through its ini and back, and
-the PowerVR's anti-aliasing lock;
+the engine's build offer, the probe's answer through its ini and back, every
+GPU's name in it, and the PowerVR's anti-aliasing lock;
 `test_desktop` the app menu's entry, its `Exec` quoted as the spec has it,
 and the `deusex://` links it takes, and `test_desktop_mime_cache` those in
 the MimeType cache, skipped where the desktop has no
 `update-desktop-database`; `test_xdg` the XDG folders, the spec's
 defaults where none is set. `test_settings` takes the registry's rows
 through each codec, both generations of the system ini, the sizes, the next
-run's words, `Settings.json` and the renderer where it names none, the
-presets and a new profile's defaults; `test_keys` the key names, bindings
+run's words, `Settings.json` and the renderer where it names none, the GPU
+row, the presets and a new profile's defaults; `test_keys` the key names, bindings
 and their reset; `test_bindings` the controller's layouts, labels and
 actions; `test_padcurve` its sticks and triggers as the engine takes them;
 `test_padmap` SDL's mappings, `gamecontrollerdb.txt`, read back by SDL, and
@@ -1064,7 +1076,7 @@ save it cannot read, one cancelled, one after another killed half-way and
 a profile whose `profile.ini` cannot be written, the player's own links
 kept through each; `test_trash` puts folders
 in a scratch trash; `test_startup` when a start asks SDL for X11 first;
-`test_gpu_probe` probes this machine's GPU, with a
+`test_gpu_probe` probes this machine's GPU, every GPU's Vulkan device named, with a
 Vulkan driver of its own that crashes as it loads too, whose probe keeps
 the OpenGL answers, and with Mesa's
 versions set at OpenGL 4.2 and ES 3.1, which it then offers, and lowered
