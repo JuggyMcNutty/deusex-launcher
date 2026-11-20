@@ -97,9 +97,14 @@ int  dxl_session_copy_profile(dxl_session *s, const char *from, const char *name
 int  dxl_session_rename_profile(dxl_session *s, const char *id, const char *name, dxl_err *err);
 /* A profile's settings, data and state folders to the desktop's trash
  * (platform/trash.h), all or none, its cache folder then deleted: never
- * the active profile's. 0 done; -1 not deleted, err why; 1 in the trash
- * but for its cache folder, which could not be removed, err naming it. */
-int  dxl_session_delete_profile(dxl_session *s, const char *id, dxl_err *err);
+ * the active profile's. 0 done; -1 not deleted, err why; 1 gone but for
+ * a folder that could not be removed whole, err naming it; 2 (POSIX's
+ * alone) not deleted, a folder being where no trash can be made: why
+ * (may be NULL) gets a line for each, its path and why, for the player
+ * to be asked, and with for_good 1 such a folder is deleted for good, the
+ * rest to the trash (bugs.md LAPP.26). */
+int  dxl_session_delete_profile(dxl_session *s, const char *id, int for_good, char *why, size_t why_size,
+                                dxl_err *err);
 
 /* The launcher's own engine, the one beside it. Caller frees. */
 char *dxl_session_own_engine(const dxl_session *s);

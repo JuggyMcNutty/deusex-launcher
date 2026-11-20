@@ -216,6 +216,11 @@ typedef struct dxl_shell {
     } profiles[DXL_PROFILES_MAX];
     int          profile_count, profile_sel;
     char         profile_name[96];
+    /* The profile the second question of a delete is about, and the
+     * folders it named, for its yes to delete for good no other (bugs.md
+     * LAPP.26). */
+    char         profile_doomed[DXL_PROFILE_ID_MAX + 1];
+    char         profile_doomed_why[600];
 
     /* Home and Recovery. */
     int          saves;           /* the profile's saves, counted as Home opens */
@@ -500,6 +505,11 @@ void dxl_page_recovery_enter(dxl_shell *s);
 void dxl_page_about(dxl_shell *s, dxl_rect r);
 void dxl_page_profiles(dxl_shell *s, dxl_rect r);
 void dxl_page_profiles_enter(dxl_shell *s);
+/* Profile i deleted as the page's Delete... is answered yes: to the trash;
+ * with a folder where no trash can be made, nothing deleted and the second
+ * question asked, which folder and why; its yes, for_good 1: that folder
+ * deleted for good, the rest to the trash (bugs.md LAPP.26). */
+void dxl_page_profiles_delete(dxl_shell *s, int i, int for_good);
 void dxl_page_saves(dxl_shell *s, dxl_rect r);
 void dxl_page_saves_enter(dxl_shell *s);
 /* The profile's saves read again into s->save_list, the chosen kept by

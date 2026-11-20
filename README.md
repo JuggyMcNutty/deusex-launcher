@@ -33,7 +33,7 @@ Reports from a device are wanted: [where to report a bug](https://github.com/Jug
   command line names (`INI=`, `USERINI=`).
 - **Profiles**: one for each way of playing, with its own settings, keys,
   controller, saves and screenshots; made, copied, renamed, or deleted to
-  the trash.
+  the trash (for good, if you say so, where no trash can be made).
 - **Settings**: those the engine really reads, on eight pages: display,
   graphics, audio, keyboard and mouse, controller, gameplay and HUD,
   multiplayer, and the launcher's own.
