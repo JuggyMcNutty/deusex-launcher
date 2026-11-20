@@ -109,11 +109,23 @@ with the game running: what is not saved is lost.
 This repository's releases tagged `trimui-smartpro-<date>-<commit>` have the
 launcher alone.
 
-To update, unzip the new one into `/mnt/SDCARD/App/` over the old, never
-deleting `DeusEx` first: the profiles, their settings and saves are in its
-`home` folder
+The profiles, their settings, saves and screenshots are in
+`/mnt/SDCARD/Saves/DXLauncher`, beside spruceOS's own saves: copy that
+folder to back them up
 ([where everything lives](docs/LAUNCHER.md#where-everything-lives)).
-To remove it, delete `/mnt/SDCARD/App/DeusEx`, which takes them with it.
+
+To update, delete `/mnt/SDCARD/App/DeusEx` and unzip the new one into
+`/mnt/SDCARD/App/` as at the first install; unzipping over the old does as
+well. Neither touches `/mnt/SDCARD/Saves/DXLauncher`, nor does spruceOS's
+own update. A release before this one kept them in the app's folder, in
+`/mnt/SDCARD/App/DeusEx/home`: update over it, never deleting `DeusEx`
+first, and its first start moves that folder to
+`/mnt/SDCARD/Saves/DXLauncher`. Where it cannot, it plays from where they
+are and says why in their folder's `launch.log`: update over the old folder
+again, never deleting it, until that log says they were moved.
+
+To remove it, delete `/mnt/SDCARD/App/DeusEx`, and
+`/mnt/SDCARD/Saves/DXLauncher` with it to remove the profiles and saves too.
 
 ## Building
 

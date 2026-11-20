@@ -273,6 +273,81 @@ int dxl_profile_save(dxl_profile *p, dxl_err *err) {
     return dxl_ini_save(p->ini, p->ini_path, err);
 }
 
+/* value with from, the whole of it or a folder it begins with, made to;
+ * NULL where it does not begin so. */
+static char *rebased(const char *value, const char *from, const char *to) {
+    size_t n = strlen(from);
+    if (!value || !n || strncmp(value, from, n) != 0 || (value[n] && value[n] != '/' && value[n] != '\\'))
+        return NULL;
+    size_t size = strlen(to) + strlen(value + n) + 1;
+    char *out = dxl_xmalloc(size);
+    snprintf(out, size, "%s%s", to, value + n);
+    return out;
+}
+
+/* The folder value was made under, where it ends as now does after root
+ * (a profile's Save after the data folder) and that folder is not root;
+ * else NULL. */
+static char *moved_root(const char *value, const char *now, const char *root) {
+    size_t r = strlen(root);
+    if (!value || strncmp(now, root, r) != 0) return NULL;
+    const char *tail = now + r;
+    size_t v = strlen(value), t = strlen(tail);
+    if (v <= t || strcmp(value + v - t, tail) != 0 || (v - t == r && !strncmp(value, root, r))) return NULL;
+    char *old = dxl_xmalloc(v - t + 1);
+    memcpy(old, value, v - t);
+    old[v - t] = '\0';
+    return old;
+}
+
+int dxl_profile_rehome(dxl_profile *p, const dxl_xdg *x, dxl_err *err) {
+    dxl_ini *sys = dxl_ini_load(p->system_ini, NULL);
+    if (!sys) return 0;
+    char *data = moved_root(dxl_ini_get(sys, "Core.System", "SavePath"), p->save_dir, x->data);
+    char *cache = moved_root(dxl_ini_get(sys, "Core.System", "CachePath"), p->cache_dir, x->cache);
+    int n = 0, rc = 0;
+    if (data) {
+        char *mod = rebased(dxl_profile_get(p, "Mod"), data, x->data);
+        if (mod) {
+            dxl_profile_set(p, "Mod", mod);
+            free(mod);
+            n++;
+            if (dxl_profile_save(p, err) != 0) {
+                rc = -1;
+                goto out;
+            }
+        }
+        size_t k = dxl_ini_get_all(sys, "Core.System", "Paths", NULL, 0), moved = 0;
+        const char **values = dxl_xmalloc((k + 1) * sizeof *values);
+        dxl_ini_get_all(sys, "Core.System", "Paths", values, k);
+        char **now = dxl_xmalloc((k + 1) * sizeof *now);
+        for (size_t i = 0; i < k; i++) {
+            now[i] = rebased(values[i], data, x->data);
+            if (now[i]) moved++;
+            else now[i] = dxl_xstrdup(values[i]);
+        }
+        free(values);
+        if (moved) {
+            dxl_ini_remove(sys, "Core.System", "Paths");
+            for (size_t i = 0; i < k; i++) dxl_ini_append(sys, "Core.System", "Paths", now[i]);
+        }
+        for (size_t i = 0; i < k; i++) free(now[i]);
+        free(now);
+        dxl_ini_set(sys, "Core.System", "SavePath", p->save_dir);
+        n += (int)moved + 1;
+    }
+    if (cache) {
+        dxl_ini_set(sys, "Core.System", "CachePath", p->cache_dir);
+        n++;
+    }
+    if (n && dxl_ini_save(sys, p->system_ini, err) != 0) rc = -1;
+out:
+    free(data);
+    free(cache);
+    dxl_ini_free(sys);
+    return rc ? -1 : n;
+}
+
 /* ---- the import ------------------------------------------------------ */
 
 static void copy_str(char *dst, size_t size, const char *src) {

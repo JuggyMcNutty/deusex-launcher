@@ -30,8 +30,9 @@ paused while it runs.
 
 The app lives in `/mnt/SDCARD/App/DeusEx`, the game in `/mnt/SDCARD/Roms/PORTS/DeusEx` (all 38
 `.u` packages), which the first run finds there. The launcher's own files -- `launcher.ini`, the
-profiles, their saves and logs -- are in the app's `home/` (`DXL_HOME`, set by `launch.sh`),
-which `deploy` never touches.
+profiles, their saves, shots and logs -- are in `/mnt/SDCARD/Saves/DXLauncher` (`DXL_HOME`, set
+by `launch.sh`, which moves an earlier release's `home` in the app's folder there once), which
+`deploy` never touches.
 
 **Access.** `spruce@192.168.1.211`, password `happygaming`: the stock firmware password, a
 default in `port.sh` on purpose; SSH is root. Override with `DEVICE`, `DEVICE_USER`,
@@ -41,13 +42,13 @@ out): ask its owner to wake it.
 ### Diagnosing
 
 ```sh
-export DXL_HOME=$PWD/home    # the app's home, as launch.sh names it: an absolute path, or none
+export DXL_HOME=/mnt/SDCARD/Saves/DXLauncher    # the launcher's home, as launch.sh names it
 ./dxl-cli --dry-run          # the files, profile, install, decision and command; writes nothing
 ./dxl-cli --probe            # the GPU alone, nothing else run: Vulkan device, OpenGL ES version
 ./dxl-cli --print-command    # the engine's command line for the profile in use
 ```
 
-Run them in the app directory. The launcher's log is `home/state/dxlauncher/launcher.log`, a
+Run them in the app directory. The launcher's log is `$DXL_HOME/state/dxlauncher/launcher.log`, a
 game's output its profile's `last-run.log`
 ([where everything lives](../../docs/LAUNCHER.md#where-everything-lives)); the window's log page
 shows them.

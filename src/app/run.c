@@ -716,6 +716,36 @@ static void antialias_check(dxl_run *r, atomic_int *stop) {
     free(json);
 }
 
+/* Every profile's paths written for the folders it is in, where the home
+ * it was made in has moved, as the Smart Pro's launch.sh moves the app's
+ * home to the card's Saves (bugs.md D.91): its saves in the folder the
+ * engine and the launcher both list, a mod's profile at its mod. The
+ * profile in use mended in memory too, so that nothing writes the old
+ * paths back. */
+static void rehome(dxl_run *r) {
+    /* Every profile, not the first 64 alone: one left would save into the
+     * old home, out of the launcher's sight. */
+    size_t n = dxl_profiles_list(&r->session.xdg, NULL, 0);
+    char (*ids)[DXL_PROFILE_ID_MAX + 1] = dxl_xmalloc((n ? n : 1) * sizeof *ids);
+    size_t got = dxl_profiles_list(&r->session.xdg, ids, n);
+    if (got < n) n = got;
+    for (size_t i = 0; i < n; i++) {
+        dxl_profile own, *p = &r->session.profile;
+        if (strcmp(ids[i], p->id) != 0) {
+            if (dxl_profile_open(&own, &r->session.xdg, ids[i], NULL) != 0) continue;
+            p = &own;
+        }
+        dxl_err e;
+        int k = dxl_profile_rehome(p, &r->session.xdg, &e);
+        if (k < 0)
+            dxl_log("warning: profile %s: its paths into the folders it was in before: %s", ids[i], dxl_err_msg(&e));
+        else if (k)
+            dxl_log("profile %s: %d path(s) into the folders it was in before written for these", ids[i], k);
+        if (p == &own) dxl_profile_free(&own);
+    }
+    free(ids);
+}
+
 /* The instance for the run's words: the mark of a launcher running, every
  * launcher's, as the original's every instance keeps its mutex, and a
  * hand-over's channel of its own, as the original marks every client's log
@@ -973,6 +1003,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
     }
     if (!r->opt.dry && !r->opt.print_command) hold_instance(r);
     free(id);
+    if (!r->opt.dry && !r->opt.print_command && !busy) rehome(r);
 
     /* 2. The profile, and its install. */
     if (r->opt.mod && dxl_profile_exists(&r->session.profile)) {

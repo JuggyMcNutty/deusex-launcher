@@ -68,6 +68,11 @@ dxl_test(test_cpumode)
 target_link_libraries(test_cpumode PRIVATE dxl_platform)
 target_compile_definitions(test_cpumode PRIVATE
     DXL_PORT_HOOKS="${DXL_ROOT}/ports/trimui-smartpro/packaging/port-hooks.sh")
+# The Smart Pro's app entry, its move of the app's home to the card's Saves.
+dxl_test(test_launch)
+target_link_libraries(test_launch PRIVATE dxl_platform)
+target_compile_definitions(test_launch PRIVATE
+    DXL_LAUNCH_SH="${DXL_ROOT}/ports/trimui-smartpro/packaging/launch.sh")
 # The server browser against a master and servers of its own on 127.0.0.1.
 find_package(Threads REQUIRED)
 dxl_test(test_browser)

@@ -92,6 +92,17 @@ const char *dxl_profile_get(const dxl_profile *p, const char *key);
 void        dxl_profile_set(dxl_profile *p, const char *key, const char *value);
 int         dxl_profile_save(dxl_profile *p, dxl_err *err);
 
+/* Its paths into the launcher's folders, written for those it is in now
+ * where the home it was made in has moved (DXL_HOME, the XDG folders): the
+ * old folder read from its DeusEx.ini's SavePath and CachePath, which end
+ * as its own do; that SavePath, the Paths under the old data folder (a
+ * mod's in the launcher's mods folder) and profile.ini's Mod given the new
+ * one, CachePath likewise. profile.ini is written first, DeusEx.ini, whose
+ * SavePath marks the old folder, last, so that a failure half-way is
+ * mended at the next start. Returns how many values were, 0 for none; -1,
+ * with err, where a file could not be written. */
+int         dxl_profile_rehome(dxl_profile *p, const dxl_xdg *x, dxl_err *err);
+
 /* What a profile is made of, from an install: what the first run shows
  * before it runs, and what it did. */
 typedef struct {

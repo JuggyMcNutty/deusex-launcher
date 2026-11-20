@@ -900,6 +900,76 @@ static void test_import_slips(void) {
     free(g);
 }
 
+/* A home that has moved, as the Smart Pro's launch.sh moves the app's home
+ * to the card's Saves (bugs.md D.91): the profile's paths into the old one
+ * -- SavePath, CachePath, a mod's Paths and profile.ini's Mod -- written
+ * for the new, the game's own Paths and the file's CR LF and Latin-1 kept;
+ * once only; a SavePath of the player's own elsewhere left as it is. */
+static void test_rehome(void) {
+    char *root = dxl_xstrdup(scratch_dir("profile-rehome"));
+    char *old = scratch_path(root, "App/home"), *now = scratch_path(root, "Saves/DXLauncher");
+    dxl_env_set("DXL_HOME", old);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    CHECK_INT(dxl_profile_make_dirs(&p, NULL), 0);
+    char mods[1024], text[4096];
+    snprintf(mods, sizeof mods, "%s/mods/Zodiac", x.data);
+    snprintf(text, sizeof text,
+             "[Core.System]\r\nPaths=%s/System/*.u\r\nPaths=..\\System\\*.u\r\nSavePath=%s\r\nCachePath=%s\r\n"
+             "\r\n[DeusEx.Player]\r\nName=Jos\xe9\r\n",
+             mods, p.save_dir, p.cache_dir);
+    FILE *f = fopen(p.system_ini, "wb");
+    if (f) { fputs(text, f); fclose(f); }
+    dxl_profile_set(&p, "Mod", mods);
+    CHECK_INT(dxl_profile_save(&p, NULL), 0);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    CHECK_INT(rename(old, now), 0);
+
+    dxl_env_set("DXL_HOME", now);
+    dxl_xdg_open(&x, NULL);
+    dxl_profile_open(&p, &x, "default", NULL);
+    dxl_err e;
+    CHECK_INT(dxl_profile_rehome(&p, &x, &e), 4);
+    char want[1024];
+    snprintf(want, sizeof want, "%s/mods/Zodiac", x.data);
+    CHECK_STR(dxl_profile_get(&p, "Mod"), want);
+    dxl_profile q;
+    dxl_profile_open(&q, &x, "default", NULL);
+    CHECK_STR(dxl_profile_get(&q, "Mod"), want);
+    dxl_profile_free(&q);
+    size_t len = 0;
+    char *got = slurp(p.system_ini, &len);
+    snprintf(text, sizeof text,
+             "[Core.System]\r\nSavePath=%s\r\nCachePath=%s\r\nPaths=%s/System/*.u\r\nPaths=..\\System\\*.u\r\n"
+             "\r\n[DeusEx.Player]\r\nName=Jos\xe9\r\n",
+             p.save_dir, p.cache_dir, want);
+    CHECK_STR(got, text);
+    free(got);
+    CHECK_INT(dxl_profile_rehome(&p, &x, &e), 0);
+    dxl_profile_free(&p);
+
+    /* The player's own SavePath, no folder of the launcher's: kept. */
+    dxl_profile_open(&p, &x, "own", NULL);
+    CHECK_INT(dxl_profile_make_dirs(&p, NULL), 0);
+    f = fopen(p.system_ini, "wb");
+    if (f) { fputs("[Core.System]\nSavePath=/elsewhere/Save\n", f); fclose(f); }
+    CHECK_INT(dxl_profile_rehome(&p, &x, &e), 0);
+    dxl_ini *sys = dxl_ini_load(p.system_ini, NULL);
+    CHECK_STR(sys ? dxl_ini_get(sys, "Core.System", "SavePath") : NULL, "/elsewhere/Save");
+    dxl_ini_free(sys);
+    dxl_profile_free(&p);
+
+    dxl_xdg_free(&x);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(root);
+    free(old);
+    free(now);
+    free(root);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_paths);
     RUN(test_import);
@@ -916,4 +986,5 @@ TEST_MAIN_BEGIN
     RUN(test_profiles);
     RUN(test_import_slips);
     RUN(test_home_past_ascii);
+    RUN(test_rehome);
 TEST_MAIN_END

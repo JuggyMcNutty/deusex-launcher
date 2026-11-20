@@ -47,7 +47,7 @@
 # leaves no Running.ini.
 SECS=${1:-60}; LABEL=${2:-run}; MODE=${3:-launcher}; TURN=${4:-0}; MAP=${5:-01_NYC_UNATCOIsland.dx}
 APPDIR=/mnt/SDCARD/App/DeusEx
-export DXL_HOME=$APPDIR/home
+export DXL_HOME=/mnt/SDCARD/Saves/DXLauncher
 INI=$DXL_HOME/config/dxlauncher/launcher.ini
 OUT=/tmp/dxl-test/perf-$LABEL.log
 mkdir -p /tmp/dxl-test

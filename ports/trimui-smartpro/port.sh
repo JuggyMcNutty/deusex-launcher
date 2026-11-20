@@ -26,8 +26,8 @@ port_deps() {
 # Sends build/trimui-smartpro/app (built and staged by dx.sh just before) with
 # dx_ssh_sync: changed files only, the device's previous copies kept in
 # .prev-<date-time>, every file verified. The launcher's own files --
-# launcher.ini, the profiles, their saves -- are in the app's home/
-# (DXL_HOME, launch.sh), which nothing staged touches. exFAT has no
+# launcher.ini, the profiles, their saves -- are in the card's
+# Saves/DXLauncher (DXL_HOME, launch.sh), which nothing staged touches. exFAT has no
 # permission bits worth trusting, so the executables are chmod'ed on
 # arrival. --run starts it as the menu does, through launch.sh, with the
 # menu paused while it runs.

@@ -33,8 +33,8 @@ write. The launcher's files are in the
 home's XDG folders, each with a `dxlauncher` folder in it
 (`src/core/xdg.h`); `DXL_HOME=<dir>` puts all four under one folder, a
 scratch home, a relative one taken from the working folder. On the Smart Pro
-the app's `launch.sh` names one, `home` in
-the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
+the app's `launch.sh` names one, `/mnt/SDCARD/Saves/DXLauncher` in the card's
+`Saves`, which a clean install of the app and spruceOS's own update keep:
 
 | Folder | What is in it |
 |---|---|
@@ -42,9 +42,18 @@ the app's folder on the card (`/mnt/SDCARD/App/DeusEx/home`):
 | `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log |
 | `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
-| `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); in `profiles/<id>/`, each profile's `Running.ini`, `LastRun.ini`, and in its `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`); on the card, under the app's `home`, the default profile's is `/mnt/SDCARD/App/DeusEx/home/state/dxlauncher/profiles/default/logs/last-run.log` |
+| `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); in `profiles/<id>/`, each profile's `Running.ini`, `LastRun.ini`, and in its `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`); on the card the default profile's is `/mnt/SDCARD/Saves/DXLauncher/state/dxlauncher/profiles/default/logs/last-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
 | `$XDG_RUNTIME_DIR` (else `/tmp/deusex-launcher-<uid>`, made 0700) | `deusex-launcher.<hash>.lock`, a lock on which every launcher of a home marks itself running, and each client's `deusex-launcher.<hash>.<pid>.<n>.sock`, a channel a second start hands its command line over, the newest's first, removed as it ends |
+
+A home an earlier release kept in the app's folder
+(`/mnt/SDCARD/App/DeusEx/home`) is moved there at the first start, by a
+rename on the one card; where the new folder holds a profile already (or
+the old holds none), or `Saves` is on another file system, which a move
+would have to copy, the old folder is left as it is, used where the move
+could not be made, and a line in the home's `launch.log` says so (the
+script writes it at each start). A new folder that holds no profile, where
+the old one does, is renamed `DXLauncher.unused` first, never removed.
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. A mod's profile
@@ -59,6 +68,16 @@ own inis are UTF-8. A `SavePath`, `CachePath` or `Paths` an earlier launcher wro
 as UTF-8 is read as that UTF-8 at the next run. The engine never touches `~/.config/DXEngine`,
 which the harness's runs read: an engine whose `--version` lacks
 `userdir` is refused.
+
+At each start (not a `--dry-run` or `--print-command`, nor one beside a
+running launcher), a profile whose `SavePath` ends as its own does but under
+another data folder, as after a home that has moved (`DXL_HOME` or the XDG
+folders), has that `SavePath`, the `Paths` under the old data folder (a
+mod's in the mods folder), `profile.ini`'s `Mod` and, likewise, its
+`CachePath` written for the folders it is in, `launcher.log` saying so;
+`profile.ini` first, `DeusEx.ini` last, so that a start cut short between
+them is mended at the next. A `SavePath` of the player's own elsewhere is
+left as it is.
 
 A file the launcher writes is written whole or not at all: to a new file
 beside it, synced, then renamed over it
@@ -1178,5 +1197,3 @@ Each open in Port Ex Machina's
   write the profile's inis, and what sleep and the MENU button do to a
   game, are unread; the player is told to
   [save before the battery runs low](../README.md#download).
-- **D.91**: the profiles and saves live inside the app's folder, so deleting
-  it for a new release deletes them.
