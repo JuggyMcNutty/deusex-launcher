@@ -272,6 +272,9 @@ void dxl_page_profiles(dxl_shell *s, dxl_rect r) {
         int gone = dxl_session_delete_profile(ss, s->profiles[sel].id, &e);
         if (gone < 0) {
             dxl_shell_message(s, "Not deleted", "%s", dxl_err_msg(&e));
+            /* Part of it may be in the trash all the same: the list as the
+             * folders stand. */
+            load(s, ss->profile.id);
         } else {
             if (gone > 0) dxl_shell_message(s, "In the trash, but for its cache", "%s is in the trash; %s.", name, dxl_err_msg(&e));
             else dxl_shell_toast(s, "%s is in the trash.", name);
