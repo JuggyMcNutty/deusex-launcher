@@ -446,14 +446,13 @@ static void test_killed_mid_game(void) {
 }
 #endif /* !_WIN32 */
 
-#ifndef _WIN32
 /* The launcher alone killed while its game plays (a crash of its own, a
- * parent that kills its pid alone): the game keeps the mark, as the
- * original's mutex is the game's process's, and a start while it plays --
- * a window's, --play's, a link's, dxl-cli's -- opens no Recovery and starts
- * no second game, saying why; once the game ends, a start finds the mark
- * free and Running.ini left, and Recovery says how that run ended is not
- * known, as it is not (bugs.md D.95). */
+ * parent that kills its pid alone, Windows' End task): the game keeps the
+ * mark, as the original's mutex is the game's process's, and a start while
+ * it plays -- a window's, --play's, a link's, dxl-cli's -- opens no Recovery
+ * and starts no second game, saying why; once the game ends, a start finds
+ * the mark free and Running.ini left, and Recovery says how that run ended
+ * is not known, as it is not (bugs.md D.95, LPORT.23). */
 static int orphan_views;
 static int note_orphan_view(void *ctx, dxl_run *r, dxl_view which) {
     (void)ctx;
@@ -467,6 +466,7 @@ static void note_orphan_stop(void *ctx, const char *message) {
     (void)ctx;
     snprintf(orphan_message, sizeof orphan_message, "%s", message);
 }
+#ifndef _WIN32
 static void test_launcher_killed_alone(void) {
     char *home = dxl_xstrdup(scratch_dir("gamefiles-orphan"));
     dxl_env_set("DXL_HOME", home);
@@ -631,6 +631,145 @@ static void test_link_while_playing(void) {
     free(home);
 }
 #endif /* !_WIN32 */
+
+#ifdef _WIN32
+#ifndef DXL_CLI
+#define DXL_CLI "dxl-cli"
+#endif
+/* dxl-cli playing the game at root, a program of its own, as a player's
+ * start is: its process, NULL where it did not start. */
+static HANDLE start_cli(const char *root) {
+    wchar_t line[2048];
+    swprintf(line, sizeof line / sizeof *line, L"\"%hs\" --play \"--game=%hs\"", DXL_CLI, root);
+    STARTUPINFOW si;
+    memset(&si, 0, sizeof si);
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi;
+    if (!CreateProcessW(NULL, line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) return NULL;
+    CloseHandle(pi.hThread);
+    return pi.hProcess;
+}
+
+/* Windows' launcher ended alone (TerminateProcess, as End task ends it)
+ * while its game plays, the game deaf to a stop: the game holds a handle of
+ * the launcher's mark and of its mark of a game playing, so each start
+ * while it plays ends saying so (bugs.md LPORT.23). */
+static void test_launcher_ended_alone(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-orphan"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    dxl_env_set("DXL_STUB_FEATURES", "userdir launcher-mark");
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_env_set("DXL_STUB_MS", "200");
+    CHECK_INT(run_launcher(root, NULL), 0);
+    dxl_session ss;
+    CHECK_INT(dxl_session_open(&ss, NULL, NULL), 0);
+    char *id = dxl_session_instance_id(&ss);
+    char *log = dxl_path_join(ss.xdg.state, "launcher.log");
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+
+    /* The game deaf to a stop, its launcher ended alone once it is up. */
+    dxl_env_set("DXL_STUB", "stubborn");
+    remove(log);
+    HANDLE launcher = start_cli(root);
+    CHECK(launcher != NULL);
+    /* The game's process taken as soon as it is started, so that it is
+     * ended on every way out of the test, the engine up or not; the wait
+     * long enough for dxl-cli's own GPU probe, given 10 s, under Wine. */
+    long game = 0;
+    int up = 0;
+    HANDLE played = NULL;
+    for (int i = 0; launcher && i < 600 && !up; i++) {
+        dxl_os_sleep_ms(50);
+        char *text = slurp(log, NULL);
+        const char *started = text ? strstr(text, "the game started: pid ") : NULL;
+        if (started && !game) {
+            game = strtol(started + 22, NULL, 10);
+            if (game > 0) played = OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, FALSE, (DWORD)game);
+        }
+        up = text && strstr(text, "the engine is up") != NULL;
+        free(text);
+    }
+    CHECK(game > 0);
+    CHECK_INT(up, 1);
+    CHECK(played != NULL);
+    if (launcher) {
+        TerminateProcess(launcher, 9);
+        CHECK_INT((int)WaitForSingleObject(launcher, 10000), (int)WAIT_OBJECT_0);
+        CloseHandle(launcher);
+    }
+    CHECK(played && WaitForSingleObject(played, 0) == WAIT_TIMEOUT);
+    CHECK_INT(dxl_instance_other_running(NULL, id), 1);
+    CHECK_INT(dxl_instance_game_playing(id), 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    /* Each start while it plays: no screen, no game, the reason. */
+    dxl_env_set("DXL_STUB", "ready");
+    dxl_run_ui ui = { .view = note_orphan_view, .stopped = note_orphan_stop };
+    char *argv[] = { "deusex-launcher", NULL };
+    static atomic_int stop;
+    orphan_views = 0;
+    orphan_message[0] = '\0';
+    CHECK_INT(dxl_run_main(1, argv, &ui, &stop), DXL_RUN_EXIT_PLAYING);
+    CHECK_INT(orphan_views, 0);
+    CHECK(strstr(orphan_message, "The game is still running") != NULL);
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_PLAYING);
+    CHECK_INT(run_launcher(root, "--play"), DXL_RUN_EXIT_PLAYING);
+    CHECK_INT(run_launcher(root, "deusex://127.0.0.1:7790"), DXL_RUN_EXIT_PLAYING);
+    HANDLE cli = start_cli(root);
+    DWORD code = 0;
+    CHECK(cli && WaitForSingleObject(cli, 30000) == WAIT_OBJECT_0 && GetExitCodeProcess(cli, &code));
+    CHECK_INT((int)code, DXL_RUN_EXIT_PLAYING);
+    if (cli) {
+        /* One still running ended, not left to hold its marks for the
+         * tests after this one. */
+        TerminateProcess(cli, 9);
+        CloseHandle(cli);
+    }
+    char *text = slurp(log, NULL);
+    int starts = 0;
+    for (const char *q = text; q && (q = strstr(q, "starting the game:")); q++) starts++;
+    free(text);
+    CHECK_INT(starts, 1);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+    CHECK(played && WaitForSingleObject(played, 0) == WAIT_TIMEOUT);
+
+    /* The game's end, which no launcher records: the marks free, Running.ini
+     * left, and no record of the run, so Recovery's "not known". */
+    if (played) {
+        TerminateProcess(played, 9);
+        WaitForSingleObject(played, 10000);
+        CloseHandle(played);
+    }
+    for (int i = 0; i < 100 && dxl_instance_other_running(NULL, id); i++) dxl_os_sleep_ms(50);
+    CHECK_INT(dxl_instance_other_running(NULL, id), 0);
+    CHECK_INT(dxl_instance_game_playing(id), 0);
+    dxl_lastrun last;
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), -1);
+    CHECK_INT(run_launcher(root, NULL), DXL_RUN_EXIT_SCREEN);
+    CHECK_INT(dxl_path_exists(sentinel), 1);
+
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(log);
+    free(id);
+    dxl_session_close(&ss);
+    free(root);
+    dxl_env_set("DXL_STUB_FEATURES", NULL);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_STUB_MS", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+#endif /* _WIN32 */
 
 #ifndef _WIN32
 /* Forks a launcher playing a server: POSIX alone. */
@@ -1396,6 +1535,8 @@ TEST_MAIN_BEGIN
     RUN(test_killed_mid_game);
     RUN(test_launcher_killed_alone);
     RUN(test_link_while_playing);
+#else
+    RUN(test_launcher_ended_alone);
 #endif
     RUN(test_join_by_name);
 #ifndef _WIN32

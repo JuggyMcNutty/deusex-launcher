@@ -34,6 +34,9 @@
  *               file DXL_STUB_FILE names, inherited: "handle kept" or
  *               "handle not kept"; and "line kept" when the launcher's line
  *               is its pipe
+ *   marks       (Windows) of the handles DXL_LAUNCHER_MARK_FD names, how
+ *               many are a mutex's this process holds, inherited:
+ *               "marks <kept> of <named> kept"
  *   nogame      "DXEngine error: No UE1 game found in the given folder",
  *               exit 1, no ready
  */
@@ -230,6 +233,21 @@ int main(int argc, char **argv) {
         printf("handle %s\n", got && gl >= wl && _stricmp(got + gl - wl, want) == 0 ? "kept" : "not kept");
         free(got);
         if (line_open() && GetFileType(line) == FILE_TYPE_PIPE) printf("line kept\n");
+        return 0;
+    }
+    if (strcmp(mode, "marks") == 0) {
+        /* A mutex's handle alone is taken and given back: ReleaseMutex fails
+         * for any other object's, and for no handle. */
+        const char *v = getenv("DXL_LAUNCHER_MARK_FD");
+        int named = 0, kept = 0;
+        for (const char *p = v; p && *p;) {
+            char *end = NULL;
+            HANDLE h = (HANDLE)(intptr_t)strtoll(p, &end, 10);
+            named++;
+            if (end != p && h && WaitForSingleObject(h, 0) == WAIT_OBJECT_0 && ReleaseMutex(h)) kept++;
+            p = end != p && *end == ',' ? end + 1 : "";
+        }
+        printf("marks %d of %d kept\n", kept, named);
         return 0;
     }
 #endif

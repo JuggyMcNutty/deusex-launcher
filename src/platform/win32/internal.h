@@ -1,7 +1,8 @@
 /* What Windows' platform files share among themselves and no one else but
  * their tests: UTF-8 to UTF-16 and back -- the launcher's paths are UTF-8
  * with '/', Windows' wide calls take UTF-16 -- errno from Windows' errors,
- * and the single instance's channel, an event the waits wait on. */
+ * and the single instance's channel, an event the waits wait on, and its
+ * marks, which the game is given. */
 #ifndef DXL_WIN32_INTERNAL_H
 #define DXL_WIN32_INTERNAL_H
 
@@ -28,6 +29,16 @@ const char *dxl_win_error(DWORD error, char *buf, size_t size);
 /* The channel's event, set while something waits on it; NULL when the
  * instance has none. */
 HANDLE dxl_instance_event(const dxl_instance *inst);
+
+/* The marks the game is given a handle of, so that each lives as long as
+ * the game does, as the original's mutex is the game's process's (bugs.md
+ * LPORT.23): the mark of a launcher running, and of a client's game
+ * playing; NULL for none. */
+HANDLE dxl_instance_mark(const dxl_instance *inst);
+HANDLE dxl_instance_playing(const dxl_instance *inst);
+/* Marks a game that takes a second start's line playing (on 1), or ended
+ * (0): an instance with a pipe's alone. */
+void dxl_instance_mark_game(dxl_instance *inst, int on);
 
 /* The class of the launcher's hidden window, which has the session's end
  * (platform/win32/startup.c); the tests find it by it. */

@@ -438,8 +438,19 @@ handed to a game that plays.
    own, as the original's client, so a third start hands its command line
    to that one. A launcher run as administrator refuses its pipe, and may
    refuse its mark, to one that is not: a mark refused is held all the
-   same, and the second start plays beside it, `launcher.log` saying the one
-   running was started as administrator.
+   same, and the second start plays beside it, or ends as below while that
+   launcher's client's game plays, `launcher.log` saying the one running
+   was started as administrator. The game, an engine whose
+   `--version` has `launcher-mark`, holds a handle of its launcher's mark
+   for its whole run, as the original's mutex is the game's process's, and
+   a client's game one of a second mutex, its launcher's mark of a game
+   playing: a launcher ended alone while its game plays (Task Manager's End
+   task, a crash of its own) leaves both held, and a start that finds a
+   client's game playing and no launcher to take its line -- a window's,
+   `--play`'s, a link's, `dxl-cli`'s -- opens no Recovery and starts no
+   second game: it says the game is still running and to quit it first,
+   and exits 5. A dedicated server's game holds the mark alone, and a
+   start plays beside it.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
@@ -477,8 +488,8 @@ The launcher's own options start with `--` (`--game=`, `--profile=`,
 which reaches the engine whole in `--cmdline`. Exit codes: the game's own
 status, or 1 for a stop at a screen, 2 for an option it does not know, 3
 for a screen other than Home that is due with no window (`dxl-cli`'s, or a
-window that does not open), 4 for no install or engine to play. A start
-that stops
+window that does not open), 4 for no install or engine to play, 5 for a
+game still playing with no launcher to take the line. A start that stops
 short says why on stderr and in `launcher.log`, and `deusex-launcher` in a
 message box of the system's too, with why its window did not open where it
 did not, for a player who started it from the desktop.
@@ -857,9 +868,12 @@ environment names a backend,
 ([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the value of
 the handle of its end of a named pipe, `\\.\pipe\dxl-line-<pid>-<n>`,
 whose other end the launcher keeps. Of the launcher's handles the engine
-is given that one and its output's alone, by the list `CreateProcessW` is
-given, as every program the launcher runs is; its words are quoted as
-`CommandLineToArgvW`, the engine's, splits them. On that line the
+is given that one, its output's and, where its `--version` has
+`launcher-mark`, the launcher's marks ([one start](#one-start)), their
+values in `DXL_LAUNCHER_MARK_FD` (`<mark>` or `<mark>,<playing>`), which
+DXEngine keeps from what it starts in turn, alone, by the list
+`CreateProcessW` is given, as every program the launcher runs is; its
+words are quoted as `CommandLineToArgvW`, the engine's, splits them. On that line the
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the
@@ -976,11 +990,16 @@ display, each of the host's with a runtime folder of its own
 launchers leave no lock or channel in the user's. Under Wine run all of
 them but the POSIX ones, `test_xdg`, `test_icon`,
 `test_finder`, `test_desktop`, `test_desktop_mime_cache`, `test_trash` and
-`test_ui_scripts`, `test_gamefiles` there without its two that fork a
-launcher (one killed mid-game, a dedicated server that takes no hand-over)
-and with one of Windows' own (a sign-out while the game plays, told to the
-hidden window: the run recorded as stopped, `Running.ini` taken away)
-and `test_cli` without its two of POSIX's alone (a master's refusal, a
+`test_ui_scripts`, `test_gamefiles` there without its four that fork a
+launcher (one killed mid-game, one killed alone while its game plays, a
+link while it plays, a dedicated server that takes no hand-over) and with
+two of Windows' own (a sign-out while the game plays, told to the hidden
+window: the run recorded as stopped, `Running.ini` taken away; `dxl-cli`
+ended alone by `TerminateProcess` while its game plays: each start exits
+5, no second game, and once the game ends Recovery), `test_play` with
+the handles of the marks the game is given in place of its two of POSIX's
+alone (the mark's descriptor, a helper that outlives the game), and
+`test_cli` without its two of POSIX's alone (a master's refusal, a
 server's lines caught as it answers), and Windows' own
 besides: `test_folders_win32` the Known Folders, Saved Games made where it
 is missing, and `DXL_HOME`'s;
@@ -1218,6 +1237,3 @@ Each open in Port Ex Machina's
   its first native.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **LPORT.23**: a launcher ended alone while its game plays (Task Manager's
-  End task, a crash of its own) leaves no running mark, so the next start
-  can play a second game on the same profile.

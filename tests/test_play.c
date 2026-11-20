@@ -223,6 +223,53 @@ static void test_mark_named(void) {
 }
 #endif
 
+#ifdef _WIN32
+/* The game holds its launcher's marks, handles of each inherited, their
+ * values given to it, for the engine to keep them from what it starts in
+ * turn (bugs.md LPORT.23): a client's two, the launcher running and a game
+ * playing; a dedicated server's the first alone; an engine without
+ * launcher-mark none, nor one of the launcher's own environment. The mark
+ * of a game playing goes with the game. */
+static void test_marks_given(void) {
+    char id[64];
+    snprintf(id, sizeof id, "dxl-test-play-marks-%ld", dxl_os_pid());
+    char *dir = dxl_xstrdup(scratch_dir("play-marks"));
+    char *log = scratch_path(dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    char *env[] = { "DXL_STUB=marks", NULL };
+    static const struct {
+        int         server, mark;
+        const char *said;
+    } runs[] = {
+        { 0, 1, "marks 2 of 2 kept" },
+        { 1, 1, "marks 1 of 1 kept" },
+        { 0, 0, "marks 0 of 0 kept" },
+    };
+    dxl_env_set("DXL_LAUNCHER_MARK_FD", "4");
+    for (size_t i = 0; i < sizeof runs / sizeof *runs; i++) {
+        dxl_instance *inst = runs[i].server ? dxl_instance_acquire_lock(id) : dxl_instance_acquire(id);
+        CHECK(inst != NULL);
+        dxl_play_request req = { .argv = argv, .env = env, .workdir = dir, .log_path = log, .instance = inst,
+                                 .mark = runs[i].mark };
+        dxl_play_result r;
+        remove(log);
+        dxl_play(&req, &r);
+        CHECK_INT(r.started, 1);
+        char *text = slurp(log, NULL);
+        CHECK(text && strstr(text, runs[i].said) != NULL);
+        if (!text || !strstr(text, runs[i].said)) printf("  run %zu said: %s\n", i, text ? text : "(nothing)");
+        free(text);
+        CHECK_INT(dxl_instance_game_playing(id), 0);
+        dxl_play_result_free(&r);
+        dxl_instance_release(inst);
+    }
+    dxl_env_set("DXL_LAUNCHER_MARK_FD", NULL);
+    scratch_remove(dir);
+    free(log);
+    free(dir);
+}
+#endif
+
 /* A line a second launch forwards: TakeFocus and Open for its URL once the
  * engine is up; one sent before then is dropped, as the original's log
  * window takes one only once it has the engine. A server's link is
@@ -400,6 +447,8 @@ TEST_MAIN_BEGIN
 #ifndef _WIN32
     RUN(test_line_outlived);
     RUN(test_mark_named);
+#else
+    RUN(test_marks_given);
 #endif
     RUN(test_forwarded);
     RUN(test_kill_in_time);

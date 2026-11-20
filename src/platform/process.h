@@ -25,7 +25,9 @@
 
 #define DXL_LAUNCHER_FD_ENV "DXL_LAUNCHER_FD"
 /* The mark's descriptor, which the engine keeps from what it starts in
- * turn, so that the game's process alone holds the mark (bugs.md D.95). */
+ * turn, so that the game's process alone holds the mark (bugs.md D.95); on
+ * Windows the values of its handles of the marks, "<mark>" or
+ * "<mark>,<playing>" (bugs.md LPORT.23). */
 #define DXL_LAUNCHER_MARK_FD_ENV "DXL_LAUNCHER_MARK_FD"
 
 /* The platform's: the process, the launcher's end of the line. */
@@ -53,7 +55,8 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
  * whole run, as the original's mutex is the game's process's: a launcher
  * killed while it plays leaves the mark to the game's end (bugs.md D.95;
  * platform/instance.h), the descriptor's number DXL_LAUNCHER_MARK_FD in its
- * environment. inst NULL, or Windows, whose mark is the launcher's mutex:
+ * environment; on Windows handles of the mark's mutex and of the one of a
+ * client's game playing, their values there. inst NULL:
  * dxl_game_start_argv's. */
 int dxl_game_start_marked(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
                           const char *log_path, dxl_instance *inst, dxl_err *err);

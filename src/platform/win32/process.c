@@ -2,9 +2,14 @@
  *
  * The game's line is a named pipe, \\.\pipe\dxl-line-<pid>-<n>, both ways:
  * the launcher holds its server end, overlapped, and the game the client
- * end, inherited -- the only handle it inherits but its output's, by the
- * list CreateProcessW is given -- its value in DXL_LAUNCHER_FD. Its
- * command line is quoted as CommandLineToArgvW, the engine's, splits it.
+ * end, inherited -- the only handle it inherits but its output's and the
+ * launcher's marks', by the list CreateProcessW is given -- its value in
+ * DXL_LAUNCHER_FD. A marked start gives it a handle of the launcher's mark,
+ * and of its mark of a client's game playing where it has one
+ * (platform/win32/instance.c), their values in DXL_LAUNCHER_MARK_FD,
+ * "<mark>" or "<mark>,<playing>", which the engine keeps from what it
+ * starts in turn. Its command line is quoted as CommandLineToArgvW, the
+ * engine's, splits it.
  * Stopping it asks first -- "Quit" on the line, WM_CLOSE to its windows --
  * and killing it is TerminateProcess, with the code platform/os.h names.
  */
@@ -26,6 +31,7 @@ struct dxl_game_os {
     HANDLE     line;        /* the launcher's end, or INVALID_HANDLE_VALUE once broken */
     OVERLAPPED ov;
     int        reading;
+    dxl_instance *marked;   /* whose mark of a game playing the game holds, or NULL */
 };
 
 /* ---- making a program's start ------------------------------------------ */
@@ -165,10 +171,19 @@ static void ended_with(DWORD code, int *status, int *signal) {
     *signal = code >= 0xC0000000u || code == 0x80000003u || code == DXL_KILLED ? (int)code : 0;
 }
 
+/* An inheritable copy of h, for one start, closed once it is made; NULL
+ * for none. */
+static HANDLE inheritable_copy(HANDLE h) {
+    HANDLE copy = NULL;
+    if (!h || !DuplicateHandle(GetCurrentProcess(), h, GetCurrentProcess(), &copy, 0, TRUE, DUPLICATE_SAME_ACCESS))
+        return NULL;
+    return copy;
+}
+
 /* ---- the game ---------------------------------------------------------- */
 
-int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
-                        const char *log_path, dxl_err *err) {
+int dxl_game_start_marked(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                          const char *log_path, dxl_instance *inst, dxl_err *err) {
     static volatile LONG seq;
     memset(g, 0, sizeof *g);
     wchar_t name[96];
@@ -200,24 +215,53 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
     }
     HANDLE out = log != INVALID_HANDLE_VALUE ? log : inheritable(GetStdHandle(STD_OUTPUT_HANDLE));
     HANDLE errh = log != INVALID_HANDLE_VALUE ? log : inheritable(GetStdHandle(STD_ERROR_HANDLE));
-    HANDLE list[4];
+    /* The game playing marked before it starts, so that the marks it keeps
+     * say so from its first moment; the copies it inherits are its own,
+     * this process's closed once it has them. */
+    dxl_instance_mark_game(inst, 1);
+    HANDLE mark = inheritable_copy(dxl_instance_mark(inst));
+    HANDLE playing = mark ? inheritable_copy(dxl_instance_playing(inst)) : NULL;
+    HANDLE list[6];
     DWORD n = 0;
     if (client != INVALID_HANDLE_VALUE) list[n++] = client;
     if (nul != INVALID_HANDLE_VALUE) list[n++] = nul;
     if (out && out != INVALID_HANDLE_VALUE) list[n++] = out;
     if (errh && errh != INVALID_HANDLE_VALUE && errh != out) list[n++] = errh;
+    if (mark) list[n++] = mark;
+    if (playing) list[n++] = playing;
+    /* The marks' values, or the name alone: one of this process's own
+     * environment is not passed on. */
+    size_t nenv = 0;
+    while (env && env[nenv]) nenv++;
+    char **changes = dxl_xmalloc((nenv + 2) * sizeof *changes);
+    for (size_t i = 0; i < nenv; i++) changes[i] = env[i];
+    char mark_entry[96];
+    if (playing)
+        snprintf(mark_entry, sizeof mark_entry, "%s=%llu,%llu", DXL_LAUNCHER_MARK_FD_ENV,
+                 (unsigned long long)(uintptr_t)mark, (unsigned long long)(uintptr_t)playing);
+    else if (mark)
+        snprintf(mark_entry, sizeof mark_entry, "%s=%llu", DXL_LAUNCHER_MARK_FD_ENV,
+                 (unsigned long long)(uintptr_t)mark);
+    else
+        snprintf(mark_entry, sizeof mark_entry, "%s", DXL_LAUNCHER_MARK_FD_ENV);
+    changes[nenv] = mark_entry;
+    changes[nenv + 1] = NULL;
     wchar_t value[32];
     swprintf(value, sizeof value / sizeof *value, L"%llu", (unsigned long long)(uintptr_t)client);
     wchar_t *fd_name = dxl_w(DXL_LAUNCHER_FD_ENV, 0);
-    wchar_t *block = environment(env, fd_name, client != INVALID_HANDLE_VALUE ? value : NULL);
+    wchar_t *block = environment(changes, fd_name, client != INVALID_HANDLE_VALUE ? value : NULL);
     free(fd_name);
+    free(changes);
     PROCESS_INFORMATION pi;
     int rc = start(argv, block, workdir, nul, out, errh, list, n, &pi, err);
     free(block);
     if (client != INVALID_HANDLE_VALUE) CloseHandle(client);
     if (nul != INVALID_HANDLE_VALUE) CloseHandle(nul);
     if (log != INVALID_HANDLE_VALUE) CloseHandle(log);
+    if (mark) CloseHandle(mark);
+    if (playing) CloseHandle(playing);
     if (rc != 0) {
+        dxl_instance_mark_game(inst, 0);
         CloseHandle(server);
         return -1;
     }
@@ -227,16 +271,14 @@ int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], cons
     g->os->process = pi.hProcess;
     g->os->line = server;
     g->os->ov.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    g->os->marked = inst;
     g->pid = (long)pi.dwProcessId;
     return 0;
 }
 
-/* The mark is the launcher's mutex, which the game is not given: the start
- * is dxl_game_start_argv's. */
-int dxl_game_start_marked(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
-                          const char *log_path, dxl_instance *inst, dxl_err *err) {
-    (void)inst;
-    return dxl_game_start_argv(g, argv, env, workdir, log_path, err);
+int dxl_game_start_argv(dxl_game *g, char *const argv[], char *const env[], const char *workdir,
+                        const char *log_path, dxl_err *err) {
+    return dxl_game_start_marked(g, argv, env, workdir, log_path, NULL, err);
 }
 
 void dxl_game_close(dxl_game *g) {
@@ -250,6 +292,8 @@ void dxl_game_close(dxl_game *g) {
     }
     CloseHandle(g->os->ov.hEvent);
     CloseHandle(g->os->process);
+    /* The game has ended: its mark of a game playing goes with it. */
+    dxl_instance_mark_game(g->os->marked, 0);
     free(g->os);
     g->os = NULL;
 }

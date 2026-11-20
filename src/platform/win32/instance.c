@@ -12,6 +12,15 @@
  * waits again; its event is set while either is ready to go on. A pipe that
  * will not wait is given up, the mark kept alone. A second start sends to
  * the newest client's pipe there.
+ *
+ * The game is given a handle of the mark, as the original's mutex is the
+ * game's process's, so a launcher ended alone while its game plays leaves
+ * the mark held to the game's end (platform/win32/process.c); and while a
+ * client's game plays, a handle of a second mutex of its own,
+ * Local\deusex-launcher.<hash>.<n>.playing, which a start that finds no
+ * launcher to take its line reads as a game still playing (bugs.md D.95,
+ * LPORT.23). A dedicated server's has the mark alone: a client plays
+ * beside it, as the original's.
  */
 #include "platform/instance.h"
 #include "platform/win32/internal.h"
@@ -28,7 +37,9 @@
 struct dxl_instance {
     HANDLE     mutex;      /* its mark of a launcher running; NULL for none */
     int        mark;       /* the mark's number */
-    HANDLE     pipe;       /* INVALID_HANDLE_VALUE: the mark alone */
+    unsigned long hash;    /* its id's (id_hash), for the name of its game's mark */
+    HANDLE     playing;    /* its mark of a client's game playing; NULL for none */
+    HANDLE     pipe;      /* INVALID_HANDLE_VALUE: the mark alone */
     OVERLAPPED ov;
     int        reading;    /* a read pending, else a wait for a sender */
     DWORD      error;      /* the last wait's that failed, for the log */
@@ -49,6 +60,12 @@ static unsigned long id_hash(const char *id) {
 
 static void mark_name(const char *id, int n, wchar_t *out, size_t size) {
     swprintf(out, size, L"Local\\deusex-launcher.%08lx.%d", id_hash(id), n);
+}
+
+/* The mark of a client's game playing, of the launcher whose mark is
+ * number n, its id's hash h. */
+static void playing_name(unsigned long h, int n, wchar_t *out, size_t size) {
+    swprintf(out, size, L"Local\\deusex-launcher.%08lx.%d.playing", h, n);
 }
 
 /* The pipe of the client whose mark is number n. */
@@ -176,6 +193,7 @@ static dxl_instance *acquire(const char *id, int listen) {
     dxl_instance *inst = dxl_xmalloc(sizeof *inst);
     memset(inst, 0, sizeof *inst);
     inst->mutex = take_mark(id, &inst->mark);
+    inst->hash = id_hash(id);
     inst->pipe = INVALID_HANDLE_VALUE;
     /* A client's pipe is its mark's: none without one. */
     if (listen && inst->mutex) {
@@ -199,6 +217,23 @@ int dxl_instance_locked(const dxl_instance *inst) { return inst && inst->mutex; 
 
 HANDLE dxl_instance_event(const dxl_instance *inst) { return dxl_instance_listens(inst) ? inst->ov.hEvent : NULL; }
 
+HANDLE dxl_instance_mark(const dxl_instance *inst) { return inst ? inst->mutex : NULL; }
+
+HANDLE dxl_instance_playing(const dxl_instance *inst) { return inst ? inst->playing : NULL; }
+
+void dxl_instance_mark_game(dxl_instance *inst, int on) {
+    if (!dxl_instance_locked(inst) || !dxl_instance_listens(inst)) return;
+    if (!on) {
+        if (inst->playing) CloseHandle(inst->playing);
+        inst->playing = NULL;
+        return;
+    }
+    if (inst->playing) return;
+    wchar_t name[80];
+    playing_name(inst->hash, inst->mark, name, 80);
+    inst->playing = CreateMutexW(NULL, FALSE, name);
+}
+
 void dxl_instance_release(dxl_instance *inst) {
     if (!inst) return;
     if (inst->pipe != INVALID_HANDLE_VALUE) {
@@ -207,6 +242,8 @@ void dxl_instance_release(dxl_instance *inst) {
         CloseHandle(inst->pipe);
         CloseHandle(inst->ov.hEvent);
     }
+    /* Each goes with this handle, or with its game's, the last. */
+    if (inst->playing) CloseHandle(inst->playing);
     if (inst->mutex) CloseHandle(inst->mutex);
     free(inst);
 }
@@ -221,10 +258,15 @@ int dxl_instance_other_running(const dxl_instance *inst, const char *id) {
     return 0;
 }
 
-/* The mark is the launcher's mutex alone, gone with it: a game whose
- * launcher has gone holds none (bugs.md D.95 is POSIX's). */
+/* A client's game's mark held, by its launcher or by the game alone, its
+ * launcher gone (bugs.md LPORT.23). */
 int dxl_instance_game_playing(const char *id) {
-    (void)id;
+    unsigned long h = id_hash(id);
+    for (int i = 0; i < MARKS; i++) {
+        wchar_t name[80];
+        playing_name(h, i, name, 80);
+        if (held(name)) return 1;
+    }
     return 0;
 }
 

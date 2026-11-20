@@ -117,6 +117,11 @@ target_link_libraries(test_gamefiles PRIVATE dxl_app)
 target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System"
                            DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
 add_dependencies(test_gamefiles stub_engine)
+# On Windows a launcher of its own, ended alone while its game plays.
+if(WIN32)
+    target_compile_definitions(test_gamefiles PRIVATE DXL_CLI="$<TARGET_FILE:dxl-cli>")
+    add_dependencies(test_gamefiles dxl-cli)
+endif()
 set_tests_properties(test_gamefiles PROPERTIES SKIP_RETURN_CODE 77)
 # The install's own saves, a test of their own: skipped where it has none.
 add_test(NAME test_gamefiles_saves COMMAND test_gamefiles --saves)
