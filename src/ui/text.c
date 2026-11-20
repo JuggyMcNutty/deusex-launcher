@@ -1,5 +1,6 @@
 #include "ui/text.h"
 #include "core/common.h"
+#include "core/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,11 @@ static const struct {
     [DXL_FONT_SMALL]   = { "BarlowSemiCondensed-Regular.ttf", 13 },
     [DXL_FONT_MONO]    = { "ShareTechMono-Regular.ttf", 14 },
 };
+
+/* The fallback for what the roles' fonts lack -- they hold Latin alone --
+ * Noto Sans, for Cyrillic and Greek; CJK, Arabic and emoji are in none, and
+ * draw as the font's box (bugs.md D.98). */
+#define FALLBACK "NotoSans-Regular.ttf"
 
 #define CACHE_SIZE 384
 
@@ -43,16 +49,22 @@ static uint32_t hash_of(const char *s) {
     return h;
 }
 
+static void close_fonts(dxl_ui *ui) {
+    for (int i = 0; i < DXL_FONT_COUNT; i++) {
+        if (ui->fonts[i]) TTF_CloseFont(ui->fonts[i]);
+        if (ui->fallback[i]) TTF_CloseFont(ui->fallback[i]);
+        ui->fonts[i] = ui->fallback[i] = NULL;
+    }
+}
+
 int dxl_text_open(dxl_ui *ui) {
     if (!ui->cache) {
         ui->cache = calloc(1, sizeof *ui->cache);
         if (!ui->cache) return -1;
     }
     dxl_text_flush(ui);
-    for (int i = 0; i < DXL_FONT_COUNT; i++) {
-        if (ui->fonts[i]) TTF_CloseFont(ui->fonts[i]);
-        ui->fonts[i] = NULL;
-    }
+    close_fonts(ui);
+    static int fallback_said;
     for (int i = 0; i < DXL_FONT_COUNT; i++) {
         char path[1200];
         snprintf(path, sizeof path, "%s/%s", ui->fonts_dir, roles[i].file);
@@ -60,15 +72,28 @@ int dxl_text_open(dxl_ui *ui) {
         if (!ui->fonts[i]) {
             /* None open: the kit says so (-1), and tries again at another
              * scale alone, not every frame. */
-            for (int j = 0; j < i; j++) {
-                TTF_CloseFont(ui->fonts[j]);
-                ui->fonts[j] = NULL;
-            }
+            close_fonts(ui);
             ui->font_scale = ui->scale;
             SDL_SetError("cannot open the font %s", path);
             return -1;
         }
         TTF_SetFontHinting(ui->fonts[i], TTF_HINTING_LIGHT);
+        /* The fallback at the role's size. Without it -- a partial copy of
+         * the app -- the window opens all the same, what the role's font
+         * lacks its box, as said once in the log. */
+        snprintf(path, sizeof path, "%s/%s", ui->fonts_dir, FALLBACK);
+        ui->fallback[i] = TTF_OpenFont(path, roles[i].dp * ui->scale);
+        if (ui->fallback[i]) {
+            TTF_SetFontHinting(ui->fallback[i], TTF_HINTING_LIGHT);
+            if (!TTF_AddFallbackFont(ui->fonts[i], ui->fallback[i])) {
+                TTF_CloseFont(ui->fallback[i]);
+                ui->fallback[i] = NULL;
+            }
+        }
+        if (!ui->fallback[i] && !fallback_said) {
+            fallback_said = 1;
+            dxl_log("the fallback font did not open: %s; Cyrillic and Greek draw as boxes", SDL_GetError());
+        }
     }
     ui->font_scale = ui->scale;
     return 0;
@@ -86,10 +111,7 @@ void dxl_text_flush(dxl_ui *ui) {
 
 void dxl_text_close(dxl_ui *ui) {
     dxl_text_flush(ui);
-    for (int i = 0; i < DXL_FONT_COUNT; i++) {
-        if (ui->fonts[i]) TTF_CloseFont(ui->fonts[i]);
-        ui->fonts[i] = NULL;
-    }
+    close_fonts(ui);
     free(ui->cache);
     ui->cache = NULL;
 }

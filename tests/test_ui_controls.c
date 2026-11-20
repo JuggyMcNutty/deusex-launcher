@@ -9,6 +9,7 @@
 #include <math.h>
 
 static dxl_ui ui;
+static offscreen screen;
 static double clock_s = 10;
 
 static void key(SDL_Keycode k, SDL_Scancode sc) {
@@ -53,6 +54,17 @@ static void text(const char *s) {
     SDL_zero(e);
     e.type = SDL_EVENT_TEXT_INPUT;
     e.text.text = s;
+    dxl_ui_event(&ui, &e);
+}
+
+/* An input method's composition as SDL gives it; "" ends it. */
+static void composing(const char *s, int at) {
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = SDL_EVENT_TEXT_EDITING;
+    e.edit.text = s;
+    e.edit.start = at;
+    e.edit.length = -1;
     dxl_ui_event(&ui, &e);
 }
 
@@ -639,6 +651,120 @@ static void test_osk(void) {
     CHECK_INT(ui.diag_count, 0);
 }
 
+/* A frame of the field on a screen cleared, its pixels kept. */
+static Uint32 *field_pixels(uint32_t id, char *buf, size_t size) {
+    SDL_SetRenderDrawColor(screen.renderer, 0, 0, 0, 255);
+    SDL_RenderClear(screen.renderer);
+    field_frame(id, buf, size, NULL);
+    SDL_FlushRenderer(screen.renderer);
+    size_t n = (size_t)screen.surface->h * (size_t)screen.surface->pitch;
+    Uint32 *px = malloc(n);
+    memcpy(px, screen.surface->pixels, n);
+    return px;
+}
+
+/* The pixels that differ between two frames within r (the scale is 1). */
+static int pixels_differ(const Uint32 *a, const Uint32 *b, dxl_rect r) {
+    int n = 0, w = screen.surface->pitch / 4;
+    for (int y = (int)r.y; y < (int)(r.y + r.h); y++)
+        for (int x = (int)r.x; x < (int)(r.x + r.w); x++) n += a[y * w + x] != b[y * w + x];
+    return n;
+}
+
+/* An input method's composition: drawn at the caret of the field edited --
+ * as its text will be, but for its underline -- not in its text; replaced
+ * as it changes; its text typed as it is committed, gone as it is
+ * cancelled; one begun on a field with the focus begins its edit, as typing
+ * does, and goes with the edit's end; one with no field typed in, none. */
+static void test_text_composing(void) {
+    char buf[64] = "JC";
+    uint32_t id = dxl_ui_id(&ui, "composed");
+    dxl_ui_forget(&ui);
+    dxl_ui_focus(&ui, id);
+    ui.mode = DXL_INPUT_KEYBOARD;
+    ui.reduced_motion = 1;   /* the caret steady */
+    for (int frame = 0; frame < 2; frame++) field_frame(id, buf, sizeof buf, NULL);
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    dxl_rect well = dxl_inset(ui.text_area, 2);
+    Uint32 *plain = field_pixels(id, buf, sizeof buf);
+    composing("\xd0\xb6\xd1\x83\xd0\xba", -1);   /* жук */
+    Uint32 *shown = field_pixels(id, buf, sizeof buf);
+    CHECK_STR(buf, "JC");
+    /* Replaced, its cursor after its first character: drawn otherwise. */
+    composing("\xd0\xb6\xd1\x83", 1);
+    Uint32 *changed = field_pixels(id, buf, sizeof buf);
+    CHECK(pixels_differ(shown, changed, well) > 0);
+    CHECK_STR(buf, "JC");
+    /* Committed: its text typed, the composition gone, the field drawn as
+     * it was with it but for the underline. */
+    composing("", 0);
+    text("\xd0\xb6\xd1\x83\xd0\xba");
+    Uint32 *typed = field_pixels(id, buf, sizeof buf);
+    CHECK_STR(buf, "JC\xd0\xb6\xd1\x83\xd0\xba");
+    int underline = pixels_differ(shown, typed, well), unshown = pixels_differ(plain, typed, well);
+    if (underline <= 0 || underline >= 60 || unshown <= underline * 3)
+        fprintf(stderr, "  pixels unlike the text typed: %d with the composition, %d without\n", underline, unshown);
+    CHECK(underline > 0 && underline < 60);
+    CHECK(unshown > underline * 3);
+    /* Cancelled: nothing typed, nothing left drawn. */
+    composing("x", -1);
+    Uint32 *x = field_pixels(id, buf, sizeof buf);
+    CHECK(pixels_differ(x, typed, well) > 0);
+    composing("", 0);
+    Uint32 *cancelled = field_pixels(id, buf, sizeof buf);
+    CHECK_INT(pixels_differ(cancelled, typed, well), 0);
+    CHECK_STR(buf, "JC\xd0\xb6\xd1\x83\xd0\xba");
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    CHECK_INT(field_frame(id, buf, sizeof buf, NULL), DXL_TEXT_DONE);
+    CHECK_INT(ui.text_id, 0);
+    /* With the focus, not edited: a composition begins its edit; Esc ends
+     * both. */
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_ready, id);
+    composing("a", -1);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    key(SDLK_ESCAPE, SDL_SCANCODE_ESCAPE);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, 0);
+    CHECK_STR(buf, "JC\xd0\xb6\xd1\x83\xd0\xba");
+    /* Edited again: no composition left of the last edit, nor of one with
+     * no field typed in. */
+    dxl_ui_focus(&ui, 0);
+    begin();
+    end();
+    composing("b", -1);
+    dxl_ui_focus(&ui, id);
+    field_frame(id, buf, sizeof buf, NULL);
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    Uint32 *again = field_pixels(id, buf, sizeof buf);
+    CHECK_INT(pixels_differ(again, typed, well), 0);
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    field_frame(id, buf, sizeof buf, NULL);
+    /* Another field's edit taking this one's over: the composition not
+     * carried to it. */
+    key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+    field_frame(id, buf, sizeof buf, NULL);
+    CHECK_INT(ui.text_id, id);
+    composing("c", -1);
+    CHECK_STR(ui.composing, "c");
+    dxl_ui_text_begin(&ui, dxl_ui_id(&ui, "composed, another"), ui.text_area);
+    CHECK_STR(ui.composing, "");
+    dxl_ui_text_end(&ui);
+    free(plain);
+    free(shown);
+    free(changed);
+    free(typed);
+    free(x);
+    free(cancelled);
+    free(again);
+    ui.reduced_motion = 0;
+}
+
 TEST_MAIN_BEGIN
     /* A video driver of none, for the clipboard SDL keeps itself. */
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
@@ -646,8 +772,7 @@ TEST_MAIN_BEGIN
         fprintf(stderr, "SDL: %s\n", SDL_GetError());
         return 1;
     }
-    offscreen o;
-    if (offscreen_open(&o, &ui, 1280, 720, 1) != 0) return 1;
+    if (offscreen_open(&screen, &ui, 1280, 720, 1) != 0) return 1;
     dxl_ui_input_begin(&ui);
     RUN(test_toggle_slider_spinner);
     RUN(test_slider_out_of_range);
@@ -656,11 +781,12 @@ TEST_MAIN_BEGIN
     RUN(test_text_typed_on);
     RUN(test_text_mouse);
     RUN(test_text_two_fields);
+    RUN(test_text_composing);
     RUN(test_key_slot);
     RUN(test_key_names);
     RUN(test_tabs);
     RUN(test_osk);
-    offscreen_close(&o, &ui);
+    offscreen_close(&screen, &ui);
     TTF_Quit();
     SDL_Quit();
 TEST_MAIN_END

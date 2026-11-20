@@ -343,6 +343,23 @@ static float width_to(dxl_ui *ui, const char *buf, size_t n) {
     return dxl_text_size(ui, DXL_FONT_BODY, part, 0).x;
 }
 
+/* s's first n bytes drawn at x, y. */
+static void draw_part(dxl_ui *ui, const char *s, size_t n, float x, float y, dxl_rgba c) {
+    char part[1024];
+    if (n >= sizeof part) n = sizeof part - 1;
+    if (!n) return;
+    memcpy(part, s, n);
+    part[n] = '\0';
+    dxl_text_draw(ui, DXL_FONT_BODY, part, x, y, 0, c, 1);
+}
+
+/* The bytes of s's first n characters; all of it for n < 0. */
+static size_t chars_bytes(const char *s, int n) {
+    size_t at = 0;
+    while (s[at] && (n < 0 || n-- > 0)) at = utf8_ahead(s, at);
+    return at;
+}
+
 /* The character edge nearest x, dp from the text's start. */
 static size_t edge_at(dxl_ui *ui, const char *buf, float x) {
     size_t best = 0, at = 0, len = strlen(buf);
@@ -430,8 +447,10 @@ int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char 
                 begin_edit(ui, id, box, buf, strlen(buf), strlen(buf));
                 editing = 1;
             }
-        } else if (!editing && (hits & DXL_HIT_FOCUSED) && ui->text_ready == id && ui->in.text[0]) {
-            /* Typed on as it had the focus: what was typed in its place. */
+        } else if (!editing && (hits & DXL_HIT_FOCUSED) && ui->text_ready == id &&
+                   (ui->in.text[0] || ui->composing[0])) {
+            /* Typed on as it had the focus, or a composition begun: what was
+             * typed in its place. */
             begin_edit(ui, id, box, buf, strlen(buf), 0);
             editing = 1;
         }
@@ -465,19 +484,38 @@ int dxl_text_field(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, char 
     dxl_well(ui, box);
     float lh = dxl_text_line(ui, DXL_FONT_BODY), ty = box.y + (box.h - lh) / 2;
     if (editing) {
+        /* An input method's composition, at the caret and underlined, the
+         * text after the caret beyond it; the caret at the composition's
+         * own (bugs.md D.98). */
+        const char *comp = ui->composing;
+        float comp_w = 0, comp_caret = 0;
+        if (*comp) {
+            comp_w = dxl_text_size(ui, DXL_FONT_BODY, comp, 0).x;
+            comp_caret = width_to(ui, comp, chars_bytes(comp, ui->composing_at));
+        }
         /* Scrolled to keep the caret in sight, and no room left after the
          * text's end. */
-        float caret_x = width_to(ui, buf, ed.caret), full = width_to(ui, buf, strlen(buf)), room = in.w - 4;
+        float at_x = width_to(ui, buf, ed.caret), caret_x = at_x + comp_caret;
+        float full = width_to(ui, buf, strlen(buf)) + comp_w, room = in.w - 4;
         if (caret_x - ed.scroll > room) ed.scroll = caret_x - room;
         if (caret_x < ed.scroll) ed.scroll = caret_x;
         if (ed.scroll > 0 && full - ed.scroll < room) ed.scroll = full - room > 0 ? full - room : 0;
         text_x = in.x - ed.scroll;
+        ui->text_caret = text_x + caret_x - box.x;
         dxl_clip_push(ui, in);
         if (ed.caret != ed.anchor) {
             float x0 = width_to(ui, buf, sel_lo()), x1 = width_to(ui, buf, sel_hi());
             dxl_fill(ui, (dxl_rect){ text_x + x0, ty, x1 - x0, lh }, dxl_rgba_fade(t->accent, 0.45f));
         }
-        if (*buf) dxl_text_draw(ui, DXL_FONT_BODY, buf, text_x, ty, 0, t->text_focus, 1);
+        if (*comp) {
+            draw_part(ui, buf, ed.caret, text_x, ty, t->text_focus);
+            dxl_text_draw(ui, DXL_FONT_BODY, comp, text_x + at_x, ty, 0, t->text_focus, 1);
+            dxl_fill(ui, (dxl_rect){ text_x + at_x, ty + lh - 3, comp_w, 1 }, t->text_focus);
+            if (buf[ed.caret])
+                dxl_text_draw(ui, DXL_FONT_BODY, buf + ed.caret, text_x + at_x + comp_w, ty, 0, t->text_focus, 1);
+        } else if (*buf) {
+            dxl_text_draw(ui, DXL_FONT_BODY, buf, text_x, ty, 0, t->text_focus, 1);
+        }
         /* The caret, blinking from its last move; steady under reduced
          * motion. */
         double since = ui->now - ed.moved;
