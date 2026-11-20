@@ -123,6 +123,7 @@ typedef struct {
 #define DXL_BROWSE_GAME   0   /* an install: the first run's, or the profile's from now on */
 #define DXL_BROWSE_ENGINE 1   /* the engine's: DXEngine in it */
 #define DXL_BROWSE_MOD    2   /* a mod's: a folder with a System of its own, of packages (core/mods.h) */
+#define DXL_BROWSE_PROFILE_MOD 3   /* a mod's, the profile in use's mod from now on */
 
 typedef struct {
     char  *dir;          /* the folder shown */
@@ -192,12 +193,30 @@ typedef struct dxl_shell {
         char profile[DXL_PROFILE_ID_MAX + 1];   /* the first that plays it; "" for none */
         char profile_name[96];
         int  profiles;
+        int  plays_not;   /* the engine's audit found natives it lacks: no profile made of it */
     } mod_rows[DXL_MODS_MAX];
     int          mod_sel;
+    /* The engine's audits of the mods' natives (core/mods.h, bugs.md
+     * LCORE.27), each mod's by its folder, kept while the launcher runs for
+     * the engine and game they were asked of (audit_for: "<engine>\n<game>"),
+     * one asked at a time: the folder of the one the window's worker asks
+     * (start_audit), NULL for none. */
+    struct {
+        char           *dir;
+        dxl_mod_natives natives;
+    } mod_audits[DXL_MODS_MAX];
+    int          mod_audit_count;
+    char        *audit_for;
+    char        *auditing;
+    /* The window's: the audit's words run in its worker, its answer handed
+     * in with dxl_shell_audited; 0 when the worker took it. NULL offscreen,
+     * where it is run at once. */
+    int        (*start_audit)(struct dxl_shell *s, char **argv);
     /* The profile in use's mod, as Home opened: 0 none, 1 there, -1 gone;
      * what Home says of it. */
     int          profile_mod;
     char         profile_mod_text[600];
+    char         mod_other[1024];   /* a mod of another name asked about for the profile's (dxl_shell_choose_mod) */
 
     /* The Profiles page: each profile as the page opened, the one chosen,
      * its name as it is edited. */
@@ -488,8 +507,36 @@ void dxl_shell_use_profile(dxl_shell *s, const char *id, const char *name);
 /* A mod's folder shown, by the browser or the system's dialog: the Mods
  * page's, chosen. */
 void dxl_shell_mod_shown(dxl_shell *s, const dxl_mod *m);
+/* Mods' Make its profile...: Your profile, for a profile of the mod m on
+ * the game the profile in use plays; none of a mod the engine's audit found
+ * native code of its own in, which a message says, nor while its audit is
+ * yet to answer. */
+void dxl_shell_make_mod(dxl_shell *s, const dxl_mod *m);
+/* The audit of the natives of the mod at dir, as the engine answered it;
+ * NULL for none asked yet, or kept for another engine or game. */
+const dxl_mod_natives *dxl_shell_mod_natives(const dxl_shell *s, const char *dir);
+/* The next mod the page lists whose natives are not known, asked of an
+ * engine whose --version has audit-natives, by the window's worker, else at
+ * once, each in turn; nothing while one is being asked. */
+void dxl_shell_audit_next(dxl_shell *s);
+/* start_audit's answer, for the mod being asked: n, NULL for none (an
+ * engine that failed, or the worker stopped): known as none, not asked
+ * again; then the next. */
+void dxl_shell_audited(dxl_shell *s, const dxl_mod_natives *n);
 /* The profile in use's mod looked at again (profile_mod). */
 void dxl_shell_profile_mod(dxl_shell *s);
+/* A mod's folder chosen for the profile in use's mod, whose own is not
+ * there (app/run.h, dxl_run_set_mod): 1, Home saying where it plays it;
+ * else 0, a message saying why the profile was not changed -- or, for a
+ * mod of another folder name than the profile's own, a question first,
+ * the profile's settings and saves being the old one's: its yes, read by
+ * dxl_shell_mod_answer on Home's frames, takes it. */
+int  dxl_shell_choose_mod(dxl_shell *s, const dxl_mod *m);
+void dxl_shell_mod_answer(dxl_shell *s);
+/* Home's The mod's folder...: the launcher's browser, for the profile's
+ * mod, from the nearest folder there is of the one it had, else the
+ * game's. */
+void dxl_shell_mod_browse(dxl_shell *s);
 /* The servers asked for again: the profile's master's, and its favourites. */
 #define DXL_SERVERS_MAX 256
 void dxl_shell_browse(dxl_shell *s);

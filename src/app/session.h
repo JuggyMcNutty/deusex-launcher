@@ -24,6 +24,8 @@
 #include "core/settings.h"
 #include "core/xdg.h"
 
+#include <stdatomic.h>
+
 /* The game's ini by its package: DeusEx.ini. */
 #define DXL_GAME_PACKAGE "DeusEx"
 
@@ -77,6 +79,16 @@ void dxl_session_mods(const dxl_session *s, const char *game_root, dxl_mod_list 
  * ids; returns how many. */
 size_t dxl_session_mod_profiles(const dxl_session *s, const char *dir, char ids[][DXL_PROFILE_ID_MAX + 1],
                                 size_t max);
+/* The engine's audit of a mod's natives (core/mods.h, dxl_mod_natives), for
+ * an engine whose --version has audit-natives: its words, the session's
+ * engine on the mod's System and the game's folder game_root, NULL-ended
+ * (core/argv.h's dxl_argv_free); and the audit run with them, in
+ * DXL_AUDIT_TIMEOUT_MS at most, given up once *stop is set (NULL: never):
+ * 0 with n its answer, else -1, n unknown -- an engine that failed, gave no
+ * whole answer or ran out of time marks nothing. */
+#define DXL_AUDIT_TIMEOUT_MS 30000
+char **dxl_session_audit_argv(const dxl_session *s, const char *game_root, const dxl_mod *m);
+int  dxl_session_audit_run(char *const *argv, const atomic_int *stop, dxl_mod_natives *n);
 /* And how it begins, as the first run's quick setup has it: a graphics
  * preset, NULL for the engine's defaults as made, and a pad layout, NULL
  * for the controls as imported; its files written. */

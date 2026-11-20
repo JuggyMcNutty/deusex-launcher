@@ -565,3 +565,69 @@ void dxl_mod_set_paths(dxl_ini *sys, const char *game_system_dir, const dxl_mod 
     free(ours);
     free(theirs);
 }
+
+char *dxl_mod_rebased(const char *path, const char *from, const char *to) {
+    size_t n = from ? strlen(from) : 0;
+    while (n > 1 && (from[n - 1] == '/' || from[n - 1] == '\\')) n--;
+    if (!path || !n || strncmp(path, from, n) != 0 || (path[n] && path[n] != '/' && path[n] != '\\')) return NULL;
+    size_t size = strlen(to) + strlen(path + n) + 1;
+    char *out = dxl_xmalloc(size);
+    snprintf(out, size, "%s%s", to, path + n);
+    return out;
+}
+
+void dxl_mod_move_paths(dxl_ini *sys, const char *from, const char *to, const char *game_system_dir,
+                        const dxl_mod *m) {
+    size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", NULL, 0);
+    const char **values = dxl_xmalloc((n + 1) * sizeof *values);
+    dxl_ini_get_all(sys, "Core.System", "Paths", values, n);
+    char **now = dxl_xmalloc((n + 1) * sizeof *now);
+    for (size_t i = 0; i < n; i++) {
+        now[i] = dxl_mod_rebased(values[i], from, to);
+        if (!now[i]) now[i] = dxl_xstrdup(values[i]);
+    }
+    free(values);
+    dxl_ini_remove(sys, "Core.System", "Paths");
+    for (size_t i = 0; i < n; i++) {
+        dxl_ini_append(sys, "Core.System", "Paths", now[i]);
+        free(now[i]);
+    }
+    free(now);
+    dxl_mod_set_paths(sys, game_system_dir, m);
+}
+
+int dxl_mod_natives_parse(const char *text, dxl_mod_natives *n) {
+    memset(n, 0, sizeof *n);
+    int declared = -1, has = -1, lacking = -1;
+    for (const char *line = text; line && *line;) {
+        size_t len = strcspn(line, "\r\n");
+        if (!strncmp(line, "lacks: ", 7) && n->named < DXL_MOD_NATIVES_NAMED)
+            snprintf(n->first[n->named++], sizeof n->first[0], "%.*s", (int)(len - 7), line + 7);
+        else if (!strncmp(line, "natives: ", 9) &&
+                 sscanf(line, "natives: %d declared, %d the engine has, %d it lacks", &declared, &has, &lacking) != 3)
+            declared = -1;
+        line += len;
+        line += strspn(line, "\r\n");
+    }
+    if (declared < 0 || has < 0 || lacking < 0 || lacking > declared || (lacking && !n->named)) {
+        memset(n, 0, sizeof *n);
+        return -1;
+    }
+    n->known = 1;
+    n->declared = declared;
+    n->lacking = lacking;
+    return 0;
+}
+
+int dxl_mod_natives_lack(const dxl_mod_natives *n) { return n && n->known && n->lacking > 0; }
+
+void dxl_mod_natives_text(const dxl_mod_natives *n, char *out, size_t size) {
+    if (!size) return;
+    out[0] = '\0';
+    if (!dxl_mod_natives_lack(n)) return;
+    char names[3 * 130 + 8] = "";
+    for (int i = 0; i < n->named; i++)
+        snprintf(names + strlen(names), sizeof names - strlen(names), "%s%s", i ? ", " : "", n->first[i]);
+    snprintf(out, size, "does not play: native code of its own, %d function%s DXEngine lacks (%s%s)", n->lacking,
+             n->lacking == 1 ? "" : "s", names, n->lacking > n->named ? ", ..." : "");
+}

@@ -81,7 +81,9 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     dxl_rect menu = { r.x, r.y + 6, menu_w, r.h - 6 };
     /* The buttons a little lower where they do not all fit at their own
      * height. */
-    int n = 8 + (latest != NULL) + !ss->install.ok + !s->engine_ok;
+    /* A mod's profile whose mod is gone, on a game that is there. */
+    int mod_gone = ss->install.ok && s->profile_mod < 0;
+    int n = 8 + (latest != NULL) + !ss->install.ok + mod_gone + !s->engine_ok;
     float bh = 48, gap = 10;
     if (n * bh + (n - 1) * gap > menu.h) {
         gap = 6;
@@ -103,6 +105,12 @@ void dxl_page_home(dxl_shell *s, dxl_rect r) {
     int game_fix = 0;
     if (!ss->install.ok) {
         game_fix = button(s, "home game", dxl_cut_top(&menu, bh), "The game's folder...", DXL_W_LEFT);
+        dxl_cut_top(&menu, gap);
+    }
+    if (mod_gone) {
+        dxl_shell_mod_answer(s);
+        if (button(s, "home mod", dxl_cut_top(&menu, bh), "The mod's folder...", DXL_W_LEFT))
+            dxl_shell_mod_browse(s);
         dxl_cut_top(&menu, gap);
     }
     if (!s->engine_ok) {

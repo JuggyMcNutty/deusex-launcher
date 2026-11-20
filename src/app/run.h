@@ -118,6 +118,23 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop);
  * dxl_session_use_profile). */
 int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err);
 
+/* A mod's profile pointed at its mod where it is now, m (dxl_mod_check's):
+ * profile.ini's Mod m's folder, and its DeusEx.ini's paths under the folder
+ * it had made m's (core/mods.h, dxl_mod_move_paths), on the game the
+ * profile plays; its saves and settings as they are. 0, else -1 and why:
+ * no mod's profile, no game, a file not written -- profile.ini's Mod, in
+ * memory too, left as it was. */
+int dxl_run_set_mod(dxl_run *r, const dxl_mod *m, dxl_err *err);
+/* The profile's game pointed anew from old_root to new_root (its System
+ * game_system_dir): a mod of its that was in old_root and is not there now,
+ * found at the same place in new_root, pointed at there, the paths under
+ * old_root made new_root's; one elsewhere that runs from its own System, its
+ * paths under old_root made new_root's. 1 when it was; 0 for nothing to do --
+ * no mod, another one elsewhere, one still there, none at that place, which
+ * Home then asks for --; -1, with err, for a file not written. */
+int dxl_run_mod_follows(dxl_run *r, const char *game_system_dir, const char *old_root, const char *new_root,
+                        dxl_err *err);
+
 /* The launcher's own pad mappings, $XDG_DATA_HOME/dxlauncher/gamecontrollerdb.txt
  * (core/padmap.h): the window's and, with Steam's, the engine's. */
 char *dxl_run_pad_db(const dxl_run *r);
