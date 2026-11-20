@@ -544,6 +544,91 @@ int dxl_run_use_profile(dxl_run *r, const char *id, dxl_err *err) {
     return 0;
 }
 
+/* The profile's mod the one at m, its paths under from given to (core/mods.h,
+ * dxl_mod_move_paths), its saves and settings left as they are: DeusEx.ini
+ * first -- the run's open copy of it, so that no later save of it writes the
+ * old paths back --, then profile.ini's Mod. A retry after a failure
+ * half-way finds the paths moved already and leaves them. */
+static int move_mod(dxl_run *r, const char *game_system_dir, const char *from, const char *to, const dxl_mod *m,
+                    dxl_err *err) {
+    dxl_profile *p = &r->session.profile;
+    dxl_config *c = r->config && !strcmp(dxl_config_path(r->config), p->system_ini) ? r->config : NULL;
+    dxl_ini *own = NULL, *sys = c ? dxl_config_ini(c) : (own = dxl_ini_load(p->system_ini, err));
+    if (!sys) return -1;
+    /* The paths as they were, for the open copy where nothing is kept. */
+    size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", NULL, 0);
+    const char **values = dxl_xmalloc((n + 1) * sizeof *values);
+    dxl_ini_get_all(sys, "Core.System", "Paths", values, n);
+    char **was = dxl_xmalloc((n + 1) * sizeof *was);
+    for (size_t i = 0; i < n; i++) was[i] = dxl_xstrdup(values[i]);
+    free(values);
+    dxl_mod_move_paths(sys, from, to, game_system_dir, m);
+    int rc = c ? dxl_config_save(c, err) : dxl_ini_save(own, p->system_ini, err);
+    if (rc == 0) {
+        const char *had = dxl_profile_get(p, "Mod");
+        char *keep = had ? dxl_xstrdup(had) : NULL;
+        dxl_profile_set(p, "Mod", m->dir);
+        if (dxl_profile_save(p, err) != 0) {
+            if (keep) dxl_profile_set(p, "Mod", keep);
+            rc = -1;
+        }
+        free(keep);
+    }
+    if (rc != 0 && c) {
+        dxl_ini_remove(sys, "Core.System", "Paths");
+        for (size_t i = 0; i < n; i++) dxl_ini_append(sys, "Core.System", "Paths", was[i]);
+    }
+    for (size_t i = 0; i < n; i++) free(was[i]);
+    free(was);
+    dxl_ini_free(own);
+    if (rc == 0) dxl_log("profile %s: its mod %s", p->id, m->dir);
+    return rc;
+}
+
+int dxl_run_set_mod(dxl_run *r, const dxl_mod *m, dxl_err *err) {
+    const dxl_install *in = &r->session.install;
+    const char *had = dxl_profile_get(&r->session.profile, "Mod");
+    if (!had || !*had) {
+        dxl_err_set(err, "profile %s is no mod's", r->session.profile.id);
+        return -1;
+    }
+    if (!in->ok) {
+        dxl_err_set(err, "profile %s has no game to play the mod on", r->session.profile.id);
+        return -1;
+    }
+    char *from = dxl_xstrdup(had);
+    int rc = move_mod(r, in->system_dir, from, m->dir, m, err);
+    free(from);
+    return rc;
+}
+
+int dxl_run_mod_follows(dxl_run *r, const char *game_system_dir, const char *old_root, const char *new_root,
+                        dxl_err *err) {
+    const char *dir = dxl_profile_get(&r->session.profile, "Mod");
+    char *at = dir && *dir && old_root && new_root ? dxl_mod_rebased(dir, old_root, new_root) : NULL;
+    dxl_mod m;
+    int rc = 0;
+    if (!at && dir && *dir && old_root && new_root && strcmp(old_root, new_root) != 0) {
+        /* Elsewhere: one that runs from its own System names the game's
+         * folders by their absolute paths (dxl_mod_set_paths), given the
+         * new folder's; another's are the game's System's, as they are. */
+        if (dxl_mod_check(dir, &m, NULL) == 0) {
+            if (m.own_system) rc = move_mod(r, game_system_dir, old_root, new_root, &m, err) == 0 ? 1 : -1;
+            dxl_mod_free(&m);
+        }
+    } else if (!at || !strcmp(at, dir)) {
+        /* No mod, or that folder again. */
+    } else if (dxl_mod_check(dir, &m, NULL) == 0) {
+        /* Still where it was: played there, against the game now. */
+        dxl_mod_free(&m);
+    } else if (dxl_mod_check(at, &m, NULL) == 0) {
+        rc = move_mod(r, game_system_dir, old_root, new_root, &m, err) == 0 ? 1 : -1;
+        dxl_mod_free(&m);
+    }
+    free(at);
+    return rc;
+}
+
 /* ---- the run ---------------------------------------------------------- */
 
 /* Each start's log, emptied first; a start beside a launcher that runs (a
@@ -616,15 +701,20 @@ static int repoint(dxl_run *r) {
         return DXL_RUN_EXIT_NOGAME;
     }
     char id[96];
+    const char *had = dxl_session_install_path(&r->session, dxl_profile_get(&r->session.profile, "Install"));
+    char *old_root = had ? dxl_xstrdup(had) : NULL;
     dxl_session_remember_install(&r->session, &in, id, sizeof id);
     const char *was = dxl_profile_get(&r->session.profile, "Install");
     if (!was || strcmp(was, id) != 0) {
         dxl_profile_set(&r->session.profile, "Install", id);
         dxl_log("profile %s: install %s (%s)", r->session.profile.id, id, in.root);
     }
-    dxl_install_free(&in);
     dxl_err e;
     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    /* A mod that was in the game's folder, found at its place in this one. */
+    else if (dxl_run_mod_follows(r, in.system_dir, old_root, in.root, &e) < 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    free(old_root);
+    dxl_install_free(&in);
     return 0;
 }
 

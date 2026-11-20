@@ -138,7 +138,8 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
     dxl_rect help_r = dxl_cut_bottom(&area, 36);
     dxl_cut_bottom(&area, 6);
     const dxl_saves *l = &s->save_list;
-    int can_load = ss->install.ok && dxl_shell_engine_has(s, "loadgame-url");
+    /* A mod's profile plays only while its mod is there, as Continue. */
+    int can_load = ss->install.ok && s->profile_mod >= 0 && dxl_shell_engine_has(s, "loadgame-url");
     const char *why = NULL;
 
     /* The saves. */
@@ -212,6 +213,7 @@ void dxl_page_saves(dxl_shell *s, dxl_rect r) {
         why = "The save's folder to the trash, to be put back from there.";
     if (!can_load && l->count)
         why = !ss->install.ok ? "The profile's game is not there to play: Home sets it right."
+              : s->profile_mod < 0 ? "The profile's mod is not there to play: Home sets it right."
               : s->engine_ok ? "This engine starts on no save: a DXEngine with the loadgame-url feature does."
                              : "No engine to play with: Home sets it right.";
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);

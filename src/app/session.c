@@ -5,6 +5,7 @@
 #include "core/engine_settings.h"
 #include "core/log.h"
 #include "core/paths.h"
+#include "platform/process.h"
 #include "platform/trash.h"
 
 #include <errno.h>
@@ -333,6 +334,37 @@ void dxl_session_mods(const dxl_session *s, const char *game_root, dxl_mod_list 
         }
         dxl_profile_free(&p);
     }
+}
+
+char **dxl_session_audit_argv(const dxl_session *s, const char *game_root, const dxl_mod *m) {
+    char **argv = dxl_xmalloc(4 * sizeof *argv);
+    size_t n = strlen(m->system_dir) + 20;
+    argv[0] = dxl_xstrdup(s->engine);
+    argv[1] = dxl_xmalloc(n);
+    snprintf(argv[1], n, "--audit-natives=%s", m->system_dir);
+    argv[2] = dxl_xstrdup(game_root);
+    argv[3] = NULL;
+    return argv;
+}
+
+int dxl_session_audit_run(char *const *argv, const atomic_int *stop, dxl_mod_natives *n) {
+    /* Room for a mod of many natives: an answer cut short is none. */
+    size_t size = 1 << 17;
+    char *out = dxl_xmalloc(size);
+    int status = 0;
+    dxl_err e = { "" };
+    int rc = dxl_run_capture_until(argv, DXL_AUDIT_TIMEOUT_MS, stop, out, size, NULL, 0, &status, &e);
+    if (rc != 0 || status != 0 || dxl_mod_natives_parse(out, n) != 0) {
+        memset(n, 0, sizeof *n);
+        dxl_log("mods: no audit of the natives of %s: %s", argv[1] + 16,
+                rc == DXL_RUN_TIMED_OUT ? "no answer in time" : rc != 0 ? dxl_err_msg(&e)
+                : status != 0 ? "the engine failed" : "no whole answer");
+        rc = -1;
+    } else {
+        dxl_log("mods: %s: %d native(s) declared, %d the engine lacks", argv[1] + 16, n->declared, n->lacking);
+    }
+    free(out);
+    return rc;
 }
 
 size_t dxl_session_mod_profiles(const dxl_session *s, const char *dir, char ids[][DXL_PROFILE_ID_MAX + 1],
