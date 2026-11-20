@@ -100,6 +100,7 @@ typedef struct dxl_ui {
     SDL_Renderer   *renderer;
     TTF_TextEngine *engine;
     TTF_Font       *fonts[DXL_FONT_COUNT];
+    TTF_Font       *fallback[DXL_FONT_COUNT];   /* each role's, at its size; NULL when it did not open */
     dxl_text_cache *cache;
     char            fonts_dir[1024];
     float           font_scale;  /* the scale the fonts were opened at */
@@ -161,6 +162,13 @@ typedef struct dxl_ui {
     uint32_t        text_id;
     dxl_rect        text_area;   /* where the text is, for the input method's window */
     int             text_on;     /* SDL's text input is started */
+    float           text_caret;  /* the caret's x in text_area, dp: the input method's window by it */
+    /* What an input method composes, where SDL leaves it to the window
+     * (SDL_EVENT_TEXT_EDITING: Wayland's text-input-v3): the field typed in
+     * draws it at its caret till it is committed, as typed text, or
+     * cancelled. Its cursor in characters, -1 at its end. */
+    char            composing[256];
+    int             composing_at;
     uint32_t        text_ready;  /* a field with the focus that takes typing, as the last frame drew it */
     uint32_t        text_ready_now;   /* ...as this one draws it */
     uint32_t        text_lost;   /* a field whose edit ended as it was not drawn: kept */

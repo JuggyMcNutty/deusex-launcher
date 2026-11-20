@@ -11,6 +11,7 @@ has them, in its `ofl` folder:
 |---|---|---|
 | Barlow Semi Condensed, by the Barlow Project Authors | `BarlowSemiCondensed-Regular.ttf`, `-Medium.ttf`, `-SemiBold.ttf` | SIL Open Font License 1.1, `OFL-BarlowSemiCondensed.txt` |
 | Share Tech Mono, by Carrois Type Design (Reserved Font Name "Share") | `ShareTechMono-Regular.ttf` | SIL Open Font License 1.1, `OFL-ShareTechMono.txt` |
+| Noto Sans 2.015, by the Noto Project Authors, from [notofonts/latin-greek-cyrillic](https://github.com/notofonts/latin-greek-cyrillic)'s release (its unhinted TTF) | `NotoSans-Regular.ttf` | SIL Open Font License 1.1, `OFL-NotoSans.txt` |
 
 ## Libraries
 

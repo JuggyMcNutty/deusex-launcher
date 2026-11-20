@@ -149,6 +149,7 @@ int dxl_ui_attach(dxl_ui *ui, SDL_Window *window, SDL_Renderer *renderer) {
 void dxl_ui_detach(dxl_ui *ui) {
     if (ui->text_on && ui->window) SDL_StopTextInput(ui->window);
     ui->text_on = 0;
+    ui->composing[0] = '\0';
     ui->text_id = ui->capture_id = 0;
     ui->text_ready = ui->text_ready_now = ui->text_lost = 0;
     if (ui->backdrop) SDL_DestroyTexture(ui->backdrop);
@@ -180,6 +181,7 @@ void dxl_ui_reset(dxl_ui *ui) {
     memset(&ui->in, 0, sizeof ui->in);
     ui->text_id = ui->capture_id = 0;
     ui->text_ready = ui->text_ready_now = ui->text_lost = 0;
+    ui->composing[0] = '\0';
     ui->swallow_space = 0;
     ui->wake = 0;
     held_dir = stick_dir = -1;
@@ -561,6 +563,37 @@ void dxl_ui_event(dxl_ui *ui, const SDL_Event *e) {
             ui->mode = DXL_INPUT_KEYBOARD;
             ui->in.any = 1;
         }
+        /* A composition committed comes as this text: it is shown no more. */
+        ui->composing[0] = '\0';
+        break;
+    case SDL_EVENT_TEXT_EDITING:
+        /* The composition as it is now, in place of the last; an empty one,
+         * cancelled or committed. Whole characters, as many as fit. */
+        ui->composing[0] = '\0';
+        if ((ui->text_id || (ui->text_ready && ui->text_ready == ui->focus)) && e->edit.text) {
+            size_t n = 0;
+            for (const unsigned char *p = (const unsigned char *)e->edit.text; *p;) {
+                size_t len = utf8_len(p);
+                if (!len || (len == 1 && *p < 0x20)) {
+                    p++;
+                    continue;
+                }
+                if (n + len >= sizeof ui->composing) break;
+                memcpy(ui->composing + n, p, len);
+                n += len;
+                p += len;
+            }
+            ui->composing[n] = '\0';
+            ui->composing_at = e->edit.start;
+            ui->mode = DXL_INPUT_KEYBOARD;
+        }
+        ui->in.any = 1;
+        break;
+    case SDL_EVENT_TEXT_EDITING_CANDIDATES:
+        /* The input method draws its own list of candidates
+         * (SDL_HINT_IME_IMPLEMENTED_UI is left unset), and outside SDL's
+         * text-input-v3 its own composition too, sending no
+         * SDL_EVENT_TEXT_EDITING. */
         break;
     default:
         break;
@@ -757,17 +790,23 @@ static void text_input_sync(dxl_ui *ui) {
     } else if (!wanted && ui->text_on) {
         SDL_StopTextInput(ui->window);
         ui->text_on = 0;
+        ui->composing[0] = '\0';
     }
     if (ui->text_on) {
         dxl_rect p = dxl_px(ui, ui->text_area);
         float density = SDL_GetWindowPixelDensity(ui->window);
         if (density <= 0) density = 1;
         SDL_Rect r = { (int)(p.x / density), (int)(p.y / density), (int)(p.w / density), (int)(p.h / density) };
-        SDL_SetTextInputArea(ui->window, &r, 0);
+        int caret = (int)(dxl_pxf(ui, ui->text_caret) / density);
+        SDL_SetTextInputArea(ui->window, &r, caret > 0 && caret < r.w ? caret : 0);
     }
 }
 
 void dxl_ui_text_begin(dxl_ui *ui, uint32_t id, dxl_rect area) {
+    if (ui->text_id != id) ui->text_caret = 0;
+    /* Another field's edit taken over: its composition is not this one's.
+     * One begun on this field before its edit (text_ready) is kept. */
+    if (ui->text_id && ui->text_id != id) ui->composing[0] = '\0';
     ui->text_id = id;
     ui->text_area = area;
     text_input_sync(ui);
@@ -775,6 +814,8 @@ void dxl_ui_text_begin(dxl_ui *ui, uint32_t id, dxl_rect area) {
 
 void dxl_ui_text_end(dxl_ui *ui) {
     ui->text_id = 0;
+    ui->text_caret = 0;
+    ui->composing[0] = '\0';
     text_input_sync(ui);
 }
 

@@ -20,7 +20,7 @@ void dxl_page_about(dxl_shell *s, dxl_rect r) {
     static const char credits[] =
         "Made with SDL3 and SDL3_ttf (the zlib licence), libxmp-lite (the MIT licence) and FreeType (its own "
         "licence); its type is "
-        "Barlow Semi Condensed and Share Tech Mono (the SIL Open Font License 1.1). Deus Ex is its "
+        "Barlow Semi Condensed, Share Tech Mono and Noto Sans (the SIL Open Font License 1.1). Deus Ex is its "
         "makers'; DXLauncher plays your own copy of it.";
     const float nw = 150, lh = 28;
     float content = dxl_text_size(ui, DXL_FONT_BODY, intro, w - 44).y + 10 + (s->engine_ok ? 6 : 5) * lh + 12 +

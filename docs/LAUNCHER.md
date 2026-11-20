@@ -520,7 +520,13 @@ the Year banner under the name) and its main menu's buttons
 theme and added to what is under them, as the game draws them
 (`src/ui/art.c`); ours stand in for what the install lacks. The game's
 packages are read by our own code from their format (`src/core/upkg.c`).
-Its type is in `data/fonts` (`THIRD-PARTY.md` says whose). It is laid out
+Its type is in `data/fonts` (`THIRD-PARTY.md` says whose): Barlow Semi
+Condensed and Share Tech Mono, which hold Latin alone, and for what they
+lack Noto Sans, at each one's size (`src/ui/text.c`), which holds Cyrillic
+and Greek. CJK, Arabic, emoji and the other scripts are in none of them, and
+draw as a box: a font for each would add tens of megabytes. Where Noto Sans
+is missing from the app the window opens all the same, Cyrillic and Greek
+boxes too, as `launcher.log` says. It is laid out
 in dp, which the display's scale makes pixels, so it is as sharp at any
 size: for 1280 x 720 dp.
 
@@ -559,7 +565,12 @@ typing at once, what is typed in its place -- W, A, S and D too -- and
 Backspace begins its edit; Enter begins it with the caret at the end. Enter
 keeps the edit, Esc puts it back, Tab, Up and Down keep it and move on, a
 click elsewhere keeps it. While it is edited the pointer takes no focus and
-nothing scrolls. A pad's confirm opens the on-screen keyboard
+nothing scrolls. An input method's composition, where SDL leaves it to the
+window (Wayland's text-input-v3), is drawn at the caret, underlined, till it
+is committed as typed text or cancelled; a composition begun on a field with
+the focus begins its edit as typing does. Elsewhere the input method draws
+its own; its window and its candidates sit by the caret
+(`SDL_SetTextInputArea`). A pad's confirm opens the on-screen keyboard
 (`src/ui/osk.c`).
 
 **Sound.** The game's title music, `Music/Title_Music.umx`'s module,
@@ -1025,10 +1036,12 @@ the game's binaries.
 
 The window's kit is tested on SDL's software renderer and a surface: focus
 and navigation and what the d-pad's moves reach (`test_ui_focus`), text
-(`test_ui_text`), and the keyboard,
+(`test_ui_text`: Cyrillic and Greek in every role drawn by the fallback, not
+as boxes; the window's fonts opened without it), and the keyboard,
 the mouse and virtual pads with an Xbox's, a DualSense's and a Switch Pro's
 ids (`test_ui_input`), the controls and the on-screen keyboard
-(`test_ui_controls`), the sound on SDL's dummy output (`test_ui_audio`) and
+(`test_ui_controls`, an input method's composition drawn at a field's caret
+among them), the sound on SDL's dummy output (`test_ui_audio`) and
 the thumbnails (`test_ui_thumbs`). `dxl-shots` (`tools/shots.c`) draws every
 page and dialog, each settings page too, from states it makes up in a
 scratch home, at the Smart Pro's 1280x720 on the big screen, with the
@@ -1148,5 +1161,3 @@ Each open in Port Ex Machina's
   profile could play.
 - **D.95**: a launcher killed while its game plays leaves no running mark,
   so the next start can play a second game on the same profile.
-- **D.98**: Cyrillic, Greek, CJK and Arabic draw as boxes; an input method's
-  composition is not shown on Wayland.
