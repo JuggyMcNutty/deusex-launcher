@@ -5,6 +5,7 @@
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/bindings.h"
+#include "core/engine_args.h"
 #include "core/engine_sections.h"
 #include "core/keys.h"
 #include "core/log.h"
@@ -182,6 +183,37 @@ static int choices_of(dxl_shell *s, const dxl_setting *st, const char **labels, 
                 labels[n] = shown[n];
                 n++;
             }
+        }
+        return n;
+    }
+    if (st->flags & DXL_SET_GPU) {
+        /* Automatic, then each GPU the probe found, to an engine that reads
+         * the choice (DXL_ENGINE_DEVICE); the profile's own where it is
+         * none of them, said so -- but not while the probe has yet to
+         * look, nor of a part of a GPU's name, which the engine takes as
+         * that GPU. */
+        dxl_shell_probe(s);
+        dxl_shell_ask_engine(s);
+        int reads = dxl_shell_engine_has(s, DXL_ENGINE_DEVICE);
+        char now[DXL_GPU_NAME_LEN];
+        dxl_setting_get(&s->stores, st, now, sizeof now);
+        snprintf(values[n], 64, "%s", "");
+        labels[n++] = "Automatic";
+        int listed = !now[0], here = s->probe_state != 2;
+        for (int i = 0; reads && s->probe_state == 2 && i < s->probe.vulkan_gpus && n < max; i++) {
+            snprintf(values[n], 64, "%s", s->probe.vulkan_gpu[i]);
+            labels[n++] = s->probe.vulkan_gpu[i];
+            listed |= !dxl_stricmp(now, s->probe.vulkan_gpu[i]);
+            here |= dxl_stristr(s->probe.vulkan_gpu[i], now) != NULL;
+        }
+        if (!listed && n < max) {
+            snprintf(values[n], 64, "%s", now);
+            if (reads && here) snprintf(shown[n], 64, "%.*s", dxl_utf8_fit(now, 63), now);
+            else
+                snprintf(shown[n], 64, "%.*s (%s)", dxl_utf8_fit(now, 30), now,
+                         reads ? "not on this machine" : "not read by this engine");
+            labels[n] = shown[n];
+            n++;
         }
         return n;
     }
@@ -561,6 +593,12 @@ void dxl_page_settings(dxl_shell *s, dxl_rect r) {
     if (!why && focused && !strcmp(focused->id, DXL_ANTIALIAS_ROW) && s->stores.no_msaa) {
         snprintf(now, sizeof now, "Off, and kept off: this GPU, %s, resolves multisampling into speckle at the "
                  "edges of what it draws.", s->probe.vulkan_device);
+        why = now;
+    }
+    if (!why && focused && !strcmp(focused->id, DXL_GPU_ROW) && s->engine_ok &&
+        !dxl_shell_engine_has(s, DXL_ENGINE_DEVICE)) {
+        snprintf(now, sizeof now, "Automatic alone: this engine, %s, takes no GPU by name (its --version has no %s).",
+                 s->engine_version, DXL_ENGINE_DEVICE);
         why = now;
     }
     if (why) dxl_paragraph_typed(ui, help_r, DXL_FONT_SMALL, why, t->help, ui->focus_since);

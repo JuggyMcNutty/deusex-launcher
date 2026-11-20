@@ -201,6 +201,11 @@ static int read_place(const dxl_stores *st, const dxl_set_place *p, char *out, s
             if (p->field == DXL_ES_RENDER_TYPE && !dxl_es_names_type(st->engine)) return 0;
             snprintf(out, size, "%s", dxl_es_choice(st->engine, p->field));
             return 1;
+        case DXL_ES_TEXT:
+            /* None: the row's default, the engine's own choice */
+            if (!*dxl_es_text(st->engine, p->field)) return 0;
+            snprintf(out, size, "%s", dxl_es_text(st->engine, p->field));
+            return 1;
         }
         return 0;
     }
@@ -223,6 +228,7 @@ static int write_place(dxl_stores *st, const dxl_set_place *p, const char *value
         case DXL_ES_BOOL: dxl_es_set_bool(st->engine, p->field, strcmp(value, "1") == 0); break;
         case DXL_ES_NUMBER: dxl_es_set_number(st->engine, p->field, dxl_strtod_c(value, NULL) * scale_of(p)); break;
         case DXL_ES_CHOICE: return dxl_es_set_choice(st->engine, p->field, value) == 0 ? 0 : -1;
+        case DXL_ES_TEXT: dxl_es_set_text(st->engine, p->field, value); break;
         }
         return 0;
     }
@@ -324,8 +330,8 @@ static int normalise(const dxl_setting *s, const char *in, char *out, size_t siz
         dxl_snprintf_c(out, size, "%.6g", n);
         return 1;
     case DXL_SET_CHOICE:
-        /* The renderers', and a size's, are the page's to offer. */
-        if (!s->choices || (s->flags & DXL_SET_RENDERER) || s->at[0].codec == DXL_CODEC_WIDTH) {
+        /* The renderers', the GPUs', and a size's, are the page's to offer. */
+        if (!s->choices || (s->flags & (DXL_SET_RENDERER | DXL_SET_GPU)) || s->at[0].codec == DXL_CODEC_WIDTH) {
             if (s->at[0].codec == DXL_CODEC_WIDTH) {
                 /* One of the row's own (full screen's 0x0, the desktop's),
                  * else a size the game can take. */
@@ -432,6 +438,8 @@ const char *dxl_setting_renderer_note(const dxl_stores *st, const dxl_setting *s
     char v[64];
     if (!s || !renderer) return NULL;
     dxl_setting_get(st, renderer, v, sizeof v);
+    if (!strcmp(s->id, DXL_GPU_ROW) && dxl_stricmp(v, "Vulkan") != 0)
+        return "The Vulkan renderer's alone: the one chosen draws where the system has it.";
     if (dxl_stricmp(v, "Software") != 0) return NULL;
     if (!strcmp(s->id, DXL_ANTIALIAS_ROW))
         return "The software renderer draws no multisampling: it is the GPU renderers' alone.";

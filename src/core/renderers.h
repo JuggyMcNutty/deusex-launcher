@@ -34,6 +34,11 @@ typedef enum {
     DXL_API_GL_CPU     /* Mesa's llvmpipe */
 } dxl_gfx_api;
 
+/* The most GPUs the probe names, and the longest name it keeps: the
+ * Graphics page's GPU row offers each (RenderDevice.Device). */
+#define DXL_GPU_NAMES 8
+#define DXL_GPU_NAME_LEN 64
+
 /* What the GPU probe found. Filled by the platform layer; plain data so the
  * resolution logic below stays testable without a GPU. A GPU's drivers and
  * Mesa's CPU drivers apart: lavapipe is no Vulkan GPU, llvmpipe as EGL's
@@ -43,6 +48,8 @@ typedef struct {
     int  vulkan;              /* a GPU's Vulkan device */
     char vulkan_device[128];  /* "PowerVR Rogue GE8300" */
     char vulkan_version[32];  /* "1.3.225" */
+    int  vulkan_gpus;         /* every GPU's Vulkan device, each name once, in the loader's order */
+    char vulkan_gpu[DXL_GPU_NAMES][DXL_GPU_NAME_LEN];
     int  gles;                /* a GPU's OpenGL ES 3.1 or later, the GL renderer's */
     char gles_version[128];   /* GL_VERSION when a context could be made, else EGL's */
     char gles_renderer[128];
@@ -66,6 +73,12 @@ int dxl_gl_version_at_least(const char *version, int major, int minor);
  * text is malloc'd; caller frees. Parse returns 0 when it read a probe. */
 char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p);
 int   dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out);
+
+/* A GPU's Vulkan device named in p's list (vulkan_gpu): once, cut to
+ * DXL_GPU_NAME_LEN - 1 bytes, up to DXL_GPU_NAMES; nothing for an empty
+ * name. A part of the name is what the engine matches, so a cut one still
+ * names its GPU. */
+void  dxl_gpu_probe_add_gpu(dxl_gpu_probe *p, const char *name);
 
 /* The PowerVR GE8300's multisample resolve turns partially covered pixels to
  * speckle (found on the TrimUI Smart Pro; its README). Keyed on

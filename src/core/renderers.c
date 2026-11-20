@@ -207,6 +207,15 @@ int dxl_gpu_msaa_broken(const dxl_gpu_probe *g) {
     return g->probed && (strstr(g->vulkan_device, "PowerVR") != NULL || strstr(g->gles_renderer, "PowerVR") != NULL);
 }
 
+void dxl_gpu_probe_add_gpu(dxl_gpu_probe *p, const char *name) {
+    char cut[DXL_GPU_NAME_LEN];
+    if (!name || !*name || p->vulkan_gpus >= DXL_GPU_NAMES) return;
+    snprintf(cut, sizeof cut, "%.*s", dxl_utf8_fit(name, (int)sizeof cut - 1), name);
+    for (int i = 0; i < p->vulkan_gpus; i++)
+        if (!strcmp(p->vulkan_gpu[i], cut)) return;
+    memcpy(p->vulkan_gpu[p->vulkan_gpus++], cut, sizeof cut);
+}
+
 #define PROBE "Probe"
 
 char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p) {
@@ -216,6 +225,7 @@ char *dxl_gpu_probe_to_ini(const dxl_gpu_probe *p) {
     dxl_ini_set_bool(ini, PROBE, "Vulkan", p->vulkan);
     dxl_ini_set(ini, PROBE, "VulkanDevice", p->vulkan_device);
     dxl_ini_set(ini, PROBE, "VulkanVersion", p->vulkan_version);
+    for (int i = 0; i < p->vulkan_gpus && i < DXL_GPU_NAMES; i++) dxl_ini_append(ini, PROBE, "VulkanGPU", p->vulkan_gpu[i]);
     dxl_ini_set_bool(ini, PROBE, "GLES", p->gles);
     dxl_ini_set(ini, PROBE, "GLESVersion", p->gles_version);
     dxl_ini_set(ini, PROBE, "GLESRenderer", p->gles_renderer);
@@ -249,6 +259,9 @@ int dxl_gpu_probe_from_ini(const char *text, dxl_gpu_probe *out) {
     out->vulkan = dxl_ini_get_bool(ini, PROBE, "Vulkan", 0);
     copy_key(ini, "VulkanDevice", out->vulkan_device, sizeof out->vulkan_device);
     copy_key(ini, "VulkanVersion", out->vulkan_version, sizeof out->vulkan_version);
+    const char *gpus[DXL_GPU_NAMES];
+    size_t ngpus = dxl_ini_get_all(ini, PROBE, "VulkanGPU", gpus, DXL_GPU_NAMES);
+    for (size_t i = 0; i < ngpus && i < DXL_GPU_NAMES; i++) dxl_gpu_probe_add_gpu(out, gpus[i]);
     out->gles = dxl_ini_get_bool(ini, PROBE, "GLES", 0);
     copy_key(ini, "GLESVersion", out->gles_version, sizeof out->gles_version);
     copy_key(ini, "GLESRenderer", out->gles_renderer, sizeof out->gles_renderer);

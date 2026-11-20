@@ -65,7 +65,7 @@ static void probe_vulkan(dxl_gpu_probe *out) {
         VkResult rc = enumerate(inst, &n, devs);
         if ((rc == VK_SUCCESS || rc == VK_INCOMPLETE) && n > 0) {
             /* A GPU's device and a CPU implementation's (lavapipe) apart:
-             * the first of each. */
+             * the first of each, and every GPU's name (the GPU row's). */
             for (uint32_t i = 0; i < n; i++) {
                 VkPhysicalDeviceProperties p;
                 props(devs[i], &p);
@@ -73,7 +73,9 @@ static void probe_vulkan(dxl_gpu_probe *out) {
                     if (out->vulkan_cpu) continue;
                     out->vulkan_cpu = 1;
                     snprintf(out->vulkan_cpu_device, sizeof out->vulkan_cpu_device, "%.127s", p.deviceName);
-                } else if (!out->vulkan) {
+                } else {
+                    dxl_gpu_probe_add_gpu(out, p.deviceName);
+                    if (out->vulkan) continue;
                     out->vulkan = 1;
                     snprintf(out->vulkan_device, sizeof out->vulkan_device, "%.127s", p.deviceName);
                     snprintf(out->vulkan_version, sizeof out->vulkan_version, "%u.%u.%u",
@@ -450,6 +452,8 @@ int dxl_gpu_probe_run(dxl_gpu_probe *out, int timeout_ms) {
         out->vulkan = v->vulkan;
         memcpy(out->vulkan_device, v->vulkan_device, sizeof out->vulkan_device);
         memcpy(out->vulkan_version, v->vulkan_version, sizeof out->vulkan_version);
+        out->vulkan_gpus = v->vulkan_gpus < DXL_GPU_NAMES ? v->vulkan_gpus : DXL_GPU_NAMES;
+        memcpy(out->vulkan_gpu, v->vulkan_gpu, sizeof out->vulkan_gpu);
         out->vulkan_cpu = v->vulkan_cpu;
         memcpy(out->vulkan_cpu_device, v->vulkan_cpu_device, sizeof out->vulkan_cpu_device);
     }

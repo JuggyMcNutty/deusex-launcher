@@ -46,6 +46,9 @@ static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_GAMMA_GREEN]       = { RD, "GammaOffsetGreen",        DXL_ES_NUMBER, NULL, NULL, 0, -0.5, 0.5, 0.05 },
     [DXL_ES_GAMMA_BLUE]        = { RD, "GammaOffsetBlue",         DXL_ES_NUMBER, NULL, NULL, 0, -0.5, 0.5, 0.05 },
     [DXL_ES_LOD_BIAS]          = { RD, "LODBias",                 DXL_ES_NUMBER, NULL, NULL, -0.5, -2, 2, 0.25 },
+    /* Read by an engine whose --version has vulkan-device alone; none, the
+     * engine's own order (DXEngine's ENGINE.md, rendering) */
+    [DXL_ES_DEVICE]            = { RD, "Device",                  DXL_ES_TEXT,   NULL, "", 0, 0, 0, 0 },
 
     [DXL_ES_PAD_ENABLED]       = { GP, "Enabled",           DXL_ES_BOOL,   NULL, NULL, 1,    0, 1, 1 },
     [DXL_ES_PAD_DEADZONE]      = { GP, "DeadZone",          DXL_ES_NUMBER, NULL, NULL, 0.20, 0.05, 0.50, 0.05 },
@@ -85,7 +88,7 @@ struct dxl_engine_settings {
 };
 
 static int choice_valid(const dxl_es_info *in, const char *v) {
-    if (!v) return 0;
+    if (!v || !in->choices) return 0;   /* a field of no choices: DXL_ES_TEXT's */
     for (const char *const *c = in->choices; *c; c++)
         if (strcmp(*c, v) == 0) return 1;
     return 0;
@@ -196,6 +199,13 @@ dxl_engine_settings *dxl_es_open(const char *path, const char *default_path) {
             usable = v && dxl_json_kind(v) == DXL_JSON_NUMBER;
             if (!usable) dxl_json_set_number(sec, in->key, default_number(s, f));
             break;
+        case DXL_ES_TEXT:
+            /* Kept only as one is chosen: none is the engine's own, and one
+             * of another kind, or empty, is dropped. */
+            usable = v && dxl_json_kind(v) == DXL_JSON_STRING && *dxl_json_get_string(sec, in->key, "");
+            s->present[f] = (unsigned char)usable;
+            if (!usable && v && dxl_json_remove(sec, in->key)) s->dirty = 1;
+            continue;
         }
         s->present[f] = (unsigned char)usable;
         if (!usable) s->dirty = 1;
@@ -263,6 +273,11 @@ const char *dxl_es_choice(const dxl_engine_settings *s, dxl_es_field f) {
     return v ? v : default_choice(s, f);
 }
 
+const char *dxl_es_text(const dxl_engine_settings *s, dxl_es_field f) {
+    if (fields[f].kind != DXL_ES_TEXT) return "";
+    return dxl_json_get_string(section_of(s, f), fields[f].key, "");
+}
+
 int dxl_es_names_type(const dxl_engine_settings *s) {
     return dxl_json_get(section_of(s, DXL_ES_RENDER_TYPE), fields[DXL_ES_RENDER_TYPE].key) != NULL;
 }
@@ -308,11 +323,23 @@ void dxl_es_set_number(dxl_engine_settings *s, dxl_es_field f, double v) {
     s->dirty = 1;
 }
 
+void dxl_es_set_text(dxl_engine_settings *s, dxl_es_field f, const char *v) {
+    const dxl_es_info *in = &fields[f];
+    if (in->kind != DXL_ES_TEXT) return;
+    if (!v) v = "";
+    if (strcmp(dxl_es_text(s, f), v) == 0) return;
+    dxl_json *sec = dxl_json_child(s->doc, in->section);
+    if (*v) dxl_json_set_string(sec, in->key, v);
+    else dxl_json_remove(sec, in->key);
+    s->dirty = 1;
+}
+
 void dxl_es_reset(dxl_engine_settings *s, dxl_es_field f) {
     switch (fields[f].kind) {
     case DXL_ES_CHOICE: dxl_es_set_choice(s, f, default_choice(s, f)); break;
     case DXL_ES_BOOL:   dxl_es_set_bool(s, f, (int)default_number(s, f)); break;
     case DXL_ES_NUMBER: dxl_es_set_number(s, f, default_number(s, f)); break;
+    case DXL_ES_TEXT:   dxl_es_set_text(s, f, ""); break;
     }
 }
 

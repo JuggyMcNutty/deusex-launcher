@@ -286,8 +286,47 @@ static void test_probe_ini(void) {
     CHECK_INT(dxl_gpu_probe_from_ini(NULL, &q), -1);
 }
 
+/* Every GPU's Vulkan device by name, each once, through the ini and back:
+ * the Graphics page's GPU row offers them (bugs.md REN.79). */
+static void test_probe_gpus(void) {
+    dxl_gpu_probe p, q;
+    memset(&p, 0, sizeof p);
+    p.probed = 1;
+    dxl_gpu_probe_add_gpu(&p, "AMD Radeon 780M Graphics (RADV PHOENIX)");
+    dxl_gpu_probe_add_gpu(&p, "NVIDIA GeForce RTX 4060 Laptop GPU");
+    dxl_gpu_probe_add_gpu(&p, "NVIDIA GeForce RTX 4060 Laptop GPU");   /* two of one kind: one name */
+    dxl_gpu_probe_add_gpu(&p, "");
+    dxl_gpu_probe_add_gpu(&p, NULL);
+    CHECK_INT(p.vulkan_gpus, 2);
+    char long_name[200];
+    memset(long_name, 'x', sizeof long_name - 1);
+    long_name[sizeof long_name - 1] = '\0';
+    dxl_gpu_probe_add_gpu(&p, long_name);
+    CHECK_INT(p.vulkan_gpus, 3);
+    CHECK_INT((int)strlen(p.vulkan_gpu[2]), DXL_GPU_NAME_LEN - 1);
+    for (int i = 0; i < 2 * DXL_GPU_NAMES; i++) {
+        char name[32];
+        snprintf(name, sizeof name, "GPU %d", i);
+        dxl_gpu_probe_add_gpu(&p, name);
+    }
+    CHECK_INT(p.vulkan_gpus, DXL_GPU_NAMES);
+
+    char *text = dxl_gpu_probe_to_ini(&p);
+    CHECK_INT(dxl_gpu_probe_from_ini(text, &q), 0);
+    CHECK_INT(q.vulkan_gpus, DXL_GPU_NAMES);
+    CHECK_STR(q.vulkan_gpu[0], "AMD Radeon 780M Graphics (RADV PHOENIX)");
+    CHECK_STR(q.vulkan_gpu[1], "NVIDIA GeForce RTX 4060 Laptop GPU");
+    CHECK_STR(q.vulkan_gpu[2], p.vulkan_gpu[2]);
+    CHECK_STR(q.vulkan_gpu[DXL_GPU_NAMES - 1], p.vulkan_gpu[DXL_GPU_NAMES - 1]);
+    free(text);
+    /* An older dxl-cli's answer: none named */
+    CHECK_INT(dxl_gpu_probe_from_ini("[Probe]\nProbed=True\nVulkan=True\nVulkanDevice=X\n", &q), 0);
+    CHECK_INT(q.vulkan_gpus, 0);
+}
+
 TEST_MAIN_BEGIN
     RUN(test_probe_ini);
+    RUN(test_probe_gpus);
     RUN(test_loads_in_order);
     RUN(test_resolve_on_the_handheld);
     RUN(test_engine_has_it_device_does_not);
