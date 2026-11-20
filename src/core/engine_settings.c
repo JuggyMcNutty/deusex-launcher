@@ -55,6 +55,7 @@ static const dxl_es_info fields[DXL_ES_FIELD_COUNT] = {
     [DXL_ES_PAD_LOOK_Y]        = { GP, "LookSensitivityY",  DXL_ES_NUMBER, NULL, NULL, 1.00, 0.25, 3.00, 0.25 },
     [DXL_ES_PAD_INVERT_Y]      = { GP, "InvertY",           DXL_ES_BOOL,   NULL, NULL, 0,    0, 1, 1 },
     [DXL_ES_PAD_CURSOR_SPEED]  = { GP, "CursorSpeed",       DXL_ES_NUMBER, NULL, NULL, 1.00, 0.25, 3.00, 0.25 },
+    [DXL_ES_PAD_DXCONTROLLER]  = { GP, "DXController",      DXL_ES_BOOL,   NULL, NULL, 0,    0, 1, 1 },
 
     /* The engine clamps to 0.25..1; the UI offers dxl_es_render_heights. No
      * step: a height's exact fraction of the panel is kept, off any grid. */

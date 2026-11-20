@@ -43,7 +43,7 @@ win64_sdl3() {
 
 port_deps() {
     dx_fetch_llvm_mingw "$WIN64_LLVM_MINGW" "$WIN64_LLVM_MINGW_SHA256"
-    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite
+    dx_fetch_src "$SRC/cmake/deps.lock" sdl3 freetype sdl3_ttf xmp_lite dxcontroller
     win64_sdl3
     dx_wine_ready
 }

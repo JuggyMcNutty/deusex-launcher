@@ -6,9 +6,11 @@
 #include "core/config.h"
 #include "core/ini.h"
 #include "core/install.h"
+#include "core/patch.h"
 #include "core/paths.h"
 #include "core/profile.h"
 #include "core/saves.h"
+#include "core/sha1.h"
 #include "core/theme_colors.h"
 #include "core/upkg_assets.h"
 #include "platform/instance.h"
@@ -1507,6 +1509,31 @@ static void test_session_end(void) {
 }
 #endif
 
+/* DXController's patch on the install's own DeusEx.u: the mod's v1.6.1
+ * DeusEx.u, byte for byte, where the install's is the stock one GOG and
+ * Steam ship (a translation's is not, and is passed over). */
+static void test_dxcontroller_patch(void) {
+    char *stock = game_file("DeusEx.u"), hex[41];
+    dxl_patch_info info;
+    CHECK_INT(dxl_patch_info_read(DXL_DXC_PATCH_FILE, &info, NULL), 0);
+    if (dxl_sha1_file(stock, hex) != 0 || strcmp(hex, info.source_sha1) != 0) {
+        printf("  DXController's patch passed over: the install's DeusEx.u is not the stock one\n");
+        free(stock);
+        return;
+    }
+    const char *dir = scratch_dir("gamefiles-dxc");
+    char *out = scratch_path(dir, "DeusEx.u");
+    dxl_err e;
+    CHECK_INT(dxl_patch_apply(stock, DXL_DXC_PATCH_FILE, out, &e), 0);
+    CHECK_INT(dxl_path_size(out), 5420652);
+    CHECK_INT(dxl_sha1_file(out, hex), 0);
+    CHECK_STR(hex, "7158c266040dc2e98f3f460eba7d3508d7279d77");
+    CHECK_STR(info.result_sha1, "7158c266040dc2e98f3f460eba7d3508d7279d77");
+    free(out);
+    free(stock);
+    scratch_remove(dir);
+}
+
 TEST_MAIN_BEGIN
     if (access(DXL_GAMEFILES "/Default.ini", R_OK) != 0) {
         printf("skipped: no Deus Ex install in %s\n", DXL_GAMEFILES);
@@ -1550,6 +1577,7 @@ TEST_MAIN_BEGIN
     RUN(test_relaunch_drops_ini);
     RUN(test_back_home);
     RUN(test_game_folder_untouched);
+    RUN(test_dxcontroller_patch);
 #ifdef _WIN32
     RUN(test_session_end);
 #endif

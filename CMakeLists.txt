@@ -34,6 +34,7 @@ include("${DXL_ROOT}/ports/${DXL_PORT}/port.cmake")
 set(DXL_PORT_DEPS "${DXL_PORT_DEPS_DEFAULT}" CACHE STRING
     "Where SDL3, SDL3_ttf and libxmp come from: auto, system or vendored (cmake/deps.cmake)")
 include("${DXL_ROOT}/cmake/deps.cmake")
+include("${DXL_ROOT}/cmake/dxcontroller.cmake")
 
 function(dxl_check_abi target)
     if(DXL_PORT_GLIBC_MAX)
@@ -99,6 +100,8 @@ add_library(dxl_core STATIC
     src/core/renderers.c
     src/core/xdg.c
     src/core/sha1.c
+    src/core/patch.c
+    src/core/dxcontroller.c
     src/core/ico.c
     src/core/gamedb.c
     src/core/install.c
@@ -252,7 +255,8 @@ endif()
 
 # The app as it ships, one flat folder (cmake --install <build> --prefix
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the
-# programs, data/ and the notices of what is in them.
+# programs, data/ and the notices of what is in them; DXController's files
+# by cmake/dxcontroller.cmake.
 install(TARGETS deusex-launcher dxl-cli RUNTIME DESTINATION .)
 install(FILES data/renderers.ini data/engine-settings.json.default DESTINATION data)
 if(NOT WIN32)

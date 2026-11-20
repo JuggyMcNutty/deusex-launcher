@@ -65,6 +65,9 @@ target_link_libraries(test_shell_profiles PRIVATE dxl_screens)
 dxl_test(test_upkg)
 dxl_test(test_saves)
 target_compile_definitions(test_settings PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
+# DXController's option and start, and the patches, on made-up files.
+dxl_test(test_dxcontroller)
+target_compile_definitions(test_dxcontroller PRIVATE DXL_ES_DEFAULTS="${DXL_ROOT}/data/engine-settings.json.default")
 target_compile_definitions(test_renderers PRIVATE DXL_RENDERERS="${DXL_ROOT}/data/renderers.ini")
 
 find_package(Threads REQUIRED)
@@ -119,7 +122,8 @@ add_dependencies(test_process dxl-cli)
 dxl_test(test_gamefiles)
 target_link_libraries(test_gamefiles PRIVATE dxl_app)
 target_compile_definitions(test_gamefiles PRIVATE DXL_GAMEFILES="${DXL_ROOT}/gamefiles/System"
-                           DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>")
+                           DXL_STUB_ENGINE="$<TARGET_FILE:stub_engine>"
+                           DXL_DXC_PATCH_FILE="${DXL_ROOT}/data/dxcontroller/DeusEx-v1.6.1.dxlpatch")
 add_dependencies(test_gamefiles stub_engine)
 # On Windows a launcher of its own, ended alone while its game plays.
 if(WIN32)
