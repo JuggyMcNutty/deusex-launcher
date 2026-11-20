@@ -1218,3 +1218,6 @@ Each open in Port Ex Machina's
   its first native.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
+- **LPORT.23**: a launcher ended alone while its game plays (Task Manager's
+  End task, a crash of its own) leaves no running mark, so the next start
+  can play a second game on the same profile.
