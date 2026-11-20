@@ -99,6 +99,7 @@ add_library(dxl_core STATIC
     src/core/renderers.c
     src/core/xdg.c
     src/core/sha1.c
+    src/core/ico.c
     src/core/gamedb.c
     src/core/install.c
     src/core/mods.c
@@ -239,6 +240,15 @@ target_link_libraries(dxl-shots PRIVATE dxl_screens)
 target_compile_definitions(dxl-shots PRIVATE DXL_SHOTS_FONTS="${DXL_ROOT}/data/fonts")
 # The scenes' saves, written as the tests write theirs (tests/upkg_writer.h).
 target_include_directories(dxl-shots PRIVATE tests)
+
+# dxl-icon: the icon as a Windows icon file (tools/icon.c), run by hand when
+# the drawing changes, for the file the Windows programs' resources take in
+# (ports/windows-x86_64/win32/DXLauncher.ico); tests/test_icon.c holds the
+# file to the drawing. The host's: not part of the app.
+if(NOT WIN32)
+    add_executable(dxl-icon tools/icon.c)
+    target_link_libraries(dxl-icon PRIVATE dxl_ui)
+endif()
 
 # The app as it ships, one flat folder (cmake --install <build> --prefix
 # <app>; Port Ex Machina's scripts/dx.sh stage adds the engine): the

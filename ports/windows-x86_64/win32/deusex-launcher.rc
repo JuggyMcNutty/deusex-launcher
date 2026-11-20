@@ -1,8 +1,12 @@
-// deusex-launcher.exe's resources: its manifest (app.manifest) and its version.
+// deusex-launcher.exe's resources: its manifest (app.manifest), its icon
+// (DXLauncher.ico, the launcher's drawing, made by tools/icon.c) and its
+// version.
 #include <winuser.h>
 #include <winver.h>
 
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
+
+1 ICON "DXLauncher.ico"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION 1,0,0,0

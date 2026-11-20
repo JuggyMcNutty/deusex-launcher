@@ -826,6 +826,12 @@ and `DXLauncher (big screen).lnk`, the second starting it with
 `DXLauncher.ico` in `%LOCALAPPDATA%\DXLauncher`, our own drawing at 16 to
 256 px (`src/ui/icon.c`); and the launcher as the handler of `deusex://`
 links, under `HKEY_CURRENT_USER\Software\Classes\deusex`.
+`deusex-launcher.exe` carries the same drawing as its own icon, for
+Explorer, a taskbar pin and Task Manager:
+`ports/windows-x86_64/win32/DXLauncher.ico`, packed as the Start menu's is
+(`src/core/ico.c`), committed, and made again by `dxl-icon` (`tools/icon.c`,
+the host build's) when the drawing changes, `test_icon` failing until it is;
+DXEngine carries a copy of it. `dxl-cli.exe`, a console tool, has none.
 `--remove-desktop`, or the button again, takes them away; nothing else
 writes them. A shortcut whose target is another program (a copy of the app
 moved, deleted or unpacked again elsewhere) is not this copy's: About's
@@ -968,7 +974,7 @@ emulator), each side by side, all but the host's `test_ui_scripts` with no
 display, each of the host's with a runtime folder of its own
 (`XDG_RUNTIME_DIR`, set in `tests/test.h`), removed as it ends: a test's
 launchers leave no lock or channel in the user's. Under Wine run all of
-them but the POSIX ones, `test_xdg`,
+them but the POSIX ones, `test_xdg`, `test_icon`,
 `test_finder`, `test_desktop`, `test_desktop_mime_cache`, `test_trash` and
 `test_ui_scripts`, `test_gamefiles` there without its two that fork a
 launcher (one killed mid-game, a dedicated server that takes no hand-over)
@@ -1097,7 +1103,9 @@ the mouse and virtual pads with an Xbox's, a DualSense's and a Switch Pro's
 ids (`test_ui_input`), the controls and the on-screen keyboard
 (`test_ui_controls`, an input method's composition drawn at a field's caret
 among them), the sound on SDL's dummy output (`test_ui_audio`) and
-the thumbnails (`test_ui_thumbs`). `dxl-shots` (`tools/shots.c`) draws every
+the thumbnails (`test_ui_thumbs`), and, on the host, the Windows programs'
+icon file against the drawing, its pixels, not the bytes of SDL's PNG encoder
+(`test_icon`). `dxl-shots` (`tools/shots.c`) draws every
 page and dialog, each settings page too, from states it makes up in a
 scratch home, at 1280x720, 1280x800, 1920x1080, 2560x1440 at 1.5, 3840x2160
 at 2 and 960x600, and on the big screen at 1920x1080 and 1280x800, with the
@@ -1210,4 +1218,3 @@ Each open in Port Ex Machina's
   its first native.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **LPORT.15**: the programs carry no icon of their own.

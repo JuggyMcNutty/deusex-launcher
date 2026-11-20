@@ -2,13 +2,14 @@
  * shortcuts in the user's Programs folder, DXLauncher.lnk and
  * DXLauncher (big screen).lnk, the second with --big-screen; their icon, a
  * DXLauncher.ico under data_home made of the PNGs ui/icon.h draws at each
- * size (an icon file holds PNGs as they are); and the deusex:// links'
+ * size, packed as the programs' own is (core/ico.h); and the deusex:// links'
  * handler, the launcher, under HKEY_CURRENT_USER\Software\Classes\deusex.
  * The template is the desktop's alone: Windows has none.
  */
 #include "platform/desktop.h"
 #include "platform/win32/internal.h"
 #include "core/common.h"
+#include "core/ico.h"
 #include "core/paths.h"
 
 #include <objbase.h>
@@ -19,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const int dxl_desktop_icon_sizes[] = { 16, 32, 48, 64, 128, 256 };
+const int dxl_desktop_icon_sizes[] = { DXL_ICO_SIZES };
 const int dxl_desktop_icon_count = (int)(sizeof dxl_desktop_icon_sizes / sizeof *dxl_desktop_icon_sizes);
 
 #define SCHEME_KEY L"Software\\Classes\\deusex"
@@ -63,58 +64,33 @@ char *dxl_desktop_exec(const char *program) {
     return out;
 }
 
-/* The PNGs as one icon file: its header, a directory entry each, the
- * images. 0, or -1. */
+/* The PNGs as one icon file (core/ico.h), those there: 0, or -1. */
 static int write_ico(const char *data_home, const char *ico, dxl_err *err) {
-    dxl_buf images, head;
-    dxl_buf_init(&images);
-    dxl_buf_init(&head);
+    dxl_buf pngs[8];
+    dxl_ico_image images[8];
     int count = 0;
-    unsigned char dir[16 * 8];
     for (int i = 0; i < dxl_desktop_icon_count && count < 8; i++) {
         char *png = dxl_desktop_icon_path(data_home, dxl_desktop_icon_sizes[i]);
-        size_t len = 0;
         FILE *f = fopen(png, "rb");
         free(png);
         if (!f) continue;
+        dxl_buf *b = &pngs[count];
+        dxl_buf_init(b);
         char chunk[16384];
-        size_t got, start = images.len;
-        while ((got = fread(chunk, 1, sizeof chunk, f)) > 0) dxl_buf_add(&images, chunk, got);
+        size_t got;
+        while ((got = fread(chunk, 1, sizeof chunk, f)) > 0) dxl_buf_add(b, chunk, got);
         fclose(f);
-        len = images.len - start;
-        unsigned char *e = dir + 16 * count;
-        int px = dxl_desktop_icon_sizes[i];
-        memset(e, 0, 16);
-        e[0] = (unsigned char)(px >= 256 ? 0 : px);   /* 0 means 256 */
-        e[1] = (unsigned char)(px >= 256 ? 0 : px);
-        e[4] = 1;                                     /* planes */
-        e[6] = 32;                                    /* bits */
-        for (int b = 0; b < 4; b++) e[8 + b] = (unsigned char)(len >> (8 * b));
-        e[12] = (unsigned char)start;                 /* fixed up below */
-        e[13] = (unsigned char)(start >> 8);
-        e[14] = (unsigned char)(start >> 16);
-        e[15] = (unsigned char)(start >> 24);
+        images[count] = (dxl_ico_image){ dxl_desktop_icon_sizes[i], b->data, b->len };
         count++;
     }
-    if (!count) {
-        dxl_buf_free(&images);
-        dxl_err_set(err, "no icon drawn under %s", data_home);
-        return -1;
-    }
-    unsigned char header[6] = { 0, 0, 1, 0, (unsigned char)count, 0 };
-    dxl_buf_add(&head, (const char *)header, 6);
-    uint32_t base = 6 + 16 * (uint32_t)count;
-    for (int i = 0; i < count; i++) {
-        unsigned char *e = dir + 16 * i;
-        uint32_t off = (uint32_t)e[12] | (uint32_t)e[13] << 8 | (uint32_t)e[14] << 16 | (uint32_t)e[15] << 24;
-        off += base;
-        for (int b = 0; b < 4; b++) e[12 + b] = (unsigned char)(off >> (8 * b));
-        dxl_buf_add(&head, (const char *)e, 16);
-    }
-    dxl_buf_add(&head, images.data, images.len);
-    int rc = dxl_path_write_atomic(ico, head.data, head.len, err);
-    dxl_buf_free(&images);
-    dxl_buf_free(&head);
+    dxl_buf out;
+    dxl_buf_init(&out);
+    int rc = -1;
+    if (!count) dxl_err_set(err, "no icon drawn under %s", data_home);
+    else if (dxl_ico_pack(images, count, &out) != 0) dxl_err_set(err, "the icon under %s cannot be packed", data_home);
+    else rc = dxl_path_write_atomic(ico, out.data, out.len, err);
+    for (int i = 0; i < count; i++) dxl_buf_free(&pngs[i]);
+    dxl_buf_free(&out);
     return rc;
 }
 

@@ -149,6 +149,11 @@ add_test(NAME test_desktop_mime_cache COMMAND test_desktop --mime-cache)
 set_tests_properties(test_desktop_mime_cache PROPERTIES SKIP_RETURN_CODE 77)
 dxl_test(test_trash)
 target_link_libraries(test_trash PRIVATE dxl_app)
+# The Windows programs' icon file, the drawing as it stands (tools/icon.c
+# makes it again).
+dxl_test(test_icon)
+target_link_libraries(test_icon PRIVATE dxl_ui)
+target_compile_definitions(test_icon PRIVATE DXL_ICO_FILE="${DXL_ROOT}/ports/windows-x86_64/win32/DXLauncher.ico")
 
 # The window through its own loop, scripts of input (tests/ui/) driving it,
 # the stub engine in the engine's place: on the desktop's display, skipped
