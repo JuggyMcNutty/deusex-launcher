@@ -19,6 +19,7 @@
 #define DXL_W_MAY_CUT  0x20   /* text that may be cut short with "...", no diagnostic */
 #define DXL_W_TAIL     0x40   /* cut keeping the end: a path */
 #define DXL_W_WARN     0x80   /* its text in the warning colour */
+#define DXL_W_HELD     0x100  /* a control held as it is: it takes the focus, its value never changes */
 
 /* A steel panel. */
 void     dxl_panel(dxl_ui *ui, dxl_rect r);
