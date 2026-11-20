@@ -50,6 +50,11 @@ void dxl_shell_free(dxl_shell *s) {
     dxl_mod_free(&s->making_mod);
     dxl_mod_list_free(&s->mods);
     dxl_mod_list_free(&s->mods_shown);
+    for (int i = 0; i < s->mod_audit_count; i++) free(s->mod_audits[i].dir);
+    s->mod_audit_count = 0;
+    free(s->audit_for);
+    free(s->auditing);
+    s->audit_for = s->auditing = NULL;
     dxl_browser_free(&s->browser);
     free(s->log_tail);
     s->log_tail = NULL;
@@ -398,6 +403,91 @@ void dxl_shell_profile_mod(dxl_shell *s) {
     }
 }
 
+static int take_mod(dxl_shell *s, const dxl_mod *m) {
+    dxl_err e;
+    s->mod_other[0] = '\0';
+    if (dxl_run_set_mod(s->run, m, &e) != 0) {
+        dxl_shell_message(s, "The profile was not changed", "%s", dxl_err_msg(&e));
+        return 0;
+    }
+    char shown[1024];
+    dxl_shell_profile_mod(s);
+    dxl_shell_toast(s, "The profile plays the mod in %s now.", dxl_shell_tilde(m->dir, shown, sizeof shown));
+    return 1;
+}
+
+#define MOD_OTHER "home mod other"
+
+int dxl_shell_choose_mod(dxl_shell *s, const dxl_mod *m) {
+    /* A mod of another folder name than the profile's own is another mod,
+     * as far as can be told: the profile's settings are the old one's, and
+     * its saves were made with the old one's packages. Asked first. */
+    const char *had = dxl_profile_get(&s->run->session.profile, "Mod");
+    const char *was = had ? dxl_path_basename(had) : "";
+    if (*was && dxl_stricmp(was, m->name) != 0) {
+        char text[700];
+        snprintf(s->mod_other, sizeof s->mod_other, "%s", m->dir);
+        snprintf(text, sizeof text,
+                 "This profile was made for %.*s, and this folder is %.*s. The profile's settings and saves "
+                 "stay as they are: saves made with one mod may not load with another.",
+                 dxl_utf8_fit(was, 120), was, dxl_utf8_fit(m->name, 120), m->name);
+        dxl_shell_confirm(s, dxl_ui_id(&s->ui, MOD_OTHER), "Another mod?", text, "Use it", "Keep looking");
+        return 0;
+    }
+    return take_mod(s, m);
+}
+
+/* The browser for the profile's mod: from the nearest folder there is of
+ * the one it had, else the game's. */
+static void mod_browse(dxl_shell *s) {
+    const char *had = dxl_profile_get(&s->run->session.profile, "Mod");
+    char *dir = had && *had ? dxl_path_dirname(had) : NULL;
+    while (dir && !dxl_path_is_dir(dir)) {
+        char *up = dxl_path_dirname(dir);
+        if (!strcmp(up, dir)) {
+            free(up);
+            up = NULL;
+        }
+        free(dir);
+        dir = up;
+    }
+    const dxl_install *in = &s->run->session.install;
+    dxl_browser_open(s, dir ? dir : in->ok ? in->root : dxl_fs_home(), DXL_BROWSE_PROFILE_MOD);
+    free(dir);
+}
+
+/* The mod's folder's choices, in its order. */
+enum { MOD_BROWSE, MOD_DIALOG };
+
+void dxl_shell_mod_pick(dxl_shell *s, uint32_t id) {
+    if (!s->pick_folder) {
+        mod_browse(s);
+        return;
+    }
+    const char *labels[2] = { "Browse...", "The system's dialog..." };
+    dxl_shell_pick(s, id, "The mod's folder", labels, 2, MOD_BROWSE);
+}
+
+void dxl_shell_mod_answer(dxl_shell *s, uint32_t id) {
+    int got = dxl_shell_answer(s, id);
+    if (got == MOD_BROWSE) mod_browse(s);
+    else if (got == MOD_DIALOG) dxl_shell_pick_folder(s, DXL_BROWSE_PROFILE_MOD);
+    /* Another mod's question: its yes takes the folder asked about, if it
+     * is a mod still. */
+    int other = dxl_shell_answer(s, dxl_ui_id(&s->ui, MOD_OTHER));
+    if (other == 1 && s->mod_other[0]) {
+        dxl_mod m;
+        dxl_err e;
+        if (dxl_mod_check(s->mod_other, &m, &e) == 0) {
+            take_mod(s, &m);
+            dxl_mod_free(&m);
+        } else {
+            dxl_shell_message(s, "The profile was not changed", "%s", dxl_err_msg(&e));
+        }
+    }
+    if (other >= 0) s->mod_other[0] = '\0';
+}
+
 const dxl_save *dxl_shell_continue(const dxl_shell *s) {
     if (!s->run || !s->run->session.install.ok || s->profile_mod < 0 || !dxl_shell_engine_has(s, "loadgame-url"))
         return NULL;
@@ -568,13 +658,14 @@ void dxl_shell_folder_picked(dxl_shell *s, const char *path) {
             dxl_shell_message(s, "Not an engine to play with", "%s", why);
         return;
     }
-    if (s->pick_for == DXL_BROWSE_MOD) {
+    if (s->pick_for == DXL_BROWSE_MOD || s->pick_for == DXL_BROWSE_PROFILE_MOD) {
         dxl_mod m;
         dxl_err e;
         /* As the launcher's own browser takes it: the mod's System folder
          * for the mod (bugs.md LUI.21). */
         if (dxl_mod_chosen(path, &m, &e) == 0) {
-            dxl_shell_mod_shown(s, &m);
+            if (s->pick_for == DXL_BROWSE_MOD) dxl_shell_mod_shown(s, &m);
+            else dxl_shell_choose_mod(s, &m);
             dxl_mod_free(&m);
         } else {
             dxl_shell_message(s, "Not a mod", "%s.", dxl_err_msg(&e));
@@ -610,18 +701,26 @@ void dxl_shell_choose(dxl_shell *s, const dxl_install *in) {
          * else the next save, whatever made it, would write the other. */
         const char *had = dxl_profile_get(&ss->profile, "Install");
         char *was = had ? dxl_xstrdup(had) : NULL;
+        const char *had_root = dxl_session_install_path(ss, was);
+        char *old_root = had_root ? dxl_xstrdup(had_root) : NULL;
         dxl_session_remember_install(ss, in, id, sizeof id);
         dxl_profile_set(&ss->profile, "Install", id);
         if (dxl_session_save(ss, &e) != 0) {
             if (was) dxl_profile_set(&ss->profile, "Install", was);
             else dxl_ini_remove(ss->profile.ini, DXL_PROFILE_SECTION, "Install");
             free(was);
+            free(old_root);
             dxl_shell_message(s, "The profile was not changed", "%s", dxl_err_msg(&e));
             return;
         }
         free(was);
         dxl_log("profile %s: install %s (%s)", ss->profile.id, id, in->root);
         dxl_session_check_install(ss);
+        /* A mod that was in the game's folder, found at its place in this
+         * one; else Home asks for its folder. */
+        if (dxl_run_mod_follows(s->run, in->system_dir, old_root, in->root, &e) < 0)
+            dxl_log("warning: %s", dxl_err_msg(&e));
+        free(old_root);
         dxl_shell_theme(s);
         /* Asked for from a page, that page again; from Recovery, as from a
          * profile whose install had gone, on to the game. */

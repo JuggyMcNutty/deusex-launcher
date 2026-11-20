@@ -153,7 +153,8 @@ static void go_to(dxl_shell *s, dxl_list *l, const char *dir) {
 
 /* The folder shown, as the game's: it, or the folder above when this is
  * the game's System; as the engine's; or as a mod's, it or the folder
- * above when this is the mod's System. */
+ * above when this is the mod's System: one shown on Mods, or the profile's
+ * own from now on. */
 static void use(dxl_shell *s) {
     dxl_browser *b = &s->browser;
     if (b->mode == DXL_BROWSE_ENGINE) {
@@ -161,12 +162,13 @@ static void use(dxl_shell *s) {
         if (dxl_shell_choose_engine(s, b->dir, b->note, sizeof b->note, why, sizeof why)) dxl_shell_close_dialog(s);
         return;
     }
-    if (b->mode == DXL_BROWSE_MOD) {
+    if (b->mode == DXL_BROWSE_MOD || b->mode == DXL_BROWSE_PROFILE_MOD) {
         dxl_mod m;
         dxl_err e;
         if (dxl_mod_chosen(b->dir, &m, &e) == 0) {
             dxl_shell_close_dialog(s);
-            dxl_shell_mod_shown(s, &m);
+            if (b->mode == DXL_BROWSE_MOD) dxl_shell_mod_shown(s, &m);
+            else dxl_shell_choose_mod(s, &m);
             dxl_mod_free(&m);
         } else {
             snprintf(b->note, sizeof b->note, "Not a mod's folder: %s.", dxl_err_msg(&e));
@@ -193,8 +195,9 @@ static void browser(dxl_shell *s, dxl_rect over, int back) {
     char shown[PATH_MAX + 2];
 
     dxl_rect in = dxl_dialog_begin(ui, over, 840, 600, b->mode == DXL_BROWSE_ENGINE ? "The engine's folder"
-                                                       : b->mode == DXL_BROWSE_MOD  ? "The mod's folder"
-                                                                                    : "The game's folder");
+                                                       : b->mode == DXL_BROWSE_MOD || b->mode == DXL_BROWSE_PROFILE_MOD
+                                                           ? "The mod's folder"
+                                                           : "The game's folder");
     dxl_label(ui, dxl_cut_top(&in, 28), DXL_FONT_BODY,
               b->dir[0] ? dxl_shell_tilde(b->dir, shown, sizeof shown) : "The drives", t->text_focus,
               DXL_W_LEFT | DXL_W_TAIL | DXL_W_MAY_CUT);

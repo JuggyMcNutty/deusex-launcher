@@ -205,7 +205,12 @@ game, the one chosen its install from then on, and back to the page it came
 from. A profile whose install is not there to play (moved or deleted) opens
 on The game; one whose install's folder `launcher.ini`, which alone keeps
 it, has no more (deleted, or the profiles copied without it) opens there
-saying so, to choose the game again.
+saying so, to choose the game again. A mod's profile whose mod was in the
+game's folder it had, and is not there now, has it found at the same place
+in the one chosen, as Home's The mod's folder... points it
+([Mods](#mods)), and its paths into the old folder given the new; one
+whose mod is elsewhere and runs from its own `System` has its paths into the
+old folder given the new too.
 
 ## Profiles
 
@@ -271,6 +276,25 @@ where it is, whose settings it starts from and the profiles that play it.
 A folder with no `System` of its own, or no packages in it, is no mod, nor
 is a copy of the game (its `System/DeusEx.exe`).
 
+A mod with native code of its own does not play
+([DXEngine's mods](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/NATIVES.md#mods)),
+and no rule by its files' names tells it from one that does: the engine
+tells. With an engine whose `--version` has `audit-natives`, Mods asks it of
+each mod it lists whose answer it does not have yet, one at a time, in the
+window's worker: `--audit-natives=<the mod's System>` and the game's folder
+([DXEngine's options](https://github.com/JuggyMcNutty/DXEngine/blob/main/docs/ENGINE.md#running-it)),
+in 30 seconds at most, the engine stopped as the window goes. A mod whose
+packages declare natives the engine lacks, where a script of the mod's can
+reach them (the engine's count: one in a package that only the mod's own
+DLLs would load is not counted), says first, in red, "does not play: native
+code of its own", how many functions and the first three named, and is made
+no profile: its Make its profile... is off, and its row says why; a mod's
+Make its profile... waits for its answer. Each answer is
+kept by the mod's folder while the launcher runs, for that engine and game:
+another engine or game asks again. An engine without the feature, or one
+that fails, runs out of time or answers in part, marks nothing. A profile
+made of such a mod before still plays it, and Recovery says why it stopped.
+
 - **Use its profile**, or the row of a mod that has one: that profile
   played from now on, as Profiles uses one.
 - **Make its profile...**, or the row of a mod that has none: Your
@@ -321,7 +345,18 @@ A mod's profile is made as the first run makes one
   folder in the mod's other than its `System`; none of the game's, and no
   shots.
 - **`profile.ini`'s `Mod`**: the mod's folder. A profile whose mod is not
-  there says so on Home and Profiles, and does not play.
+  there says so on Home and Profiles, and does not play. Home's **The mod's
+  folder...**, on a game that is there, shows the launcher's browser, from
+  the nearest folder there is of the one the mod had, or the system's
+  dialog; the folder chosen, checked as Mods checks a mod (its `System`
+  folder taken for it), is the profile's mod from then on
+  (`dxl_run_set_mod`, `src/app/run.c`): its `DeusEx.ini`'s paths under the
+  folder it had are given the new one, in their places, and the mod's paths
+  made again as at the profile's making; `DeusEx.ini` is written first,
+  `profile.ini`'s `Mod` last. Its saves and settings are left as they are.
+  A folder of another name than the one the mod had is asked about first,
+  "Another mod?": the settings and the saves being the old one's, saves made
+  with one mod may not load with another.
 
 ## Saves and screenshots
 
@@ -515,7 +550,7 @@ to itself; a screen after the game, Recovery, opens it again. Its pages:
 
 | Page | What it has |
 |---|---|
-| Home | Continue, Play, Multiplayer, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, a mod's profile's mod, the engine, its saves, its latest save and its snapshot, its last run; when the game or the engine is not there to play, The game's folder... or The engine... first, and why under it |
+| Home | Continue, Play, Multiplayer, Saves, Screenshots, Settings, Profiles, About, Quit; the profile's game, its build, a mod's profile's mod, the engine, its saves, its latest save and its snapshot, its last run; when the game, a mod's profile's mod or the engine is not there to play, The game's folder..., The mod's folder... or The engine... first, and why under it |
 | Welcome, The game, Your profile | [the first run](#the-first-run) |
 | Settings | [the settings](#settings), a tab a page |
 | Profiles | [the profiles](#profiles): use one, a new one, the mods, a copy, a name, delete one |
@@ -997,7 +1032,7 @@ Home's The engine... chooses another.
 | `--play` | the start, with no Home |
 | `--probe` | the Vulkan, OpenGL ES 3.1 and OpenGL 4.2 core this machine's GPU offers, every GPU's Vulkan device by name, a context of each GL made and its version shown, and Mesa's CPU drivers, lavapipe and llvmpipe (`src/platform/posix/gpu_probe.c`); with `--ini`, as an ini, as the window reads it |
 | `--find` | the installs the first run's finder finds here, but `launcher.ini`'s: each folder, where it was found, its build or what is wrong with it |
-| `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it |
+| `--mods` | the mods Mods lists, of the install `--game=<dir>` names, else the profile's: each with where it is, its settings and controls, and the profiles that play it; with an engine that has `audit-natives`, its natives as the engine's audit finds them, a mod with native code of its own "does not play" ([Mods](#mods)) |
 | `--servers[=<master>]` | the servers the master lists (333networks' when none is named), each asked as Multiplayer asks it and printed as it answers: its name (its address where it gives none), map, game, players, ping and address; then those that gave none. Their text and a master's refusal, here and in `launcher.log`, have each control character a terminal acts on (C0's, DEL, C1's CSI and OSC) as `?` |
 | `--lan` | the servers on the local network, found and asked as Multiplayer finds and asks them, each LAN, printed as `--servers` prints them; `DXL_LAN=<host>[:<port>]` asks that one place's beacons, from that port, in place of the network's, and `DXL_LAN=none` no beacon (Multiplayer's too) |
 
@@ -1049,7 +1084,15 @@ what the engine is given, SDL held to its pad's make and model as
 found again in
 it, two of its labels alike, and an answer whose control is gone dropped;
 `test_shell_choose` a repoint whose save fails, the profile's install left as
-it was, in memory too; `test_shell_make` the worker's import handed to Your
+it was, in memory too, a mod's profile pointed at its mod moved, a mod of
+another name asked about first, or at its place in the game's folder chosen,
+its own System's elsewhere given the new game's folder, and one not written
+left as it was;
+`test_shell_mods` Mods' audit of each mod's natives by the stand-in engine,
+a mod lacking some made no profile, each asked once for an engine and a
+game, an engine that fails, answers in part or lacks the feature marking
+nothing, and the window's worker handed the engine's words;
+`test_shell_make` the worker's import handed to Your
 profile, made, cancelled and failed; `test_shell_browse` the master server Multiplayer
 asks, at the profile's port; `test_shell_folders` the folder browser's list,
 read at once or handed to the window's worker, an answer for a folder left
@@ -1067,7 +1110,8 @@ copy of an unknown exe listed by its packages;
 `test_bigscreen` when the big screen is wanted, by the setting, the
 environment and `--big-screen`; `test_mods` which folders are mods, their
 settings and where they are found, and their profiles' paths, settings and
-saves, of mods it makes up; `test_gamespy` the master's and the servers'
+saves, and the paths of a mod or a game's folder moved, of mods it makes up,
+and the engine's audit of a mod's natives read; `test_gamespy` the master's and the servers'
 words, the challenge's answer against the original's own; `test_servers` a
 server's answer, the sort, the filters (on this network among them), the
 join URL and the favourites; `test_cli` `dxl-cli`'s look, each server
@@ -1082,7 +1126,7 @@ nothing, a LAN server and a favourite each shown as it answers; a master
 that lists more than a look asks, the favourite asked, the rest passed over
 and the look ended of itself. The stand-in engine `tests/stub_engine.c`
 answers `--version` -- or
-fails it as a loader that cannot start it does -- and talks on the line as
+fails it as a loader that cannot start it does -- and `--audit-natives`, and talks on the line as
 the engine does, or crashes, fails, relaunches, prints its words or never
 ends (`test_process`, which has the engine's refusals and its choice too,
 `test_play`).
@@ -1233,8 +1277,6 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LCORE.27**: a mod with native code of its own is offered as one that
-  plays; that it does not is said only on Recovery, once it has stopped at
-  its first native.
-- **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
-  moved.
+- **LCORE.45**: a mod made of several folders, its packages building on
+  another folder's, is not judged for native code of its own before its
+  profile is made.

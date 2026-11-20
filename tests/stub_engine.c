@@ -9,6 +9,9 @@
  *               after it, as a program that gives no answer); with
  *               DXL_STUB_VERSION_EXIT, that exit code alone, as Windows'
  *               loader ends one (0xC0000135)
+ *   --audit-natives=<dir>  (any mode) answers as DXEngine does, a native
+ *               lacking in each package whose name starts with Native
+ *               (audit, below; DXL_STUB_AUDIT a failure, a cut, a hang)
  *   args        prints its working folder, then its words one a line, as
  *               the engine splits its command line
  *               (any other mode prints its words too with DXL_STUB_ARGS set)
@@ -48,6 +51,7 @@
 #include <io.h>
 #include <shellapi.h>
 #else
+#include <dirent.h>
 #include <errno.h>
 #include <poll.h>
 #include <signal.h>
@@ -176,6 +180,68 @@ static void print_words(int argc, char **argv, int with_cwd) {
 #endif
 }
 
+static int by_name(const void *a, const void *b) { return strcmp(*(char *const *)a, *(char *const *)b); }
+
+/* --audit-natives=<dir>, as the engine answers it: each package of dir
+ * (<name>.u) declares one native the engine has; one whose name starts with
+ * Native two more, which it lacks, ProbeByName and ProbeNumbered (4090).
+ * DXL_STUB_AUDIT fail: an error, exit 1; cut: no last line; slow: no
+ * answer, ever. Each run adds an x to the file DXL_STUB_COUNT names. */
+static int audit(const char *dir) {
+    const char *how = env_or("DXL_STUB_AUDIT", "");
+    /* Each audit counted, an x in the file DXL_STUB_COUNT names. */
+    const char *count = getenv("DXL_STUB_COUNT");
+    FILE *c = count && *count ? fopen(count, "ab") : NULL;
+    if (c) {
+        fputc('x', c);
+        fclose(c);
+    }
+    if (!strcmp(how, "fail")) {
+        fprintf(stderr, "DXEngine error: No UE1 game found in the given folder\n");
+        return 1;
+    }
+    if (!strcmp(how, "slow"))
+        for (;;)
+#ifdef _WIN32
+            Sleep(1000);
+#else
+            sleep(1);
+#endif
+    char *names[256];
+    int n = 0;
+#ifdef _WIN32
+    char pattern[1100];
+    snprintf(pattern, sizeof pattern, "%s\\*.u", dir);
+    WIN32_FIND_DATAA f;
+    HANDLE h = FindFirstFileA(pattern, &f);
+    for (BOOL more = h != INVALID_HANDLE_VALUE; more && n < 256; more = FindNextFileA(h, &f)) names[n++] = _strdup(f.cFileName);
+    if (h != INVALID_HANDLE_VALUE) FindClose(h);
+#else
+    DIR *d = opendir(dir);
+    for (struct dirent *e; d && (e = readdir(d)) && n < 256;) {
+        size_t len = strlen(e->d_name);
+        if (len > 2 && !strcmp(e->d_name + len - 2, ".u")) names[n++] = strdup(e->d_name);
+    }
+    if (d) closedir(d);
+#endif
+    qsort(names, (size_t)n, sizeof *names, by_name);
+    printf("native-audit: %s\n", dir);
+    int declared = 0, lacking = 0;
+    for (int i = 0; i < n; i++) {
+        names[i][strlen(names[i]) - 2] = '\0';
+        declared++;
+        if (!strncmp(names[i], "Native", 6)) {
+            printf("lacks: %s.%s.ProbeByName\nlacks: %s.%s.ProbeNumbered (4090)\n", names[i], names[i], names[i], names[i]);
+            declared += 2;
+            lacking += 2;
+        }
+        free(names[i]);
+    }
+    if (strcmp(how, "cut") != 0)
+        printf("natives: %d declared, %d the engine has, %d it lacks\n", declared, declared - lacking, lacking);
+    return 0;
+}
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
     /* Its output as the engine's, lines ended by \n alone. */
@@ -198,6 +264,7 @@ int main(int argc, char **argv) {
             printf("DXEngine stub000 (2026-10-16)\nfeatures: %s\n", env_or("DXL_STUB_FEATURES", "userdir"));
             return 0;
         }
+        if (strncmp(argv[i], "--audit-natives=", 16) == 0) return audit(argv[i] + 16);
     }
     const char *fd = getenv("DXL_LAUNCHER_FD");
 #ifdef _WIN32

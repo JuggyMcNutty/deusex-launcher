@@ -3,6 +3,7 @@
 #include "screens/shell.h"
 #include "screens/uiscript.h"
 #include "app/browser.h"
+#include "core/argv.h"
 #include "core/bigscreen.h"
 #include "core/log.h"
 #include "core/paths.h"
@@ -112,6 +113,19 @@ typedef struct {
     int            count;
 } list_job;
 
+/* The engine's audit of a mod's natives, in its worker (Mods, bugs.md
+ * LCORE.27): the engine killed once the window lets go of it (stop), and
+ * the job freed by the last of the two to let go. */
+typedef struct {
+    SDL_Mutex      *lock;
+    SDL_AtomicInt   refs;
+    atomic_int      stop;
+    int             quiet, done, ok;
+    Uint32          event;
+    char          **argv;
+    dxl_mod_natives natives;
+} audit_job;
+
 struct dxl_window {
     dxl_shell      shell;
     const char    *version;
@@ -161,6 +175,8 @@ struct dxl_window {
      * browser's read. */
     make_job      *make;
     list_job      *list;
+    /* Mods' audit of a mod's natives, in its worker; NULL for none. */
+    audit_job     *audit;
 
     /* The system's folder dialog's answer, from its thread. */
     SDL_Mutex     *pick_lock;
@@ -785,6 +801,85 @@ static void list_collect(dxl_window *w) {
     free(dir);
 }
 
+/* ---- the audit of a mod's natives ----------------------------------------- */
+
+static void audit_unref(audit_job *j) {
+    if (SDL_AddAtomicInt(&j->refs, -1) != 1) return;
+    dxl_argv_free(j->argv);
+    SDL_DestroyMutex(j->lock);
+    free(j);
+}
+
+static int SDLCALL audit_main(void *p) {
+    audit_job *j = p;
+    dxl_mod_natives n;
+    int ok = dxl_session_audit_run(j->argv, &j->stop, &n) == 0;
+    SDL_LockMutex(j->lock);
+    j->natives = n;
+    j->ok = ok;
+    j->done = 1;
+    if (!j->quiet) {
+        SDL_Event e;
+        SDL_zero(e);
+        e.type = j->event;
+        SDL_PushEvent(&e);
+    }
+    SDL_UnlockMutex(j->lock);
+    audit_unref(j);
+    return 0;
+}
+
+/* The window's audit let go of: the engine stopped, the answer told no one. */
+static void audit_drop(dxl_window *w) {
+    audit_job *j = w->audit;
+    if (!j) return;
+    w->audit = NULL;
+    SDL_LockMutex(j->lock);
+    j->quiet = 1;
+    atomic_store(&j->stop, 1);
+    SDL_UnlockMutex(j->lock);
+    audit_unref(j);
+}
+
+static int start_audit(dxl_shell *s, char **argv) {
+    dxl_window *w = s->window;
+    audit_drop(w);
+    audit_job *j = dxl_xmalloc(sizeof *j);
+    memset(j, 0, sizeof *j);
+    j->lock = SDL_CreateMutex();
+    j->event = w->job_event;
+    atomic_init(&j->stop, 0);
+    size_t n = 0;
+    while (argv[n]) n++;
+    j->argv = dxl_xmalloc((n + 1) * sizeof *j->argv);
+    for (size_t i = 0; i < n; i++) j->argv[i] = dxl_xstrdup(argv[i]);
+    j->argv[n] = NULL;
+    SDL_SetAtomicInt(&j->refs, 2);
+    SDL_Thread *t = j->lock ? SDL_CreateThread(audit_main, "dxl-audit", j) : NULL;
+    if (!t) {
+        dxl_log("no thread for the mod's audit (%s): it is run now", SDL_GetError());
+        SDL_SetAtomicInt(&j->refs, 1);
+        audit_unref(j);
+        return -1;
+    }
+    SDL_DetachThread(t);
+    w->audit = j;
+    return 0;
+}
+
+/* The audit's answer, to Mods. */
+static void audit_collect(dxl_window *w) {
+    audit_job *j = w->audit;
+    if (!j) return;
+    SDL_LockMutex(j->lock);
+    int done = j->done, ok = j->ok;
+    dxl_mod_natives n = j->natives;
+    SDL_UnlockMutex(j->lock);
+    if (!done) return;
+    audit_drop(w);
+    dxl_shell_audited(&w->shell, ok ? &n : NULL);
+}
+
 /* ---- the app menu's entry ------------------------------------------------- */
 
 static int write_entry(const char *data_home, const char *data_dir, int install, dxl_err *err) {
@@ -975,6 +1070,11 @@ static void close_window(dxl_window *w, dxl_run *r) {
     w->shell.browsing = 0;
     /* And the folder browser's read, left to end on its own. */
     list_drop(w);
+    /* And a mod's audit, its engine stopped: asked again as Mods comes
+     * again. */
+    audit_drop(w);
+    free(w->shell.auditing);
+    w->shell.auditing = NULL;
     /* The sound goes with the window: the game opens its own. */
     dxl_audio_close(w->shell.audio);
     w->shell.audio = NULL;
@@ -1125,6 +1225,7 @@ static int open_window(dxl_window *w, dxl_run *r) {
     s->window = w;
     s->pick_folder = pick_folder;
     s->start_list = start_list;
+    s->start_audit = start_audit;
     s->desktop = desktop;
     s->start_probe = start_probe;
     s->start_find = start_find;
@@ -1171,6 +1272,7 @@ static void handle(dxl_window *w, const SDL_Event *e) {
         browse_collect(w);
         make_collect(w);
         list_collect(w);
+        audit_collect(w);
     }
 }
 
