@@ -279,3 +279,35 @@ long dxl_udp_recv(dxl_socket s, char *buf, size_t size, int timeout_ms, char *fr
 void dxl_net_close(dxl_socket s) {
     if (s != DXL_SOCKET_NONE) closesocket((SOCKET)s);
 }
+
+struct dxl_net_job {
+    HANDLE t;
+    void (*fn)(void *);
+    void  *arg;
+};
+
+static DWORD WINAPI job_main(LPVOID p) {
+    dxl_net_job *j = p;
+    j->fn(j->arg);
+    return 0;
+}
+
+dxl_net_job *dxl_net_job_start(void (*fn)(void *arg), void *arg) {
+    dxl_net_job *j = malloc(sizeof *j);
+    if (!j) return NULL;
+    j->fn = fn;
+    j->arg = arg;
+    j->t = CreateThread(NULL, 0, job_main, j, 0, NULL);
+    if (!j->t) {
+        free(j);
+        return NULL;
+    }
+    return j;
+}
+
+void dxl_net_job_wait(dxl_net_job *job) {
+    if (!job) return;
+    WaitForSingleObject(job->t, INFINITE);
+    CloseHandle(job->t);
+    free(job);
+}

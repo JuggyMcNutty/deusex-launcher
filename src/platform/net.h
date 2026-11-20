@@ -51,4 +51,12 @@ long dxl_udp_recv(dxl_socket s, char *buf, size_t size, int timeout_ms, char *fr
 
 void dxl_net_close(dxl_socket s);
 
+/* fn(arg) on a thread of its own: a part of a look that must not wait on
+ * another (app/browser.c: the master asked, the favourites' names looked
+ * up, while the servers are asked). NULL when no thread could start. */
+typedef struct dxl_net_job dxl_net_job;
+dxl_net_job *dxl_net_job_start(void (*fn)(void *arg), void *arg);
+/* Waits for the job's end, and frees it. */
+void dxl_net_job_wait(dxl_net_job *job);
+
 #endif
