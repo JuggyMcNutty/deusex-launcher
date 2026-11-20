@@ -192,7 +192,7 @@ static void test_mod_moved(void) {
     /* A mod of another folder name: asked first, nothing changed; Keep
      * looking leaves it, Use it takes the folder asked about. */
     dxl_err saved;
-    CHECK_INT(remove(p->ini_path), 0);
+    CHECK_INT(dxl_fs_remove_tree(p->ini_path), 0);
     CHECK_INT(dxl_session_save(&r.session, &saved), 0);
     scratch_write(root, "Third/Other/System/Other.u", "pkg");
     char *other = scratch_path(root, "Third/Other");
