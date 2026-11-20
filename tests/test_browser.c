@@ -248,7 +248,7 @@ static void test_master_errors(void) {
  * product and its query port; anything else, nothing. */
 typedef struct {
     sock fd;
-    int asked;
+    atomic_int asked;    /* its thread's count, read by the test meanwhile */
     char answer[64];
 } beacon;
 
@@ -262,7 +262,7 @@ static void *beacon_main(void *p) {
         if (n <= 0) break;
         buf[n] = '\0';
         if (strcmp(buf, "REPORTQUERY") != 0) continue;
-        b->asked++;
+        atomic_fetch_add(&b->asked, 1);
         sendto(b->fd, b->answer, (int)strlen(b->answer), 0, (struct sockaddr *)&from, len);
     }
     return NULL;
@@ -328,7 +328,7 @@ static void test_lan(void) {
     long t0 = ms_now();
     CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
     CHECK(ms_now() - t0 >= 1000);
-    CHECK_INT(b[0].asked, 1);
+    CHECK_INT(atomic_load(&b[0].asked), 1);
     CHECK_INT(w.listed, 1);
     CHECK_INT(w.lan, 1);
     CHECK_INT(w.listed_port[0], query_port);
@@ -341,7 +341,7 @@ static void test_lan(void) {
     dxl_browse_lan_init(&lan, 0, NULL);
     memset(&w, 0, sizeof w);
     CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
-    CHECK_INT(b[1].asked, 1);
+    CHECK_INT(atomic_load(&b[1].asked), 1);
     CHECK_INT(w.listed, 0);
 
     dxl_env_set("DXL_LAN", "none");
@@ -351,7 +351,7 @@ static void test_lan(void) {
     t0 = ms_now();
     CHECK_INT(dxl_browse(NULL, NULL, &lan, &fns, &w, NULL, &e), 0);
     CHECK(ms_now() - t0 < 1000);
-    CHECK_INT(b[0].asked, 1);
+    CHECK_INT(atomic_load(&b[0].asked), 1);
 
     /* A master slower than the beacons' second, which lists nothing: what
      * they answered meanwhile read, and their server asked, all the same. */
@@ -372,7 +372,7 @@ static void test_lan(void) {
     CHECK(strstr(e.msg, "Try again later") != NULL);
     pthread_join(mt, NULL);
     close_sock(m.fd);
-    CHECK_INT(b[0].asked, 2);
+    CHECK_INT(atomic_load(&b[0].asked), 2);
     CHECK_INT(w.listed, 1);
     CHECK_INT(w.lan, 1);
     CHECK_INT(w.answered, 1);
@@ -388,6 +388,179 @@ static void test_lan(void) {
     close_woken(s[0].fd);
 }
 
+/* A master that greets and then sends no list, till the browser lets go. */
+static void *stalling_master_main(void *p) {
+    master *m = p;
+    sock c = accept(m->fd, NULL, NULL);
+    if (c == NO_SOCK) return NULL;
+    const char *hello = "\\basic\\\\secure\\abcdef";
+    send(c, hello, (int)strlen(hello), 0);
+    char buf[256];
+    while (recv(c, buf, (int)sizeof buf, 0) > 0) {}
+    close_sock(c);
+    return NULL;
+}
+
+typedef struct {
+    long       t0, at[2];
+    int        port[2], answered;
+    atomic_int stop;
+} meanwhile;
+
+static void meanwhile_answered(void *ctx, const char *address, int port, int ping, const char *status) {
+    (void)address; (void)ping; (void)status;
+    meanwhile *m = ctx;
+    for (int i = 0; i < 2; i++)
+        if (port == m->port[i] && m->at[i] < 0) {
+            m->at[i] = ms_now() - m->t0;
+            m->answered++;
+        }
+    if (m->answered == 2) atomic_store(&m->stop, 1);
+}
+
+/* Behind a master that greets and then stalls, a LAN server that answers
+ * at once, and a favourite at an address, each shown as it answers, not
+ * once the master has had its ten seconds. */
+static void test_lan_meanwhile(void) {
+    beacon b;
+    memset(&b, 0, sizeof b);
+    int beacon_port = 0, lan_port = 0, fav_port = 0, master_port = 0;
+    b.fd = local_socket(SOCK_DGRAM, &beacon_port);
+    s[0] = (server){ local_socket(SOCK_DGRAM, &lan_port), ANSWERS, 0 };
+    s[1] = (server){ local_socket(SOCK_DGRAM, &fav_port), ANSWERS, 0 };
+    snprintf(b.answer, sizeof b.answer, "DeusEx %d", lan_port);
+    master m;
+    memset(&m, 0, sizeof m);
+    m.fd = local_socket(SOCK_STREAM, &master_port);
+    listen(m.fd, 1);
+    pthread_t bt, st[2], mt;
+    pthread_create(&bt, NULL, beacon_main, &b);
+    for (int i = 0; i < 2; i++) pthread_create(&st[i], NULL, server_main, &s[i]);
+    pthread_create(&mt, NULL, stalling_master_main, &m);
+
+    char env[64], at[64], fav[64];
+    snprintf(env, sizeof env, "127.0.0.1:%d", beacon_port);
+    dxl_env_set("DXL_LAN", env);
+    dxl_browse_lan lan;
+    dxl_browse_lan_init(&lan, 0, NULL);
+    snprintf(at, sizeof at, "127.0.0.1:%d", master_port);
+    snprintf(fav, sizeof fav, "127.0.0.1:%d", fav_port);
+    const char *also[] = { fav, NULL };
+    meanwhile w;
+    memset(&w, 0, sizeof w);
+    atomic_init(&w.stop, 0);
+    w.port[0] = lan_port;
+    w.port[1] = fav_port;
+    w.at[0] = w.at[1] = -1;
+    dxl_browse_fns fns = { NULL, meanwhile_answered };
+    dxl_err e;
+    w.t0 = ms_now();
+    dxl_browse(at, also, &lan, &fns, &w, &w.stop, &e);
+    long took = ms_now() - w.t0;
+    dxl_env_set("DXL_LAN", NULL);
+    CHECK_INT(w.answered, 2);
+    if (w.at[0] < 0 || w.at[0] >= 2000 || w.at[1] < 0 || w.at[1] >= 2000)
+        fprintf(stderr, "  the LAN server shown after %ld ms, the favourite after %ld ms\n", w.at[0], w.at[1]);
+    CHECK(w.at[0] >= 0 && w.at[0] < 2000);
+    CHECK(w.at[1] >= 0 && w.at[1] < 2000);
+    /* Stopped once both had answered: the master let go within its wait. */
+    CHECK(took < 3000);
+
+    pthread_join(mt, NULL);
+    close_sock(m.fd);
+    wake_waits(b.fd);
+    for (int i = 0; i < 2; i++) wake_waits(s[i].fd);
+    pthread_join(bt, NULL);
+    close_woken(b.fd);
+    for (int i = 0; i < 2; i++) {
+        pthread_join(st[i], NULL);
+        close_woken(s[i].fd);
+    }
+}
+
+/* A master that lists 300 servers, at a port nothing answers on. */
+static void *listing_master_main(void *p) {
+    master *m = p;
+    sock c = accept(m->fd, NULL, NULL);
+    if (c == NO_SOCK) return NULL;
+    const char *hello = "\\basic\\\\secure\\abcdef";
+    send(c, hello, (int)strlen(hello), 0);
+    size_t len = 0;
+    while (len < sizeof m->asked - 1 && !strstr(m->asked, "\\list\\")) {
+        ssize_t n = recv(c, m->asked + len, (int)(sizeof m->asked - 1 - len), 0);
+        if (n <= 0) break;
+        len += (size_t)n;
+        m->asked[len] = '\0';
+    }
+    char *reply = malloc(300 * 32 + 16);
+    size_t at = 0;
+    for (int i = 0; i < 300; i++)
+        at += (size_t)snprintf(reply + at, 32, "\\ip\\127.7.%d.%d:%d", i / 250, i % 250 + 1, m->server_port[0]);
+    at += (size_t)snprintf(reply + at, 16, "\\final\\");
+    send(c, reply, (int)at, 0);
+    free(reply);
+    dxl_os_sleep_ms(100);
+    close_sock(c);
+    return NULL;
+}
+
+/* Stops a look that has not ended of itself in fifteen seconds. */
+typedef struct {
+    atomic_int stop, done;
+} watch;
+
+static void *watch_main(void *p) {
+    watch *w = p;
+    for (int i = 0; i < 150 && !atomic_load(&w->done); i++) dxl_os_sleep_ms(100);
+    if (!atomic_load(&w->done)) atomic_store(&w->stop, 1);
+    return NULL;
+}
+
+/* A master that lists more servers than a look asks, a favourite beside
+ * them: the favourite asked, the list filled, the rest passed over, and
+ * the look ended of itself once those asked have had their time. */
+static void test_full_list(void) {
+    master m;
+    memset(&m, 0, sizeof m);
+    int master_port = 0, fav_port = 0;
+    m.fd = local_socket(SOCK_STREAM, &master_port);
+    listen(m.fd, 1);
+    sock none = local_socket(SOCK_DGRAM, &m.server_port[0]);
+    close_sock(none);   /* nothing answers there now */
+    s[0] = (server){ local_socket(SOCK_DGRAM, &fav_port), ANSWERS, 0 };
+    watch wd;
+    atomic_init(&wd.stop, 0);
+    atomic_init(&wd.done, 0);
+    pthread_t mt, st, wt;
+    pthread_create(&mt, NULL, listing_master_main, &m);
+    pthread_create(&st, NULL, server_main, &s[0]);
+    pthread_create(&wt, NULL, watch_main, &wd);
+
+    char at[64], fav[64];
+    snprintf(at, sizeof at, "127.0.0.1:%d", master_port);
+    snprintf(fav, sizeof fav, "127.0.0.1:%d", fav_port);
+    const char *also[] = { fav, NULL };
+    seen w;
+    memset(&w, 0, sizeof w);
+    dxl_browse_fns fns = { on_listed, on_answered };
+    dxl_err e;
+    int rc = dxl_browse(at, also, NULL, &fns, &w, &wd.stop, &e);
+    atomic_store(&wd.done, 1);
+    pthread_join(wt, NULL);
+    CHECK_INT(rc, 0);
+    CHECK_INT(atomic_load(&wd.stop), 0);
+    CHECK_INT(w.listed, DXL_BROWSE_MAX);
+    CHECK_INT(w.listed_port[0], fav_port);
+    CHECK_INT(w.answered, 1);
+    CHECK_INT(w.answered_port[0], fav_port);
+
+    pthread_join(mt, NULL);
+    close_sock(m.fd);
+    wake_waits(s[0].fd);
+    pthread_join(st, NULL);
+    close_woken(s[0].fd);
+}
+
 TEST_MAIN_BEGIN
 #ifdef _WIN32
     WSADATA wsa;
@@ -396,4 +569,6 @@ TEST_MAIN_BEGIN
     RUN(test_browse);
     RUN(test_master_errors);
     RUN(test_lan);
+    RUN(test_lan_meanwhile);
+    RUN(test_full_list);
 TEST_MAIN_END
