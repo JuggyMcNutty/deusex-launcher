@@ -68,8 +68,9 @@ typedef struct {
     void  *ctx;
 } asking;
 
-/* A server to ask; one listed again by a beacon is told so. */
-static void listed_as(asking *q, const char *address, int port, int lan) {
+/* A server to ask, while fewer than room are; one listed again by a beacon
+ * is told so. */
+static void listed_as(asking *q, const char *address, int port, int lan, int room) {
     for (int i = 0; i < q->count; i++) {
         asked *s = &q->a[i];
         if (s->port != port || strcmp(s->address, address) != 0) continue;
@@ -79,7 +80,7 @@ static void listed_as(asking *q, const char *address, int port, int lan) {
         }
         return;
     }
-    if (q->count >= DXL_BROWSE_MAX) return;
+    if (q->count >= room || q->count >= DXL_BROWSE_MAX) return;
     asked *s = &q->a[q->count++];
     memset(s, 0, sizeof *s);
     snprintf(s->address, sizeof s->address, "%s", address);
@@ -89,7 +90,37 @@ static void listed_as(asking *q, const char *address, int port, int lan) {
     if (q->fns && q->fns->listed) q->fns->listed(q->ctx, address, port, lan);
 }
 
-static void listed(void *ctx, const char *address, int port) { listed_as(ctx, address, port, 0); }
+/* What a job of the look's -- the master's list, the favourites' names --
+ * finds on its own thread, for the asking loop to take: each server put
+ * before the count that tells it, the count once the job has ended. */
+typedef struct {
+    struct {
+        char address[64];
+        int  port;
+    } at[DXL_BROWSE_MAX];
+    atomic_int count, ended;
+    int taken;                     /* the asking loop's: how many it has */
+} found;
+
+static void found_add(void *ctx, const char *address, int port) {
+    found *f = ctx;
+    int n = atomic_load(&f->count);
+    if (n >= DXL_BROWSE_MAX) return;
+    snprintf(f->at[n].address, sizeof f->at[n].address, "%s", address);
+    f->at[n].port = port;
+    atomic_store(&f->count, n + 1);
+}
+
+typedef struct {
+    const char        *master;
+    const char *const *names;      /* the favourites named by a host name, NULL-terminated */
+    int                named;      /* how many */
+    const atomic_int  *stop;
+    found              f;
+    dxl_net_job       *job;
+    int                rc;
+    dxl_err            err;
+} look_job;
 
 /* The local network asked, as DeusExLocalLink asks it: REPORTQUERY to each
  * of the ten beacon ports at its broadcast addresses, or at DXL_LAN's. */
@@ -116,31 +147,65 @@ static int beacon_answer(const dxl_browse_lan *lan, const char *text) {
     return port > 0 && port <= 65535 ? port : 0;
 }
 
+/* The room the favourites' names not yet looked up keep: however many the
+ * master or the beacons list, the favourites are asked. */
+static int names_room(look_job *names) {
+    if (atomic_load(&names->f.ended)) return DXL_BROWSE_MAX;
+    return DXL_BROWSE_MAX - (names->named - atomic_load(&names->f.count));
+}
+
+/* The servers listed from before on asked, as each is listed. */
+static void ask_from(asking *q, dxl_socket fd, int before, int *left) {
+    for (int i = before; i < q->count; i++) {
+        dxl_udp_send(fd, q->a[i].address, q->a[i].port, STATUS, 8);
+        q->a[i].sent = now_ms();
+        q->a[i].asks = 1;
+        (*left)++;
+    }
+}
+
+/* What the jobs found since the last time listed, the favourites' first;
+ * the master's kept waiting while the favourites' names not yet looked up
+ * would find no room: however many the master lists, they are asked. 1
+ * while a job has more to give. */
+static int take(asking *q, look_job *names, look_job *master) {
+    int more = 0;
+    look_job *jobs[2] = { names, master };
+    for (int k = 0; k < 2; k++) {
+        found *f = &jobs[k]->f;
+        int ended = atomic_load(&f->ended);
+        int n = atomic_load(&f->count);
+        int room = k == 1 ? names_room(names) : DXL_BROWSE_MAX;
+        while (f->taken < n && q->count < room) {
+            listed_as(q, f->at[f->taken].address, f->at[f->taken].port, 0, room);
+            f->taken++;
+        }
+        /* A full list takes no more: what a job has past it is passed
+         * over, not waited on for good. */
+        if (q->count >= DXL_BROWSE_MAX) f->taken = n;
+        if (!ended || f->taken < n) more = 1;
+    }
+    return more;
+}
+
 /* Each server asked for its status, the answers taken as they come: one
  * not whole a second after its asking -- a packet lost, or all of them --
  * asked again, its answer begun again, as the game asks till final comes.
- * With lan, what the beacons answer till lan_until at least: each server
- * one names asked too. */
-static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long lan_until, const atomic_int *stop) {
+ * Meanwhile what the jobs find, each server asked as it is listed; and
+ * with lan, what the beacons answer till lan_until at least: each server
+ * one names asked too. Till every server has answered or had its time and
+ * both jobs have ended. */
+static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long lan_until, look_job *names,
+                    look_job *master, const atomic_int *stop) {
     char buf[4096], from[64];
-    /* What the beacons answered while the master was asked, read whatever
-     * it took and listed: their servers asked with its. */
-    for (int port = 0; lan;) {
-        long n = dxl_udp_recv(fd, buf, sizeof buf - 1, 0, from, sizeof from, &port);
-        if (n <= 0) break;
-        buf[n] = '\0';
-        int beacon = beacon_answer(lan, buf);
-        if (beacon) listed_as(q, from, beacon, 1);
-    }
-    long t = now_ms();
-    for (int i = 0; i < q->count; i++) {
-        dxl_udp_send(fd, q->a[i].address, q->a[i].port, STATUS, 8);
-        q->a[i].sent = t;
-        q->a[i].asks = 1;
-    }
-    int left = q->count;
-    while ((left > 0 || (lan && now_ms() < lan_until)) && !stopped(stop)) {
-        t = now_ms();
+    int left = 0;
+    ask_from(q, fd, 0, &left);
+    while (!stopped(stop)) {
+        int before = q->count;
+        int more = take(q, names, master);
+        ask_from(q, fd, before, &left);
+        long t = now_ms();
+        if (left <= 0 && !more && !(lan && t < lan_until)) break;
         long until = lan && lan_until > t ? lan_until : 0;
         for (int i = 0; i < q->count; i++) {
             asked *s = &q->a[i];
@@ -159,8 +224,8 @@ static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long la
             long end = s->sent + (s->asks < ASKS ? RETRY_MS : ANSWER_MS);
             if (!until || end < until) until = end;
         }
-        if (left <= 0 && !until) break;
-        long wait = until > t ? until - t : 1;
+        if (left <= 0 && !until && !more) break;
+        long wait = !until ? 100 : until > t ? until - t : 1;
         if (wait > 100) wait = 100;
         int port = 0;
         long n = dxl_udp_recv(fd, buf, sizeof buf - 1, (int)wait, from, sizeof from, &port);
@@ -170,15 +235,9 @@ static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long la
         for (int i = 0; i < q->count && !known; i++) known = q->a[i].port == port && !strcmp(q->a[i].address, from);
         int beacon = !known && lan ? beacon_answer(lan, buf) : 0;
         if (beacon) {
-            int before = q->count;
-            listed_as(q, from, beacon, 1);
-            if (q->count > before) {
-                asked *s = &q->a[q->count - 1];
-                dxl_udp_send(fd, s->address, s->port, STATUS, 8);
-                s->sent = now_ms();
-                s->asks = 1;
-                left++;
-            }
+            int had = q->count;
+            listed_as(q, from, beacon, 1, names_room(names));
+            ask_from(q, fd, had, &left);
             continue;
         }
         for (int i = 0; i < q->count; i++) {
@@ -201,7 +260,7 @@ static void ask_all(asking *q, dxl_socket fd, const dxl_browse_lan *lan, long la
 }
 
 /* The master's list, as the game asks for it. */
-static int master_list(const char *master, asking *q, const atomic_int *stop, dxl_err *err) {
+static int master_list(const char *master, found *f, const atomic_int *stop, dxl_err *err) {
     char host[256];
     snprintf(host, sizeof host, "%s", master);
     int port = DXL_MASTER_PORT;
@@ -267,7 +326,7 @@ static int master_list(const char *master, asking *q, const atomic_int *stop, dx
     char why[200];
     if (dxl_gs_value(text, "error", why, sizeof why)) {
         dxl_err_set(err, "%s: %s", master, why);
-    } else if (dxl_gs_list(text, listed, q) >= 0) {
+    } else if (dxl_gs_list(text, found_add, f) >= 0) {
         rc = 0;
     } else if (!stopped(stop)) {
         dxl_err_set(err, "%s %s", master, closed ? "closed without its list" : "sent no list in time");
@@ -278,6 +337,48 @@ done:
     return rc;
 }
 
+/* The master's job: its list. */
+static void master_main(void *p) {
+    look_job *j = p;
+    j->rc = master_list(j->master, &j->f, j->stop, &j->err);
+    atomic_store(&j->f.ended, 1);
+}
+
+/* The names' job: each favourite's name looked up, in turn. */
+static void names_main(void *p) {
+    look_job *j = p;
+    for (int i = 0; i < j->named && !stopped(j->stop); i++) {
+        char host[256], at[64];
+        snprintf(host, sizeof host, "%s", j->names[i]);
+        char *colon = strrchr(host, ':');
+        int port = dxl_server_port_of(colon + 1);
+        *colon = '\0';
+        dxl_err e;
+        if (dxl_net_resolve(host, at, sizeof at, RESOLVE_MS, j->stop, &e) == 0) found_add(&j->f, at, port);
+    }
+    atomic_store(&j->f.ended, 1);
+}
+
+/* Whether host is an address, a.b.c.d, as the network takes one: no name
+ * to look up. One with a part of a leading 0 is looked up, as the resolver
+ * reads it. */
+static int dotted(const char *host) {
+    for (int part = 0; part < 4; part++) {
+        int v = 0, n = 0;
+        if (host[0] == '0' && host[1] >= '0' && host[1] <= '9') return 0;
+        for (; *host >= '0' && *host <= '9' && n < 4; host++, n++) v = v * 10 + (*host - '0');
+        if (!n || n > 3 || v > 255) return 0;
+        if (part < 3 && *host++ != '.') return 0;
+    }
+    return !*host;
+}
+
+/* A job begun on its thread; with none, done here and now. */
+static void job_start(look_job *j, void (*fn)(void *)) {
+    j->job = dxl_net_job_start(fn, j);
+    if (!j->job) fn(j);
+}
+
 static void finish(asking *q) {
     for (int i = 0; i < q->count; i++) dxl_gs_status_free(&q->a[i].status);
     free(q->a);
@@ -286,8 +387,37 @@ static void finish(asking *q) {
 int dxl_browse(const char *master, const char *const *also, const dxl_browse_lan *lan, const dxl_browse_fns *fns,
                void *ctx, const atomic_int *stop, dxl_err *err) {
     asking q = { dxl_xmalloc(sizeof(asked) * DXL_BROWSE_MAX), 0, fns, ctx };
-    /* The beacons first, their answers waiting on the socket while the
-     * master is asked. */
+    look_job *jobs = dxl_xmalloc(2 * sizeof *jobs);
+    memset(jobs, 0, 2 * sizeof *jobs);
+    look_job *names = &jobs[0], *mj = &jobs[1];
+    /* The favourites first: however many the master lists, they are asked.
+     * Those at an address listed here; those by a host name looked up on a
+     * job of their own, so that a slow name holds nothing else back. */
+    size_t n = 0;
+    while (also && also[n]) n++;
+    const char **named = dxl_xmalloc((n + 1) * sizeof *named);
+    for (size_t i = 0; i < n; i++) {
+        char host[256];
+        snprintf(host, sizeof host, "%s", also[i]);
+        char *colon = strrchr(host, ':');
+        int port = colon ? dxl_server_port_of(colon + 1) : 0;
+        if (colon) *colon = '\0';
+        if (port <= 0 || !dxl_server_host_ok(host)) continue;
+        char at[16];
+        size_t len = strlen(host);
+        if (len < sizeof at && dotted(host)) {
+            memcpy(at, host, len + 1);
+            listed_as(&q, at, port, 0, DXL_BROWSE_MAX);
+        } else {
+            named[names->named++] = also[i];
+        }
+    }
+    named[names->named] = NULL;
+    names->names = named;
+    names->stop = mj->stop = stop;
+    mj->master = master;
+    /* The beacons, the master and the names asked at once: each server
+     * shown as it answers, the master's list joining them when it comes. */
     dxl_err e;
     dxl_socket fd = dxl_udp_open(&e);
     if (lan && lan->none) lan = NULL;
@@ -296,19 +426,20 @@ int dxl_browse(const char *master, const char *const *also, const dxl_browse_lan
         lan_ask(fd, lan, stop);
         lan_until = now_ms() + LAN_MS;
     }
-    /* The favourites first: however many the master lists, they are asked. */
-    for (size_t i = 0; also && also[i] && !stopped(stop); i++) {
-        char host[256], at[64];
-        snprintf(host, sizeof host, "%s", also[i]);
-        char *colon = strrchr(host, ':');
-        int port = colon ? dxl_server_port_of(colon + 1) : 0;
-        if (colon) *colon = '\0';
-        if (port > 0 && dxl_server_host_ok(host) && dxl_net_resolve(host, at, sizeof at, RESOLVE_MS, stop, &e) == 0)
-            listed(&q, at, port);
-    }
-    int rc = master && *master ? master_list(master, &q, stop, err) : 0;
-    if (fd != DXL_SOCKET_NONE && (q.count || lan)) ask_all(&q, fd, lan, lan_until, stop);
+    if (names->named) job_start(names, names_main);
+    else atomic_store(&names->f.ended, 1);
+    if (master && *master) job_start(mj, master_main);
+    else atomic_store(&mj->f.ended, 1);
+    if (fd != DXL_SOCKET_NONE) ask_all(&q, fd, lan, lan_until, names, mj, stop);
+    dxl_net_job_wait(names->job);
+    dxl_net_job_wait(mj->job);
+    int rc = mj->rc;
+    if (rc != 0 && err) *err = mj->err;
+    /* No socket to ask them on: what the jobs found listed all the same. */
+    if (fd == DXL_SOCKET_NONE) take(&q, names, mj);
     if (fd != DXL_SOCKET_NONE) dxl_net_close(fd);
+    free(named);
+    free(jobs);
     finish(&q);
     return rc;
 }
