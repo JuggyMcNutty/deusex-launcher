@@ -36,7 +36,7 @@ scratch home, a relative one taken from the working folder:
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); in `profiles/<id>/`, each profile's `Running.ini`, `LastRun.ini`, and in its `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`) |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
-| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's four folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)) |
+| `$XDG_DATA_HOME/Trash/` | the desktop's trash, freedesktop.org's: a deleted profile's folders, a save, a screenshot, to be put back from the file manager ([profiles](#profiles), [saves and screenshots](#saves-and-screenshots)); a profile's folder, a save or a screenshot on another file system or mount goes to its own trash, at its top: `.Trash/<uid>` or `.Trash-<uid>` |
 | `$XDG_RUNTIME_DIR` (else `/tmp/deusex-launcher-<uid>`, made 0700) | `deusex-launcher.<hash>.lock`, a lock on which every launcher of a home marks itself running, and each client's `deusex-launcher.<hash>.<pid>.<n>.sock`, a channel a second start hands its command line over, the newest's first, removed as it ends |
 
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
@@ -231,9 +231,25 @@ marked; its buttons act on the one chosen, the row last focused:
 - **Name**, under the list: the chosen one's, edited in place.
 - **Delete...**: the chosen one's settings, data and state folders to the
   desktop's trash, all or none (`src/platform/posix/trash.c`), its cache
-  folder, the net's downloads, then deleted, as it may be on a file system
-  of its own that the trash does not reach, and said where it could not be
-  removed; never the one in use.
+  folder, the net's downloads, then deleted, and said where it could not be
+  removed; never the one in use. A folder on another file system than the
+  home trash, or on another mount of the same one (a bind mount, a
+  container's view of the home), goes to its own, as freedesktop.org's
+  Trash specification has it: at its top (its mount point, found by going
+  up its folders while they are on its file system and, where the system
+  tells mounts, Linux's `statx` from 5.8, on its mount),
+  `.Trash/<uid>` where an administrator made `.Trash` a folder with its
+  sticky bit set and no link, else `.Trash-<uid>`, made at need, the
+  entry's `Path` relative to the top. Every trash is made, every name
+  taken and every `.trashinfo` written before a folder moves; one that
+  fails to move puts back those before it, and says what stays where.
+  Where no trash can be made on a folder's file system (read-only, its top
+  not the player's to write, the folder its top), or the system refuses
+  the move to the one there as a move across file systems (a mount it does
+  not tell, a layered file system's folder), nothing goes, what moved put
+  back: a second question names each such folder and why, and offers to
+  delete the profile for good -- yes deletes those folders for good, once
+  the rest is in the trash; Keep it leaves everything.
 
 ## Mods
 
@@ -325,7 +341,7 @@ played, its snapshot; the newest first, one whose info does not read last.
   snapshot (the game's 160 x 120 of its picture), when it was made, how long
   it had been played, its map and folder. Load, or Enter or a click on its
   row, starts the game on it; Delete... puts its folder in the desktop's
-  trash.
+  trash, its own file system's as a profile's folders go.
 - **Screenshots**, from Home: the profile's `Screenshots` folder's pictures,
   the engine's `ShotNNNN.bmp` and those the import copied, BMPs and PNGs,
   newest first (`src/core/shotlist.c`), as a gallery of thumbnails read off
@@ -334,7 +350,7 @@ played, its snapshot; the newest first, one whose info does not read last.
   read again when they come back; the one chosen beside it with when it
   was taken and its size. Show, or Enter or a click on one, shows
   it whole, Previous and Next stepping through them; Open the folder opens
-  it in the file manager; Delete... puts it in the trash.
+  it in the file manager; Delete... puts it in the trash, as a save.
 
 The game starts on a save by the engine's start URL, `?loadgame=N` in
 `--url`, which only an engine whose `--version` names `loadgame-url` takes
@@ -1075,7 +1091,10 @@ as it was, and makes, lists and copies profiles; an import that fails on a
 save it cannot read, one cancelled, one after another killed half-way and
 a profile whose `profile.ini` cannot be written, the player's own links
 kept through each; `test_trash` puts folders
-in a scratch trash; `test_startup` when a start asks SDL for X11 first;
+in a scratch trash, a tmpfs's own (`/dev/shm`, where there is one apart) and those of a
+folder it takes for a file system's top, one where none can be made, a mount and a
+refused move of its own making;
+`test_startup` when a start asks SDL for X11 first;
 `test_gpu_probe` probes this machine's GPU, every GPU's Vulkan device named, with a
 Vulkan driver of its own that crashes as it loads too, whose probe keeps
 the OpenGL answers, and with Mesa's
@@ -1214,8 +1233,6 @@ Changed:
 Each open in Port Ex Machina's
 [`bugs.md`](https://github.com/JuggyMcNutty/port-ex-machina/blob/main/docs/bugs.md), by its ID:
 
-- **LAPP.26**: a profile cannot be deleted when its settings, data or
-  state folder is on another file system than the trash.
 - **LCORE.27**: a mod with native code of its own is offered as one that
   plays; that it does not is said only on Recovery, once it has stopped at
   its first native.
