@@ -14,6 +14,7 @@
 #define _GNU_SOURCE
 #include "screens/shell.h"
 #include "core/bindings.h"
+#include "core/dxcontroller.h"
 #include "core/log.h"
 #include "core/padcurve.h"
 #include "core/padmap.h"
@@ -87,6 +88,71 @@ static int part_of(const char *key) {
     for (int p = 0; p < DXL_PADPART_COUNT; p++)
         if (key_of(p) && !dxl_stricmp(key_of(p), key)) return p;
     return -1;
+}
+
+/* ---- DXController ------------------------------------------------------ */
+
+/* The page's DXController is on: the model's labels its roles, the
+ * meters the sticks as they are. */
+static int dxc_shown;
+
+/* What a control does under DXController, as its README's Controls say:
+ * the Smart Pro's sticks do not click, so its crouch has no control. */
+static const char *dxc_role(int part) {
+    switch (part) {
+    case DXL_PADPART_SOUTH: return "Jump";
+    case DXL_PADPART_EAST: return "Reload";
+    case DXL_PADPART_WEST: return "Use";
+    case DXL_PADPART_NORTH: return "Change ammo";
+    case DXL_PADPART_LSHOULDER: return "Weapon wheel";
+    case DXL_PADPART_RSHOULDER: return "Augmentation wheel";
+    case DXL_PADPART_BACK: return "Inventory";
+    case DXL_PADPART_START: return "Main menu";
+    case DXL_PADPART_LSTICK: return "Moves";
+    case DXL_PADPART_RSTICK: return "Looks";
+    case DXL_PADPART_LTRIGGER: return "Scope or laser";
+    case DXL_PADPART_RTRIGGER: return "Fire";
+    case DXL_PADPART_DPUP: return "Belt 1";
+    case DXL_PADPART_DPLEFT: return "Belt 2";
+    case DXL_PADPART_DPRIGHT: return "Belt 3";
+    case DXL_PADPART_DPDOWN: return "Belt 4";
+    default: return "\xe2\x80\x94";
+    }
+}
+
+/* Whether it can be on for the profile, and why not: asked as the page
+ * comes up (a frame it was not drawn in before this one) and at most once
+ * a second while it shows, not each frame -- it reads three files. */
+static int dxc_able(dxl_shell *s, char *why, size_t size) {
+    static unsigned long drawn = 0;
+    static double asked = 0;
+    static int able;
+    static char said[400];
+    dxl_ui *ui = &s->ui;
+    if (ui->frame != drawn + 1 || ui->now - asked >= 1) {
+        dxl_session *ss = &s->run->session;
+        dxl_shell_ask_engine(s);
+        dxl_dxc_place w = { s->run->config, &ss->profile, ss->data_dir, ss->xdg.data, ss->install.system_dir,
+                            dxl_shell_engine_has(s, DXL_DXC_FEATURE) };
+        said[0] = '\0';
+        able = dxl_dxc_able(&w, said, sizeof said);
+        asked = ui->now;
+    }
+    drawn = ui->frame;
+    snprintf(why, size, "%s", said);
+    return able;
+}
+
+/* Its row: the option where it can be on; else off, held so -- a click
+ * neither moves it nor sounds --, its label saying it cannot be, the help
+ * line why (the page's). */
+static void dxc_row(dxl_shell *s, const dxl_setting *st, int able, uint32_t id, dxl_rect r) {
+    if (able) {
+        dxl_settings_row(s, st, id, r);
+        return;
+    }
+    int off = 0;
+    dxl_toggle(&s->ui, id, r, "DXController: held off", &off, DXL_W_HELD);
 }
 
 /* What a stick does, by what its across axis is bound to. */
@@ -224,6 +290,10 @@ static void leaders(dxl_shell *s, dxl_rect r, float model_l, float model_r, cons
         leader *l = &side[right][count[right]++];
         l->part = p;
         l->y = spots[p].y;
+        if (dxc_shown) {
+            snprintf(l->text, sizeof l->text, "%s", dxc_role(p));
+            continue;
+        }
         if (p == DXL_PADPART_LSTICK || p == DXL_PADPART_RSTICK) {
             snprintf(l->text, sizeof l->text, "%s", stick_does(s->stores.user, p == DXL_PADPART_LSTICK));
             continue;
@@ -381,6 +451,12 @@ static void left_panel(dxl_shell *s, dxl_rect r, const pad_entry *pads, int n, i
     float mx, my, lx2, ly2;
     dxl_pad_move(st.lx, st.ly, &tune, &mx, &my);
     dxl_pad_look(st.rx, st.ry, &tune, &lx2, &ly2);
+    /* DXController's curves are the game's own Controller screen's: the
+     * sticks as they are. */
+    if (dxc_shown) {
+        mx = st.lx, my = -st.ly, lx2 = st.rx, ly2 = -st.ry;
+        tune.dead_zone = 0;
+    }
     float cr = (strip.h - 22) / 2, cy = strip.y + cr + 2;
     stick_meter(ui, strip.x + strip.w * 0.18f, cy, cr, st.lx, st.ly, mx, my, tune.dead_zone, "Left stick");
     stick_meter(ui, strip.x + strip.w * 0.82f, cy, cr, st.rx, st.ry, fmaxf(-1, fminf(1, lx2)), fmaxf(-1, fminf(1, ly2)),
@@ -452,26 +528,52 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
     float lw = area.w * 0.56f;
     dxl_rect left = { area.x, area.y, lw, area.h }, right = { area.x + lw + 12, area.y, area.w - lw - 12, area.h };
 
-    /* The rows: the layout, the test, finding a button, the buttons, the
-     * tuning, the wizard. */
-    const dxl_setting *rows[16];
-    int tuning = dxl_settings_rows("Controller", rows, 16);
-    int buttons = (int)dxl_pad_button_count(), first = 3, count = first + buttons + tuning + 1;
+    /* The rows: DXController's, the layout, the test, finding a button, the
+     * buttons, the tuning, the wizard. DXController on, the game's own
+     * Controller screen holds the pad: its row, the test and the wizard
+     * alone, the mapping of a controller still the launcher's. */
+    const dxl_setting *rows[16], *dxc = NULL;
+    int all = dxl_settings_rows("Controller", rows, 16), tuning = 0;
+    for (int i = 0; i < all; i++) {
+        if (!strcmp(rows[i]->id, DXL_DXC_ROW)) dxc = rows[i];
+        else rows[tuning++] = rows[i];
+    }
+    char dxc_why[400] = "";
+    int able = dxc && dxc_able(s, dxc_why, sizeof dxc_why);
+    dxc_shown = able && dxl_setting_bool(&s->stores, dxc);
+    int buttons = (int)dxl_pad_button_count(), first = 4, full = first + buttons + tuning + 1;
+    int count = dxc_shown ? 3 : full;
     dxl_well(ui, right);
     dxl_list l;
     dxl_list_begin(ui, &l, "pad rows", dxl_inset(right, 4), count, ROW_H, DXL_LIST_WHOLE_ROWS);
     /* A control found on the model or by pressing it: its row. */
     if (s->pad_find >= 0) {
-        for (int b = 0; b < buttons; b++)
+        for (int b = 0; b < buttons && !dxc_shown; b++)
             if (part_of(dxl_pad_button_at((size_t)b)) == s->pad_find) dxl_list_focus(ui, &l, first + b);
         s->pad_find = -1;
     }
     int chosen = -1;
-    for (int i = 0; i < count; i++) {
+    for (int r = 0; r < count; r++) {
         dxl_rect rr;
-        if (!dxl_list_rect(&l, i, &rr)) continue;
-        uint32_t id = dxl_list_row_id(&l, i);
+        if (!dxl_list_rect(&l, r, &rr)) continue;
+        uint32_t id = dxl_list_row_id(&l, r);
+        /* Its row among the page's whole list: standing down, the test's
+         * and the wizard's after DXController's. */
+        int i = dxc_shown && r ? (r == 1 ? 2 : full - 1) : r;
         if (i == 0) {
+            if (dxc) dxc_row(s, dxc, able, id, rr);
+            if (ui->focus == id) {
+                const char *problem = dxl_profile_get(&s->run->session.profile, DXL_DXC_PROBLEM);
+                if (!able) *why = dxc_why;
+                else if (problem && *problem && dxl_setting_bool(&s->stores, dxc)) *why = problem;
+                else if (dxc_shown)
+                    *why = "DXController, a mod by dsgls (GPLv3+), is on: the game's own Settings, Controller "
+                           "holds the pad's settings, and the layout, buttons and tuning here wait while it is. "
+                           "Never in multiplayer. The sticks do not click: crouch, and dropping in the "
+                           "inventory, have no button.";
+                else *focused = dxc;
+            }
+        } else if (i == 1) {
             static const char *names[8];
             int presets = (int)dxl_pad_preset_count(), index = presets;
             for (int p = 0; p < presets && p < 7; p++) names[p] = dxl_pad_preset_at((size_t)p)->label;
@@ -491,7 +593,7 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
             }
             if (ui->focus == id)
                 *why = now ? now->description : "A layout of the controller's own: changed button by button.";
-        } else if (i == 1) {
+        } else if (i == 2) {
             /* Never disabled: a row in a list's middle that takes no focus
              * would break the rows' up and down. */
             if (dxl_button_id(ui, id, dxl_inset(rr, 4), "Test the controller...", 0)) {
@@ -503,7 +605,7 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
             if (ui->focus == id)
                 *why = "Every button, stick and trigger on the model, and nothing else in the launcher moving with "
                        "them; the triggers rumble it.";
-        } else if (i == 2) {
+        } else if (i == 3) {
             /* The next button pressed, or trigger pulled, on a controller:
              * its row. */
             int capturing = ui->capture_id == id;
@@ -533,7 +635,7 @@ void dxl_page_controller(dxl_shell *s, dxl_rect area, const char **why, const dx
                        "Esc stops.";
         } else if (i < first + buttons) {
             const char *key = dxl_pad_button_at((size_t)(i - first));
-            button_row(s, &l, i, key, kind, rr);
+            button_row(s, &l, r, key, kind, rr);
             if (ui->focus == id) {
                 chosen = part_of(key);
                 *why = "Enter, a click or the pad's confirm chooses what the button does.";

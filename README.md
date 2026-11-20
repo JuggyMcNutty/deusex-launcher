@@ -46,6 +46,11 @@ through end to end ([where the engine differs](https://github.com/JuggyMcNutty/D
 - **Settings**: those the engine really reads, on eight pages: display,
   graphics, audio, keyboard and mouse, controller, gameplay and HUD,
   multiplayer, and the launcher's own.
+- **DXController**: dsgls's [DXController](https://github.com/dsgls/DXController),
+  on unless switched off: a weapon and augmentation wheel, the pad in every
+  menu, conversation and device, an on-screen keyboard; the sticks do not
+  click, so its crouch and its drop in the inventory have no button
+  ([how it plays](docs/LAUNCHER.md#dxcontroller)).
 - **Saves and screenshots**: Continue on the latest save, load or delete
   any, look through the game's screenshots. A delete is for good, after
   the page asks.
@@ -170,7 +175,7 @@ The tabbed launcher is tag `trimui-smartpro-tabbed`.
 
 ## License
 
-[zlib](LICENSE); what the app carries of others', its fonts, libraries and
-engine, under their own terms ([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex
-belongs to its owners; this project is not affiliated with or endorsed by
-them.
+[zlib](LICENSE); what the app carries of others', its fonts, libraries,
+engine and DXController, under their own terms
+([`THIRD-PARTY.md`](THIRD-PARTY.md)). Deus Ex belongs to its owners; this
+project is not affiliated with or endorsed by them.

@@ -198,6 +198,33 @@ static void test_slider_out_of_range(void) {
     CHECK(n > 0.09 && n < 0.11);
 }
 
+/* A toggle held as it is (DXL_W_HELD): focused, but Enter, a click, left
+ * and right change nothing and sound nothing. */
+static void test_toggle_held(void) {
+    uint32_t a = dxl_ui_id(&ui, "held");
+    dxl_rect r = { 20, 20, 600, 44 };
+    int off = 0, changed = 0, cues = 0;
+    dxl_ui_forget(&ui);
+    dxl_ui_focus(&ui, a);
+    for (int step = 0; step < 5; step++) {
+        if (step == 1) key(SDLK_RETURN, SDL_SCANCODE_RETURN);
+        if (step == 2) key(SDLK_RIGHT, SDL_SCANCODE_RIGHT);
+        if (step == 3) {
+            mouse(SDL_EVENT_MOUSE_MOTION, 300, 40, 0);
+            mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, 300, 40, 1);
+        }
+        if (step == 4) mouse(SDL_EVENT_MOUSE_BUTTON_UP, 300, 40, 1);
+        begin();
+        changed |= dxl_toggle(&ui, a, r, "Held", &off, DXL_W_HELD);
+        cues |= ui.cues;
+        end();
+    }
+    CHECK_INT(ui.focus, a);
+    CHECK_INT(changed, 0);
+    CHECK_INT(off, 0);
+    CHECK(!(cues & DXL_CUE_SLIDE));
+}
+
 /* Edited in place: typed, erased, the caret moved; Enter keeps it, Esc
  * puts it back. */
 static void test_text_field(void) {
@@ -776,6 +803,7 @@ TEST_MAIN_BEGIN
     dxl_ui_input_begin(&ui);
     RUN(test_toggle_slider_spinner);
     RUN(test_slider_out_of_range);
+    RUN(test_toggle_held);
     RUN(test_text_field);
     RUN(test_text_select);
     RUN(test_text_typed_on);

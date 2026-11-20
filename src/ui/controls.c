@@ -50,8 +50,9 @@ int dxl_toggle(dxl_ui *ui, uint32_t id, dxl_rect r, const char *label, int *on, 
     int hits, was = *on;
     dxl_rect a = row(ui, id, r, label, flags, &hits);
     if (!(flags & DXL_W_DISABLED)) {
-        if (hits & DXL_HIT_ACTIVATED) *on = !*on;
         int lr = dxl_ui_take_lr(ui, id);
+        if (flags & DXL_W_HELD) lr = 0;
+        else if (hits & DXL_HIT_ACTIVATED) *on = !*on;
         if (lr > 0) *on = 1;
         else if (lr < 0) *on = 0;
     }

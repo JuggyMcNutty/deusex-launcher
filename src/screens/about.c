@@ -20,8 +20,10 @@ void dxl_page_about(dxl_shell *s, dxl_rect r) {
     static const char credits[] =
         "Made with SDL3 and SDL3_ttf (the zlib licence), libxmp-lite (the MIT licence) and FreeType (its own "
         "licence); its type is "
-        "Barlow Semi Condensed, Share Tech Mono and Noto Sans (the SIL Open Font License 1.1). Deus Ex is its "
-        "makers'; DXLauncher plays your own copy of it.";
+        "Barlow Semi Condensed, Share Tech Mono and Noto Sans (the SIL Open Font License 1.1). The pad's "
+        "DXController is dsgls's mod, the author's build of v1.6.1 unchanged (the GNU GPL, version 3 or later; "
+        "its source at github.com/dsgls/DXController, tag v1.6.1). "
+        "Deus Ex is its makers'; DXLauncher plays your own copy of it.";
     const float nw = 150, lh = 28;
     float content = dxl_text_size(ui, DXL_FONT_BODY, intro, w - 44).y + 10 + (s->engine_ok ? 6 : 5) * lh + 12 +
                     dxl_text_size(ui, DXL_FONT_SMALL, credits, w - 44).y;

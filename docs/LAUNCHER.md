@@ -39,8 +39,8 @@ the app's `launch.sh` names one, `/mnt/SDCARD/Saves/DXLauncher` in the card's
 | Folder | What is in it |
 |---|---|
 | `$XDG_CONFIG_HOME/dxlauncher/` (`~/.config`) | `launcher.ini`: the active profile (`[Launcher] Profile`), the engine chosen (`Engine`) and the launcher's own settings (`ReducedMotion`, `ReturnAfterPlaying`, `RenderDriver`, `MusicVolume`, `SoundVolume`, `CpuMode`: [Settings](#settings)), each install met (`[Install.<id>]` `Path`, `Version`, `SHA1`) |
-| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log |
-| `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)) |
+| `$XDG_CONFIG_HOME/dxlauncher/profiles/<id>/` | `profile.ini` (`[Profile]` `Name`, `Install`, `Mod`: [Mods](#mods), `EngineArgs`, `Favourites`: [Multiplayer](#multiplayer); `DXController`, `DXControllerProblem`, `[DXController.Undo]`, `[DXController.Input]`: [DXController](#dxcontroller)); `DeusEx.ini` and `User.ini`, the engine's `--ini` and `--userini`; the `engine` folder, its `--userdir`: `Settings.json` (its renderer, how it draws, the controller's settings), a class's own config files, the engine's log |
+| `$XDG_DATA_HOME/dxlauncher/` (`~/.local/share`) | `gamecontrollerdb.txt`: the controllers the launcher has mapped, in SDL's words ([the controller](#the-controller)); `mods`, the launcher's mods folder ([Mods](#mods)); `dxcontroller`, the changed `DeusEx.u` DXController plays with ([DXController](#dxcontroller)) |
 | `$XDG_DATA_HOME/dxlauncher/profiles/<id>/` | `Save`, the inis' `SavePath`; `Screenshots`, the engine's shots (the `engine` folder's `Screenshots` is a link to it; on a filesystem with no links, exFAT or FAT, that folder is the shots folder itself) |
 | `$XDG_STATE_HOME/dxlauncher/` (`~/.local/state`) | `launcher.log`, each start's (a start beside a running launcher appends to it); in `profiles/<id>/`, each profile's `Running.ini`, `LastRun.ini`, and in its `logs` the engine's output, `last-run.log` and `previous-run.log` (a `last-run.log` that cannot be moved there, held open by another program, is emptied for the run, with a warning in `launcher.log`); on the card the default profile's is `/mnt/SDCARD/Saves/DXLauncher/state/dxlauncher/profiles/default/logs/last-run.log` |
 | `$XDG_CACHE_HOME/dxlauncher/profiles/<id>/Cache/` (`~/.cache`) | the inis' `CachePath`: a net game's downloads |
@@ -58,7 +58,8 @@ the old one does, is renamed `DXLauncher.unused` first, never removed.
 A profile's inis keep `[Core.System]`'s `Paths` as the game has them: the
 engine resolves them against the game's `System` folder. A mod's profile
 names the mod's folders before them, by their absolute paths
-([Mods](#mods)). `SavePath` and
+([Mods](#mods)), and, while a game plays with DXController, that mod's
+two ([DXController](#dxcontroller)). `SavePath` and
 `CachePath` are absolute, the profile's. The inis are LF, as the engine
 writes them back, their text as the engine reads it: a byte a character,
 Latin-1, a UTF-16 file kept UTF-16, and one holding a character past
@@ -838,7 +839,8 @@ the first in the order the launcher met them, as the game's is, but for one
 plugged in again while the launcher is open, last here, which the system
 may give back its old place, so first for the game.
 
-On its right, the rows: Layout, a preset -- Modern, Modern with the sticks
+On its right, the rows: DXController ([below](#dxcontroller)); Layout, a
+preset -- Modern, Modern with the sticks
 swapped, Original Deus Ex, the game's own -- or Custom once a button is
 changed by itself (`src/core/bindings.c`); Test the controller...; Find a
 button, the next button pressed or trigger pulled then its row, as a click
@@ -882,6 +884,103 @@ would take over the launcher's. The engine is given that, then the file
 whose GUIDs have no CRC of the pad's name: its GUID without the CRC, a
 `crc:` field naming it, which a newer SDL reads, so that the copy maps the
 pad of that name alone.
+
+## DXController
+
+[DXController](https://github.com/dsgls/DXController) is a mod by dsgls
+(the GNU GPL, version 3 or later) that gives the game full controller
+support: a weapon and augmentation wheel, the pad in every menu,
+conversation and in-world device, an on-screen keyboard
+([`THIRD-PARTY.md`](../THIRD-PARTY.md#dxcontroller)). It is the mod's
+scripts, `DXController.u`, and the game's `DeusEx.u` with the mod's hooks
+in it, which DXEngine plays with its pad in a mode of the mod's own.
+
+**What ships**, in the app's `data/dxcontroller/`: `DXController.u`, the
+author's build of release v1.6.1, taken from its release zip as the app is
+built (`cmake/dxcontroller.cmake`, the zip pinned by `cmake/deps.lock`);
+`COPYING`, the GPL's text; `README`, what the folder is and where its source
+is; and `DeusEx-v1.6.1.dxlpatch`, the launcher's patch from the stock
+`DeusEx.u` of the GOG and Steam editions (5,386,972 bytes, SHA-1
+`f32766c053ba1cc6ed408bcebe065470e4487574`) to release v1.6.1's (5,420,652
+bytes, SHA-1 `7158c266040dc2e98f3f460eba7d3508d7279d77`). No `DeusEx.u` ships.
+
+**What is made on the player's machine**: the changed `DeusEx.u`, from the
+player's own stock one by the patch, in
+`$XDG_DATA_HOME/dxlauncher/dxcontroller/<source>-<result>/`, each the first
+12 digits of its SHA-1, so that another stock file or patch has a folder of
+its own. A start makes it where it is missing or not the patch's result, its
+SHA-1 read each start: an app moved or updated, a game folder changed or the
+file deleted mend themselves.
+
+**The patch** (`src/core/patch.c`; made by `tools/dxpatch.py`, Python's
+standard library alone) is a header -- `DXLPATCH`, its version 1, the
+source's size and SHA-1, the result's size and SHA-1, the numbers
+little-endian -- then operations to the file's end, each a LEB128 number
+whose low two bits are its kind and the rest its length: 0 adds that many
+bytes, which follow; 1 copies that many from the source where the last copy
+ended plus the bytes added since; 2 the same from a distance off that place,
+a second LEB128 number, zigzag-signed. It applies only to a source of exactly
+that size and SHA-1, each operation checked against both files before a
+byte is copied, the result built in memory and written only if its SHA-1 is
+the header's, whole or not at all (`dxl_path_write_atomic`): a kill or a
+full disk leaves the old file or none.
+
+**The option**, `DXController` in `profile.ini`'s `[Profile]`, is the
+Controller page's first row, on for a new profile. It can be on only for a
+profile of the game itself, not a mod's (the mod is made for the game
+alone); with an engine whose `--version` names `dxcontroller-pad`; with the
+app's two files there; and with the install's `DeusEx.u` the stock one the
+patch is for (a translation's or another mod's is not). Where it cannot be,
+the row shows it off, held so, and its help line says why. While it is on,
+the page says that the game's own Settings, Controller holds the pad's
+settings, and shows its row, the test and the mapping wizard alone, the
+model naming each control's role under the mod: the layout, the buttons and
+the tuning wait, and a controller's mapping is still the launcher's
+(`SDL_GAMECONTROLLERCONFIG`, above).
+
+**A start** with it on and able (`src/core/dxcontroller.c`): the changed
+`DeusEx.u` is made where it must be; `profile.ini` keeps, in
+`[DXController.Undo]` and `[DXController.Input]`, the player's
+`[Engine.Engine]` `Console` and `Root` and the player's own bindings of the
+pad's keys, written before anything else; then the profile's `DeusEx.ini`
+gets the changed `DeusEx.u`'s folder and the app's `data/dxcontroller`
+first in `[Core.System]` `Paths` (the first package of a name found is the
+one loaded), `Console=DXController.ControllerConsole` and
+`Root=DXController.ControllerRootWindow` -- the paths and the console in
+that one file, written together -- `User.ini`'s `[Engine.Input]` the mod's
+own bindings (`Joy1` Jump, `Joy2` ReloadWeapon, `Joy3` ParseRightClick,
+`Joy4` SwitchAmmo, `Joy7` TogglePlayerMenuWindow, `Joy8` ShowMainMenu, the
+d-pad `ActivateBelt` 1 to 4, `JoyX` and `JoyY` moving and `JoyU` and `JoyV`
+looking, with no `Speed`, the other pad keys none: the mod's console takes
+them itself), and, once the inis are saved, `Settings.json`
+`Gamepad.DXController` true, the engine's pad in the mod's mode (inis that
+cannot be saved leave it in its own). After the game, as the launcher starts,
+and at a start with it off or unable, all of it is put back from what
+`profile.ini` kept, then `Settings.json`, then `profile.ini` forgets it: a
+kill at any step leaves a profile that starts, the next start mending it. A
+binding of one of the pad's keys that the game wrote while it was on is put
+back too, `launcher.log` naming the key, the binding dropped and the one
+put back. A
+`Console` or `Root` of the mod's with nothing kept is given the game's own
+back. A changed `DeusEx.u` that cannot be made (the stock file changed
+under it, no room) turns it off for that start, said in `launcher.log` and
+on the Controller page, as `[Profile]` `DXControllerProblem` keeps it until
+a start that makes it.
+
+**On the Smart Pro** its sticks do not click, so the two controls the mod
+gives the stick clicks -- crouch, and dropping an item in the inventory --
+have none; the page's help line says so.
+
+**Multiplayer**: a start that joins a server (the server browser, a link) or
+hosts one (`-server`, a `?listen` URL) runs without it, whatever the option
+says, and `launcher.log` says so: the changed `DeusEx.u` is not the stock
+one to a server, which refuses a client whose packages differ. A game joined
+from the game's own Multiplayer menu with it on meets that refusal; joined
+from the launcher, it plays.
+
+**Saves** made with it on load with it off, the player's variables the mod
+adds dropped as the engine meets them; saves made with it off load with it
+on, those variables at their defaults. A save names nothing of `DXController.u`.
 
 ## The game and the launcher
 
@@ -1104,7 +1203,14 @@ folder, its link not followed;
 `test_cpumode` runs the Smart Pro's game hook against stand-in spruceOS
 helpers and a scratch sysfs, each CPU mode and the state put back, and
 a restore that fails, the state kept;
-`test_gamefiles`, on a real install in `gamefiles/`, reads every asset the
+`test_dxcontroller` DXController's patches on made-up files (a wrong source
+refused, a result not the patch's never given, a patch cut anywhere or reaching past either
+file refused, a write that fails leaving what was there or nothing) and its start on a
+scratch profile (every key set, a second start changing nothing, every key put back, a
+multiplayer start, a start cut short, an app moved, each reason it cannot be on, a patched
+file that cannot be made, the pad's mode only after the inis' save, a binding the game wrote
+said as it is dropped); `test_gamefiles`, on a real install in `gamefiles/`, applies
+DXController's patch to its `DeusEx.u` where that is the stock one, reads every asset the
 window takes from it -- the menu themes, the art, the menu sounds, the title
 music (`test_gamefiles_saves` its saves' infos and snapshots, skipped where
 it has none) -- plays the stub
@@ -1127,7 +1233,7 @@ as boxes; the window's fonts opened without it), and the keyboard,
 the mouse and virtual pads with an Xbox's, a DualSense's and a Switch Pro's
 ids (`test_ui_input`), the controls and the on-screen keyboard
 (`test_ui_controls`, an input method's composition drawn at a field's caret
-among them), the sound on SDL's dummy output (`test_ui_audio`) and
+and a toggle held as it is among them), the sound on SDL's dummy output (`test_ui_audio`) and
 the thumbnails (`test_ui_thumbs`). `dxl-shots` (`tools/shots.c`) draws every
 page and dialog, each settings page too, from states it makes up in a
 scratch home, at the Smart Pro's 1280x720 on the big screen, with the

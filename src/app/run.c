@@ -3,6 +3,7 @@
 #include "app/gamehook.h"
 #include "core/argv.h"
 #include "core/cmdline.h"
+#include "core/dxcontroller.h"
 #include "core/engine_args.h"
 #include "core/engine_sections.h"
 #include "core/engine_settings.h"
@@ -866,12 +867,50 @@ static void end_without_game(dxl_run *r) {
     dxl_log("Running.ini taken away: an end with no game");
 }
 
+/* DXController (core/dxcontroller.h): what a start wrote for it taken back,
+ * the profile as the player keeps it -- as the run begins, and after each
+ * game. Said only where it fails. */
+static void dxc_place(dxl_run *r, const dxl_engine_version *v, dxl_dxc_place *w) {
+    dxl_session *s = &r->session;
+    *w = (dxl_dxc_place){ r->config, &s->profile, s->data_dir, s->xdg.data, s->install.system_dir,
+                          v && dxl_engine_has(v, DXL_DXC_FEATURE) };
+}
+
+/* Another launcher live, or a game a killed one left (a start with one of
+ * the original's words that pass the hand-over by: -server, NewWindow):
+ * its game may be this profile's, holding the inis it writes back whole at
+ * its end, the mod's in them. Neither the undo nor the wiring then: what
+ * this profile holds is left to the next start with no other. */
+static int dxc_shared(dxl_run *r) {
+    if (!other_instance(r)) return 0;
+    dxl_log("DXController: the profile left as it is: another launcher, or its game, runs");
+    return 1;
+}
+
+static void dxc_rest(dxl_run *r) {
+    dxl_dxc_place w;
+    dxl_err e;
+    if (!r->config || !dxl_profile_exists(&r->session.profile) || dxc_shared(r)) return;
+    dxc_place(r, NULL, &w);
+    if (dxl_dxc_rest(&w, &e) < 0)
+        dxl_log("warning: DXController's changes could not be taken back: %s", dxl_err_msg(&e));
+}
+
 /* Saved, FirstRun raised, the sentinel made: after the screens, before the
  * game, in the original's order (dx-reverse-info/launch-flow.md section
- * 5). */
-static void commit(dxl_run *r, atomic_int *stop) {
+ * 5). DXController's first, which the inis' save writes. */
+static void commit(dxl_run *r, atomic_int *stop, const dxl_engine_version *v) {
     dxl_err e;
     antialias_check(r, stop);
+    dxl_dxc_place w = { 0 };
+    int dxc = 0;
+    if (!dxc_shared(r)) {
+        char why[600];
+        dxc_place(r, v, &w);
+        dxc = dxl_dxc_start(&w, dxl_dxc_multiplayer(r->url, r->words), why, sizeof why);
+        if (dxc == DXL_DXC_MULTIPLAYER) dxl_log("DXController: off for this game, a multiplayer one");
+        if (why[0]) dxl_log("warning: %s", why);
+    }
     /* The engine's own sections whole before it runs, a profile made by an
      * earlier launcher's too (core/engine_sections.h). */
     if (dxl_engine_sections_seed(dxl_config_ini(r->config)) > 0) dxl_log("the engine's sections seeded");
@@ -892,7 +931,15 @@ static void commit(dxl_run *r, atomic_int *stop) {
     if (dxl_lastrun_clear(r->session.profile.state_dir) != 0)
         dxl_log("warning: the run before's LastRun.ini could not be taken away");
     dxl_config_clamp_first_run(r->config, r->decision.effective_first_run);
-    if (dxl_config_save(r->config, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
+    int saved = dxl_config_save(r->config, &e) == 0;
+    if (!saved) dxl_log("warning: %s", dxl_err_msg(&e));
+    /* The engine's pad in the mod's mode only with the mod's console saved:
+     * not saved, the stock console plays with the engine's own pad. */
+    if (dxc == 1) {
+        if (!saved) dxl_log("warning: DXController: the inis not saved, the engine's pad left in its own mode");
+        if (dxl_dxc_pad(&w, saved, &e) != 0)
+            dxl_log("warning: Settings.json could not be written for DXController's pad: %s", dxl_err_msg(&e));
+    }
     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
 }
 
@@ -1145,6 +1192,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
     dxl_sentinel_init(&r->sentinel, r->session.profile.state_dir);
     dxl_lastrun_load(&r->last, r->session.profile.state_dir);
     if (dxl_profile_exists(&r->session.profile)) r->config = open_config(r);
+    /* A start a kill cut short left DXController's changes: back as the
+     * player keeps the profile before any screen shows it. */
+    if (!r->opt.dry && !r->opt.print_command) dxc_rest(r);
 
     if (!dxl_profile_exists(&r->session.profile)) r->view = DXL_VIEW_FIRST_RUN;
     /* A screen the player has just answered with Play: none again for this
@@ -1247,12 +1297,13 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
             dxl_log("engine: no loadgame-url feature: the game's own start, not %s", r->url);
             r->url[0] = '\0';
         }
-        commit(r, stop);
+        commit(r, stop, &v);
         rc = play(r, ui, stop, &v);
         r->url[0] = '\0';
         /* The inis as the engine left them: it writes them whole at a clean
          * end, the game's own changes in them. */
         if (r->config) dxl_config_reload(r->config);
+        dxc_rest(r);
 
         /* 6. The end. */
         if (!r->played.clean) {

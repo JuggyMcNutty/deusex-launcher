@@ -1,0 +1,36 @@
+DXController
+============
+
+This folder is DXController's, a mod by dsgls that gives Deus Ex full
+controller support: a weapon and augmentation wheel, the pad in every
+menu, conversation and in-world device, an on-screen keyboard. DXLauncher
+plays a profile with it while the profile's option is on (Settings,
+Controller).
+
+  DXController.u          the mod's scripts: the author's own build of
+                          release v1.6.1, unchanged, as its release zip
+                          DXController-v1.6.1.zip carries it
+  DeusEx-v1.6.1.dxlpatch  a binary difference, made by DXLauncher's
+                          tools/dxpatch.py, from the game's stock DeusEx.u
+                          to the one release v1.6.1 carries: with it
+                          DXLauncher makes that DeusEx.u on the player's
+                          machine, from the player's own copy
+  COPYING                 the GNU General Public License, version 3
+  README                  this file
+
+DXController is free software by dsgls, licensed under the GNU General
+Public License, version 3 or (at your option) any later version, as its
+README says. The source of DXController.u is the mod's repository at the
+tag v1.6.1 (its DXController/Classes, with the scripts that build it):
+
+  https://github.com/dsgls/DXController/tree/v1.6.1
+
+The changed DeusEx.u is Ion Storm's package with the mod's hooks in it;
+the mod's README makes no licence claim on it, and no DeusEx.u ships
+here. The patch holds the bytes of the changed DeusEx.u that the stock one
+lacks, and is of use only with the game's own DeusEx.u of the GOG and
+Steam editions. The changes it carries are in the mod's repository at the
+same tag (its DeusEx/Classes).
+
+DXLauncher and DXEngine are under the zlib licence; they carry
+DXController beside them, and the GPL covers DXController, not them.

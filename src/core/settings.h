@@ -96,6 +96,8 @@ int dxl_settings_engine_generation(const dxl_ini *system);
 
 /* The anti-aliasing row, the one no_msaa holds at Off (dxl_stores). */
 #define DXL_ANTIALIAS_ROW "graphics.antialias"
+/* DXController's, the Controller page's first (core/dxcontroller.h). */
+#define DXL_DXC_ROW "pad.dxcontroller"
 
 typedef struct {
     const char *id;             /* "display.brightness" */
