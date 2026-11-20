@@ -3,7 +3,8 @@
  * SIGHUP; a write to a closed pipe is no signal; SIGCHLD as the system has
  * it, whatever the parent left, so a child's end is the launcher's to see.
  * platform/win32/startup.c Windows': the console's Ctrl+C, Ctrl+Break and
- * its closing.
+ * its closing; the session's end (a sign-out, a shutdown, a restart), told
+ * to a hidden window of the program's.
  */
 #ifndef DXL_STARTUP_H
 #define DXL_STARTUP_H
@@ -20,6 +21,11 @@ void dxl_startup(atomic_int *stop, void (*wake)(void));
  * be clean -- Windows' closing console, which ends the process as its
  * handler returns -- may let go. Nothing on POSIX. */
 void dxl_startup_ended(void);
+
+/* 1 once the stop is the session's end (Windows' WM_ENDSESSION): the game
+ * may be ended by Windows before it quits, and the program soon after. 0
+ * on POSIX, and until then. */
+int dxl_startup_session_ended(void);
 
 /* What the start says said, its run about to begin: a console borrowed of
  * the parent's to say it is let go -- Windows' GUI launcher's, started from

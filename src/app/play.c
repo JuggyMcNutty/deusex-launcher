@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "platform/os.h"
 #include "platform/process.h"
+#include "platform/startup.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -17,6 +18,11 @@
  * by the clock, however often the wait woke. */
 #define WAKE_MS      1000
 #define STOPPING_MS  250
+/* A stop that is the session's end: Windows ends the launcher, which has
+ * no visible window while the game plays, 5 s after it is told. A game
+ * that takes no notice is killed sooner, for its end to be recorded in
+ * that time (bugs.md D.99). */
+#define SESSION_KILL_AFTER_MS 2000
 
 /* ParseToken: the first word of a line, or a quoted one. */
 static int first_token(const char *s, char *out, size_t size) {
@@ -113,7 +119,9 @@ void dxl_play(const dxl_play_request *req, dxl_play_result *out) {
             dxl_game_stop(&g);
             out->stopped = 1;
             stopped_at = dxl_os_ms();
-        } else if (out->stopped && !out->killed && dxl_os_ms() - stopped_at >= DXL_PLAY_KILL_AFTER_MS) {
+        } else if (out->stopped && !out->killed &&
+                   dxl_os_ms() - stopped_at >=
+                       (dxl_startup_session_ended() ? SESSION_KILL_AFTER_MS : DXL_PLAY_KILL_AFTER_MS)) {
             dxl_log("the game did not stop: killing it");
             dxl_game_kill(&g);
             out->killed = 1;

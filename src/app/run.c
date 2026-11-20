@@ -867,7 +867,13 @@ static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop, const dxl_en
     last->signal = r->played.signal;
     last->ready = r->played.ready;
     last->clean = r->played.clean;
-    last->stopped = r->played.stopped;
+    /* A session's end (Windows': a sign-out, a shutdown, an update's
+     * restart) stops the game as the launcher's own stop does, and Windows
+     * may end the game first, before its Quit or before it is done: the
+     * launcher's stop all the same, Running.ini taken away, the next start
+     * at Home, not Recovery (bugs.md D.99, the owner's choice). */
+    int session = dxl_startup_session_ended();
+    last->stopped = r->played.stopped || session;
     last->killed = r->played.killed;
     /* Where it started, a server's password left out. */
     const char *pw = strstr(r->url, "?password=");
@@ -885,8 +891,9 @@ static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop, const dxl_en
     if (dxl_lastrun_save(last, r->session.profile.state_dir, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
     free(log);
 
-    if (r->played.clean) dxl_sentinel_remove(&r->sentinel);
+    if (r->played.clean || session) dxl_sentinel_remove(&r->sentinel);
     else dxl_log("not a clean end: Running.ini stays for the next start");
+    if (session) dxl_log("the session ends: the run stopped, Running.ini taken away");
     return last->status;
 }
 
@@ -1165,8 +1172,9 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
         }
         /* Back to Home after a clean end, when the player asked for it:
          * Home whatever the line asks for (-safe, -changevideo), where Home
-         * is shown at all. */
-        if (ui && ui->view && !home_unshown && home_wanted(r) &&
+         * is shown at all; not after a stop, which ends the launcher too
+         * (a session's end, whose time is short: bugs.md D.99). */
+        if (ui && ui->view && !home_unshown && !(stop && *stop) && home_wanted(r) &&
             dxl_ini_get_bool(r->session.ini, "Launcher", "ReturnAfterPlaying", 0)) {
             dxl_log("back to Home after playing");
             back_home = 1;

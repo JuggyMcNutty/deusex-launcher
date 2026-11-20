@@ -29,6 +29,10 @@ const char *dxl_win_error(DWORD error, char *buf, size_t size);
  * instance has none. */
 HANDLE dxl_instance_event(const dxl_instance *inst);
 
+/* The class of the launcher's hidden window, which has the session's end
+ * (platform/win32/startup.c); the tests find it by it. */
+#define DXL_SESSION_CLASS L"DXLauncherSession"
+
 /* The tests' (tests/test_instance_win32.c), NULL but there: called with the
  * pipe's name between its making and the primary's first wait for a
  * sender, where a second start can come and go before that wait. */

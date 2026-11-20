@@ -467,8 +467,10 @@ handed to a game that plays.
    Home, on its words alone, an `INI=` or `USERINI=` of the line before
    gone with them and the profile's inis read and written:
    `-server` a dedicated server, `-changevideo` Graphics; with no
-   `RELAUNCH`, Home again when `[Launcher] ReturnAfterPlaying` is on. One
-   that is not clean leaves `Running.ini`, and says how the run ended.
+   `RELAUNCH`, Home again when `[Launcher] ReturnAfterPlaying` is on and
+   the launcher was not stopped. One that is not clean leaves `Running.ini`,
+   and says how the run ended, but at a session's end on Windows
+   ([the game and the launcher](#the-game-and-the-launcher)).
 
 The launcher's own options start with `--` (`--game=`, `--profile=`,
 `--play`); every other word is the original's command line, the player's,
@@ -872,10 +874,18 @@ program started from cmd is), it asks the engine to quit --
 `Quit` on the line, and `WM_CLOSE` to its windows -- and ends one still
 running 5 s later (`TerminateProcess`, its code 0x40010004, which Recovery
 calls the launcher's): DXEngine quits at its next frame, so only a stuck one
-is ended. A sign-out or a shutdown is no stop: Windows gives their console
-events to services, not to a program of the desktop, and never to one that
-loads user32, as both of the launcher's do; it ends the launcher where it
-is, and the game, whose window takes no notice of the session's end.
+is ended. A sign-out, a shutdown or an update's restart is a stop too:
+Windows gives their console events to no program that loads user32, as both
+of the launcher's do, but tells every top-level window, and each program
+keeps a hidden one, on a thread of its own, for the program's life
+(`src/platform/win32/startup.c`). It never holds the session up
+(`WM_QUERYENDSESSION` answered yes); at `WM_ENDSESSION` it stops the game
+and waits for the run's end, inside the 5 s Windows gives a program with no
+visible window before it ends it, a game that takes no notice ended 2 s
+after the stop. Windows may end the game first, whose window takes no
+notice of the session's end: the run is recorded as the launcher's stop
+all the same, and `Running.ini` taken away, so the next start opens Home,
+not Recovery ([Recovery](#recovery)).
 
 ## Recovery
 
@@ -883,8 +893,10 @@ is, and the game, whose window takes no notice of the session's end.
 folder: made before the game, the folder with it where it is gone, taken
 away at a clean end and at one with no game -- a quit on a screen,
 `-consolecommand=`, `-testrendev=`, a stop before the game, which starts
-none -- as the original's at every end but a crash and its CD prompt; at
-one with no game, not while another launcher runs, whose it may be. A
+none -- as the original's at every end but a crash and its CD prompt, and
+at a session's end on Windows, however the game ended (the owner's
+choice); at one with no game, not while another launcher runs,
+whose it may be. A
 screen no one answered is no quit: one whose
 window does not open leaves it, and a stop
 after a run that was not clean opens no Recovery, the next start's to
@@ -898,8 +910,7 @@ silent, whether it was ever ready, whether the launcher stopped it
 (`Stopped`, and `Killed` where it took no notice and was killed), and the
 save it started on. It is
 written as the run ends, the run before's taken away as `Running.ini` is
-made: a launcher ended while the game plays -- killed, or by a sign-out
-or a shutdown -- or a power cut, leaves
+made: a launcher killed while the game plays, or a power cut, leaves
 none, and Recovery, Home and `dxl-cli` say how that
 run ended is not known, never the run before's end. The window
 opens on Recovery after a run that was not clean, and at the next start that
@@ -961,6 +972,8 @@ them but the POSIX ones, `test_xdg`,
 `test_finder`, `test_desktop`, `test_desktop_mime_cache`, `test_trash` and
 `test_ui_scripts`, `test_gamefiles` there without its two that fork a
 launcher (one killed mid-game, a dedicated server that takes no hand-over)
+and with one of Windows' own (a sign-out while the game plays, told to the
+hidden window: the run recorded as stopped, `Running.ini` taken away)
 and `test_cli` without its two of POSIX's alone (a master's refusal, a
 server's lines caught as it answers), and Windows' own
 besides: `test_folders_win32` the Known Folders, Saved Games made where it
@@ -1198,5 +1211,3 @@ Each open in Port Ex Machina's
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
 - **LPORT.15**: the programs carry no icon of their own.
-- **D.99**: a sign-out or shutdown during play ends both programs where they
-  are, so the next start opens Recovery.

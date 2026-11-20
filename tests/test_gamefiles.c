@@ -19,6 +19,9 @@
 #include <sys/stat.h>
 #ifndef _WIN32
 #include <sys/wait.h>   /* the tests that fork a launcher: POSIX alone */
+#else
+#include "platform/startup.h"
+#include "platform/win32/internal.h"   /* the hidden window's class */
 #endif
 #include <unistd.h>
 
@@ -1271,6 +1274,100 @@ static void test_install_saves(void) {
     free(root);
 }
 
+#ifdef _WIN32
+/* The session's end, as Windows tells it: to the launcher's hidden window,
+ * found among this process's top-level windows by its class, from a thread
+ * of the test's, as Windows' own sending would come, the run going on. */
+static atomic_int session_stop;
+static int session_found;
+static LRESULT session_query = -1;
+static long long session_sent;
+static HANDLE session_sender;
+
+static HWND session_window(void) {
+    HWND w = NULL;
+    while ((w = FindWindowExW(NULL, w, DXL_SESSION_CLASS, NULL)) != NULL) {
+        DWORD pid = 0;
+        GetWindowThreadProcessId(w, &pid);
+        if (pid == GetCurrentProcessId()) return w;
+    }
+    return NULL;
+}
+
+static DWORD WINAPI end_the_session(void *arg) {
+    (void)arg;
+    HWND w = NULL;
+    for (int i = 0; i < 100 && !(w = session_window()); i++) Sleep(50);
+    session_found = w != NULL;
+    if (!w) {
+        /* No window to tell: stopped, so as not to wait for ever. */
+        session_stop = 1;
+        return 0;
+    }
+    Sleep(1000);   /* the game up: its ready read */
+    session_query = SendMessageW(w, WM_QUERYENDSESSION, 0, ENDSESSION_LOGOFF);
+    session_sent = dxl_os_ms();
+    SendMessageW(w, WM_ENDSESSION, TRUE, ENDSESSION_LOGOFF);
+    return 0;
+}
+
+static void end_session_as_it_plays(void *ctx, dxl_run *r) {
+    (void)ctx;
+    (void)r;
+    session_sender = CreateThread(NULL, 0, end_the_session, NULL, 0, NULL);
+}
+
+/* A sign-out while the game plays, a game that takes no notice of the
+ * stop, as one Windows ends at its own time: the run recorded as the
+ * launcher's stop, killed sooner than an ordinary stop's 5 s, Running.ini
+ * taken away, all before the window lets the session end, inside the 5 s
+ * Windows gives (bugs.md D.99). Last of all: the session, once ended,
+ * stays so for the process. */
+static void test_session_end(void) {
+    char *home = dxl_xstrdup(scratch_dir("gamefiles-session-end"));
+    dxl_env_set("DXL_HOME", home);
+    dxl_env_set("DXL_ENGINE", DXL_STUB_ENGINE);
+    dxl_env_set("DXL_STUB", "stubborn");
+    char *root = dxl_path_dirname(DXL_GAMEFILES);
+    char opt[700];
+    snprintf(opt, sizeof opt, "--game=%s", root);
+    char *argv[] = { "deusex-launcher", opt, NULL };
+    session_stop = 0;
+    dxl_startup(&session_stop, NULL);
+    dxl_run_ui ui = { .before_play = end_session_as_it_plays };
+    dxl_run_main(2, argv, &ui, &session_stop);
+    long long done = dxl_os_ms();
+    dxl_startup_ended();
+    if (session_sender) {
+        WaitForSingleObject(session_sender, 10000);
+        CloseHandle(session_sender);
+    }
+    CHECK_INT(session_found, 1);
+    CHECK_INT((int)session_query, TRUE);
+    CHECK_INT(dxl_startup_session_ended(), 1);
+    CHECK(session_sent > 0 && done - session_sent < 4500);
+    dxl_xdg x;
+    dxl_xdg_open(&x, NULL);
+    dxl_profile p;
+    dxl_profile_open(&p, &x, "default", NULL);
+    char *sentinel = dxl_path_join(p.state_dir, "Running.ini");
+    CHECK_INT(dxl_path_exists(sentinel), 0);
+    dxl_lastrun last;
+    CHECK_INT(dxl_lastrun_load(&last, p.state_dir), 0);
+    CHECK_INT(last.stopped, 1);
+    CHECK_INT(last.killed, 1);
+    free(sentinel);
+    dxl_profile_free(&p);
+    dxl_xdg_free(&x);
+    free(root);
+    dxl_env_set("DXL_STUB", NULL);
+    dxl_env_set("DXL_ENGINE", NULL);
+    dxl_env_set("DXL_HOME", NULL);
+    scratch_remove(home);
+    free(home);
+}
+#endif
+
 TEST_MAIN_BEGIN
     if (access(DXL_GAMEFILES "/Default.ini", R_OK) != 0) {
         printf("skipped: no Deus Ex install in %s\n", DXL_GAMEFILES);
@@ -1312,4 +1409,7 @@ TEST_MAIN_BEGIN
     RUN(test_relaunch_drops_ini);
     RUN(test_back_home);
     RUN(test_game_folder_untouched);
+#ifdef _WIN32
+    RUN(test_session_end);
+#endif
 TEST_MAIN_END

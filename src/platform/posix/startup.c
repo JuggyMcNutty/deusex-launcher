@@ -30,4 +30,6 @@ void dxl_startup(atomic_int *stop, void (*wake)(void)) {
 
 void dxl_startup_ended(void) {}
 
+int dxl_startup_session_ended(void) { return 0; }
+
 void dxl_startup_detach(void) {}
