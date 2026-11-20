@@ -409,8 +409,12 @@ opens Multiplayer asking whether to join its server; with `--play`, with no
 window, or after another screen's Play that chose no other start, it is
 joined. A second start with one hands it on: the window asks, once nothing
 is half done there -- a dialog, a text being edited or a key being taken,
-the game's folder or a profile being chosen -- or the game, while it plays,
-opens the server. What begins `deusex:` and is no such link -- no host, a
+the game's folder or a profile being chosen. While the game plays, a link
+never travels unasked: the game comes to the front, and joins the link's
+server only where it is on a server already, a player going from one
+server to another; a single-player game stays as it is, the link in
+`launcher.log`. An engine whose `--version` lacks `open-link` cannot tell,
+and joins none. What begins `deusex:` and is no such link -- no host, a
 host that is not a name or an address, a port that is not a number from 1 to
 65535 -- is passed over, with a message: it is never a word of the
 original's command line, whose `INI=` and `USERINI=` it could carry, nor
@@ -437,14 +441,24 @@ handed to a game that plays.
    game) takes none, as the original's server, whose log window is never
    `IsBrowser`, so a second start plays beside it and takes the line, as
    the original's client, and a third start hands its command line to that
-   one.
+   one. The game, an engine whose `--version` has `launcher-mark`, keeps
+   its launcher's mark for its whole run, as the
+   original's mutex is the game's process's: a launcher killed alone while
+   its game plays leaves the mark held, and a start that finds a client's
+   game playing and no launcher to take its line -- a window's, `--play`'s,
+   a link's, `dxl-cli`'s -- opens no Recovery and starts no second game: it
+   says the game is still running and to quit it first, and exits 5.
 2. **The profile**, made by the first run if there is none; pointed at
    another install, on The game, if its own is not there to play.
 3. **The decision**, the original's (`src/core/policy.c`): Recovery after
    `-safe`, or after a run whose `Running.ini` survived; Graphics after
    `-changevideo`; else Home. The original's first-time renderer page has no
    screen of its own here: the first run is the launcher's. `--play` and
-   `DXL_NO_HOME=1` skip Home, not the others.
+   `DXL_NO_HOME=1` skip Home, not the others; so does a window that does not
+   open, Home being only a way to play: the game is played as `--play` plays
+   it, and why the window did not open is in `launcher.log`. The first run,
+   The game for a profile whose install is gone, Recovery and Graphics are
+   never skipped so: each must be seen before anything plays.
 4. **Before the game**, after the screens, as the original does it: the inis
    saved, `FirstRun` raised to 1100 (one above it kept, but under
    `-firstrun`, which writes 1100), `Running.ini` made; and any key of the
@@ -469,8 +483,9 @@ The launcher's own options start with `--` (`--game=`, `--profile=`,
 `--play`); every other word is the original's command line, the player's,
 which reaches the engine whole in `--cmdline`. Exit codes: the game's own
 status, or 1 for a stop at a screen, 2 for an option it does not know, 3
-for a screen that is due with no window (`dxl-cli`'s, or a window that
-does not open), 4 for no install or engine to play. A start that stops
+for a screen other than Home that is due with no window (`dxl-cli`'s, or
+a window that does not open), 4 for no install or engine to play, 5 for a
+game still playing with no launcher to take the line. A start that stops
 short says why on stderr and in `launcher.log`, and `deusex-launcher` in a
 message box of the system's too, with why its window did not open where it
 did not, for a player who started it from the desktop.
@@ -864,12 +879,17 @@ environment names a backend,
 `SDL_GAMECONTROLLERCONFIG` with the controllers the launcher has mapped
 ([the controller](#the-controller)), and `DXL_LAUNCHER_FD`, the engine's
 end of a socket pair. Of the launcher's descriptors the engine is given
-that one alone: the rest, the window's fonts among them, close as it
-starts, as for every program the launcher runs. On that line the
+that one and, where its `--version` has `launcher-mark`, the launcher's
+mark ([one start](#one-start)), `DXL_LAUNCHER_MARK_FD`, which DXEngine
+keeps from what it starts in turn, alone: the rest, the window's fonts
+among them, close as it starts, as for every program the launcher runs.
+On that line the
 engine says `hello` as it starts, `ready` once its first map is in, and
 `relaunch <line>` for the original's `RELAUNCH`; the launcher hands it
 `TakeFocus` and `Open <url>` for a line a second start forwards, once the
-engine is ready (`src/app/play.c`). A start URL goes in `--url`, a save's
+engine is ready (`src/app/play.c`), and `OpenLink <host:port>` for a
+`deusex://` link in it, which the engine opens only from a game on a
+server ([links](#multiplayer)). A start URL goes in `--url`, a save's
 `?loadgame=N` for Continue and Load ([saves](#saves-and-screenshots)): in
 `--cmdline` the engine takes one only with `-hax0r` or `-server`.
 `dxl-cli --print-command` shows the command for a profile.
@@ -903,7 +923,10 @@ save it started on. It is
 written as the run ends, the run before's taken away as `Running.ini` is
 made: a launcher killed while the game plays, or a power cut, leaves
 none, and Recovery, Home and `dxl-cli` say how that
-run ended is not known, never the run before's end. The
+run ended is not known, never the run before's end. A launcher killed
+alone leaves its game playing, which no launcher sees end: the start after
+that end finds `Running.ini` and no record, and opens Recovery so, the end
+of `last-run.log` the game's own to its last line. The
 window opens on Recovery after a run that was not clean, and at the next
 start that finds `Running.ini`; with no window (`dxl-cli`), that start says
 so with the end of the run's log, and exits 3.
@@ -1186,9 +1209,3 @@ Each open in Port Ex Machina's
   its first native.
 - **LUI.10**: a mod's profile cannot be pointed at its mod once the mod has
   moved.
-- **D.94**: a start whose window cannot open plays nothing, even where the
-  profile could play.
-- **D.95**: a launcher killed while its game plays leaves no running mark,
-  so the next start can play a second game on the same profile.
-- **D.96**: a server link opened while the game plays is joined at once,
-  unasked, unsaved progress lost.

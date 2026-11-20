@@ -189,11 +189,46 @@ static void test_line_outlived(void) {
     CHECK(time(NULL) - t0 < 3);
     done(&s, &r);
 }
+
+/* The game holds its launcher's mark, its descriptor's number given to it,
+ * for the engine to keep it from what it starts in turn (bugs.md D.95). */
+static void test_mark_named(void) {
+    char id[64];
+    snprintf(id, sizeof id, "dxl-test-play-mark-%ld", dxl_os_pid());
+    dxl_instance *inst = dxl_instance_acquire(id);
+    CHECK(inst != NULL);
+    char *dir = dxl_xstrdup(scratch_dir("play-mark"));
+    char *log = scratch_path(dir, "run.log");
+    char *argv[] = { DXL_STUB_ENGINE, NULL };
+    char *env[] = { "DXL_STUB=env", "DXL_STUB_ENV=DXL_LAUNCHER_MARK_FD", NULL };
+    /* To an engine that keeps it (launcher-mark) alone: one that does not
+     * would hand it on to what it starts. */
+    for (int mark = 1; mark >= 0; mark--) {
+        dxl_play_request req = { .argv = argv, .env = env, .workdir = dir, .log_path = log, .instance = inst,
+                                 .mark = mark };
+        dxl_play_result r;
+        remove(log);
+        dxl_play(&req, &r);
+        CHECK_INT(r.started, 1);
+        char *text = slurp(log, NULL);
+        if (mark) CHECK(text && atoi(text) > 2);
+        else CHECK(text && strstr(text, "(unset)") != NULL);
+        free(text);
+        dxl_play_result_free(&r);
+    }
+    dxl_instance_release(inst);
+    scratch_remove(dir);
+    free(log);
+    free(dir);
+}
 #endif
 
 /* A line a second launch forwards: TakeFocus and Open for its URL once the
  * engine is up; one sent before then is dropped, as the original's log
- * window takes one only once it has the engine. The second launches are a
+ * window takes one only once it has the engine. A server's link is
+ * OpenLink, which the engine opens only from a game on a server; to an
+ * engine without open-link, none: the game to the front alone (bugs.md
+ * D.96). The second launches are a
  * thread's, as another process's would be, the launcher's loop free to read
  * each: on Windows a sender waits for the one before it to be read. */
 static char forward_id[64];
@@ -216,7 +251,7 @@ static void forward_on_ready(void *ctx) {
     pthread_create(&forwarder, NULL, forward_main, NULL);
 }
 
-static void test_forwarded(void) {
+static void forwarded_with(int open_link) {
     snprintf(forward_id, sizeof forward_id, "dxl-test-play-%ld", dxl_os_pid());
     dxl_instance *inst = dxl_instance_acquire(forward_id);
     CHECK(inst != NULL);
@@ -227,7 +262,7 @@ static void test_forwarded(void) {
     char *env[] = { "DXL_STUB=ready", "DXL_STUB_MS=1500", NULL };
     dxl_play_request req = {
         .argv = argv, .env = env, .workdir = dir, .log_path = log, .instance = inst,
-        .on_ready = forward_on_ready,
+        .open_link = open_link, .on_ready = forward_on_ready,
     };
     dxl_play_result r;
     memset(longest, 'x', DXL_HANDOFF_MAX);
@@ -241,7 +276,13 @@ static void test_forwarded(void) {
     CHECK_INT(r.clean, 1);
     char *text = slurp(log, NULL);
     CHECK(text && strstr(text, "line: TakeFocus\nline: Open 127.0.0.1:7790\n") != NULL);
-    CHECK(text && strstr(text, "line: TakeFocus\nline: Open 10.0.0.5:7780\n") != NULL);
+    if (open_link) {
+        CHECK(text && strstr(text, "line: TakeFocus\nline: OpenLink 10.0.0.5:7780\n") != NULL);
+    } else {
+        CHECK(text && strstr(text, "10.0.0.5") == NULL);
+        CHECK(text && strstr(text, "line: TakeFocus\nline: TakeFocus\nline: Open xxx") != NULL);
+    }
+    CHECK(text && strstr(text, "line: Open 10.0.0.5") == NULL);
     CHECK(text && strstr(text, "too-early") == NULL);
     CHECK(text && strstr(text, "INI=") == NULL);
     CHECK(text && strstr(text, "Open deusex") == NULL);
@@ -255,6 +296,11 @@ static void test_forwarded(void) {
     scratch_remove(dir);
     free(log);
     free(dir);
+}
+
+static void test_forwarded(void) {
+    forwarded_with(1);
+    forwarded_with(0);
 }
 
 /* The kill's time is the clock's: a second start's lines coming in while
@@ -353,6 +399,7 @@ TEST_MAIN_BEGIN
     RUN(test_stop_clean);
 #ifndef _WIN32
     RUN(test_line_outlived);
+    RUN(test_mark_named);
 #endif
     RUN(test_forwarded);
     RUN(test_kill_in_time);
