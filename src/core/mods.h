@@ -93,4 +93,39 @@ char *dxl_mod_folder(const char *value, const char *game_system_dir, const dxl_m
  * kept as it is. */
 void dxl_mod_set_paths(dxl_ini *sys, const char *game_system_dir, const dxl_mod *m);
 
+/* path with from, the whole of it or a folder it begins with, by its text,
+ * made to; NULL where it does not begin so. Caller frees. */
+char *dxl_mod_rebased(const char *path, const char *from, const char *to);
+/* A mod's profile's paths in sys, its DeusEx.ini as dxl_mod_set_paths made
+ * them, made for the mod m at a folder of another place: each path under
+ * from -- the folder the mod was at, or the game's folder it was in, by the
+ * profile's own text -- given to in its place, in its place among the
+ * others, then the mod's paths made again (dxl_mod_set_paths), which a
+ * mod's folder of the same layout leaves as they are. */
+void dxl_mod_move_paths(dxl_ini *sys, const char *from, const char *to, const char *game_system_dir,
+                        const dxl_mod *m);
+
+/* What the engine's audit of a mod's natives answered (DXEngine's
+ * --audit-natives, its feature audit-natives: the natives its System's
+ * packages declare that the engine has none for). A mod that declares one
+ * has native code of its own, and does not play: a call of it stops the
+ * game (DXEngine's NATIVES.md, mods; bugs.md LCORE.27). */
+#define DXL_MOD_NATIVES_NAMED 3
+typedef struct {
+    int  known;                  /* the answer was whole: its last line there */
+    int  declared, lacking;
+    int  named;                  /* those of lacking in first */
+    char first[DXL_MOD_NATIVES_NAMED][128];   /* Package.Class.Function, the first few */
+} dxl_mod_natives;
+
+/* The audit's output, text, read into n: 0 when it is whole, else -1 and
+ * n unknown (known 0). */
+int  dxl_mod_natives_parse(const char *text, dxl_mod_natives *n);
+/* What is said of a mod the audit found lacking: "does not play: native
+ * code of its own, ..." with how many and the first named; "" for one
+ * known to lack none, or not known. */
+void dxl_mod_natives_text(const dxl_mod_natives *n, char *out, size_t size);
+/* Whether the audit found it lacking: it does not play. */
+int  dxl_mod_natives_lack(const dxl_mod_natives *n);
+
 #endif

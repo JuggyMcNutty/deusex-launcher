@@ -632,6 +632,119 @@ static void test_own_system(void) {
     free(d);
 }
 
+/* A mod's profile's paths for its mod moved (bugs.md LUI.10): those under
+ * the folder it had made the mod's where it is now, in their places, the
+ * others as they are; again, nothing changes. For the game's folder moved
+ * with the mod in it, the game's own paths under it moved too. */
+static void test_move(void) {
+    dxl_mod m;
+    char *d = at("game/GameMod");
+    dxl_mod_check(d, &m, NULL);
+    dxl_ini *sys = dxl_ini_load(m.ini, NULL);
+    dxl_mod_set_paths(sys, system_dir, &m);
+    dxl_mod_free(&m);
+    /* The profile's paths as made, the mod at another place now. */
+    scratch_write(root, "moved/Game Mod/System/GameMod.u", "pkg");
+    scratch_write(root, "moved/Game Mod/Maps/Mod_Intro.dx", "map");
+    char *to = at("moved/Game Mod");
+    CHECK_INT(dxl_mod_check(to, &m, NULL), 0);
+    for (int again = 0; again < 2; again++) {
+        dxl_mod_move_paths(sys, d, to, system_dir, &m);
+        const char *v[16];
+        size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
+        CHECK_INT(n, 6);
+        char *a = at("moved/Game Mod/System/*.u"), *b = at("moved/Game Mod/Maps/*.dx");
+        if (n == 6) {
+            CHECK_STR(v[0], a);
+            CHECK_STR(v[1], b);
+            CHECK_STR(v[2], "..\\GameMod\\Maps\\Mod_Intro.dx");
+            CHECK_STR(v[3], "..\\System\\*.u");
+            CHECK_STR(v[5], "..\\HDTP\\System\\*.u");
+        }
+        free(a); free(b);
+    }
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    free(to);
+    free(d);
+
+    /* Its own System's, as made with the game's System by its absolute
+     * path: the game's folder moved, the mod in it. */
+    d = at("game/Mods/OwnSys");
+    dxl_mod_check(d, &m, NULL);
+    sys = dxl_ini_load(m.ini, NULL);
+    dxl_mod_set_paths(sys, system_dir, &m);
+    dxl_mod_free(&m);
+    scratch_write(root, "game2/System/Core.u", "pkg");
+    scratch_write(root, "game2/Mods/OwnSys/System/Core.dll", "dll");
+    scratch_write(root, "game2/Mods/OwnSys/System/OwnSys.u", "pkg");
+    scratch_write(root, "game2/Mods/OwnSys/Maps/OS.dx", "map");
+    char *game2 = at("game2"), *sys2 = at("game2/System");
+    to = at("game2/Mods/OwnSys");
+    CHECK_INT(dxl_mod_check(to, &m, NULL), 0);
+    dxl_mod_move_paths(sys, game, game2, sys2, &m);
+    const char *v[16];
+    size_t n = dxl_ini_get_all(sys, "Core.System", "Paths", v, 16);
+    CHECK_INT(n, 4);
+    char *a = at("game2/Mods/OwnSys/System/*.u"), *b = at("game2/Mods/OwnSys/Maps/*.dx"), *c = at("game2/System/*.u");
+    if (n == 4) {
+        CHECK_STR(v[0], a);
+        CHECK_STR(v[1], b);
+        CHECK_STR(v[2], c);
+        CHECK_STR(v[3], "..\\..\\Shared\\System\\*.u");
+    }
+    free(a); free(b); free(c);
+    dxl_ini_free(sys);
+    dxl_mod_free(&m);
+    free(to); free(game2); free(sys2);
+    free(d);
+
+    /* By the folder's text, whole names only. */
+    char *r = dxl_mod_rebased("/a/Deus Ex/Mod/System/*.u", "/a/Deus Ex", "/b/DX");
+    CHECK_STR(r, "/b/DX/Mod/System/*.u");
+    free(r);
+    CHECK(dxl_mod_rebased("/a/Deus Ex2/Mod", "/a/Deus Ex", "/b/DX") == NULL);
+    CHECK(dxl_mod_rebased("..\\System\\*.u", "/a/Deus Ex", "/b/DX") == NULL);
+}
+
+/* The engine's audit of a mod's natives read (bugs.md LCORE.27): whole,
+ * with the first few lacking named; a mod lacking none; an answer cut
+ * short, or of another form, none. */
+static void test_natives(void) {
+    dxl_mod_natives n;
+    char text[600];
+    const char *lacking =
+        "native-audit: /m/System\r\ndamaged: Bad.u: cut short\r\nlacks: Rev.A.One\r\nlacks: Rev.A.Two (4090)\r\n"
+        "lacks: Rev.B.Three\r\nlacks: Rev.C.Four\r\nnatives: 9 declared, 5 the engine has, 4 it lacks\r\n";
+    CHECK_INT(dxl_mod_natives_parse(lacking, &n), 0);
+    CHECK_INT(n.known, 1);
+    CHECK_INT(n.declared, 9);
+    CHECK_INT(n.lacking, 4);
+    CHECK_INT(n.named, 3);
+    CHECK_STR(n.first[1], "Rev.A.Two (4090)");
+    CHECK_INT(dxl_mod_natives_lack(&n), 1);
+    dxl_mod_natives_text(&n, text, sizeof text);
+    CHECK_STR(text, "does not play: native code of its own, 4 functions DXEngine lacks (Rev.A.One, Rev.A.Two "
+                    "(4090), Rev.B.Three, ...)");
+
+    CHECK_INT(dxl_mod_natives_parse("native-audit: /m\nlacks: X.Y.Z\nnatives: 1 declared, 0 the engine has, 1 it "
+                                    "lacks\n", &n), 0);
+    dxl_mod_natives_text(&n, text, sizeof text);
+    CHECK_STR(text, "does not play: native code of its own, 1 function DXEngine lacks (X.Y.Z)");
+
+    CHECK_INT(dxl_mod_natives_parse("native-audit: /m\nnatives: 3 declared, 3 the engine has, 0 it lacks\n", &n), 0);
+    CHECK_INT(dxl_mod_natives_lack(&n), 0);
+    dxl_mod_natives_text(&n, text, sizeof text);
+    CHECK_STR(text, "");
+
+    CHECK_INT(dxl_mod_natives_parse("native-audit: /m\nlacks: X.Y.Z\n", &n), -1);
+    CHECK_INT(n.known, 0);
+    CHECK_INT(dxl_mod_natives_lack(&n), 0);
+    CHECK_INT(dxl_mod_natives_parse("natives: 1 declared, 0 the engine has, 1 it lacks\n", &n), -1);
+    CHECK_INT(dxl_mod_natives_parse("natives: many\n", &n), -1);
+    CHECK_INT(dxl_mod_natives_parse("", &n), -1);
+}
+
 TEST_MAIN_BEGIN
     make_all();
     RUN(test_check);
@@ -642,6 +755,8 @@ TEST_MAIN_BEGIN
     RUN(test_defaults);
     RUN(test_overlay);
     RUN(test_own_system);
+    RUN(test_move);
+    RUN(test_natives);
     scratch_remove(root);
     free(root);
 TEST_MAIN_END

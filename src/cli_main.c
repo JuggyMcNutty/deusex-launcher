@@ -18,6 +18,7 @@
 #include "app/browser.h"
 #include "app/run.h"
 #include "app/session.h"
+#include "core/argv.h"
 #include "core/finder.h"
 #include "core/servers.h"
 #include "platform/gpu_probe.h"
@@ -48,7 +49,8 @@ static void usage(FILE *f) {
         "  --find           the installs of Deus Ex the first run would find here, but\n"
         "                   launcher.ini's: each folder, where it was found, its build\n"
         "  --mods           the mods a profile can be made of: the install's folder's (the profile's,\n"
-        "                   or --game's), the launcher's mods folder's, the profiles'\n"
+        "                   or --game's), the launcher's mods folder's, the profiles'; with an\n"
+        "                   engine that can say, whether each has native code of its own\n"
         "  --mod=<dir>      with --import, the profile made a mod's: its folders first in its paths\n"
         "  --servers[=<master>]  the servers the master (master.333networks.com) lists, each\n"
         "                   asked as the browser asks it: name, map, players, ping, address\n"
@@ -133,6 +135,14 @@ static int list_mods(int argc, char **argv) {
     printf("the game's folder: %s\nthe launcher's mods folder: %s\n", root ? root : "none: --game=<dir> names it",
            folder);
     free(folder);
+    /* Each mod's natives as the engine's audit finds them, where it can be
+     * asked: one with native code of its own does not play (bugs.md
+     * LCORE.27). */
+    dxl_engine_version v;
+    char brief[160], why[700];
+    int audits = root && dxl_engine_check(s.engine, &v, brief, sizeof brief, why, sizeof why) == 0 &&
+                 dxl_engine_has(&v, "audit-natives");
+    if (!audits) printf("their natives: not asked (%s)\n", !root ? "no game" : "the engine has no audit-natives");
     dxl_mod_list l;
     dxl_session_mods(&s, root, &l);
     for (int i = 0; i < l.count; i++) {
@@ -140,6 +150,22 @@ static int list_mods(int argc, char **argv) {
         printf("\n%s\n    %s, %s: %d package%s\n    its settings: %s\n    its controls: %s\n", m->name,
                dxl_mod_where_text(m->where), m->dir, m->packages, m->packages == 1 ? "" : "s",
                m->ini ? m->ini : "the game's", m->user_ini ? m->user_ini : "the game's");
+        if (audits) {
+            char **words = dxl_session_audit_argv(&s, root, m);
+            dxl_mod_natives n;
+            char said[600];
+            if (dxl_session_audit_run(words, &stop, &n) != 0) {
+                printf("    its natives: not known, the engine gave no answer\n");
+            } else if (dxl_mod_natives_lack(&n)) {
+                dxl_mod_natives_text(&n, said, sizeof said);
+                printf("    %s\n", said);
+            } else if (n.declared == 0) {
+                printf("    its natives: none\n");
+            } else {
+                printf("    its natives: %d, all the engine's\n", n.declared);
+            }
+            dxl_argv_free(words);
+        }
         char ids[8][DXL_PROFILE_ID_MAX + 1];
         size_t n = dxl_session_mod_profiles(&s, m->dir, ids, 8);
         printf("    played by: ");
