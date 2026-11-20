@@ -818,7 +818,7 @@ static int join_address(dxl_run *r, const atomic_int *stop, char *why, size_t si
  * start asked the GPU about anti-aliasing -- starts none: one started and
  * stopped at once ends before its ready, unclean, and Running.ini stays for
  * Recovery (bugs.md LAPP.11). An end with no game instead. */
-static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
+static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop, const dxl_engine_version *v) {
     if (stop && *stop) {
         dxl_log("stopped before the game started");
         dxl_play_result_free(&r->played);
@@ -841,6 +841,8 @@ static int play(dxl_run *r, const dxl_run_ui *ui, atomic_int *stop) {
         .workdir = r->session.install.system_dir,
         .log_path = log,
         .instance = r->instance,
+        .open_link = dxl_engine_has(v, "open-link"),
+        .mark = dxl_engine_has(v, "launcher-mark"),
         .stop = stop,
     };
     if (ui && ui->before_play) ui->before_play(ui->ctx, r);
@@ -938,6 +940,18 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
     }
     open_log(r, busy);
     dxl_log("Init: command line: %s", r->words);
+    /* A game that would have taken the line still plays, but no launcher
+     * took it: its own was killed, the game holding the mark (bugs.md
+     * D.95), or the hand-over failed. No Recovery, whose Running.ini is
+     * that game's, and no second game beside it: the start ends saying so. */
+    if (busy && !r->opt.dry && !r->opt.print_command && !r->opt.import_only && !first.skip_handoff &&
+        dxl_instance_game_playing(id)) {
+        stop_with(r, "The game is still running, and no launcher took this command line to hand it on. Quit the "
+                     "game (or end its DXEngine process), then start again.");
+        rc = DXL_RUN_EXIT_PLAYING;
+        free(id);
+        goto done;
+    }
     if (!r->opt.dry && !r->opt.print_command) hold_instance(r);
     free(id);
 
@@ -994,8 +1008,10 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
 
     if (!dxl_profile_exists(&r->session.profile)) r->view = DXL_VIEW_FIRST_RUN;
     /* A screen the player has just answered with Play: none again for this
-     * game, though its Running.ini is still there. */
-    int answered = 0, back_home = 0;
+     * game, though its Running.ini is still there. Home whose window did
+     * not open: none again either, the run's end after the game, as
+     * --play's. */
+    int answered = 0, back_home = 0, home_unshown = 0;
     for (;;) {
         /* 3. The decision. */
         if (r->config) decide(r);
@@ -1029,7 +1045,14 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
         if (r->view != DXL_VIEW_NONE) {
             if (ui && ui->view) {
                 int v = ui->view(ui->ctx, r, r->view);
-                if (v <= 0) {
+                if (v == DXL_VIEW_UNANSWERED && r->view == DXL_VIEW_HOME && !(stop && *stop)) {
+                    /* Home is only a way to play: one whose window does not
+                     * open (why, logged as it failed) is taken for none,
+                     * and the game played, as --play plays it (bugs.md
+                     * D.94). A screen that must be seen first is not. */
+                    dxl_log("Home: no window to show it: played, as --play plays");
+                    home_unshown = 1;
+                } else if (v <= 0) {
                     if (dxl_session_save(&r->session, &e) != 0) dxl_log("warning: %s", dxl_err_msg(&e));
                     if (v == DXL_VIEW_UNANSWERED) rc = unanswered(r, stop, r->view);
                     else end_without_game(r);
@@ -1058,7 +1081,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
         if (mod_dir && *mod_dir) {
             if (dxl_mod_check(mod_dir, &mod, &e) != 0) {
                 dxl_log("profile %s: its mod is not there to play: %s", r->session.profile.id, dxl_err_msg(&e));
-                if (ui && ui->view) {
+                if (ui && ui->view && !home_unshown) {
                     /* No game: its start and its run's own words as after one. */
                     r->url[0] = '\0';
                     if (ui->after_play) ui->after_play(ui->ctx, r);
@@ -1085,7 +1108,7 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
             r->url[0] = '\0';
         }
         commit(r, stop);
-        rc = play(r, ui, stop);
+        rc = play(r, ui, stop, &v);
         r->url[0] = '\0';
         /* The inis as the engine left them: it writes them whole at a clean
          * end, the game's own changes in them. */
@@ -1132,7 +1155,8 @@ int dxl_run_main(int argc, char **argv, const dxl_run_ui *ui, atomic_int *stop) 
         /* Back to Home after a clean end, when the player asked for it:
          * Home whatever the line asks for (-safe, -changevideo), where Home
          * is shown at all. */
-        if (ui && ui->view && home_wanted(r) && dxl_ini_get_bool(r->session.ini, "Launcher", "ReturnAfterPlaying", 0)) {
+        if (ui && ui->view && !home_unshown && home_wanted(r) &&
+            dxl_ini_get_bool(r->session.ini, "Launcher", "ReturnAfterPlaying", 0)) {
             dxl_log("back to Home after playing");
             back_home = 1;
             continue;
